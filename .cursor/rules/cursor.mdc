@@ -193,6 +193,13 @@ The application will provide a rich and responsive user experience. The feature 
 - Token/cost tracking toggle
 - Model parameters (temperature, max tokens, etc.)
 
+### 4.3. Design Tokens & Theming Strategy
+
+- **Minimalism First**: We will maintain a lean set of design tokens. New tokens are only added when a component requires them, adhering to the "Lean & Focused" project principle. The initial set covers only the needs of the basic shell and initial components.
+- **Semantic & Centralized**: All colors are defined as semantic CSS custom properties (e.g., `--primary`, `--background`, `--border`) in a single file: `apps/web/app/globals.css`. Components consume these tokens via Tailwind utility classes (e.g., `bg-primary`), never using hardcoded values. This file is the single source of truth for theming.
+- **Progressive Enhancement**: The token system will evolve with the UI. For example, `card` and `popover` tokens will be added during S2/S3 when those components are built, not before. This prevents premature complexity.
+- **Theming**: Light and dark themes are supported out-of-the-box using `:root` for light mode defaults and a `.dark` class override for dark mode. A theme toggle will control the presence of the `.dark` class on the `<html>` element.
+
 ## 5. Quality & Testing
 
 A robust testing strategy is crucial for maintaining quality across platforms. We will follow the testing pyramid methodology.
