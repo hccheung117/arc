@@ -76,6 +76,16 @@ The project is organized as a pnpm monorepo to cleanly manage the different appl
    └─ platform-capacitor/ # Platform implementation for Capacitor (using a native plugin)
 ```
 
+### 2.5. Shared Configuration Pattern
+
+To minimize indirection and keep the codebase lean, shared configurations live at the **root level** rather than in separate packages:
+
+- **`eslint.config.js`** – Base ESLint rules for the entire monorepo
+- **`tsconfig.base.json`** – Shared TypeScript compiler options
+- **`vitest.config.ts`** – Vitest test runner configuration
+
+Apps and packages extend these via simple relative paths (e.g., `"extends": "../../tsconfig.base.json"`). This avoids the overhead of maintaining separate `packages/*-config` packages while still ensuring consistency across the monorepo.
+
 ## 3. Features
 
 The application will provide a rich and responsive user experience. The feature set is organized into the following categories:
