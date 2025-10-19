@@ -3,28 +3,19 @@ alwaysApply: true
 ---
 # Arc: AI Chat Client
 
-## 1. Introduction
+## 1. Vision & Principles
 
-### 1.1. Vision
+Arc is a premier, cross-platform AI chat client for desktop (macOS, Windows, Linux), web, and mobile (iOS, Android), designed for a seamless user experience.
 
-To create a premier, cross-platform AI chat client named Arc. It will run natively on desktop (macOS, Windows, Linux), web, and mobile (iOS, Android), offering a seamless user experience across all devices.
+Our development is guided by these principles:
+- **Web-First, Cross-Platform:** A single Next.js web stack serves as the foundation for all platforms.
+- **Maximum Code Reuse:** A layered architecture shares the vast majority of code, with a thin, platform-specific layer.
+- **Clean Separation of Concerns:** Business logic (core) is strictly separated from the UI and platform code.
+- **Lean & Focused:** We use a minimal, well-defined technology stack to avoid complexity and focus on functionality.
 
-### 1.2. Guiding Principles
+## 2. Architecture
 
-This project is guided by a pragmatic approach to maximize efficiency for a solo developer:
-
-- **Web-First, Cross-Platform:** Leverage a single web technology stack (Next.js) as the foundation for all platforms, ensuring a consistent UI and rapid development cycle.
-- **Maximum Code Reuse:** Employ a layered architecture to share the vast majority of the codebase, with only a thin platform-specific layer changing between targets.
-- **Clean Separation of Concerns:** Strictly separate business logic (the "core") from the UI and platform-specific code, enhancing maintainability and testability.
-- **Lean & Focused:** Stick to a minimal, well-defined technology stack and avoid unnecessary complexity. Default to established conventions (e.g., shadcn/ui's design system) to focus on functionality.
-
-## 2. Architecture & Technology
-
-The project's architecture is designed to realize the principles of code reuse and separation of concerns.
-
-### 2.1. Core Architecture: A Three-Layer Model
-
-Arc is built upon three distinct layers that communicate through well-defined interfaces:
+Arc uses a three-layer model to ensure a clean separation of concerns and maximize code reuse.
 
 ```
 Platform (Web | Electron | Capacitor)
@@ -34,22 +25,14 @@ UI Layer (Next.js + shadcn/ui)
 Headless Core (TypeScript)
 ```
 
-- **Headless Core:** The brain of the application. It's a pure TypeScript module containing all business logic, state management, and the database schema. It is completely platform-agnostic, with no dependencies on DOM, Node.js, or any specific UI framework.
-- **UI Layer:** The face of the application. A single Next.js application, built with `shadcn/ui`, provides the user interface for all platforms. It interacts exclusively with the Headless Core to perform actions and render state.
-- **Platform Layer:** The bridge to the native world. This layer provides concrete implementations for functionalities that differ across platforms (e.g., database access, file system I/O). Each target platform (web, desktop, mobile) has its own implementation of this layer.
+- **Headless Core:** A platform-agnostic TypeScript module containing all business logic, state management, and database schema. It has no UI or Node.js dependencies.
+- **UI Layer:** A single Next.js application providing the user interface for all platforms, interacting exclusively with the Headless Core.
+- **Platform Layer:** Provides platform-specific implementations for native functionalities like database access and file system I/O.
 
-### 2.2. The Platform Abstraction Layer
+### 2.1. Platform Abstraction
+The Core defines platform-agnostic interfaces (e.g., for SQLite, File System, HTTP) that each platform package implements. This decouples application logic from the underlying environment.
 
-The key to this architecture is the contract between the Headless Core and the Platform Layer. The Core defines a set of platform-agnostic interfaces, and each platform package provides a concrete implementation. This decouples the application logic from the underlying environment.
-
-Key interfaces include:
-- **SQLite / Data Layer:** Methods for database lifecycle management (open, close, migrate) and transaction handling.
-- **File System:** APIs for accessing standard application directories and performing binary read/write operations for attachments and data exports.
-- **HTTP Transport:** A `fetch`-like interface supporting standard and streaming (SSE/NDJSON) requests, with robust abort control. It abstracts away platform-specific networking details like CORS.
-- **Environment & Capabilities:** Functions to query the current platform (web, desktop), version, locale, and available feature flags (e.g., `hasNativeFileSystem`).
-
-### 2.3. Technology Stack
-
+### 2.2. Technology Stack
 - **UI & Web App:** Next.js 15, shadcn/ui, Tailwind CSS 4
 - **Desktop Wrapper:** Electron 38
 - **Mobile Wrapper:** Capacitor 7
@@ -57,162 +40,74 @@ Key interfaces include:
 - **Core Logic:** Pure TypeScript (ESM)
 - **Monorepo Management:** pnpm & Turborepo
 
-### 2.4. Monorepo Structure
-
-The project is organized as a pnpm monorepo to cleanly manage the different applications and shared packages.
+### 2.3. Monorepo Structure
+The project is a pnpm monorepo. Shared configurations (ESLint, TypeScript) are at the root to minimize indirection.
 
 ```
 /
 ├─ apps/
-│  ├─ web/                # Next.js app (the single source of UI truth)
+│  ├─ web/                # Next.js UI
 │  ├─ desktop/            # Electron wrapper
 │  └─ mobile/             # Capacitor wrapper
 │
 └─ packages/
-   ├─ core/               # Headless TS core for business logic (platform-agnostic)
-   ├─ db/                 # SQLite schema, migrations, and query builder (e.g., Kysely)
-   ├─ platform-web/       # Platform implementation for the browser (using sql.js)
-   ├─ platform-electron/  # Platform implementation for Electron (using better-sqlite3)
-   └─ platform-capacitor/ # Platform implementation for Capacitor (using a native plugin)
+   ├─ core/               # Headless TS core
+   ├─ db/                 # SQLite schema & migrations
+   ├─ platform-web/       # Browser platform implementation
+   ├─ platform-electron/  # Electron platform implementation
+   └─ platform-capacitor/ # Capacitor platform implementation
 ```
 
-### 2.5. Shared Configuration Pattern
-
-To minimize indirection and keep the codebase lean, shared configurations live at the **root level** rather than in separate packages:
-
-- **`eslint.config.js`** – Base ESLint rules for the entire monorepo
-- **`tsconfig.base.json`** – Shared TypeScript compiler options
-- **`vitest.config.ts`** – Vitest test runner configuration
-
-Apps and packages extend these via simple relative paths (e.g., `"extends": "../../tsconfig.base.json"`). This avoids the overhead of maintaining separate `packages/*-config` packages while still ensuring consistency across the monorepo.
+### 2.4. Build Strategy
+Arc uses a static-first build strategy for maximum portability and performance. The Next.js app is exported as a static site (`output: 'export'`), removing the need for a Node.js server at runtime. Electron and Capacitor apps load these static assets directly.
 
 ## 3. Features
 
-The application will provide a rich and responsive user experience. The feature set is organized into the following categories:
+### 3.1. Core Chat Experience
+- **Full Chat Management:** Create, edit, delete, and browse chat history with fast global and per-chat search.
+- **Message Actions:** Stop, regenerate, delete, or fork conversations from any message.
+- **UX Polish:** Auto-saving drafts, auto-generating titles, "thinking" indicators, and one-click copy for code blocks.
 
-### 3.1. Core Chat & Data Management
+### 3.2. Provider Integration (BYOK)
+- **Multi-provider Support:** Native support for OpenAI, Gemini, Anthropic, and any MCP-compliant server.
+- **Custom Connections:** Override base URLs and headers for proxies.
+- **Connection Management:** Validate keys, check health, and dynamically fetch available models.
+> **Note:** We use a minimal, custom HTTP transport layer instead of official SDKs to ensure cross-platform compatibility and a small footprint.
 
-- **Chat Management:** Create, edit, delete, and browse chat history.
-- **Search:** Fast per-chat and global search capabilities.
-- **Draft Preservation:** Unsent messages are automatically saved across sessions.
+### 3.3. Rendering & Attachments
+- **Rich Text:** Full Markdown support, including Mermaid charts, LaTeX math, and syntax-highlighted code blocks.
+- **Image Support:** Drag-and-drop/paste images, with a built-in, mobile-friendly viewer.
 
-### 3.2. Configuration & Presets
+### 3.4. Performance & Customization
+- **Resilience:** Robust request streaming with reconnection logic and abort signals.
+- **Efficient Rendering:** A virtualized message list ensures smooth performance in long conversations.
+- **Theming & Accessibility:** Light/dark/system themes, UI localization, and adjustable font sizes.
+- **Cost Management:** Optional token meter to track usage.
 
-- **Preset Management:** Create, import, and export named presets. A preset bundles provider settings (vendor, URL, secrets), agent configurations (system prompt, model, temperature), and app preferences.
+## 4. UI/UX Design
 
-### 3.3. Provider & Connection Layer (BYOK)
+### 4.1. Philosophy
+"Feels like ChatGPT, works like a power tool." The UI prioritizes simplicity for new users while making advanced features accessible when needed.
 
-> **Note on Provider Integration:** We use a minimal, custom adapter layer over our own HTTP transport instead of official SDKs. This ensures cross-platform compatibility (avoiding Node.js-specific dependencies), minimizes the application's footprint, and prevents vendor lock-in.
+### 4.2. Progressive Disclosure
+- **Level 1 (Beginner):** A simple, familiar chat interface that works out-of-the-box after a one-time provider setup.
+- **Level 2 (Intermediate):** Contextual actions (copy, regenerate) and basic settings (theme, font size) are available on-demand.
+- **Level 3 (Power User):** Advanced features like multi-provider setup, preset management, and model parameter tuning are in a dedicated "Advanced Settings" area.
 
-- **Multi-provider Support:** Native support for OpenAI, Gemini, and Anthropic.
-- **MCP Server Support:** Connect to any Multi-Context Protocol (MCP) compliant server.
-- **Connection Management:** Validate keys/URLs, perform health checks, and dynamically fetch available models.
-- **Customization:** Override base URLs and headers for use with proxies.
-- **Robust Error Handling:** Provide clear user feedback for invalid keys, rate limits, timeouts, and other common API errors.
+### 4.3. Theming Strategy
+- **Centralized & Semantic:** All colors are defined as semantic CSS custom properties (e.g., `--primary`) in `apps/web/app/globals.css`.
+- **Theming:** Light and dark themes are supported via a `.dark` class on the `<html>` element.
 
-### 3.4. Message Lifecycle & UX
+## 5. Quality Assurance
 
-- **Message Actions:** Stop generation, delete, regenerate, and fork conversations from any message.
-- **Auto-Titling:** Automatically generate concise titles for new chats based on their initial content.
-- **UX Polish:** "Thinking" and context-awareness indicators, one-click copy for messages and code blocks, and collapsing for long messages.
-
-### 3.5. Rendering & Attachments
-
-- **Rich Text:** Full Markdown rendering, including syntax-highlighted code blocks and auto-linking.
-- **Mermaid Charts:** Render Mermaid diagrams from code blocks.
-- **Math Formulas:** Display math formulas using LaTeX syntax.
-- **Image Support:** Drag-and-drop or paste images directly into chats.
-- **Image Viewer:** A built-in, mobile-friendly image viewer with zoom and swipe gestures.
-
-### 3.6. Resilience & Performance
-
-- **Robust Streaming:** Intelligently handle network interruptions with reconnection logic and visual indicators for partial responses.
-- **Efficient Rendering:** Employ a virtualized message list for smooth performance, even in very long conversations.
-- **Request Management:** Implement timeouts and abort signals to keep the UI responsive.
-
-### 3.7. Customization & Theming
-
-- **Theme:** User-selectable themes (light, dark, system default).
-- **Language:** UI localization with a language selector.
-- **Accessibility:** Adjustable font size and line height.
-
-### 3.8. Platform-Specific Integrations
-
-- **Desktop:** A manual "Check for updates" option.
-- **Mobile:** Native permission prompts, safe-area handling, back-button integration, and access to the native share sheet.
-
-### 3.9. Cost Management
-
-- **Token Meter:** Display an estimated token count and/or cost per message to help users manage usage.
-
-## 4. UI Design Plan
-
-### 4.1. Core Philosophy
-
-"Feels like ChatGPT, works like a power tool" - Start a chat in 3 seconds, but unlock advanced features when you need them.
-
-### 4.2. Progressive Disclosure Strategy
-
-#### 4.2.1. Level 0: First Launch (Absolute Beginner)
-
-**What they see:**
-- Empty chat with placeholder: "What can I help you with?"
-- Simple message input
-- **One-time setup prompt**: "Connect your AI provider to get started" → Opens minimal setup modal
-
-#### 4.2.2. Level 1: Basic Usage (90% of users stop here)
-
-**What they see:**
-- Chat list (sidebar)
-- Active conversation
-- Message input with attach button
-- Settings icon
-- Everything "just works" - auto-titles, auto-saves drafts, uses sensible defaults
-
-#### 4.2.3. Level 2: Intermediate Features (Revealed on demand)
-
-**Message-level actions** (appear on hover/long-press):
-- Copy
-- Regenerate
-- Edit
-- Delete
-- Fork conversation
-
-**Settings panel** (click ⚙):
-- Theme (Light/Dark/System)
-- Language
-- Font size
-- **"Advanced Settings →"** link
-
-#### 4.2.4. Level 3: Power User Features (Intentionally hidden)
-
-**Advanced Settings submenu:**
-- Presets management
-- Provider configuration (multiple providers, custom URLs)
-- MCP server connections
-- Token/cost tracking toggle
-- Model parameters (temperature, max tokens, etc.)
-
-### 4.3. Design Tokens & Theming Strategy
-
-- **Minimalism First**: We will maintain a lean set of design tokens. New tokens are only added when a component requires them, adhering to the "Lean & Focused" project principle. The initial set covers only the needs of the basic shell and initial components.
-- **Semantic & Centralized**: All colors are defined as semantic CSS custom properties (e.g., `--primary`, `--background`, `--border`) in a single file: `apps/web/app/globals.css`. Components consume these tokens via Tailwind utility classes (e.g., `bg-primary`), never using hardcoded values. This file is the single source of truth for theming.
-- **Progressive Enhancement**: The token system will evolve with the UI. For example, `card` and `popover` tokens will be added during S2/S3 when those components are built, not before. This prevents premature complexity.
-- **Theming**: Light and dark themes are supported out-of-the-box using `:root` for light mode defaults and a `.dark` class override for dark mode. A theme toggle will control the presence of the `.dark` class on the `<html>` element.
-
-## 5. Quality & Testing
-
-A robust testing strategy is crucial for maintaining quality across platforms. We will follow the testing pyramid methodology.
-
-### 5.1. Testing Layers
-
-- **Unit Tests:** Focus on individual functions and isolated logic within the Headless Core.
-- **Component Tests:** Verify the behavior of individual UI components in the `web` app.
-- **Integration Tests:** Test the interactions between the UI layer, the Headless Core, and the various platform implementations.
-- **End-to-End (E2E) Tests:** Validate complete user journeys on each target platform (web, desktop, mobile).
+### 5.1. Testing Strategy
+We follow the testing pyramid:
+- **Unit Tests:** For isolated logic in the Headless Core.
+- **Component Tests:** For UI components in the `web` app.
+- **Integration Tests:** For interactions between the Core, UI, and Platform layers.
+- **E2E Tests:** For complete user journeys on web, desktop, and mobile.
 
 ### 5.2. Tooling
-
-- **Test Runner:** Vitest for all unit, component, and integration tests.
-- **UI Testing:** React Testing Library for component tests.
-- **E2E Testing:** Playwright for automated E2E tests.
+- **Test Runner:** Vitest
+- **UI Testing:** React Testing Library
+- **E2E Testing:** Playwright
