@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { Message as MessageType } from "@/lib/types";
 import { useChatStore } from "@/lib/chat-store";
 import { Button } from "@/components/ui/button";
+import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { StopCircle, RotateCcw, Trash2 } from "lucide-react";
 
 interface MessageProps {
@@ -50,10 +51,18 @@ export function Message({ message, isLatestAssistant }: MessageProps) {
         }`}
       >
         {/* Message content */}
-        <div className="text-sm whitespace-pre-wrap break-words">
-          {message.content}
-          {isStreaming && <span className="inline-block w-2 h-4 ml-1 bg-current animate-pulse" />}
-          {isStopped && <span className="text-xs opacity-70 ml-2">(stopped)</span>}
+        <div className="text-sm break-words">
+          {isUser ? (
+            // User messages: plain text with whitespace preserved
+            <div className="whitespace-pre-wrap">{message.content}</div>
+          ) : (
+            // Assistant messages: render as markdown
+            <>
+              <MarkdownRenderer content={message.content} />
+              {isStreaming && <span className="inline-block w-2 h-4 ml-1 bg-current animate-pulse" />}
+              {isStopped && <span className="text-xs opacity-70 ml-2">(stopped)</span>}
+            </>
+          )}
         </div>
 
         {/* Action buttons - show on hover */}

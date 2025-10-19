@@ -33,17 +33,18 @@ export default function Home() {
   const createChat = useChatStore((state) => state.createChat);
   const selectChat = useChatStore((state) => state.selectChat);
   const sendMessage = useChatStore((state) => state.sendMessage);
+  const seedDemoChats = useChatStore((state) => state.seedDemoChats);
   const getActiveChatMessages = useChatStore((state) => state.getActiveChatMessages);
 
   const messages = getActiveChatMessages();
   const isStreaming = streamingChatId === activeChatId;
 
-  // Initialize with a default chat if none exist
+  // Initialize with demo chats whenever empty (development)
   useEffect(() => {
     if (isHydrated && chats.length === 0) {
-      createChat("Welcome to Arc");
+      seedDemoChats();
     }
-  }, [isHydrated, chats.length, createChat]);
+  }, [isHydrated, chats.length, seedDemoChats]);
 
   // Auto-open provider modal on first run
   useEffect(() => {
@@ -168,7 +169,18 @@ export default function Home() {
 
         {/* Message panel */}
         <ScrollArea className="flex-1">
-          {!providerConfig ? (
+          {messages.length > 0 ? (
+            // Show messages if they exist (demo chats or real conversations)
+            <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-8">
+              {messages.map((message) => (
+                <Message
+                  key={message.id}
+                  message={message}
+                  isLatestAssistant={message.id === lastAssistantMessage?.id}
+                />
+              ))}
+            </div>
+          ) : !providerConfig ? (
             // Empty state when no provider is configured
             <div className="flex h-full items-center justify-center p-8">
               <div className="max-w-md text-center space-y-4">
@@ -184,8 +196,8 @@ export default function Home() {
                 </Button>
               </div>
             </div>
-          ) : messages.length === 0 ? (
-            // Empty state when chat has no messages
+          ) : (
+            // Empty state when chat has no messages but provider is configured
             <div className="flex h-full items-center justify-center p-8">
               <div className="max-w-md text-center space-y-2">
                 <p className="text-muted-foreground">No messages yet</p>
@@ -193,17 +205,6 @@ export default function Home() {
                   Start a conversation below
                 </p>
               </div>
-            </div>
-          ) : (
-            // Show messages when provider is configured
-            <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-8">
-              {messages.map((message) => (
-                <Message
-                  key={message.id}
-                  message={message}
-                  isLatestAssistant={message.id === lastAssistantMessage?.id}
-                />
-              ))}
             </div>
           )}
         </ScrollArea>
