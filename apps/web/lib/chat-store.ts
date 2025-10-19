@@ -1,0 +1,301 @@
+import { create } from "zustand";
+import type { Chat, Message } from "./types";
+
+interface ChatState {
+  // State
+  chats: Chat[];
+  messages: Message[];
+  activeChatId: string | null;
+  streamingChatId: string | null;
+  streamIntervalId: NodeJS.Timeout | null;
+
+  // Actions
+  createChat: (title?: string) => string;
+  selectChat: (id: string) => void;
+  renameChat: (id: string, title: string) => void;
+  deleteChat: (id: string) => void;
+  sendMessage: (content: string) => void;
+  stopStreaming: () => void;
+  regenerateMessage: (messageId: string) => void;
+  deleteMessage: (id: string) => void;
+
+  // Computed
+  getActiveChat: () => Chat | null;
+  getActiveChatMessages: () => Message[];
+}
+
+// Helper to generate unique IDs
+const generateId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+// Helper to generate echo-based fake response
+const generateEchoResponse = (userMessage: string): string => {
+  const responses = [
+    `You said: "${userMessage}". That's an interesting point! Let me expand on that. `,
+    `I understand you mentioned: "${userMessage}". Here's my perspective on this topic. `,
+    `Thanks for sharing "${userMessage}". Based on your input, I'd like to add that `,
+  ];
+
+  const intro = responses[Math.floor(Math.random() * responses.length)];
+  const body = "This is a simulated streaming response to demonstrate the chat functionality. In a real implementation, this would be replaced with actual AI responses from your configured provider. The streaming effect helps create a natural conversation flow.";
+
+  return intro + body;
+};
+
+export const useChatStore = create<ChatState>((set, get) => ({
+  // Initial state
+  chats: [],
+  messages: [],
+  activeChatId: null,
+  streamingChatId: null,
+  streamIntervalId: null,
+
+  // Create a new chat
+  createChat: (title?: string) => {
+    const now = Date.now();
+    const newChat: Chat = {
+      id: generateId(),
+      title: title || "New Chat",
+      createdAt: now,
+      updatedAt: now,
+      lastMessageAt: now,
+    };
+
+    set((state) => ({
+      chats: [newChat, ...state.chats],
+      activeChatId: newChat.id,
+    }));
+
+    return newChat.id;
+  },
+
+  // Select a different chat
+  selectChat: (id: string) => {
+    // Stop any ongoing streaming when switching chats
+    const { streamIntervalId } = get();
+    if (streamIntervalId) {
+      clearInterval(streamIntervalId);
+    }
+
+    set({
+      activeChatId: id,
+      streamingChatId: null,
+      streamIntervalId: null,
+    });
+  },
+
+  // Rename a chat
+  renameChat: (id: string, title: string) => {
+    set((state) => ({
+      chats: state.chats.map((chat) =>
+        chat.id === id
+          ? { ...chat, title, updatedAt: Date.now() }
+          : chat
+      ),
+    }));
+  },
+
+  // Delete a chat and its messages
+  deleteChat: (id: string) => {
+    const { chats, activeChatId, streamIntervalId } = get();
+
+    // Clear streaming if deleting active chat
+    if (id === activeChatId && streamIntervalId) {
+      clearInterval(streamIntervalId);
+    }
+
+    const remainingChats = chats.filter((chat) => chat.id !== id);
+
+    set((state) => ({
+      chats: remainingChats,
+      messages: state.messages.filter((msg) => msg.chatId !== id),
+      activeChatId: id === activeChatId
+        ? (remainingChats[0]?.id || null)
+        : activeChatId,
+      streamingChatId: id === state.streamingChatId ? null : state.streamingChatId,
+      streamIntervalId: id === activeChatId ? null : streamIntervalId,
+    }));
+  },
+
+  // Send a message and trigger fake streaming
+  sendMessage: (content: string) => {
+    const { activeChatId, streamingChatId } = get();
+
+    if (!activeChatId) {
+      console.error("No active chat to send message to");
+      return;
+    }
+
+    // Prevent concurrent streams
+    if (streamingChatId) {
+      console.warn("Already streaming in another chat");
+      return;
+    }
+
+    const now = Date.now();
+
+    // 1. Add user message
+    const userMessage: Message = {
+      id: generateId(),
+      chatId: activeChatId,
+      role: "user",
+      content,
+      status: "complete",
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    // 2. Create pending assistant message
+    const assistantMessage: Message = {
+      id: generateId(),
+      chatId: activeChatId,
+      role: "assistant",
+      content: "",
+      status: "pending",
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    set((state) => ({
+      messages: [...state.messages, userMessage, assistantMessage],
+      chats: state.chats.map((chat) =>
+        chat.id === activeChatId
+          ? { ...chat, lastMessageAt: now, updatedAt: now }
+          : chat
+      ),
+      streamingChatId: activeChatId,
+    }));
+
+    // 3. Start fake streaming
+    const fullResponse = generateEchoResponse(content);
+    let currentIndex = 0;
+
+    const intervalId = setInterval(() => {
+      const state = get();
+
+      // Safety check: stop if chat changed or was cleared
+      if (state.activeChatId !== activeChatId || state.streamingChatId !== activeChatId) {
+        clearInterval(intervalId);
+        return;
+      }
+
+      currentIndex++;
+
+      if (currentIndex <= fullResponse.length) {
+        // Stream next character
+        const currentContent = fullResponse.slice(0, currentIndex);
+
+        set((state) => ({
+          messages: state.messages.map((msg) =>
+            msg.id === assistantMessage.id
+              ? {
+                  ...msg,
+                  content: currentContent,
+                  status: "streaming",
+                  updatedAt: Date.now(),
+                }
+              : msg
+          ),
+        }));
+      } else {
+        // Streaming complete
+        clearInterval(intervalId);
+
+        set((state) => ({
+          messages: state.messages.map((msg) =>
+            msg.id === assistantMessage.id
+              ? {
+                  ...msg,
+                  status: "complete",
+                  updatedAt: Date.now(),
+                }
+              : msg
+          ),
+          streamingChatId: null,
+          streamIntervalId: null,
+        }));
+      }
+    }, 50); // Stream at ~20 characters per second
+
+    set({ streamIntervalId: intervalId });
+  },
+
+  // Stop the current streaming
+  stopStreaming: () => {
+    const { streamIntervalId, streamingChatId } = get();
+
+    if (!streamIntervalId || !streamingChatId) {
+      return;
+    }
+
+    clearInterval(streamIntervalId);
+
+    // Mark the streaming message as stopped
+    set((state) => ({
+      messages: state.messages.map((msg) =>
+        msg.chatId === streamingChatId && msg.status === "streaming"
+          ? { ...msg, status: "stopped", updatedAt: Date.now() }
+          : msg
+      ),
+      streamingChatId: null,
+      streamIntervalId: null,
+    }));
+  },
+
+  // Regenerate the last assistant message
+  regenerateMessage: (messageId: string) => {
+    const { messages } = get();
+    const messageToRegenerate = messages.find((msg) => msg.id === messageId);
+
+    if (!messageToRegenerate || messageToRegenerate.role !== "assistant") {
+      console.error("Invalid message to regenerate");
+      return;
+    }
+
+    // Find the previous user message
+    const chatMessages = messages
+      .filter((msg) => msg.chatId === messageToRegenerate.chatId)
+      .sort((a, b) => a.createdAt - b.createdAt);
+
+    const messageIndex = chatMessages.findIndex((msg) => msg.id === messageId);
+    const previousUserMessage = chatMessages
+      .slice(0, messageIndex)
+      .reverse()
+      .find((msg) => msg.role === "user");
+
+    if (!previousUserMessage) {
+      console.error("No user message found to regenerate from");
+      return;
+    }
+
+    // Delete the current assistant message
+    set((state) => ({
+      messages: state.messages.filter((msg) => msg.id !== messageId),
+    }));
+
+    // Resend the user message to trigger new response
+    get().sendMessage(previousUserMessage.content);
+  },
+
+  // Delete a specific message
+  deleteMessage: (id: string) => {
+    set((state) => ({
+      messages: state.messages.filter((msg) => msg.id !== id),
+    }));
+  },
+
+  // Get the active chat
+  getActiveChat: () => {
+    const { chats, activeChatId } = get();
+    return chats.find((chat) => chat.id === activeChatId) || null;
+  },
+
+  // Get messages for the active chat
+  getActiveChatMessages: () => {
+    const { messages, activeChatId } = get();
+    if (!activeChatId) return [];
+
+    return messages
+      .filter((msg) => msg.chatId === activeChatId)
+      .sort((a, b) => a.createdAt - b.createdAt);
+  },
+}));

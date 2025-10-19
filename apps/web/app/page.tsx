@@ -15,12 +15,35 @@ import {
 import { MenuIcon, SettingsIcon, SendIcon, SearchIcon, Sparkles } from "lucide-react";
 import { ConnectProviderModal } from "@/components/connect-provider-modal";
 import { useApp } from "@/lib/app-context";
+import { useChatStore } from "@/lib/chat-store";
+import { ChatListItem } from "@/components/chat-list-item";
+import { Message } from "@/components/message";
 
 export default function Home() {
   const { providerConfig, hasCompletedFirstRun, isHydrated } = useApp();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [providerModalOpen, setProviderModalOpen] = useState(false);
+  const [messageInput, setMessageInput] = useState("");
+
+  // Chat store
+  const chats = useChatStore((state) => state.chats);
+  const activeChatId = useChatStore((state) => state.activeChatId);
+  const streamingChatId = useChatStore((state) => state.streamingChatId);
+  const createChat = useChatStore((state) => state.createChat);
+  const selectChat = useChatStore((state) => state.selectChat);
+  const sendMessage = useChatStore((state) => state.sendMessage);
+  const getActiveChatMessages = useChatStore((state) => state.getActiveChatMessages);
+
+  const messages = getActiveChatMessages();
+  const isStreaming = streamingChatId === activeChatId;
+
+  // Initialize with a default chat if none exist
+  useEffect(() => {
+    if (isHydrated && chats.length === 0) {
+      createChat("Welcome to Arc");
+    }
+  }, [isHydrated, chats.length, createChat]);
 
   // Auto-open provider modal on first run
   useEffect(() => {
@@ -42,31 +65,27 @@ export default function Home() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Placeholder chat list items
-  const placeholderChats = [
-    { id: 1, title: "Getting Started with Arc", timestamp: "2 hours ago" },
-    { id: 2, title: "React Best Practices", timestamp: "Yesterday" },
-    { id: 3, title: "TypeScript Tips", timestamp: "2 days ago" },
-    { id: 4, title: "UI Design Discussion", timestamp: "1 week ago" },
-  ];
+  const handleSendMessage = () => {
+    const trimmedMessage = messageInput.trim();
+    if (!trimmedMessage || !providerConfig || isStreaming) {
+      return;
+    }
 
-  // Placeholder messages
-  const placeholderMessages = [
-    { id: 1, role: "user", content: "Hello! How do I get started?" },
-    {
-      id: 2,
-      role: "assistant",
-      content:
-        "Welcome to Arc! You can start by asking me anything. I'm here to help with your questions and tasks.",
-    },
-    { id: 3, role: "user", content: "What can you help me with?" },
-    {
-      id: 4,
-      role: "assistant",
-      content:
-        "I can assist with coding, writing, analysis, and much more. Try asking me a specific question or give me a task to work on.",
-    },
-  ];
+    sendMessage(trimmedMessage);
+    setMessageInput("");
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  // Find the last assistant message for regenerate detection
+  const lastAssistantMessage = messages
+    .filter((msg) => msg.role === "assistant")
+    .pop();
 
   return (
     <div className="flex h-screen">
@@ -108,19 +127,16 @@ export default function Home() {
           {/* Chat list */}
           <ScrollArea className="flex-1">
             <div className="p-2">
-              {placeholderChats.map((chat) => (
-                <button
+              {chats.map((chat) => (
+                <ChatListItem
                   key={chat.id}
-                  className="w-full text-left p-3 rounded-md hover:bg-accent/50 transition-colors mb-1"
-                  onClick={() => setSidebarOpen(false)}
-                >
-                  <div className="text-sm font-medium text-sidebar-foreground truncate">
-                    {chat.title}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {chat.timestamp}
-                  </div>
-                </button>
+                  chat={chat}
+                  isActive={chat.id === activeChatId}
+                  onClick={() => {
+                    selectChat(chat.id);
+                    setSidebarOpen(false);
+                  }}
+                />
               ))}
             </div>
           </ScrollArea>
@@ -168,26 +184,25 @@ export default function Home() {
                 </Button>
               </div>
             </div>
+          ) : messages.length === 0 ? (
+            // Empty state when chat has no messages
+            <div className="flex h-full items-center justify-center p-8">
+              <div className="max-w-md text-center space-y-2">
+                <p className="text-muted-foreground">No messages yet</p>
+                <p className="text-sm text-muted-foreground">
+                  Start a conversation below
+                </p>
+              </div>
+            </div>
           ) : (
             // Show messages when provider is configured
-            <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-4">
-              {placeholderMessages.map((message) => (
-                <div
+            <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-8">
+              {messages.map((message) => (
+                <Message
                   key={message.id}
-                  className={`flex ${
-                    message.role === "user" ? "justify-end" : "justify-start"
-                  }`}
-                >
-                  <div
-                    className={`max-w-[80%] rounded-lg p-4 ${
-                      message.role === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-secondary text-secondary-foreground"
-                    }`}
-                  >
-                    <div className="text-sm">{message.content}</div>
-                  </div>
-                </div>
+                  message={message}
+                  isLatestAssistant={message.id === lastAssistantMessage?.id}
+                />
               ))}
             </div>
           )}
@@ -198,11 +213,26 @@ export default function Home() {
           <div className="max-w-3xl mx-auto">
             <div className="flex gap-2">
               <Input
-                placeholder="Type a message..."
+                placeholder={
+                  !providerConfig
+                    ? "Connect a provider first..."
+                    : isStreaming
+                      ? "Waiting for response..."
+                      : "Type a message..."
+                }
                 className="flex-1"
                 aria-label="Message input"
+                value={messageInput}
+                onChange={(e) => setMessageInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={!providerConfig || isStreaming}
               />
-              <Button size="icon" aria-label="Send message">
+              <Button
+                size="icon"
+                aria-label="Send message"
+                onClick={handleSendMessage}
+                disabled={!providerConfig || isStreaming || !messageInput.trim()}
+              >
                 <SendIcon className="size-4" />
               </Button>
             </div>
