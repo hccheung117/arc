@@ -27,6 +27,8 @@
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-border: oklch(0.922 0 0);
+
+  --font-size-base: 16px;
 }
 
 @theme inline {
@@ -90,5 +92,6 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-size: var(--font-size-base);
   }
 }

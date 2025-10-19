@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -11,11 +12,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { MenuIcon, SettingsIcon, SendIcon, SearchIcon } from "lucide-react";
+import { MenuIcon, SettingsIcon, SendIcon, SearchIcon, Sparkles } from "lucide-react";
+import { ConnectProviderModal } from "@/components/connect-provider-modal";
+import { useApp } from "@/lib/app-context";
 
 export default function Home() {
+  const { providerConfig, hasCompletedFirstRun, isHydrated } = useApp();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [providerModalOpen, setProviderModalOpen] = useState(false);
+
+  // Auto-open provider modal on first run
+  useEffect(() => {
+    if (isHydrated && !hasCompletedFirstRun && !providerConfig) {
+      setProviderModalOpen(true);
+    }
+  }, [isHydrated, hasCompletedFirstRun, providerConfig]);
 
   // Keyboard shortcut: Cmd/Ctrl+K to open command palette
   useEffect(() => {
@@ -79,10 +91,18 @@ export default function Home() {
       >
         <div className="flex flex-col h-full">
           {/* Sidebar header */}
-          <div className="p-4 border-b border-sidebar-border">
-            <h2 className="text-sm font-semibold text-sidebar-foreground">
-              Chats
-            </h2>
+          <div className="p-4 border-b border-sidebar-border space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-sidebar-foreground">
+                Chats
+              </h2>
+            </div>
+            <Link href="/new" className="block" onClick={() => setSidebarOpen(false)}>
+              <Button variant="outline" className="w-full" size="sm">
+                <Sparkles className="size-4 mr-2" />
+                New Chat
+              </Button>
+            </Link>
           </div>
 
           {/* Chat list */}
@@ -123,33 +143,54 @@ export default function Home() {
         {/* Header */}
         <header className="border-b h-14 flex items-center justify-between px-4 md:px-6">
           <h1 className="text-lg font-semibold ml-10 md:ml-0">Arc</h1>
-          <Button variant="ghost" size="icon" aria-label="Settings">
-            <SettingsIcon className="size-5" />
-          </Button>
+          <Link href="/settings">
+            <Button variant="ghost" size="icon" aria-label="Settings">
+              <SettingsIcon className="size-5" />
+            </Button>
+          </Link>
         </header>
 
         {/* Message panel */}
         <ScrollArea className="flex-1">
-          <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-4">
-            {placeholderMessages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${
-                  message.role === "user" ? "justify-end" : "justify-start"
-                }`}
-              >
+          {!providerConfig ? (
+            // Empty state when no provider is configured
+            <div className="flex h-full items-center justify-center p-8">
+              <div className="max-w-md text-center space-y-4">
+                <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Sparkles className="size-8 text-primary" />
+                </div>
+                <h2 className="text-2xl font-semibold">Welcome to Arc</h2>
+                <p className="text-muted-foreground">
+                  To get started, connect an AI provider. Your API key is stored locally and never leaves your device.
+                </p>
+                <Button onClick={() => setProviderModalOpen(true)}>
+                  Connect Provider
+                </Button>
+              </div>
+            </div>
+          ) : (
+            // Show messages when provider is configured
+            <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-4">
+              {placeholderMessages.map((message) => (
                 <div
-                  className={`max-w-[80%] rounded-lg p-4 ${
-                    message.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-secondary-foreground"
+                  key={message.id}
+                  className={`flex ${
+                    message.role === "user" ? "justify-end" : "justify-start"
                   }`}
                 >
-                  <div className="text-sm">{message.content}</div>
+                  <div
+                    className={`max-w-[80%] rounded-lg p-4 ${
+                      message.role === "user"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-secondary text-secondary-foreground"
+                    }`}
+                  >
+                    <div className="text-sm">{message.content}</div>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </ScrollArea>
 
         {/* Composer bar */}
@@ -204,6 +245,12 @@ export default function Home() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Connect Provider Modal */}
+      <ConnectProviderModal
+        open={providerModalOpen}
+        onOpenChange={setProviderModalOpen}
+      />
     </div>
   );
 }
