@@ -9,11 +9,20 @@ export type MessageStatus =
   | "stopped"    // User stopped the stream
   | "error";     // Failed to generate
 
+export interface ImageAttachment {
+  id: string;
+  file: File;
+  objectUrl: string;
+  size: number;       // bytes
+  type: string;       // MIME type (image/png, image/jpeg, etc.)
+}
+
 export interface Message {
   id: string;
   chatId: string;
   role: MessageRole;
   content: string;
+  attachments?: ImageAttachment[];
   status: MessageStatus;
   createdAt: number;  // timestamp
   updatedAt: number;  // timestamp

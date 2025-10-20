@@ -5,6 +5,7 @@ import type { Message as MessageType } from "@/lib/types";
 import { useChatStore } from "@/lib/chat-store";
 import { Button } from "@/components/ui/button";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
+import { ImageBubble } from "@/components/image-bubble";
 import { StopCircle, RotateCcw, Trash2 } from "lucide-react";
 
 interface MessageProps {
@@ -50,6 +51,13 @@ export function Message({ message, isLatestAssistant }: MessageProps) {
             : "bg-secondary text-secondary-foreground"
         }`}
       >
+        {/* Image attachments */}
+        {message.attachments && message.attachments.length > 0 && (
+          <div className="mb-3">
+            <ImageBubble attachments={message.attachments} />
+          </div>
+        )}
+
         {/* Message content */}
         <div className="text-sm break-words">
           {isUser ? (

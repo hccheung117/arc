@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Chat, Message } from "./types";
+import type { Chat, Message, ImageAttachment } from "./types";
 
 interface ChatState {
   // State
@@ -14,7 +14,7 @@ interface ChatState {
   selectChat: (id: string) => void;
   renameChat: (id: string, title: string) => void;
   deleteChat: (id: string) => void;
-  sendMessage: (content: string) => void;
+  sendMessage: (content: string, attachments?: ImageAttachment[]) => void;
   stopStreaming: () => void;
   regenerateMessage: (messageId: string) => void;
   deleteMessage: (id: string) => void;
@@ -118,7 +118,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   // Send a message and trigger fake streaming
-  sendMessage: (content: string) => {
+  sendMessage: (content: string, attachments?: ImageAttachment[]) => {
     const { activeChatId, streamingChatId } = get();
 
     if (!activeChatId) {
@@ -140,6 +140,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       chatId: activeChatId,
       role: "user",
       content,
+      attachments: attachments && attachments.length > 0 ? attachments : undefined,
       status: "complete",
       createdAt: now,
       updatedAt: now,

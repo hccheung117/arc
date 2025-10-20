@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,12 +12,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { MenuIcon, SettingsIcon, SendIcon, SearchIcon, Sparkles } from "lucide-react";
+import { MenuIcon, SettingsIcon, SendIcon, SearchIcon, Sparkles, ImageIcon, X, AlertCircle } from "lucide-react";
 import { ConnectProviderModal } from "@/components/connect-provider-modal";
 import { useApp } from "@/lib/app-context";
 import { useChatStore } from "@/lib/chat-store";
 import { ChatListItem } from "@/components/chat-list-item";
 import { Message } from "@/components/message";
+import { ImageAttachmentChip } from "@/components/image-attachment-chip";
+import type { ImageAttachment } from "@/lib/types";
 
 export default function Home() {
   const { providerConfig, hasCompletedFirstRun, isHydrated } = useApp();
@@ -25,6 +27,9 @@ export default function Home() {
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [providerModalOpen, setProviderModalOpen] = useState(false);
   const [messageInput, setMessageInput] = useState("");
+  const [attachedImages, setAttachedImages] = useState<ImageAttachment[]>([]);
+  const [attachmentError, setAttachmentError] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Chat store
   const chats = useChatStore((state) => state.chats);
@@ -66,14 +71,117 @@ export default function Home() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  const handleSendMessage = () => {
-    const trimmedMessage = messageInput.trim();
-    if (!trimmedMessage || !providerConfig || isStreaming) {
+  // Image attachment handlers
+  const validateImage = (file: File): string | null => {
+    // Check file type
+    const validTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
+    if (!validTypes.includes(file.type)) {
+      return `Invalid file type. Only PNG, JPEG, and WebP images are supported.`;
+    }
+
+    // Check file size (10MB max)
+    const maxSize = 10 * 1024 * 1024; // 10MB in bytes
+    if (file.size > maxSize) {
+      return `File size exceeds 10MB limit. "${file.name}" is ${(file.size / (1024 * 1024)).toFixed(1)}MB.`;
+    }
+
+    return null;
+  };
+
+  const addImageAttachment = (file: File) => {
+    const error = validateImage(file);
+    if (error) {
+      setAttachmentError(error);
       return;
     }
 
-    sendMessage(trimmedMessage);
+    // Clear any previous errors
+    setAttachmentError("");
+
+    // Create object URL for preview
+    const objectUrl = URL.createObjectURL(file);
+    const attachment: ImageAttachment = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      file,
+      objectUrl,
+      size: file.size,
+      type: file.type,
+    };
+
+    setAttachedImages((prev) => [...prev, attachment]);
+  };
+
+  const removeImageAttachment = (id: string) => {
+    setAttachedImages((prev) => {
+      const removed = prev.find((img) => img.id === id);
+      if (removed) {
+        // Revoke object URL to prevent memory leak
+        URL.revokeObjectURL(removed.objectUrl);
+      }
+      return prev.filter((img) => img.id !== id);
+    });
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    Array.from(files).forEach(addImageAttachment);
+
+    // Reset input so same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const files = Array.from(e.dataTransfer.files);
+    files.filter((file) => file.type.startsWith("image/")).forEach(addImageAttachment);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) {
+          addImageAttachment(file);
+        }
+      }
+    }
+  };
+
+  // Cleanup object URLs on unmount
+  useEffect(() => {
+    return () => {
+      attachedImages.forEach((img) => {
+        URL.revokeObjectURL(img.objectUrl);
+      });
+    };
+  }, [attachedImages]);
+
+  const handleSendMessage = () => {
+    const trimmedMessage = messageInput.trim();
+    if ((!trimmedMessage && attachedImages.length === 0) || !providerConfig || isStreaming) {
+      return;
+    }
+
+    // Send message with attachments (if any)
+    sendMessage(trimmedMessage || " ", attachedImages);
+
+    // Clear input and attachments
     setMessageInput("");
+    setAttachedImages([]);
+    setAttachmentError("");
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -210,9 +318,67 @@ export default function Home() {
         </ScrollArea>
 
         {/* Composer bar */}
-        <div className="border-t p-4 bg-background">
-          <div className="max-w-3xl mx-auto">
+        <div
+          className="border-t p-4 bg-background"
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+        >
+          <div className="max-w-3xl mx-auto space-y-3">
+            {/* Error banner */}
+            {attachmentError && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-destructive/10 border border-destructive/20 rounded-lg text-sm">
+                <AlertCircle className="size-4 text-destructive flex-shrink-0" />
+                <p className="text-destructive flex-1">{attachmentError}</p>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setAttachmentError("")}
+                  className="size-5 p-0 hover:bg-destructive/20"
+                  aria-label="Dismiss error"
+                >
+                  <X className="size-3" />
+                </Button>
+              </div>
+            )}
+
+            {/* Preview chips */}
+            {attachedImages.length > 0 && (
+              <div className="flex gap-2 flex-wrap">
+                {attachedImages.map((attachment) => (
+                  <ImageAttachmentChip
+                    key={attachment.id}
+                    attachment={attachment}
+                    onRemove={() => removeImageAttachment(attachment.id)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Input area */}
             <div className="flex gap-2">
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/jpg,image/webp"
+                multiple
+                onChange={handleFileInputChange}
+                className="hidden"
+                aria-hidden="true"
+              />
+
+              {/* Attachment button */}
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={!providerConfig || isStreaming}
+                aria-label="Attach image"
+              >
+                <ImageIcon className="size-4" />
+              </Button>
+
+              {/* Message input */}
               <Input
                 placeholder={
                   !providerConfig
@@ -226,13 +392,20 @@ export default function Home() {
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
                 onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
                 disabled={!providerConfig || isStreaming}
               />
+
+              {/* Send button */}
               <Button
                 size="icon"
                 aria-label="Send message"
                 onClick={handleSendMessage}
-                disabled={!providerConfig || isStreaming || !messageInput.trim()}
+                disabled={
+                  !providerConfig ||
+                  isStreaming ||
+                  (!messageInput.trim() && attachedImages.length === 0)
+                }
               >
                 <SendIcon className="size-4" />
               </Button>
