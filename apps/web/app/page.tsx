@@ -19,6 +19,7 @@ import { useChatStore } from "@/lib/chat-store";
 import { ChatListItem } from "@/components/chat-list-item";
 import { Message } from "@/components/message";
 import { ImageAttachmentChip } from "@/components/image-attachment-chip";
+import { DevPanel } from "@/components/dev-panel";
 import type { ImageAttachment } from "@/lib/types";
 
 export default function Home() {
@@ -151,7 +152,7 @@ export default function Home() {
     const items = e.clipboardData.items;
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      if (item.type.startsWith("image/")) {
+      if (item && item.type.startsWith("image/")) {
         const file = item.getAsFile();
         if (file) {
           addImageAttachment(file);
@@ -455,6 +456,9 @@ export default function Home() {
         open={providerModalOpen}
         onOpenChange={setProviderModalOpen}
       />
+
+      {/* Dev Panel - Toggle Mock/Live API mode */}
+      <DevPanel />
     </div>
   );
 }

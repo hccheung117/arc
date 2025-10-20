@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AppProvider } from "@/lib/app-context";
+import { ChatAPIProvider } from "@/lib/api/chat-api-provider";
 
 export const metadata: Metadata = {
   title: "Arc",
@@ -16,7 +17,9 @@ export default function RootLayout({
     <html lang="en">
       <body className="antialiased">
         <AppProvider>
-          {children}
+          <ChatAPIProvider>
+            {children}
+          </ChatAPIProvider>
         </AppProvider>
       </body>
     </html>

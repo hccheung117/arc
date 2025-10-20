@@ -140,7 +140,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       chatId: activeChatId,
       role: "user",
       content,
-      attachments: attachments && attachments.length > 0 ? attachments : undefined,
+      ...(attachments && attachments.length > 0 ? { attachments } : {}),
       status: "complete",
       createdAt: now,
       updatedAt: now,
