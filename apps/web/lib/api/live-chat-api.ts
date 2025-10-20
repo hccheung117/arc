@@ -15,6 +15,7 @@ import {
   type Chat as CoreChat,
   type Message as CoreMessage,
   type IPlatformDatabase,
+  type SearchResult,
 } from "@arc/core";
 import {
   runMigrations,
@@ -252,9 +253,9 @@ export class LiveChatAPI implements IChatAPI {
   // Search Operations
   // ============================================================================
 
-  async search(_query: string): Promise<Array<{ chatId: string; messageId: string }>> {
-    console.warn("LiveChatAPI: Search is not yet implemented");
-    return [];
+  async search(query: string, chatId?: string): Promise<SearchResult[]> {
+    const chatService = await this.getChatService();
+    return chatService.searchMessages(query, chatId);
   }
 
   // ============================================================================

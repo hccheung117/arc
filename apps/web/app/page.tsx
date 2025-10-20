@@ -22,10 +22,14 @@ import { ImageAttachmentChip } from "@/components/image-attachment-chip";
 import { DevPanel } from "@/components/dev-panel";
 import { SettingsDialog } from "@/components/settings-dialog";
 import { ErrorBanner } from "@/components/error-banner";
+import { SearchBar } from "@/components/search-bar";
 import type { ImageAttachment } from "@/lib/types";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { useChatAPI } from "@/lib/api/chat-api-provider";
 
 export default function Home() {
   const { providerConfig, hasCompletedFirstRun, isHydrated } = useApp();
+  const { api } = useChatAPI();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [providerModalOpen, setProviderModalOpen] = useState(false);
@@ -33,6 +37,15 @@ export default function Home() {
   const [attachedImages, setAttachedImages] = useState<ImageAttachment[]>([]);
   const [attachmentError, setAttachmentError] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Per-chat search state
+  const [searchActive, setSearchActive] = useState(false);
+  const [searchMatches, setSearchMatches] = useState<string[]>([]);
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+
+  // Global search state (command palette)
+  const [globalSearchQuery, setGlobalSearchQuery] = useState("");
+  const [globalSearchResults, setGlobalSearchResults] = useState<Array<{ message: { id: string; chatId: string; content: string; role: string; createdAt: number }; chatTitle: string }>>([]);
 
   // Chat store
   const chats = useChatStore((state) => state.chats);
@@ -46,6 +59,22 @@ export default function Home() {
 
   const messages = getActiveChatMessages();
   const isStreaming = streamingChatId === activeChatId;
+
+  // Virtualization setup
+  const parentRef = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: messages.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 200, // Estimate average message height
+    overscan: 5, // Render 5 extra items above/below viewport
+  });
+
+  // Auto-scroll to bottom when new messages arrive or during streaming
+  useEffect(() => {
+    if (messages.length > 0 && isStreaming) {
+      virtualizer.scrollToIndex(messages.length - 1, { align: "end", behavior: "smooth" });
+    }
+  }, [messages.length, isStreaming, virtualizer]);
 
   // Initialize with demo chats whenever empty (development)
   useEffect(() => {
@@ -61,18 +90,27 @@ export default function Home() {
     }
   }, [isHydrated, hasCompletedFirstRun, providerConfig]);
 
-  // Keyboard shortcut: Cmd/Ctrl+K to open command palette
+  // Keyboard shortcuts: Cmd/Ctrl+K for command palette, Cmd/Ctrl+F for search
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         setCommandPaletteOpen(true);
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === "f") {
+        e.preventDefault();
+        setSearchActive((prev) => !prev);
+        // Clear search when closing
+        if (searchActive) {
+          setSearchMatches([]);
+          setCurrentMatchIndex(0);
+        }
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [searchActive]);
 
   // Image attachment handlers
   const validateImage = (file: File): string | null => {
@@ -171,6 +209,111 @@ export default function Home() {
       });
     };
   }, [attachedImages]);
+
+  // Search handlers
+  const handleSearch = async (query: string) => {
+    if (!query.trim() || !activeChatId) {
+      setSearchMatches([]);
+      setCurrentMatchIndex(0);
+      return;
+    }
+
+    try {
+      const results = await api.search(query, activeChatId);
+      const messageIds = results.map((result) => result.message.id);
+      setSearchMatches(messageIds);
+      setCurrentMatchIndex(messageIds.length > 0 ? 1 : 0);
+
+      // Scroll to first match
+      if (messageIds.length > 0) {
+        const firstMatchIndex = messages.findIndex((msg) => msg.id === messageIds[0]);
+        if (firstMatchIndex !== -1) {
+          virtualizer.scrollToIndex(firstMatchIndex, { align: "center", behavior: "smooth" });
+        }
+      }
+    } catch (error) {
+      console.error("Search error:", error);
+      setSearchMatches([]);
+      setCurrentMatchIndex(0);
+    }
+  };
+
+  const handleSearchNext = () => {
+    if (searchMatches.length === 0) return;
+
+    const nextIndex = currentMatchIndex % searchMatches.length;
+    setCurrentMatchIndex(nextIndex + 1);
+
+    const messageId = searchMatches[nextIndex];
+    if (messageId) {
+      const msgIndex = messages.findIndex((msg) => msg.id === messageId);
+      if (msgIndex !== -1) {
+        virtualizer.scrollToIndex(msgIndex, { align: "center", behavior: "smooth" });
+      }
+    }
+  };
+
+  const handleSearchPrevious = () => {
+    if (searchMatches.length === 0) return;
+
+    const prevIndex = currentMatchIndex - 2;
+    const wrappedIndex = prevIndex < 0 ? searchMatches.length - 1 : prevIndex;
+    setCurrentMatchIndex(wrappedIndex + 1);
+
+    const messageId = searchMatches[wrappedIndex];
+    if (messageId) {
+      const msgIndex = messages.findIndex((msg) => msg.id === messageId);
+      if (msgIndex !== -1) {
+        virtualizer.scrollToIndex(msgIndex, { align: "center", behavior: "smooth" });
+      }
+    }
+  };
+
+  const handleSearchClose = () => {
+    setSearchActive(false);
+    setSearchMatches([]);
+    setCurrentMatchIndex(0);
+  };
+
+  // Global search handler (for command palette)
+  useEffect(() => {
+    if (!globalSearchQuery.trim()) {
+      setGlobalSearchResults([]);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const results = await api.search(globalSearchQuery); // No chatId = global search
+        setGlobalSearchResults(results);
+      } catch (error) {
+        console.error("Global search error:", error);
+        setGlobalSearchResults([]);
+      }
+    }, 300); // Debounce 300ms
+
+    return () => clearTimeout(timer);
+  }, [globalSearchQuery, api]);
+
+  const handleGlobalSearchResultClick = async (result: typeof globalSearchResults[0]) => {
+    // Close command palette
+    setCommandPaletteOpen(false);
+    setGlobalSearchQuery("");
+    setGlobalSearchResults([]);
+
+    // Switch to the chat containing this message
+    if (result.message.chatId !== activeChatId) {
+      selectChat(result.message.chatId);
+      // Wait for chat to load
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+
+    // Scroll to the message
+    const messageIndex = messages.findIndex(msg => msg.id === result.message.id);
+    if (messageIndex !== -1) {
+      virtualizer.scrollToIndex(messageIndex, { align: "center", behavior: "smooth" });
+    }
+  };
 
   const handleSendMessage = () => {
     const trimmedMessage = messageInput.trim();
@@ -274,19 +417,63 @@ export default function Home() {
           <SettingsDialog />
         </header>
 
+        {/* Search Bar */}
+        {searchActive && (
+          <SearchBar
+            onSearch={handleSearch}
+            matchCount={searchMatches.length}
+            currentMatch={currentMatchIndex}
+            onNext={handleSearchNext}
+            onPrevious={handleSearchPrevious}
+            onClose={handleSearchClose}
+          />
+        )}
+
         {/* Message panel */}
-        <ScrollArea className="flex-1 overflow-hidden">
+        <div
+          ref={parentRef}
+          className="flex-1 overflow-auto"
+          style={{ position: 'relative' }}
+        >
           {messages.length > 0 ? (
-            // Show messages if they exist (demo chats or real conversations)
-            <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-8">
-              <ErrorBanner />
-              {messages.map((message) => (
-                <Message
-                  key={message.id}
-                  message={message}
-                  isLatestAssistant={message.id === lastAssistantMessage?.id}
-                />
-              ))}
+            // Virtualized message list
+            <div
+              style={{
+                height: `${virtualizer.getTotalSize()}px`,
+                width: '100%',
+                position: 'relative',
+              }}
+            >
+              <div className="max-w-3xl mx-auto p-4 md:p-6">
+                <ErrorBanner />
+              </div>
+              {virtualizer.getVirtualItems().map((virtualItem) => {
+                const message = messages[virtualItem.index];
+                if (!message) return null;
+
+                return (
+                  <div
+                    key={virtualItem.key}
+                    data-index={virtualItem.index}
+                    ref={virtualizer.measureElement}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      transform: `translateY(${virtualItem.start}px)`,
+                    }}
+                  >
+                    <div className="max-w-3xl mx-auto px-4 md:px-6 py-4">
+                      <Message
+                        message={message}
+                        isLatestAssistant={message.id === lastAssistantMessage?.id}
+                        isHighlighted={searchMatches.includes(message.id)}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ) : !providerConfig ? (
             // Empty state when no provider is configured
@@ -315,7 +502,7 @@ export default function Home() {
               </div>
             </div>
           )}
-        </ScrollArea>
+        </div>
 
         {/* Composer bar */}
         <div
@@ -425,28 +612,72 @@ export default function Home() {
 
       {/* Command Palette */}
       <Dialog open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Command Palette</DialogTitle>
+            <DialogTitle>Search Across All Chats</DialogTitle>
             <DialogDescription>
-              Quick search and navigation (placeholder)
+              Find messages in any conversation
             </DialogDescription>
           </DialogHeader>
           <div className="flex items-center gap-2 px-3 py-2 border rounded-md">
             <SearchIcon className="size-4 text-muted-foreground" />
             <Input
-              placeholder="Search chats, commands..."
+              placeholder="Search messages..."
               className="border-0 shadow-none focus-visible:ring-0 px-0"
+              value={globalSearchQuery}
+              onChange={(e) => setGlobalSearchQuery(e.target.value)}
               autoFocus
             />
           </div>
-          <div className="text-sm text-muted-foreground">
-            Press{" "}
-            <kbd className="px-1.5 py-0.5 rounded bg-accent font-mono text-xs">
-              Esc
-            </kbd>{" "}
-            to close
-          </div>
+
+          {/* Search Results */}
+          {globalSearchResults.length > 0 && (
+            <ScrollArea className="max-h-96">
+              <div className="space-y-2 pr-4">
+                {globalSearchResults.map((result) => {
+                  const preview = result.message.content.slice(0, 100);
+                  const timestamp = new Date(result.message.createdAt).toLocaleString();
+
+                  return (
+                    <button
+                      key={result.message.id}
+                      onClick={() => handleGlobalSearchResultClick(result)}
+                      className="w-full text-left p-3 rounded-lg hover:bg-accent transition-colors"
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                          {result.chatTitle}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {timestamp}
+                        </span>
+                      </div>
+                      <p className="text-sm line-clamp-2 text-foreground">
+                        {preview}{result.message.content.length > 100 ? "..." : ""}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          )}
+
+          {/* Empty state */}
+          {globalSearchQuery && globalSearchResults.length === 0 && (
+            <div className="text-center py-8 text-sm text-muted-foreground">
+              No messages found matching &quot;{globalSearchQuery}&quot;
+            </div>
+          )}
+
+          {!globalSearchQuery && (
+            <div className="text-sm text-muted-foreground">
+              Press{" "}
+              <kbd className="px-1.5 py-0.5 rounded bg-accent font-mono text-xs">
+                Esc
+              </kbd>{" "}
+              to close
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

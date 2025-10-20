@@ -58,6 +58,21 @@ export class InMemoryMessageRepository implements IMessageRepository {
     return count;
   }
 
+  async search(query: string, chatId?: string): Promise<Message[]> {
+    const lowerQuery = query.toLowerCase();
+
+    return Array.from(this.messages.values())
+      .filter((msg) => {
+        // Case-insensitive partial match on content
+        const matchesQuery = msg.content.toLowerCase().includes(lowerQuery);
+        // Filter by chatId if provided
+        const matchesChat = chatId ? msg.chatId === chatId : true;
+        return matchesQuery && matchesChat;
+      })
+      .map((msg) => ({ ...msg }))
+      .sort((a, b) => b.createdAt - a.createdAt); // Descending (newest first)
+  }
+
   /**
    * Clear all messages (useful for testing)
    */

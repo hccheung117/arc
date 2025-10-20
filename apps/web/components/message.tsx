@@ -11,9 +11,10 @@ import { StopCircle, RotateCcw, Trash2 } from "lucide-react";
 interface MessageProps {
   message: MessageType;
   isLatestAssistant: boolean;
+  isHighlighted?: boolean;
 }
 
-export function Message({ message, isLatestAssistant }: MessageProps) {
+export function Message({ message, isLatestAssistant, isHighlighted = false }: MessageProps) {
   const [isHovered, setIsHovered] = useState(false);
   const { stopStreaming, regenerateMessage, deleteMessage } = useChatStore();
 
@@ -49,7 +50,7 @@ export function Message({ message, isLatestAssistant }: MessageProps) {
           isUser
             ? "bg-primary text-primary-foreground"
             : "bg-secondary text-secondary-foreground"
-        }`}
+        } ${isHighlighted ? "ring-2 ring-yellow-400 bg-yellow-50 dark:bg-yellow-950/30" : ""}`}
       >
         {/* Image attachments */}
         {message.attachments && message.attachments.length > 0 && (

@@ -39,6 +39,7 @@ interface ChatState {
   regenerateMessage: (messageId: string) => void;
   deleteMessage: (id: string) => void;
   seedDemoChats: () => void;
+  seedLargeDataset: () => void;
 
   // Provider settings actions
   updateProviderSettings: (settings: Partial<ProviderSettings>) => void;
@@ -612,6 +613,103 @@ All of this is rendered in real-time with full theme support!`,
       chats: demoChats,
       messages: demoMessages,
       activeChatId: chat1Id, // Select the first demo chat
+    });
+  },
+
+  // Seed large dataset for performance testing
+  seedLargeDataset: () => {
+    const baseTime = Date.now() - 86400000; // 24 hours ago
+    const largeChats: Chat[] = [];
+    const largeMessages: Message[] = [];
+
+    const topics = [
+      "React Performance Optimization",
+      "TypeScript Best Practices",
+      "Database Design Patterns",
+      "API Security",
+      "Frontend Architecture",
+      "Testing Strategies",
+      "DevOps Workflows",
+      "Code Review Process",
+      "System Design",
+      "Mobile Development",
+    ];
+
+    const sampleQuestions = [
+      "How can I improve performance?",
+      "What are the best practices?",
+      "Can you explain this concept?",
+      "Show me an example",
+      "What's the recommended approach?",
+      "Help me debug this issue",
+      "How does this work?",
+      "Compare these two options",
+      "What are the trade-offs?",
+      "Explain in detail",
+    ];
+
+    const sampleResponses = [
+      "Here's a comprehensive explanation. ",
+      "Let me break this down for you. ",
+      "Great question! Let's explore this. ",
+      "I'll provide several examples. ",
+      "Here are the key points to consider. ",
+    ];
+
+    // Create 10 chats
+    for (let i = 0; i < 10; i++) {
+      const chatId = generateId();
+      const chatBaseTime = baseTime + i * 3600000; // Space chats 1 hour apart
+
+      largeChats.push({
+        id: chatId,
+        title: topics[i] || `Chat ${i + 1}`,
+        createdAt: chatBaseTime,
+        updatedAt: chatBaseTime + 7200000,
+        lastMessageAt: chatBaseTime + 7200000,
+      });
+
+      // Create 100+ messages per chat
+      for (let j = 0; j < 110; j++) {
+        const messageTime = chatBaseTime + j * 60000; // 1 minute apart
+
+        // User message
+        largeMessages.push({
+          id: generateId(),
+          chatId,
+          role: "user",
+          content: `${sampleQuestions[j % sampleQuestions.length]} (Message ${j + 1} in ${topics[i] || `Chat ${i + 1}`})`,
+          status: "complete",
+          createdAt: messageTime,
+          updatedAt: messageTime,
+        });
+
+        // Assistant response
+        const responseContent = `${sampleResponses[j % sampleResponses.length]}This is message ${j + 1} of 110 in the "${topics[i] || `Chat ${i + 1}`}" conversation. ${
+          "Lorem ipsum dolor sit amet, consectetur adipiscing elit. ".repeat(3)
+        }Here's some code:\n\n\`\`\`typescript\nconst example${j} = () => {\n  return "Example ${j}";\n};\n\`\`\`\n\nSearchable keyword: item${j}`;
+
+        largeMessages.push({
+          id: generateId(),
+          chatId,
+          role: "assistant",
+          content: responseContent,
+          status: "complete",
+          createdAt: messageTime + 30000, // 30 seconds after user message
+          updatedAt: messageTime + 30000,
+        });
+      }
+    }
+
+    console.log(
+      `Seeded ${largeChats.length} chats with ${largeMessages.length} messages total (avg ${Math.floor(largeMessages.length / largeChats.length)} per chat)`
+    );
+
+    // Set the state with all large dataset
+    set({
+      chats: largeChats,
+      messages: largeMessages,
+      activeChatId: largeChats[0]?.id || null,
     });
   },
 

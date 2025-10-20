@@ -25,6 +25,14 @@ export interface SendMessageResult {
 }
 
 /**
+ * Search result with chat context
+ */
+export interface SearchResult {
+  message: Message;
+  chatTitle: string;
+}
+
+/**
  * ChatService orchestrates all chat-related operations
  *
  * Uses constructor injection for repositories to enable testing
@@ -374,6 +382,38 @@ export class ChatService {
     await this.runInTransaction(async () => {
       await this.messageRepo.delete(messageId);
     });
+  }
+
+  // ============================================================================
+  // Search Operations
+  // ============================================================================
+
+  /**
+   * Search messages across all chats or within a specific chat
+   * @param query Search query string
+   * @param chatId Optional chat ID to scope search to a specific chat
+   * @returns Search results with chat context, sorted by createdAt descending
+   */
+  async searchMessages(query: string, chatId?: string): Promise<SearchResult[]> {
+    if (!query.trim()) {
+      return [];
+    }
+
+    const messages = await this.messageRepo.search(query, chatId);
+
+    // Enrich with chat titles
+    const results: SearchResult[] = [];
+    for (const message of messages) {
+      const chat = await this.chatRepo.findById(message.chatId);
+      if (chat) {
+        results.push({
+          message,
+          chatTitle: chat.title,
+        });
+      }
+    }
+
+    return results;
   }
 
 }

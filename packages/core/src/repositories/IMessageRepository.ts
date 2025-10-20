@@ -45,4 +45,12 @@ export interface IMessageRepository {
    * @returns Number of messages deleted
    */
   deleteByChatId(chatId: string): Promise<number>;
+
+  /**
+   * Search messages by content
+   * @param query Search query string (case-insensitive partial match)
+   * @param chatId Optional chat ID to scope the search to a specific chat
+   * @returns Messages matching the query, sorted by createdAt descending (newest first)
+   */
+  search(query: string, chatId?: string): Promise<Message[]>;
 }

@@ -7,6 +7,7 @@
  */
 
 import type { ImageAttachment } from "../types";
+import type { SearchResult } from "@arc/core";
 
 export interface IChatAPI {
   // ============================================================================
@@ -80,9 +81,10 @@ export interface IChatAPI {
   /**
    * Search across all chats and messages
    * @param query Search query string
-   * @returns Promise resolving to array of matching chat/message IDs
+   * @param chatId Optional chat ID to scope search to a specific chat
+   * @returns Promise resolving to array of search results with chat context
    */
-  search(query: string): Promise<Array<{ chatId: string; messageId: string }>>;
+  search(query: string, chatId?: string): Promise<SearchResult[]>;
 
   // ============================================================================
   // Development/Testing Utilities

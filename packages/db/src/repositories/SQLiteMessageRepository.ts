@@ -120,6 +120,39 @@ export class SQLiteMessageRepository implements IMessageRepository {
     return result.rowsAffected;
   }
 
+  async search(query: string, chatId?: string): Promise<Message[]> {
+    // Use LIKE for case-insensitive partial matching
+    const pattern = `%${query}%`;
+
+    let sql: string;
+    let params: (string | number)[];
+
+    if (chatId) {
+      // Search within a specific chat
+      sql = `SELECT * FROM messages
+             WHERE content LIKE ? AND chat_id = ?
+             ORDER BY created_at DESC`;
+      params = [pattern, chatId];
+    } else {
+      // Global search across all chats
+      sql = `SELECT * FROM messages
+             WHERE content LIKE ?
+             ORDER BY created_at DESC`;
+      params = [pattern];
+    }
+
+    const result = await this.db.query<MessageRow>(sql, params);
+
+    const messages = await Promise.all(
+      result.rows.map(async (row) => {
+        const attachments = await this.findAttachmentsByMessageId(row.id);
+        return this.rowToMessage(row, attachments);
+      })
+    );
+
+    return messages;
+  }
+
   private async createAttachment(
     messageId: string,
     attachment: ImageAttachment

@@ -37,7 +37,11 @@ export type {
 
 // Services
 export { ChatService } from "./services/ChatService.js";
-export type { MessageUpdate, SendMessageResult } from "./services/ChatService.js";
+export type {
+  MessageUpdate,
+  SendMessageResult,
+  SearchResult,
+} from "./services/ChatService.js";
 
 // Utilities
 export { generateId } from "./utils/id.js";

@@ -8,6 +8,7 @@
 
 import type { IChatAPI } from "./chat-api.interface";
 import type { ImageAttachment } from "../types";
+import type { SearchResult } from "@arc/core";
 import { useChatStore } from "../chat-store";
 
 export class MockChatAPI implements IChatAPI {
@@ -75,11 +76,50 @@ export class MockChatAPI implements IChatAPI {
   // Search Operations
   // ============================================================================
 
-  async search(_query: string): Promise<Array<{ chatId: string; messageId: string }>> {
-    // Search is not yet implemented in the mock store
-    // Return empty results for now
-    console.warn("MockChatAPI: Search is not yet implemented");
-    return [];
+  async search(query: string, chatId?: string): Promise<SearchResult[]> {
+    if (!query.trim()) {
+      return [];
+    }
+
+    const state = useChatStore.getState();
+    const lowerQuery = query.toLowerCase();
+    const results: SearchResult[] = [];
+
+    // Create chat title lookup map
+    const chatTitleMap = new Map(state.chats.map(chat => [chat.id, chat.title]));
+
+    // Search through all messages
+    for (const message of state.messages) {
+      // Skip if chatId is specified and doesn't match
+      if (chatId && message.chatId !== chatId) {
+        continue;
+      }
+
+      // Search in message content
+      if (message.content.toLowerCase().includes(lowerQuery)) {
+        const chatTitle = chatTitleMap.get(message.chatId) || "Unknown Chat";
+        // The mock store uses web ImageAttachment, not core ImageAttachment
+        // So we return a compatible structure without attachments
+        const coreMessage = {
+          id: message.id,
+          chatId: message.chatId,
+          role: message.role,
+          content: message.content,
+          status: message.status,
+          createdAt: message.createdAt,
+          updatedAt: message.updatedAt,
+        };
+        results.push({
+          message: coreMessage,
+          chatTitle,
+        });
+      }
+    }
+
+    // Sort by createdAt descending (newest first)
+    results.sort((a, b) => b.message.createdAt - a.message.createdAt);
+
+    return results;
   }
 
   // ============================================================================
