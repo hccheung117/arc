@@ -8,6 +8,13 @@ interface ProviderSettings {
   model: string;
 }
 
+interface ProviderErrorInfo {
+  code: string;
+  message: string;
+  userMessage: string;
+  isRetryable: boolean;
+}
+
 interface ChatState {
   // State
   chats: Chat[];
@@ -18,6 +25,9 @@ interface ChatState {
 
   // Provider settings
   providerSettings: ProviderSettings;
+
+  // Error state
+  lastError: ProviderErrorInfo | null;
 
   // Actions
   createChat: (title?: string) => string;
@@ -32,6 +42,10 @@ interface ChatState {
 
   // Provider settings actions
   updateProviderSettings: (settings: Partial<ProviderSettings>) => void;
+
+  // Error actions
+  setError: (error: ProviderErrorInfo) => void;
+  clearError: () => void;
 
   // Computed
   getActiveChat: () => Chat | null;
@@ -71,6 +85,9 @@ export const useChatStore = create<ChatState>()(
         baseUrl: "https://api.openai.com/v1",
         model: "gpt-4-turbo-preview",
       },
+
+      // Error state
+      lastError: null,
 
   // Create a new chat
   createChat: (title?: string) => {
@@ -603,6 +620,16 @@ All of this is rendered in real-time with full theme support!`,
     set((state) => ({
       providerSettings: { ...state.providerSettings, ...settings },
     }));
+  },
+
+  // Set error
+  setError: (error: ProviderErrorInfo) => {
+    set({ lastError: error });
+  },
+
+  // Clear error
+  clearError: () => {
+    set({ lastError: null });
   },
 }),
     {

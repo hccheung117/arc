@@ -158,8 +158,8 @@ export class LiveChatAPI implements IChatAPI {
       ? await webAttachmentsToCore(attachments)
       : undefined;
 
-    // Start streaming
-    useChatStore.setState({ streamingChatId: chatId });
+    // Start streaming - clear any previous errors
+    useChatStore.setState({ streamingChatId: chatId, lastError: null });
 
     try {
       const stream = this.chatService.sendMessage(
@@ -187,7 +187,7 @@ export class LiveChatAPI implements IChatAPI {
         });
       }
 
-      // Stream completed
+      // Stream completed successfully
       this.activeStreamMessageId = null;
       useChatStore.setState({ streamingChatId: null });
 
@@ -203,10 +203,29 @@ export class LiveChatAPI implements IChatAPI {
         })),
       });
     } catch (error) {
-      // Handle errors
-      console.error("LiveChatAPI: Error sending message:", error);
+      // Handle provider errors
       this.activeStreamMessageId = null;
       useChatStore.setState({ streamingChatId: null });
+
+      if (error instanceof ProviderError) {
+        // Store error in Zustand for UI display
+        useChatStore.getState().setError({
+          code: error.code,
+          message: error.message,
+          userMessage: error.getUserMessage(),
+          isRetryable: error.isRetryable,
+        });
+      } else {
+        // Generic error
+        console.error("LiveChatAPI: Error sending message:", error);
+        useChatStore.getState().setError({
+          code: "unknown_error",
+          message: error instanceof Error ? error.message : "Unknown error",
+          userMessage: "An unexpected error occurred. Please try again.",
+          isRetryable: true,
+        });
+      }
+
       throw error;
     }
   }
