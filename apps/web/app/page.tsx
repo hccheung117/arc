@@ -168,7 +168,7 @@ export default function Home() {
         </header>
 
         {/* Message panel */}
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 overflow-hidden">
           {messages.length > 0 ? (
             // Show messages if they exist (demo chats or real conversations)
             <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-8">
