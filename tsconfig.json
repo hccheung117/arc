@@ -4,6 +4,6 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["packages/**/*"],
+  "include": ["apps/**/*", "packages/**/*"],
   "exclude": ["node_modules", "dist", "build", ".next", ".turbo"]
 }

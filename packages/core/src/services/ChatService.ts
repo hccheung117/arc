@@ -1,0 +1,323 @@
+import type { Chat } from "../domain/Chat.js";
+import type { Message, MessageStatus } from "../domain/Message.js";
+import type { ImageAttachment } from "../domain/ImageAttachment.js";
+import type { IChatRepository } from "../repositories/IChatRepository.js";
+import type { IMessageRepository } from "../repositories/IMessageRepository.js";
+import { generateId } from "../utils/id.js";
+
+/**
+ * Update yielded during message streaming
+ */
+export interface MessageUpdate {
+  messageId: string;
+  content: string;
+  status: MessageStatus;
+}
+
+/**
+ * Result of a sendMessage operation
+ */
+export interface SendMessageResult {
+  userMessageId: string;
+  assistantMessageId: string;
+}
+
+/**
+ * ChatService orchestrates all chat-related operations
+ *
+ * Uses constructor injection for repositories to enable testing
+ * and support different storage backends.
+ */
+export class ChatService {
+  private chatRepo: IChatRepository;
+  private messageRepo: IMessageRepository;
+  private activeStreams = new Map<string, AbortController>();
+
+  constructor(chatRepo: IChatRepository, messageRepo: IMessageRepository) {
+    this.chatRepo = chatRepo;
+    this.messageRepo = messageRepo;
+  }
+
+  // ============================================================================
+  // Chat Operations
+  // ============================================================================
+
+  /**
+   * Create a new chat
+   * @returns The ID of the created chat
+   */
+  async createChat(title?: string): Promise<string> {
+    const now = Date.now();
+    const chat: Chat = {
+      id: generateId(),
+      title: title || "New Chat",
+      createdAt: now,
+      updatedAt: now,
+      lastMessageAt: now,
+    };
+
+    await this.chatRepo.create(chat);
+    return chat.id;
+  }
+
+  /**
+   * Rename an existing chat
+   */
+  async renameChat(chatId: string, title: string): Promise<void> {
+    const chat = await this.chatRepo.findById(chatId);
+    if (!chat) {
+      throw new Error(`Chat ${chatId} not found`);
+    }
+
+    chat.title = title;
+    chat.updatedAt = Date.now();
+    await this.chatRepo.update(chat);
+  }
+
+  /**
+   * Delete a chat and all its messages
+   */
+  async deleteChat(chatId: string): Promise<void> {
+    // Stop any active stream for this chat
+    const messages = await this.messageRepo.findByChatId(chatId);
+    for (const msg of messages) {
+      if (this.activeStreams.has(msg.id)) {
+        const controller = this.activeStreams.get(msg.id);
+        controller?.abort();
+        this.activeStreams.delete(msg.id);
+      }
+    }
+
+    // Delete all messages in the chat
+    await this.messageRepo.deleteByChatId(chatId);
+
+    // Delete the chat itself
+    await this.chatRepo.delete(chatId);
+  }
+
+  /**
+   * Get all chats
+   */
+  async getChats(): Promise<Chat[]> {
+    return this.chatRepo.findAll();
+  }
+
+  /**
+   * Get a single chat by ID
+   */
+  async getChat(chatId: string): Promise<Chat | null> {
+    return this.chatRepo.findById(chatId);
+  }
+
+  // ============================================================================
+  // Message Operations
+  // ============================================================================
+
+  /**
+   * Get all messages for a chat
+   */
+  async getMessages(chatId: string): Promise<Message[]> {
+    return this.messageRepo.findByChatId(chatId);
+  }
+
+  /**
+   * Send a message and stream the assistant's response
+   *
+   * @returns AsyncGenerator that yields message updates, returns final result
+   */
+  async *sendMessage(
+    chatId: string,
+    content: string,
+    attachments?: ImageAttachment[]
+  ): AsyncGenerator<MessageUpdate, SendMessageResult, void> {
+    const chat = await this.chatRepo.findById(chatId);
+    if (!chat) {
+      throw new Error(`Chat ${chatId} not found`);
+    }
+
+    const now = Date.now();
+
+    // 1. Create and persist user message
+    const userMessage: Message = {
+      id: generateId(),
+      chatId,
+      role: "user",
+      content,
+      ...(attachments && attachments.length > 0 ? { attachments } : {}),
+      status: "complete",
+      createdAt: now,
+      updatedAt: now,
+    };
+    await this.messageRepo.create(userMessage);
+
+    // 2. Create pending assistant message
+    const assistantMessage: Message = {
+      id: generateId(),
+      chatId,
+      role: "assistant",
+      content: "",
+      status: "pending",
+      createdAt: now,
+      updatedAt: now,
+    };
+    await this.messageRepo.create(assistantMessage);
+
+    // 3. Update chat timestamps
+    chat.lastMessageAt = now;
+    chat.updatedAt = now;
+    await this.chatRepo.update(chat);
+
+    // 4. Generate fake streaming response
+    const fullResponse = this.generateEchoResponse(content);
+    const abortController = new AbortController();
+    this.activeStreams.set(assistantMessage.id, abortController);
+
+    try {
+      // Stream the response character by character
+      for (let i = 1; i <= fullResponse.length; i++) {
+        // Check if streaming was aborted
+        if (abortController.signal.aborted) {
+          // Mark message as stopped
+          assistantMessage.status = "stopped";
+          assistantMessage.updatedAt = Date.now();
+          await this.messageRepo.update(assistantMessage);
+
+          yield {
+            messageId: assistantMessage.id,
+            content: assistantMessage.content,
+            status: "stopped",
+          };
+
+          return {
+            userMessageId: userMessage.id,
+            assistantMessageId: assistantMessage.id,
+          };
+        }
+
+        const currentContent = fullResponse.slice(0, i);
+        assistantMessage.content = currentContent;
+        assistantMessage.status = "streaming";
+        assistantMessage.updatedAt = Date.now();
+        await this.messageRepo.update(assistantMessage);
+
+        yield {
+          messageId: assistantMessage.id,
+          content: currentContent,
+          status: "streaming",
+        };
+
+        // Simulate streaming delay (~20 chars/second)
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+
+      // 5. Mark as complete
+      assistantMessage.status = "complete";
+      assistantMessage.updatedAt = Date.now();
+      await this.messageRepo.update(assistantMessage);
+
+      yield {
+        messageId: assistantMessage.id,
+        content: assistantMessage.content,
+        status: "complete",
+      };
+
+      return {
+        userMessageId: userMessage.id,
+        assistantMessageId: assistantMessage.id,
+      };
+    } finally {
+      // Cleanup
+      this.activeStreams.delete(assistantMessage.id);
+    }
+  }
+
+  /**
+   * Stop streaming for a specific message
+   */
+  async stopStreaming(messageId: string): Promise<void> {
+    const controller = this.activeStreams.get(messageId);
+    if (controller) {
+      controller.abort();
+      this.activeStreams.delete(messageId);
+    }
+  }
+
+  /**
+   * Regenerate an assistant message
+   *
+   * Finds the previous user message and generates a new response
+   */
+  async *regenerateMessage(
+    messageId: string
+  ): AsyncGenerator<MessageUpdate, SendMessageResult, void> {
+    const message = await this.messageRepo.findById(messageId);
+    if (!message) {
+      throw new Error(`Message ${messageId} not found`);
+    }
+
+    if (message.role !== "assistant") {
+      throw new Error("Can only regenerate assistant messages");
+    }
+
+    // Find the previous user message in this chat
+    const chatMessages = await this.messageRepo.findByChatId(message.chatId);
+    const sortedMessages = chatMessages.sort((a, b) => a.createdAt - b.createdAt);
+    const messageIndex = sortedMessages.findIndex((msg) => msg.id === messageId);
+
+    if (messageIndex === -1) {
+      throw new Error("Message not found in chat");
+    }
+
+    const previousUserMessage = sortedMessages
+      .slice(0, messageIndex)
+      .reverse()
+      .find((msg) => msg.role === "user");
+
+    if (!previousUserMessage) {
+      throw new Error("No user message found to regenerate from");
+    }
+
+    // Delete the current assistant message
+    await this.messageRepo.delete(messageId);
+
+    // Send a new message with the user's content
+    return yield* this.sendMessage(
+      message.chatId,
+      previousUserMessage.content,
+      previousUserMessage.attachments
+    );
+  }
+
+  /**
+   * Delete a specific message
+   */
+  async deleteMessage(messageId: string): Promise<void> {
+    // Stop streaming if this message is being generated
+    if (this.activeStreams.has(messageId)) {
+      await this.stopStreaming(messageId);
+    }
+
+    await this.messageRepo.delete(messageId);
+  }
+
+  // ============================================================================
+  // Private Helpers
+  // ============================================================================
+
+  /**
+   * Generate a fake echo-based response (for development/testing)
+   */
+  private generateEchoResponse(userMessage: string): string {
+    const responses = [
+      `You said: "${userMessage}". That's an interesting point! Let me expand on that. `,
+      `I understand you mentioned: "${userMessage}". Here's my perspective on this topic. `,
+      `Thanks for sharing "${userMessage}". Based on your input, I'd like to add that `,
+    ];
+
+    const intro = responses[Math.floor(Math.random() * responses.length)];
+    const body =
+      "This is a simulated streaming response to demonstrate the chat functionality. In a real implementation, this would be replaced with actual AI responses from your configured provider. The streaming effect helps create a natural conversation flow.";
+
+    return intro + body;
+  }
+}
