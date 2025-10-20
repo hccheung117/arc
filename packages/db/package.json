@@ -1,19 +1,15 @@
 {
-  "name": "@arc/platform-web",
+  "name": "@arc/db",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Web platform implementation for Arc (fetch-based HTTP)",
+  "description": "SQLite schema, migrations, and repository implementations for Arc",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./database/SqlJsDatabase": {
-      "types": "./dist/database/SqlJsDatabase.d.ts",
-      "import": "./dist/database/SqlJsDatabase.js"
     }
   },
   "scripts": {
@@ -21,12 +17,10 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "@arc/core": "workspace:*",
-    "sql.js": "^1.11.0"
+    "@arc/core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20",
-    "@types/sql.js": "^1.4.9",
     "typescript": "^5.9.2"
   }
 }

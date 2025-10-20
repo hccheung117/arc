@@ -1,52 +1,64 @@
 /**
- * LiveChatAPI - Core-backed implementation with real OpenAI integration
+ * LiveChatAPI - Core-backed implementation with persistent SQLite storage
  *
- * This implementation uses the headless @arc/core package with OpenAI adapter
- * for real API calls. It integrates the platform layer (FetchHTTP) with the
- * Core's business logic.
+ * Uses sql.js (WASM) in the browser via @arc/platform-web and the shared
+ * repository implementations from @arc/db to persist chats and messages.
+ * Data is stored in IndexedDB so it survives page reloads in Live mode.
  */
 
 import type { IChatAPI } from "./chat-api.interface";
 import type { ImageAttachment } from "../types";
 import {
   ChatService,
-  InMemoryChatRepository,
-  InMemoryMessageRepository,
   OpenAIAdapter,
   ProviderError,
+  type Chat as CoreChat,
+  type Message as CoreMessage,
+  type IPlatformDatabase,
 } from "@arc/core";
+import {
+  runMigrations,
+  SQLiteChatRepository,
+  SQLiteMessageRepository,
+} from "@arc/db";
 import { FetchHTTP } from "@arc/platform-web";
 import { useChatStore } from "../chat-store";
 import { webAttachmentsToCore } from "../utils/attachment-converter";
 
+function mapChatToStore(chat: CoreChat) {
+  return {
+    id: chat.id,
+    title: chat.title,
+    createdAt: chat.createdAt,
+    updatedAt: chat.updatedAt,
+    lastMessageAt: chat.lastMessageAt,
+  };
+}
+
+function mapMessageToStore(message: CoreMessage) {
+  return {
+    id: message.id,
+    chatId: message.chatId,
+    role: message.role,
+    content: message.content,
+    status: message.status,
+    createdAt: message.createdAt,
+    updatedAt: message.updatedAt,
+  };
+}
+
 export class LiveChatAPI implements IChatAPI {
-  private chatService: ChatService;
-  private openAI: OpenAIAdapter;
+  private db: IPlatformDatabase | null = null;
+  private initialization: Promise<void> | null = null;
+  private chatService: ChatService | null = null;
+  private openAI: OpenAIAdapter | null = null;
   private activeStreamMessageId: string | null = null;
 
-  constructor() {
-    // Get provider settings from store
-    const { providerSettings } = useChatStore.getState();
-
-    // Initialize platform HTTP layer
-    const http = new FetchHTTP();
-
-    // Initialize OpenAI adapter
-    this.openAI = new OpenAIAdapter(
-      http,
-      providerSettings.apiKey,
-      providerSettings.baseUrl
-    );
-
-    // Initialize Core with in-memory repositories and OpenAI adapter
-    const chatRepo = new InMemoryChatRepository();
-    const messageRepo = new InMemoryMessageRepository();
-    this.chatService = new ChatService(
-      chatRepo,
-      messageRepo,
-      this.openAI,
-      providerSettings.model
-    );
+  /**
+   * Allow callers (e.g., provider) to eagerly initialise the database.
+   */
+  async ready(): Promise<void> {
+    await this.ensureInitialized();
   }
 
   // ============================================================================
@@ -54,18 +66,12 @@ export class LiveChatAPI implements IChatAPI {
   // ============================================================================
 
   async createChat(title?: string): Promise<string> {
-    const chatId = await this.chatService.createChat(title);
+    const chatService = await this.getChatService();
+    const chatId = await chatService.createChat(title);
 
-    // Sync with Zustand store
-    const chats = await this.chatService.getChats();
+    const chats = await chatService.getChats();
     useChatStore.setState({
-      chats: chats.map((chat) => ({
-        id: chat.id,
-        title: chat.title,
-        createdAt: chat.createdAt,
-        updatedAt: chat.updatedAt,
-        lastMessageAt: chat.lastMessageAt,
-      })),
+      chats: chats.map(mapChatToStore),
       activeChatId: chatId,
     });
 
@@ -73,69 +79,45 @@ export class LiveChatAPI implements IChatAPI {
   }
 
   async selectChat(chatId: string): Promise<void> {
-    // Stop any ongoing streaming when switching chats
+    const chatService = await this.getChatService();
+
     if (this.activeStreamMessageId) {
-      await this.chatService.stopStreaming(this.activeStreamMessageId);
+      await chatService.stopStreaming(this.activeStreamMessageId);
       this.activeStreamMessageId = null;
     }
 
-    // Fetch messages for this chat
-    const messages = await this.chatService.getMessages(chatId);
-
-    // Update Zustand store
+    const messages = await chatService.getMessages(chatId);
     useChatStore.setState({
       activeChatId: chatId,
-      messages: messages.map((msg) => ({
-        id: msg.id,
-        chatId: msg.chatId,
-        role: msg.role,
-        content: msg.content,
-        status: msg.status,
-        createdAt: msg.createdAt,
-        updatedAt: msg.updatedAt,
-        // Note: attachments are in core format (base64), would need conversion for display
-        // For now, we'll skip attachments as they're handled in Mock mode
-      })),
+      messages: messages.map(mapMessageToStore),
       streamingChatId: null,
     });
   }
 
   async renameChat(chatId: string, title: string): Promise<void> {
-    await this.chatService.renameChat(chatId, title);
+    const chatService = await this.getChatService();
+    await chatService.renameChat(chatId, title);
 
-    // Sync with Zustand store
-    const chats = await this.chatService.getChats();
+    const chats = await chatService.getChats();
     useChatStore.setState({
-      chats: chats.map((chat) => ({
-        id: chat.id,
-        title: chat.title,
-        createdAt: chat.createdAt,
-        updatedAt: chat.updatedAt,
-        lastMessageAt: chat.lastMessageAt,
-      })),
+      chats: chats.map(mapChatToStore),
     });
   }
 
   async deleteChat(chatId: string): Promise<void> {
-    await this.chatService.deleteChat(chatId);
+    const chatService = await this.getChatService();
+    await chatService.deleteChat(chatId);
 
-    // Sync with Zustand store
-    const chats = await this.chatService.getChats();
+    const chats = await chatService.getChats();
     const { activeChatId } = useChatStore.getState();
 
-    useChatStore.setState({
-      chats: chats.map((chat) => ({
-        id: chat.id,
-        title: chat.title,
-        createdAt: chat.createdAt,
-        updatedAt: chat.updatedAt,
-        lastMessageAt: chat.lastMessageAt,
-      })),
-      messages:
-        chatId === activeChatId ? [] : useChatStore.getState().messages,
+    useChatStore.setState((state) => ({
+      chats: chats.map(mapChatToStore),
+      messages: chatId === activeChatId ? [] : state.messages,
       activeChatId:
         chatId === activeChatId ? (chats[0]?.id ?? null) : activeChatId,
-    });
+      streamingChatId: chatId === state.streamingChatId ? null : state.streamingChatId,
+    }));
   }
 
   // ============================================================================
@@ -147,68 +129,47 @@ export class LiveChatAPI implements IChatAPI {
     content: string,
     attachments?: ImageAttachment[]
   ): Promise<void> {
-    // Ensure this chat is active
+    const chatService = await this.getChatService();
+
     const currentActiveChatId = useChatStore.getState().activeChatId;
     if (currentActiveChatId !== chatId) {
       await this.selectChat(chatId);
     }
 
-    // Convert web attachments to core format
     const coreAttachments = attachments
       ? await webAttachmentsToCore(attachments)
       : undefined;
 
-    // Start streaming - clear any previous errors
     useChatStore.setState({ streamingChatId: chatId, lastError: null });
 
     try {
-      const stream = this.chatService.sendMessage(
+      const stream = chatService.sendMessage(
         chatId,
         content,
         coreAttachments
       );
 
       for await (const update of stream) {
-        // Track the message being streamed
         this.activeStreamMessageId = update.messageId;
 
-        // Fetch latest messages from Core and sync to Zustand
-        const messages = await this.chatService.getMessages(chatId);
+        const messages = await chatService.getMessages(chatId);
         useChatStore.setState({
-          messages: messages.map((msg) => ({
-            id: msg.id,
-            chatId: msg.chatId,
-            role: msg.role,
-            content: msg.content,
-            status: msg.status,
-            createdAt: msg.createdAt,
-            updatedAt: msg.updatedAt,
-          })),
+          messages: messages.map(mapMessageToStore),
         });
       }
 
-      // Stream completed successfully
       this.activeStreamMessageId = null;
       useChatStore.setState({ streamingChatId: null });
 
-      // Update chat list (timestamps changed)
-      const chats = await this.chatService.getChats();
+      const chats = await chatService.getChats();
       useChatStore.setState({
-        chats: chats.map((chat) => ({
-          id: chat.id,
-          title: chat.title,
-          createdAt: chat.createdAt,
-          updatedAt: chat.updatedAt,
-          lastMessageAt: chat.lastMessageAt,
-        })),
+        chats: chats.map(mapChatToStore),
       });
     } catch (error) {
-      // Handle provider errors
       this.activeStreamMessageId = null;
       useChatStore.setState({ streamingChatId: null });
 
       if (error instanceof ProviderError) {
-        // Store error in Zustand for UI display
         useChatStore.getState().setError({
           code: error.code,
           message: error.message,
@@ -216,7 +177,6 @@ export class LiveChatAPI implements IChatAPI {
           isRetryable: error.isRetryable,
         });
       } else {
-        // Generic error
         console.error("LiveChatAPI: Error sending message:", error);
         useChatStore.getState().setError({
           code: "unknown_error",
@@ -231,28 +191,21 @@ export class LiveChatAPI implements IChatAPI {
   }
 
   async stopStreaming(chatId: string): Promise<void> {
+    const chatService = await this.getChatService();
     if (this.activeStreamMessageId) {
-      await this.chatService.stopStreaming(this.activeStreamMessageId);
+      await chatService.stopStreaming(this.activeStreamMessageId);
       this.activeStreamMessageId = null;
 
-      // Sync messages
-      const messages = await this.chatService.getMessages(chatId);
+      const messages = await chatService.getMessages(chatId);
       useChatStore.setState({
-        messages: messages.map((msg) => ({
-          id: msg.id,
-          chatId: msg.chatId,
-          role: msg.role,
-          content: msg.content,
-          status: msg.status,
-          createdAt: msg.createdAt,
-          updatedAt: msg.updatedAt,
-        })),
+        messages: messages.map(mapMessageToStore),
         streamingChatId: null,
       });
     }
   }
 
   async regenerateMessage(messageId: string): Promise<void> {
+    const chatService = await this.getChatService();
     const { activeChatId } = useChatStore.getState();
     if (!activeChatId) {
       throw new Error("No active chat");
@@ -261,23 +214,14 @@ export class LiveChatAPI implements IChatAPI {
     useChatStore.setState({ streamingChatId: activeChatId });
 
     try {
-      const stream = this.chatService.regenerateMessage(messageId);
+      const stream = chatService.regenerateMessage(messageId);
 
       for await (const update of stream) {
         this.activeStreamMessageId = update.messageId;
 
-        // Fetch latest messages and sync to Zustand
-        const messages = await this.chatService.getMessages(activeChatId);
+        const messages = await chatService.getMessages(activeChatId);
         useChatStore.setState({
-          messages: messages.map((msg) => ({
-            id: msg.id,
-            chatId: msg.chatId,
-            role: msg.role,
-            content: msg.content,
-            status: msg.status,
-            createdAt: msg.createdAt,
-            updatedAt: msg.updatedAt,
-          })),
+          messages: messages.map(mapMessageToStore),
         });
       }
 
@@ -292,23 +236,15 @@ export class LiveChatAPI implements IChatAPI {
   }
 
   async deleteMessage(messageId: string): Promise<void> {
+    const chatService = await this.getChatService();
     const { activeChatId } = useChatStore.getState();
     if (!activeChatId) return;
 
-    await this.chatService.deleteMessage(messageId);
+    await chatService.deleteMessage(messageId);
 
-    // Sync messages
-    const messages = await this.chatService.getMessages(activeChatId);
+    const messages = await chatService.getMessages(activeChatId);
     useChatStore.setState({
-      messages: messages.map((msg) => ({
-        id: msg.id,
-        chatId: msg.chatId,
-        role: msg.role,
-        content: msg.content,
-        status: msg.status,
-        createdAt: msg.createdAt,
-        updatedAt: msg.updatedAt,
-      })),
+      messages: messages.map(mapMessageToStore),
     });
   }
 
@@ -317,7 +253,6 @@ export class LiveChatAPI implements IChatAPI {
   // ============================================================================
 
   async search(_query: string): Promise<Array<{ chatId: string; messageId: string }>> {
-    // Search is not yet implemented in Core
     console.warn("LiveChatAPI: Search is not yet implemented");
     return [];
   }
@@ -327,41 +262,120 @@ export class LiveChatAPI implements IChatAPI {
   // ============================================================================
 
   async seedDemoChats(): Promise<void> {
-    // Create demo chats using Core
-    const chat1Id = await this.chatService.createChat("Code Examples");
-    const chat2Id = await this.chatService.createChat("Diagrams & Visualizations");
-    const chat3Id = await this.chatService.createChat("Math & Formulas");
+    const chatService = await this.getChatService();
 
-    // Send some demo messages (simplified - no full demo content for now)
-    const stream1 = this.chatService.sendMessage(chat1Id, "Show me some code examples");
+    const chat1Id = await chatService.createChat("Code Examples");
+    const chat2Id = await chatService.createChat("Diagrams & Visualizations");
+    const chat3Id = await chatService.createChat("Math & Formulas");
+
+    const stream1 = chatService.sendMessage(chat1Id, "Show me some code examples");
     for await (const _update of stream1) {
       // Consume stream
     }
 
-    const stream2 = this.chatService.sendMessage(chat2Id, "Can you create diagrams?");
+    const stream2 = chatService.sendMessage(chat2Id, "Can you create diagrams?");
     for await (const _update of stream2) {
       // Consume stream
     }
 
-    const stream3 = this.chatService.sendMessage(chat3Id, "Show me some math notation");
+    const stream3 = chatService.sendMessage(chat3Id, "Show me some math notation");
     for await (const _update of stream3) {
       // Consume stream
     }
 
-    // Sync all chats and messages to Zustand
-    const chats = await this.chatService.getChats();
+    const chats = await chatService.getChats();
     useChatStore.setState({
-      chats: chats.map((chat) => ({
-        id: chat.id,
-        title: chat.title,
-        createdAt: chat.createdAt,
-        updatedAt: chat.updatedAt,
-        lastMessageAt: chat.lastMessageAt,
-      })),
+      chats: chats.map(mapChatToStore),
       activeChatId: chat1Id,
     });
 
-    // Load messages for first chat
     await this.selectChat(chat1Id);
+  }
+
+  // ============================================================================
+  // Internal helpers
+  // ============================================================================
+
+  private async ensureInitialized(): Promise<void> {
+    if (!this.initialization) {
+      this.initialization = this.initialize();
+    }
+    await this.initialization;
+  }
+
+  private async initialize(): Promise<void> {
+    // Dynamically load SqlJsDatabase only in the browser to avoid SSR issues
+    if (typeof window === "undefined") {
+      throw new Error("LiveChatAPI can only be initialized in the browser");
+    }
+
+    const { SqlJsDatabase } = await import("@arc/platform-web/database/SqlJsDatabase");
+    this.db = new SqlJsDatabase();
+    await this.db.init();
+    await runMigrations(this.db);
+
+    const { providerSettings } = useChatStore.getState();
+    const http = new FetchHTTP();
+    this.openAI = new OpenAIAdapter(
+      http,
+      providerSettings.apiKey,
+      providerSettings.baseUrl
+    );
+
+    const chatRepo = new SQLiteChatRepository(this.db);
+    const messageRepo = new SQLiteMessageRepository(this.db);
+
+    this.chatService = new ChatService(
+      chatRepo,
+      messageRepo,
+      this.openAI,
+      providerSettings.model,
+      (fn) => this.db!.transaction(fn)
+    );
+
+    await this.hydrateStoreFromDatabase();
+  }
+
+  private async hydrateStoreFromDatabase(): Promise<void> {
+    if (!this.chatService) {
+      return;
+    }
+
+    const chats = await this.chatService.getChats();
+    const chatSummaries = chats.map(mapChatToStore);
+
+    const state = useChatStore.getState();
+    let activeChatId = state.activeChatId;
+
+    if (activeChatId && !chatSummaries.some((chat) => chat.id === activeChatId)) {
+      activeChatId = null;
+    }
+
+    if (!activeChatId && chatSummaries.length > 0) {
+      activeChatId = chatSummaries[0]!.id;
+    }
+
+    let messagesState = state.messages;
+    if (activeChatId) {
+      const messages = await this.chatService.getMessages(activeChatId);
+      messagesState = messages.map(mapMessageToStore);
+    } else {
+      messagesState = [];
+    }
+
+    useChatStore.setState({
+      chats: chatSummaries,
+      activeChatId,
+      messages: messagesState,
+      streamingChatId: null,
+    });
+  }
+
+  private async getChatService(): Promise<ChatService> {
+    await this.ensureInitialized();
+    if (!this.chatService) {
+      throw new Error("ChatService not initialised");
+    }
+    return this.chatService;
   }
 }

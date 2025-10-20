@@ -3,15 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "next build --turbopack",
+    "dev": "next dev",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "check-types": "tsc --noEmit",
-    "test": "vitest"
+    "test": "vitest",
+    "postinstall": "node ./scripts/copy-sql-wasm.mjs"
   },
   "dependencies": {
     "@arc/core": "workspace:*",
+    "@arc/db": "workspace:*",
     "@arc/platform-web": "workspace:*",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-label": "^2.1.7",
@@ -35,6 +37,7 @@
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
     "shiki": "^3.13.0",
+    "sql.js": "^1.11.0",
     "tailwind-merge": "^3.3.1",
     "yet-another-react-lightbox": "^3.25.0",
     "zustand": "^5.0.8"

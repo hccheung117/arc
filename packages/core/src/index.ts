@@ -11,11 +11,17 @@ export type {
   HTTPRequest,
   HTTPResponse,
 } from "./platform/IPlatformHTTP.js";
+export type {
+  IPlatformDatabase,
+  DatabaseExecResult,
+  DatabaseQueryResult,
+} from "./platform/IPlatformDatabase.js";
 
 // Repository interfaces
 export type { IChatRepository } from "./repositories/IChatRepository.js";
 export type { IMessageRepository } from "./repositories/IMessageRepository.js";
 export type { IProviderConfigRepository } from "./repositories/IProviderConfigRepository.js";
+export type { ISettingsRepository } from "./repositories/ISettingsRepository.js";
 
 // In-memory repository implementations
 export { InMemoryChatRepository } from "./repositories/InMemoryChatRepository.js";

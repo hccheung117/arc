@@ -8,7 +8,7 @@
  * the apiMode setting in AppContext.
  */
 
-import React, { createContext, useContext, useMemo } from "react";
+import React, { createContext, useContext, useEffect, useMemo } from "react";
 import { useApp } from "../app-context";
 import type { IChatAPI } from "./chat-api.interface";
 import { MockChatAPI } from "./mock-chat-api";
@@ -35,6 +35,15 @@ export function ChatAPIProvider({ children }: { children: React.ReactNode }) {
   // Create API instances (memoized to avoid recreating on every render)
   const mockApi = useMemo(() => new MockChatAPI(), []);
   const liveApi = useMemo(() => new LiveChatAPI(), []);
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+    if (apiMode === "live") {
+      void liveApi.ready();
+    }
+  }, [apiMode, isHydrated, liveApi]);
 
   // Select the active API based on apiMode
   const api = apiMode === "live" ? liveApi : mockApi;

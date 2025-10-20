@@ -111,3 +111,68 @@ We follow the testing pyramid:
 - **Test Runner:** Vitest
 - **UI Testing:** React Testing Library
 - **E2E Testing:** Playwright
+
+## 6. Development Gotchas
+
+### 6.1. Handling `sql.js` in Next.js (SSR)
+
+**Problem:** The `sql.js` package includes Node.js-specific APIs (e.g., `require('fs')`) that cause build failures when Next.js attempts to bundle it for Server-Side Rendering (SSR), even if it's part of a dynamically imported module. The bundler's static analysis will detect the `require` and fail the build.
+
+**Solution:** A multi-layered approach is required to prevent `sql.js` from ever being included in the server-side bundle:
+
+1.  **Isolate the Import:** The module that directly interacts with `sql.js` (e.g., `@arc/platform-web/src/database/SqlJsDatabase.ts`) must import it dynamically *inside a method*, not at the top level of the file.
+
+    ```typescript
+    // Inside SqlJsDatabase.ts
+    import type { SqlJsStatic } from "sql.js"; // Type-only imports are safe
+
+    class SqlJsDatabase {
+      private sql: SqlJsStatic | null = null;
+
+      async init() {
+        if (typeof window === "undefined") {
+          throw new Error("Browser only");
+        }
+        // Dynamically import the library *inside* the method
+        const initSqlJs = (await import("sql.js")).default;
+        this.sql = await initSqlJs(/* ... */);
+      }
+    }
+    ```
+
+2.  **Isolate the Module:** The module that contains the dynamic import (`SqlJsDatabase.ts`) must **not** be exported from any barrel file (e.g., `packages/platform-web/src/index.ts`) that is statically consumed by other parts of the application.
+
+3.  **Dynamic Import in Consumer:** The UI-layer code that uses the database module (`apps/web/lib/api/live-chat-api.ts`) must *also* dynamically import it.
+
+    ```typescript
+    // Inside live-chat-api.ts
+    class LiveChatAPI {
+      private db: IPlatformDatabase | null = null;
+
+      async initialize() {
+        const { SqlJsDatabase } = await import("@arc/platform-web/database/SqlJsDatabase");
+        this.db = new SqlJsDatabase();
+        await this.db.init();
+      }
+    }
+    ```
+
+4.  **Webpack Fallback (Safety Net):** As a final measure, configure webpack in `next.config.js` to provide empty fallbacks for Node.js modules. This prevents errors if a dependency inadvertently pulls them in on the client side. **Note:** This configuration only works with webpack, not Turbopack.
+
+    ```javascript
+    // next.config.js
+    const nextConfig = {
+      // ...
+      webpack: (config, { isServer }) => {
+        if (!isServer) {
+          config.resolve.fallback = {
+            fs: false,
+            path: false,
+          };
+        }
+        return config;
+      },
+    };
+    ```
+
+By following all these steps, you ensure that `sql.js` is completely excluded from the server build and only loaded on-demand in the browser.

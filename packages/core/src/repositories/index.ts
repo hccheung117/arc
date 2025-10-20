@@ -2,6 +2,7 @@
 export type { IChatRepository } from "./IChatRepository.js";
 export type { IMessageRepository } from "./IMessageRepository.js";
 export type { IProviderConfigRepository } from "./IProviderConfigRepository.js";
+export type { ISettingsRepository } from "./ISettingsRepository.js";
 
 // In-memory implementations
 export { InMemoryChatRepository } from "./InMemoryChatRepository.js";

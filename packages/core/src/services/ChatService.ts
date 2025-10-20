@@ -36,17 +36,20 @@ export class ChatService {
   private openAI: OpenAIAdapter;
   private model: string;
   private activeStreams = new Map<string, AbortController>();
+  private runInTransaction: <T>(fn: () => Promise<T>) => Promise<T>;
 
   constructor(
     chatRepo: IChatRepository,
     messageRepo: IMessageRepository,
     openAI: OpenAIAdapter,
-    model: string = "gpt-4-turbo-preview"
+    model: string = "gpt-4-turbo-preview",
+    runInTransaction?: <T>(fn: () => Promise<T>) => Promise<T>
   ) {
     this.chatRepo = chatRepo;
     this.messageRepo = messageRepo;
     this.openAI = openAI;
     this.model = model;
+    this.runInTransaction = runInTransaction ?? ((fn) => fn());
   }
 
   // ============================================================================
@@ -67,7 +70,9 @@ export class ChatService {
       lastMessageAt: now,
     };
 
-    await this.chatRepo.create(chat);
+    await this.runInTransaction(async () => {
+      await this.chatRepo.create(chat);
+    });
     return chat.id;
   }
 
@@ -75,14 +80,16 @@ export class ChatService {
    * Rename an existing chat
    */
   async renameChat(chatId: string, title: string): Promise<void> {
-    const chat = await this.chatRepo.findById(chatId);
-    if (!chat) {
-      throw new Error(`Chat ${chatId} not found`);
-    }
+    await this.runInTransaction(async () => {
+      const chat = await this.chatRepo.findById(chatId);
+      if (!chat) {
+        throw new Error(`Chat ${chatId} not found`);
+      }
 
-    chat.title = title;
-    chat.updatedAt = Date.now();
-    await this.chatRepo.update(chat);
+      chat.title = title;
+      chat.updatedAt = Date.now();
+      await this.chatRepo.update(chat);
+    });
   }
 
   /**
@@ -100,10 +107,11 @@ export class ChatService {
     }
 
     // Delete all messages in the chat
-    await this.messageRepo.deleteByChatId(chatId);
-
-    // Delete the chat itself
-    await this.chatRepo.delete(chatId);
+    await this.runInTransaction(async () => {
+      await this.messageRepo.deleteByChatId(chatId);
+      // Delete the chat itself
+      await this.chatRepo.delete(chatId);
+    });
   }
 
   /**
@@ -141,42 +149,53 @@ export class ChatService {
     content: string,
     attachments?: ImageAttachment[]
   ): AsyncGenerator<MessageUpdate, SendMessageResult, void> {
-    const chat = await this.chatRepo.findById(chatId);
+    const now = Date.now();
+    let chat: Chat | null = null;
+    let userMessage!: Message;
+    let assistantMessage!: Message;
+
+    await this.runInTransaction(async () => {
+      const existingChat = await this.chatRepo.findById(chatId);
+      if (!existingChat) {
+        throw new Error(`Chat ${chatId} not found`);
+      }
+
+      chat = existingChat;
+
+      // 1. Create and persist user message
+      userMessage = {
+        id: generateId(),
+        chatId,
+        role: "user",
+        content,
+        ...(attachments && attachments.length > 0 ? { attachments } : {}),
+        status: "complete",
+        createdAt: now,
+        updatedAt: now,
+      };
+      await this.messageRepo.create(userMessage);
+
+      // 2. Create pending assistant message
+      assistantMessage = {
+        id: generateId(),
+        chatId,
+        role: "assistant",
+        content: "",
+        status: "pending",
+        createdAt: now,
+        updatedAt: now,
+      };
+      await this.messageRepo.create(assistantMessage);
+
+      // 3. Update chat timestamps
+      chat.lastMessageAt = now;
+      chat.updatedAt = now;
+      await this.chatRepo.update(chat);
+    });
+
     if (!chat) {
       throw new Error(`Chat ${chatId} not found`);
     }
-
-    const now = Date.now();
-
-    // 1. Create and persist user message
-    const userMessage: Message = {
-      id: generateId(),
-      chatId,
-      role: "user",
-      content,
-      ...(attachments && attachments.length > 0 ? { attachments } : {}),
-      status: "complete",
-      createdAt: now,
-      updatedAt: now,
-    };
-    await this.messageRepo.create(userMessage);
-
-    // 2. Create pending assistant message
-    const assistantMessage: Message = {
-      id: generateId(),
-      chatId,
-      role: "assistant",
-      content: "",
-      status: "pending",
-      createdAt: now,
-      updatedAt: now,
-    };
-    await this.messageRepo.create(assistantMessage);
-
-    // 3. Update chat timestamps
-    chat.lastMessageAt = now;
-    chat.updatedAt = now;
-    await this.chatRepo.update(chat);
 
     // 4. Build conversation history (all previous messages + current)
     const allMessages = await this.messageRepo.findByChatId(chatId);
@@ -331,7 +350,9 @@ export class ChatService {
     }
 
     // Delete the current assistant message
-    await this.messageRepo.delete(messageId);
+    await this.runInTransaction(async () => {
+      await this.messageRepo.delete(messageId);
+    });
 
     // Send a new message with the user's content
     return yield* this.sendMessage(
@@ -350,7 +371,9 @@ export class ChatService {
       await this.stopStreaming(messageId);
     }
 
-    await this.messageRepo.delete(messageId);
+    await this.runInTransaction(async () => {
+      await this.messageRepo.delete(messageId);
+    });
   }
 
 }

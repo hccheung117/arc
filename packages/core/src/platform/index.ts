@@ -3,3 +3,8 @@ export type {
   HTTPRequest,
   HTTPResponse,
 } from "./IPlatformHTTP.js";
+export type {
+  IPlatformDatabase,
+  DatabaseExecResult,
+  DatabaseQueryResult,
+} from "./IPlatformDatabase.js";
