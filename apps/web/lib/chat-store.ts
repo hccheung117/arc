@@ -1,5 +1,12 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import type { Chat, Message, ImageAttachment } from "./types";
+
+interface ProviderSettings {
+  apiKey: string;
+  baseUrl: string;
+  model: string;
+}
 
 interface ChatState {
   // State
@@ -8,6 +15,9 @@ interface ChatState {
   activeChatId: string | null;
   streamingChatId: string | null;
   streamIntervalId: NodeJS.Timeout | null;
+
+  // Provider settings
+  providerSettings: ProviderSettings;
 
   // Actions
   createChat: (title?: string) => string;
@@ -19,6 +29,9 @@ interface ChatState {
   regenerateMessage: (messageId: string) => void;
   deleteMessage: (id: string) => void;
   seedDemoChats: () => void;
+
+  // Provider settings actions
+  updateProviderSettings: (settings: Partial<ProviderSettings>) => void;
 
   // Computed
   getActiveChat: () => Chat | null;
@@ -42,13 +55,22 @@ const generateEchoResponse = (userMessage: string): string => {
   return intro + body;
 };
 
-export const useChatStore = create<ChatState>((set, get) => ({
-  // Initial state
-  chats: [],
-  messages: [],
-  activeChatId: null,
-  streamingChatId: null,
-  streamIntervalId: null,
+export const useChatStore = create<ChatState>()(
+  persist(
+    (set, get) => ({
+      // Initial state
+      chats: [],
+      messages: [],
+      activeChatId: null,
+      streamingChatId: null,
+      streamIntervalId: null,
+
+      // Provider settings with defaults
+      providerSettings: {
+        apiKey: "",
+        baseUrl: "https://api.openai.com/v1",
+        model: "gpt-4-turbo-preview",
+      },
 
   // Create a new chat
   createChat: (title?: string) => {
@@ -575,4 +597,20 @@ All of this is rendered in real-time with full theme support!`,
       activeChatId: chat1Id, // Select the first demo chat
     });
   },
-}));
+
+  // Update provider settings
+  updateProviderSettings: (settings: Partial<ProviderSettings>) => {
+    set((state) => ({
+      providerSettings: { ...state.providerSettings, ...settings },
+    }));
+  },
+}),
+    {
+      name: "arc-chat-storage",
+      partialize: (state) => ({
+        providerSettings: state.providerSettings,
+        // Don't persist runtime state like streamIntervalId
+      }),
+    }
+  )
+);

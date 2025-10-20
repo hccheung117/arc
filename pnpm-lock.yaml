@@ -78,6 +78,9 @@ importers:
       '@arc/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@arc/platform-web':
+        specifier: workspace:*
+        version: link:../../packages/platform-web
       '@radix-ui/react-dialog':
         specifier: ^1.1.15
         version: 1.1.15(@types/react-dom@19.1.1(@types/react@19.1.0))(@types/react@19.1.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -196,6 +199,19 @@ importers:
       vitest:
         specifier: ^3.2.4
         version: 3.2.4(@types/debug@4.1.12)(@types/node@20.19.22)(@vitest/ui@3.2.4)(happy-dom@20.0.5)(jiti@2.6.1)(jsdom@27.0.1(postcss@8.5.6))(lightningcss@1.30.1)
+
+  packages/platform-web:
+    dependencies:
+      '@arc/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: ^20
+        version: 20.19.22
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.2
 
 packages:
 

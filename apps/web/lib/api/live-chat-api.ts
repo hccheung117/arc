@@ -1,12 +1,9 @@
 /**
- * LiveChatAPI - Core-backed implementation
+ * LiveChatAPI - Core-backed implementation with real OpenAI integration
  *
- * This implementation uses the headless @arc/core package with in-memory
- * repositories. It serves as the "live" mode for development and testing,
- * demonstrating how the Core integrates with the UI layer.
- *
- * In future sprints, this will be replaced with HTTP-based communication
- * to a real backend server, but the Core will remain the foundation.
+ * This implementation uses the headless @arc/core package with OpenAI adapter
+ * for real API calls. It integrates the platform layer (FetchHTTP) with the
+ * Core's business logic.
  */
 
 import type { IChatAPI } from "./chat-api.interface";
@@ -15,19 +12,41 @@ import {
   ChatService,
   InMemoryChatRepository,
   InMemoryMessageRepository,
+  OpenAIAdapter,
+  ProviderError,
 } from "@arc/core";
+import { FetchHTTP } from "@arc/platform-web";
 import { useChatStore } from "../chat-store";
 import { webAttachmentsToCore } from "../utils/attachment-converter";
 
 export class LiveChatAPI implements IChatAPI {
   private chatService: ChatService;
+  private openAI: OpenAIAdapter;
   private activeStreamMessageId: string | null = null;
 
   constructor() {
-    // Initialize Core with in-memory repositories
+    // Get provider settings from store
+    const { providerSettings } = useChatStore.getState();
+
+    // Initialize platform HTTP layer
+    const http = new FetchHTTP();
+
+    // Initialize OpenAI adapter
+    this.openAI = new OpenAIAdapter(
+      http,
+      providerSettings.apiKey,
+      providerSettings.baseUrl
+    );
+
+    // Initialize Core with in-memory repositories and OpenAI adapter
     const chatRepo = new InMemoryChatRepository();
     const messageRepo = new InMemoryMessageRepository();
-    this.chatService = new ChatService(chatRepo, messageRepo);
+    this.chatService = new ChatService(
+      chatRepo,
+      messageRepo,
+      this.openAI,
+      providerSettings.model
+    );
   }
 
   // ============================================================================

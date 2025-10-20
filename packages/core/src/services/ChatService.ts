@@ -3,6 +3,8 @@ import type { Message, MessageStatus } from "../domain/Message.js";
 import type { ImageAttachment } from "../domain/ImageAttachment.js";
 import type { IChatRepository } from "../repositories/IChatRepository.js";
 import type { IMessageRepository } from "../repositories/IMessageRepository.js";
+import type { OpenAIAdapter } from "../providers/openai/OpenAIAdapter.js";
+import { ProviderError, ProviderErrorCode } from "../domain/ProviderError.js";
 import { generateId } from "../utils/id.js";
 
 /**
@@ -31,11 +33,20 @@ export interface SendMessageResult {
 export class ChatService {
   private chatRepo: IChatRepository;
   private messageRepo: IMessageRepository;
+  private openAI: OpenAIAdapter;
+  private model: string;
   private activeStreams = new Map<string, AbortController>();
 
-  constructor(chatRepo: IChatRepository, messageRepo: IMessageRepository) {
+  constructor(
+    chatRepo: IChatRepository,
+    messageRepo: IMessageRepository,
+    openAI: OpenAIAdapter,
+    model: string = "gpt-4-turbo-preview"
+  ) {
     this.chatRepo = chatRepo;
     this.messageRepo = messageRepo;
+    this.openAI = openAI;
+    this.model = model;
   }
 
   // ============================================================================
@@ -167,17 +178,31 @@ export class ChatService {
     chat.updatedAt = now;
     await this.chatRepo.update(chat);
 
-    // 4. Generate fake streaming response
-    const fullResponse = this.generateEchoResponse(content);
+    // 4. Build conversation history (all previous messages + current)
+    const allMessages = await this.messageRepo.findByChatId(chatId);
+    const conversationHistory = allMessages
+      .filter((msg) => msg.role !== "assistant" || msg.status === "complete")
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      }));
+
+    // 5. Stream response from OpenAI
     const abortController = new AbortController();
     this.activeStreams.set(assistantMessage.id, abortController);
 
     try {
-      // Stream the response character by character
-      for (let i = 1; i <= fullResponse.length; i++) {
+      const stream = this.openAI.streamChatCompletion(
+        conversationHistory,
+        this.model,
+        attachments,
+        abortController.signal
+      );
+
+      for await (const chunk of stream) {
         // Check if streaming was aborted
         if (abortController.signal.aborted) {
-          // Mark message as stopped
           assistantMessage.status = "stopped";
           assistantMessage.updatedAt = Date.now();
           await this.messageRepo.update(assistantMessage);
@@ -194,23 +219,20 @@ export class ChatService {
           };
         }
 
-        const currentContent = fullResponse.slice(0, i);
-        assistantMessage.content = currentContent;
+        // Accumulate content
+        assistantMessage.content += chunk;
         assistantMessage.status = "streaming";
         assistantMessage.updatedAt = Date.now();
         await this.messageRepo.update(assistantMessage);
 
         yield {
           messageId: assistantMessage.id,
-          content: currentContent,
+          content: assistantMessage.content,
           status: "streaming",
         };
-
-        // Simulate streaming delay (~20 chars/second)
-        await new Promise((resolve) => setTimeout(resolve, 50));
       }
 
-      // 5. Mark as complete
+      // 6. Mark as complete
       assistantMessage.status = "complete";
       assistantMessage.updatedAt = Date.now();
       await this.messageRepo.update(assistantMessage);
@@ -225,6 +247,37 @@ export class ChatService {
         userMessageId: userMessage.id,
         assistantMessageId: assistantMessage.id,
       };
+    } catch (error) {
+      // Handle provider errors
+      if (error instanceof ProviderError) {
+        assistantMessage.status = "error";
+        assistantMessage.content = error.getUserMessage();
+        assistantMessage.updatedAt = Date.now();
+        await this.messageRepo.update(assistantMessage);
+
+        yield {
+          messageId: assistantMessage.id,
+          content: assistantMessage.content,
+          status: "error",
+        };
+
+        // Re-throw to let caller handle if needed
+        throw error;
+      }
+
+      // Handle unexpected errors
+      assistantMessage.status = "error";
+      assistantMessage.content = "An unexpected error occurred. Please try again.";
+      assistantMessage.updatedAt = Date.now();
+      await this.messageRepo.update(assistantMessage);
+
+      yield {
+        messageId: assistantMessage.id,
+        content: assistantMessage.content,
+        status: "error",
+      };
+
+      throw error;
     } finally {
       // Cleanup
       this.activeStreams.delete(assistantMessage.id);
@@ -300,24 +353,4 @@ export class ChatService {
     await this.messageRepo.delete(messageId);
   }
 
-  // ============================================================================
-  // Private Helpers
-  // ============================================================================
-
-  /**
-   * Generate a fake echo-based response (for development/testing)
-   */
-  private generateEchoResponse(userMessage: string): string {
-    const responses = [
-      `You said: "${userMessage}". That's an interesting point! Let me expand on that. `,
-      `I understand you mentioned: "${userMessage}". Here's my perspective on this topic. `,
-      `Thanks for sharing "${userMessage}". Based on your input, I'd like to add that `,
-    ];
-
-    const intro = responses[Math.floor(Math.random() * responses.length)];
-    const body =
-      "This is a simulated streaming response to demonstrate the chat functionality. In a real implementation, this would be replaced with actual AI responses from your configured provider. The streaming effect helps create a natural conversation flow.";
-
-    return intro + body;
-  }
 }
