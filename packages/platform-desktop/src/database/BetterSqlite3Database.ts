@@ -1,9 +1,6 @@
 import Database from "better-sqlite3";
-import type {
-  DatabaseExecResult,
-  DatabaseQueryResult,
-  IPlatformDatabase,
-} from "@arc/core";
+import type { IPlatformDatabase } from "@arc/core/platform/IPlatformDatabase.js";
+import type { DatabaseExecResult, DatabaseQueryResult } from "@arc/core/platform/IPlatformDatabase.js";
 
 export interface BetterSqlite3DatabaseOptions {
   /**

@@ -1,8 +1,5 @@
-import type {
-  IPlatformHTTP,
-  HTTPRequest,
-  HTTPResponse,
-} from "@arc/core";
+import type { IPlatformHTTP } from "@arc/core/platform/IPlatformHTTP.js";
+import type { HTTPRequest, HTTPResponse } from "@arc/core/platform/IPlatformHTTP.js";
 
 /**
  * Retry configuration for network requests

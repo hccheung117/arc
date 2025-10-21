@@ -7,7 +7,7 @@
  */
 
 import type { ImageAttachment } from "../types";
-import type { SearchResult } from "@arc/core";
+import type { SearchResult } from "@arc/core/services/ChatService.js";
 
 export interface IChatAPI {
   /**

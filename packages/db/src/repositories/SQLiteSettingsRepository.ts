@@ -1,7 +1,5 @@
-import type {
-  IPlatformDatabase,
-  ISettingsRepository,
-} from "@arc/core";
+import type { IPlatformDatabase } from "@arc/core/platform/IPlatformDatabase.js";
+import type { ISettingsRepository } from "@arc/core/repositories/ISettingsRepository.js";
 
 type SettingsRow = {
   key: string;

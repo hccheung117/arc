@@ -8,21 +8,16 @@
 
 import type { IChatAPI } from "./chat-api.interface";
 import type { ImageAttachment } from "../types";
-import {
-  ChatService,
-  OpenAIAdapter,
-  ProviderError,
-  type Chat as CoreChat,
-  type Message as CoreMessage,
-  type IPlatformDatabase,
-  type SearchResult,
-} from "@arc/core";
-import {
-  runMigrations,
-  SQLiteChatRepository,
-  SQLiteMessageRepository,
-} from "@arc/db";
-import { FetchHTTP } from "@arc/platform-web";
+import { ChatService, type SearchResult } from "@arc/core/services/ChatService.js";
+import { OpenAIAdapter } from "@arc/core/providers/openai/OpenAIAdapter.js";
+import { ProviderError } from "@arc/core/domain/ProviderError.js";
+import type { Chat as CoreChat } from "@arc/core/domain/Chat.js";
+import type { Message as CoreMessage } from "@arc/core/domain/Message.js";
+import type { IPlatformDatabase } from "@arc/core/platform/IPlatformDatabase.js";
+import { runMigrations } from "@arc/db/migrations/runner.js";
+import { SQLiteChatRepository } from "@arc/db/repositories/SQLiteChatRepository.js";
+import { SQLiteMessageRepository } from "@arc/db/repositories/SQLiteMessageRepository.js";
+import { FetchHTTP } from "@arc/platform-web/http/FetchHTTP.js";
 import { useChatStore } from "../chat-store";
 import { webAttachmentsToCore } from "../utils/attachment-converter";
 
@@ -275,7 +270,7 @@ export class LiveChatAPI implements IChatAPI {
       throw new Error("LiveChatAPI can only be initialized in the browser");
     }
 
-    const { SqlJsDatabase } = await import("@arc/platform-web/database/SqlJsDatabase");
+    const { SqlJsDatabase } = await import("@arc/platform-web/database/SqlJsDatabase.js");
     this.db = new SqlJsDatabase();
     await this.db.init();
     await runMigrations(this.db);

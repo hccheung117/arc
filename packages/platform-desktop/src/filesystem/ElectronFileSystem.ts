@@ -1,4 +1,5 @@
-import type { IPlatformFileSystem, PickedFile } from "@arc/core";
+import type { IPlatformFileSystem } from "@arc/core/platform/IPlatformFileSystem.js";
+import type { PickedFile } from "@arc/core/platform/IPlatformFileSystem.js";
 
 /**
  * Type definition for Electron APIs exposed via preload script

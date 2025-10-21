@@ -1,8 +1,6 @@
-import type {
-  IPlatformDatabase,
-  IProviderConfigRepository,
-  ProviderConfig,
-} from "@arc/core";
+import type { IPlatformDatabase } from "@arc/core/platform/IPlatformDatabase.js";
+import type { IProviderConfigRepository } from "@arc/core/repositories/IProviderConfigRepository.js";
+import type { ProviderConfig } from "@arc/core/domain/ProviderConfig.js";
 
 type ProviderConfigRow = {
   id: string;

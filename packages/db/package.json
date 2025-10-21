@@ -7,9 +7,15 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+    "./migrations/*.js": {
+      "types": "./dist/migrations/*.d.ts",
+      "import": "./dist/migrations/*.js",
+      "default": "./dist/migrations/*.js"
+    },
+    "./repositories/*.js": {
+      "types": "./dist/repositories/*.d.ts",
+      "import": "./dist/repositories/*.js",
+      "default": "./dist/repositories/*.js"
     }
   },
   "scripts": {

@@ -7,13 +7,15 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+    "./http/*.js": {
+      "types": "./dist/http/*.d.ts",
+      "import": "./dist/http/*.js",
+      "default": "./dist/http/*.js"
     },
-    "./database/SqlJsDatabase": {
-      "types": "./dist/database/SqlJsDatabase.d.ts",
-      "import": "./dist/database/SqlJsDatabase.js"
+    "./database/*.js": {
+      "types": "./dist/database/*.d.ts",
+      "import": "./dist/database/*.js",
+      "default": "./dist/database/*.js"
     }
   },
   "scripts": {

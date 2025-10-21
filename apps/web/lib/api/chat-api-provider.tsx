@@ -11,7 +11,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useApp } from "../app-context";
 import type { IChatAPI } from "./chat-api.interface";
-import { getChatAPIInstance } from "./index";
+import { getChatAPIInstance } from "./chat-api-factory";
 
 // ============================================================================
 // Context Definition

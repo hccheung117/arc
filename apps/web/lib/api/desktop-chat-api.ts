@@ -7,23 +7,18 @@
 
 import type { IChatAPI } from "./chat-api.interface";
 import type { ImageAttachment } from "../types";
-import {
-  ChatService,
-  OpenAIAdapter,
-  ProviderError,
-  type Chat as CoreChat,
-  type Message as CoreMessage,
-  type IPlatformDatabase,
-  type IPlatformFileSystem,
-  type SearchResult,
-} from "@arc/core";
-import {
-  runMigrations,
-  SQLiteChatRepository,
-  SQLiteMessageRepository,
-} from "@arc/db";
+import { ChatService, type SearchResult } from "@arc/core/services/ChatService.js";
+import { OpenAIAdapter } from "@arc/core/providers/openai/OpenAIAdapter.js";
+import { ProviderError } from "@arc/core/domain/ProviderError.js";
+import type { Chat as CoreChat } from "@arc/core/domain/Chat.js";
+import type { Message as CoreMessage } from "@arc/core/domain/Message.js";
+import type { IPlatformDatabase } from "@arc/core/platform/IPlatformDatabase.js";
+import type { IPlatformFileSystem } from "@arc/core/platform/IPlatformFileSystem.js";
+import { runMigrations } from "@arc/db/migrations/runner.js";
+import { SQLiteChatRepository } from "@arc/db/repositories/SQLiteChatRepository.js";
+import { SQLiteMessageRepository } from "@arc/db/repositories/SQLiteMessageRepository.js";
 import { useChatStore } from "../chat-store";
-import { generateId } from "@arc/core";
+import { generateId } from "@arc/core/utils/id.js";
 
 function mapChatToStore(chat: CoreChat) {
   return {
@@ -321,9 +316,12 @@ export class DesktopChatAPI implements IChatAPI {
     }
 
     // Dynamic imports (only available in Electron)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const platformDesktop: any = await import("@arc/platform-desktop" as any);
-    const { BetterSqlite3Database, NodeFetchHTTP, ElectronFileSystem } = platformDesktop;
+    // @ts-expect-error - Platform-desktop is only available in Electron context
+    const { BetterSqlite3Database } = await import("@arc/platform-desktop/database/BetterSqlite3Database.js");
+    // @ts-expect-error - Platform-desktop is only available in Electron context
+    const { NodeFetchHTTP } = await import("@arc/platform-desktop/http/NodeFetchHTTP.js");
+    // @ts-expect-error - Platform-desktop is only available in Electron context
+    const { ElectronFileSystem } = await import("@arc/platform-desktop/filesystem/ElectronFileSystem.js");
 
     // Get user data path from Electron
     const userDataPath = await this.getUserDataPath();

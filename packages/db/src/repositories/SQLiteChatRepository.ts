@@ -1,4 +1,6 @@
-import type { Chat, IChatRepository, IPlatformDatabase } from "@arc/core";
+import type { Chat } from "@arc/core/domain/Chat.js";
+import type { IChatRepository } from "@arc/core/repositories/IChatRepository.js";
+import type { IPlatformDatabase } from "@arc/core/platform/IPlatformDatabase.js";
 
 type ChatRow = {
   id: string;

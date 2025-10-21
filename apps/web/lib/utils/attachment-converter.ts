@@ -6,7 +6,7 @@
  */
 
 import type { ImageAttachment as WebImageAttachment } from "../types";
-import type { ImageAttachment as CoreImageAttachment } from "@arc/core";
+import type { ImageAttachment as CoreImageAttachment } from "@arc/core/domain/ImageAttachment.js";
 
 /**
  * Convert a File object to a base64 data URL

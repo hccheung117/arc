@@ -7,9 +7,35 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+    "./domain/*.js": {
+      "types": "./dist/domain/*.d.ts",
+      "import": "./dist/domain/*.js",
+      "default": "./dist/domain/*.js"
+    },
+    "./platform/*.js": {
+      "types": "./dist/platform/*.d.ts",
+      "import": "./dist/platform/*.js",
+      "default": "./dist/platform/*.js"
+    },
+    "./repositories/*.js": {
+      "types": "./dist/repositories/*.d.ts",
+      "import": "./dist/repositories/*.js",
+      "default": "./dist/repositories/*.js"
+    },
+    "./services/*.js": {
+      "types": "./dist/services/*.d.ts",
+      "import": "./dist/services/*.js",
+      "default": "./dist/services/*.js"
+    },
+    "./providers/openai/*.js": {
+      "types": "./dist/providers/openai/*.d.ts",
+      "import": "./dist/providers/openai/*.js",
+      "default": "./dist/providers/openai/*.js"
+    },
+    "./utils/*.js": {
+      "types": "./dist/utils/*.d.ts",
+      "import": "./dist/utils/*.js",
+      "default": "./dist/utils/*.js"
     }
   },
   "scripts": {

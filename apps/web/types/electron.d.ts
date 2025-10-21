@@ -42,8 +42,8 @@ interface ElectronUpdatesAPI {
 
 interface ElectronAPI {
   platform: string;
-  on: (channel: string, callback: (...args: any[]) => void) => void;
-  off: (channel: string, callback: (...args: any[]) => void) => void;
+  on: (channel: string, callback: (...args: unknown[]) => void) => void;
+  off: (channel: string, callback: (...args: unknown[]) => void) => void;
   fileSystem: ElectronFileSystemAPI;
   app: ElectronAppAPI;
   updates: ElectronUpdatesAPI;

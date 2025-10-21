@@ -1,4 +1,4 @@
-import type { IPlatformDatabase } from "@arc/core";
+import type { IPlatformDatabase } from "@arc/core/platform/IPlatformDatabase.js";
 
 import type { Migration } from "./migrations.js";
 import { migrations } from "./migrations.js";

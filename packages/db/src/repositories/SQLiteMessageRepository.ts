@@ -1,9 +1,7 @@
-import type {
-  ImageAttachment,
-  IMessageRepository,
-  IPlatformDatabase,
-  Message,
-} from "@arc/core";
+import type { ImageAttachment } from "@arc/core/domain/ImageAttachment.js";
+import type { IMessageRepository } from "@arc/core/repositories/IMessageRepository.js";
+import type { IPlatformDatabase } from "@arc/core/platform/IPlatformDatabase.js";
+import type { Message } from "@arc/core/domain/Message.js";
 
 type MessageRow = {
   id: string;

@@ -1,9 +1,6 @@
 import type { Database, SqlJsStatic, SqlValue } from "sql.js";
-import type {
-  DatabaseExecResult,
-  DatabaseQueryResult,
-  IPlatformDatabase,
-} from "@arc/core";
+import type { IPlatformDatabase } from "@arc/core/platform/IPlatformDatabase.js";
+import type { DatabaseExecResult, DatabaseQueryResult } from "@arc/core/platform/IPlatformDatabase.js";
 
 import { IndexedDbStorage } from "./idb-storage.js";
 
