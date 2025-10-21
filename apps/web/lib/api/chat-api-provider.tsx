@@ -3,17 +3,15 @@
 /**
  * ChatAPIProvider - React context for dependency injection of IChatAPI
  *
- * This provider supplies the active IChatAPI implementation (Mock or Live/Desktop)
- * to all components in the application. The implementation is determined by
- * the apiMode setting in AppContext and automatically adapts to the platform
- * (web or Electron desktop).
+ * This provider supplies the platform-appropriate ChatAPI implementation
+ * (LiveChatAPI for web, DesktopChatAPI for Electron) to all components
+ * in the application.
  */
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import { useApp } from "../app-context";
 import type { IChatAPI } from "./chat-api.interface";
-import { MockChatAPI } from "./mock-chat-api";
-import { getChatAPIInstance, isElectron } from "./index";
+import { getChatAPIInstance } from "./index";
 
 // ============================================================================
 // Context Definition
@@ -21,7 +19,6 @@ import { getChatAPIInstance, isElectron } from "./index";
 
 interface ChatAPIContextValue {
   api: IChatAPI;
-  mode: "mock" | "live";
 }
 
 const ChatAPIContext = createContext<ChatAPIContextValue | undefined>(undefined);
@@ -31,27 +28,24 @@ const ChatAPIContext = createContext<ChatAPIContextValue | undefined>(undefined)
 // ============================================================================
 
 export function ChatAPIProvider({ children }: { children: React.ReactNode }) {
-  const { apiMode, isHydrated } = useApp();
-  const [liveApi, setLiveApi] = useState<IChatAPI | null>(null);
+  const { isHydrated } = useApp();
+  const [api, setApi] = useState<IChatAPI | null>(null);
 
-  // Create mock API instance (memoized to avoid recreating on every render)
-  const mockApi = useMemo(() => new MockChatAPI(), []);
-
-  // Load platform-appropriate live API implementation
+  // Load platform-appropriate API implementation
   useEffect(() => {
-    if (!isHydrated || apiMode !== "live") {
+    if (!isHydrated) {
       return;
     }
 
     let mounted = true;
 
-    const initLiveApi = async () => {
+    const initApi = async () => {
       try {
-        const api = await getChatAPIInstance();
+        const apiInstance = await getChatAPIInstance();
         if (mounted) {
-          setLiveApi(api);
-          if (api.ready) {
-            await api.ready();
+          setApi(apiInstance);
+          if (apiInstance.ready) {
+            await apiInstance.ready();
           }
         }
       } catch (error) {
@@ -59,24 +53,20 @@ export function ChatAPIProvider({ children }: { children: React.ReactNode }) {
       }
     };
 
-    void initLiveApi();
+    void initApi();
 
     return () => {
       mounted = false;
     };
-  }, [apiMode, isHydrated]);
+  }, [isHydrated]);
 
-  // Select the active API based on apiMode
-  const api = apiMode === "live" ? liveApi : mockApi;
-
-  // Don't render if we're in live mode but the API isn't ready yet
-  if (!isHydrated || (apiMode === "live" && !liveApi)) {
+  // Don't render until API is ready
+  if (!isHydrated || !api) {
     return null;
   }
 
   const value: ChatAPIContextValue = {
-    api: api!,
-    mode: apiMode || "mock",
+    api,
   };
 
   return (
@@ -92,7 +82,7 @@ export function ChatAPIProvider({ children }: { children: React.ReactNode }) {
 
 /**
  * Hook to access the ChatAPI from any component
- * @returns The active IChatAPI implementation and current mode
+ * @returns The active IChatAPI implementation
  * @throws Error if used outside of ChatAPIProvider
  */
 export function useChatAPI(): ChatAPIContextValue {

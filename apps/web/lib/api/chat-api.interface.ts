@@ -92,8 +92,3 @@ export interface IChatAPI {
    */
   search(query: string, chatId?: string): Promise<SearchResult[]>;
 }
-
-/**
- * API Mode - specifies which implementation to use
- */
-export type ApiMode = "mock" | "live";

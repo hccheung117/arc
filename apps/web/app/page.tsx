@@ -19,7 +19,6 @@ import { useChatStore } from "@/lib/chat-store";
 import { ChatListItem } from "@/components/chat-list-item";
 import { Message } from "@/components/message";
 import { ImageAttachmentChip } from "@/components/image-attachment-chip";
-import { DevPanel } from "@/components/dev-panel";
 import { SettingsDialog } from "@/components/settings-dialog";
 import { ErrorBanner } from "@/components/error-banner";
 import { SearchBar } from "@/components/search-bar";
@@ -678,9 +677,6 @@ export default function Home() {
         open={providerModalOpen}
         onOpenChange={setProviderModalOpen}
       />
-
-      {/* Dev Panel - Toggle Mock/Live API mode */}
-      <DevPanel />
     </div>
   );
 }

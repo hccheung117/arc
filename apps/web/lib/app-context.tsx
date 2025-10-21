@@ -4,7 +4,6 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 
 // Types
 export type Theme = "light" | "dark" | "system";
-export type ApiMode = "mock" | "live";
 
 export interface ProviderConfig {
   provider: "openai" | "anthropic" | "google" | "custom";
@@ -18,7 +17,6 @@ interface AppState {
   fontSize: number; // 12-20px
   providerConfig: ProviderConfig | null;
   hasCompletedFirstRun: boolean;
-  apiMode: ApiMode; // Mock (local Zustand) or Live (HTTP backend)
 }
 
 interface AppContextValue extends AppState {
@@ -26,7 +24,6 @@ interface AppContextValue extends AppState {
   setFontSize: (size: number) => void;
   setProviderConfig: (config: ProviderConfig | null) => void;
   completeFirstRun: () => void;
-  setApiMode: (mode: ApiMode) => void;
   isHydrated: boolean;
 }
 
@@ -36,7 +33,6 @@ const DEFAULT_STATE: AppState = {
   fontSize: 16,
   providerConfig: null,
   hasCompletedFirstRun: false,
-  apiMode: "mock", // Default to mock mode
 };
 
 const STORAGE_KEY = "arc-app-state";
@@ -121,17 +117,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setState((prev) => ({ ...prev, hasCompletedFirstRun: true }));
   }, []);
 
-  const setApiMode = useCallback((apiMode: ApiMode) => {
-    setState((prev) => ({ ...prev, apiMode }));
-  }, []);
-
   const value: AppContextValue = {
     ...state,
     setTheme,
     setFontSize,
     setProviderConfig,
     completeFirstRun,
-    setApiMode,
     isHydrated,
   };
 

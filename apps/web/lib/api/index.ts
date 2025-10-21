@@ -64,4 +64,4 @@ export function resetChatAPIInstance(): void {
 }
 
 // Re-export types
-export type { IChatAPI, ApiMode } from "./chat-api.interface";
+export type { IChatAPI } from "./chat-api.interface";
