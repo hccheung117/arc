@@ -91,15 +91,6 @@ export interface IChatAPI {
    * @returns Promise resolving to array of search results with chat context
    */
   search(query: string, chatId?: string): Promise<SearchResult[]>;
-
-  // ============================================================================
-  // Development/Testing Utilities
-  // ============================================================================
-
-  /**
-   * Seed demo chats with example content (optional, for mock implementations)
-   */
-  seedDemoChats?(): Promise<void>;
 }
 
 /**

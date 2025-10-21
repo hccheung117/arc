@@ -54,7 +54,6 @@ export default function Home() {
   const createChat = useChatStore((state) => state.createChat);
   const selectChat = useChatStore((state) => state.selectChat);
   const sendMessage = useChatStore((state) => state.sendMessage);
-  const seedDemoChats = useChatStore((state) => state.seedDemoChats);
   const getActiveChatMessages = useChatStore((state) => state.getActiveChatMessages);
 
   const messages = getActiveChatMessages();
@@ -75,13 +74,6 @@ export default function Home() {
       virtualizer.scrollToIndex(messages.length - 1, { align: "end", behavior: "smooth" });
     }
   }, [messages.length, isStreaming, virtualizer]);
-
-  // Initialize with demo chats whenever empty (development)
-  useEffect(() => {
-    if (isHydrated && chats.length === 0) {
-      seedDemoChats();
-    }
-  }, [isHydrated, chats.length, seedDemoChats]);
 
   // Auto-open provider modal on first run
   useEffect(() => {

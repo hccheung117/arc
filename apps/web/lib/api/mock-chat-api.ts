@@ -121,12 +121,4 @@ export class MockChatAPI implements IChatAPI {
 
     return results;
   }
-
-  // ============================================================================
-  // Development/Testing Utilities
-  // ============================================================================
-
-  async seedDemoChats(): Promise<void> {
-    useChatStore.getState().seedDemoChats();
-  }
 }

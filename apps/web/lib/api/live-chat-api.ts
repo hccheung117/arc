@@ -259,41 +259,6 @@ export class LiveChatAPI implements IChatAPI {
   }
 
   // ============================================================================
-  // Development/Testing Utilities
-  // ============================================================================
-
-  async seedDemoChats(): Promise<void> {
-    const chatService = await this.getChatService();
-
-    const chat1Id = await chatService.createChat("Code Examples");
-    const chat2Id = await chatService.createChat("Diagrams & Visualizations");
-    const chat3Id = await chatService.createChat("Math & Formulas");
-
-    const stream1 = chatService.sendMessage(chat1Id, "Show me some code examples");
-    for await (const _update of stream1) {
-      // Consume stream
-    }
-
-    const stream2 = chatService.sendMessage(chat2Id, "Can you create diagrams?");
-    for await (const _update of stream2) {
-      // Consume stream
-    }
-
-    const stream3 = chatService.sendMessage(chat3Id, "Show me some math notation");
-    for await (const _update of stream3) {
-      // Consume stream
-    }
-
-    const chats = await chatService.getChats();
-    useChatStore.setState({
-      chats: chats.map(mapChatToStore),
-      activeChatId: chat1Id,
-    });
-
-    await this.selectChat(chat1Id);
-  }
-
-  // ============================================================================
   // Internal helpers
   // ============================================================================
 
