@@ -1,7 +1,7 @@
 /**
  * DesktopChatAPI - Desktop implementation with file-backed SQLite and file system attachments
  *
- * Uses better-sqlite3 via @arc/platform-desktop and stores attachments as files
+ * Uses better-sqlite3 via @arc/platform-electron and stores attachments as files
  * in the user data directory. Data persists natively on disk.
  */
 
@@ -310,18 +310,18 @@ export class DesktopChatAPI implements IChatAPI {
   }
 
   private async initialize(): Promise<void> {
-    // Dynamically load platform-desktop packages (safe - no SSR issues)
+    // Dynamically load platform-electron packages (safe - no SSR issues)
     if (typeof window === "undefined") {
       throw new Error("DesktopChatAPI can only be initialized in the browser");
     }
 
     // Dynamic imports (only available in Electron)
     // @ts-expect-error - Platform-desktop is only available in Electron context
-    const { BetterSqlite3Database } = await import("@arc/platform-desktop/database/BetterSqlite3Database.js");
+    const { BetterSqlite3Database } = await import("@arc/platform-electron/database/BetterSqlite3Database.js");
     // @ts-expect-error - Platform-desktop is only available in Electron context
-    const { NodeFetchHTTP } = await import("@arc/platform-desktop/http/NodeFetchHTTP.js");
+    const { NodeFetchHTTP } = await import("@arc/platform-electron/http/NodeFetchHTTP.js");
     // @ts-expect-error - Platform-desktop is only available in Electron context
-    const { ElectronFileSystem } = await import("@arc/platform-desktop/filesystem/ElectronFileSystem.js");
+    const { ElectronFileSystem } = await import("@arc/platform-electron/filesystem/ElectronFileSystem.js");
 
     // Get user data path from Electron
     const userDataPath = await this.getUserDataPath();

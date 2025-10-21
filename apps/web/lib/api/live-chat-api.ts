@@ -1,7 +1,7 @@
 /**
  * LiveChatAPI - Core-backed implementation with persistent SQLite storage
  *
- * Uses sql.js (WASM) in the browser via @arc/platform-web and the shared
+ * Uses sql.js (WASM) in the browser via @arc/platform-browser and the shared
  * repository implementations from @arc/db to persist chats and messages.
  * Data is stored in IndexedDB so it survives page reloads in Live mode.
  */
@@ -17,7 +17,7 @@ import type { IPlatformDatabase } from "@arc/core/platform/IPlatformDatabase.js"
 import { runMigrations } from "@arc/db/migrations/runner.js";
 import { SQLiteChatRepository } from "@arc/db/repositories/SQLiteChatRepository.js";
 import { SQLiteMessageRepository } from "@arc/db/repositories/SQLiteMessageRepository.js";
-import { FetchHTTP } from "@arc/platform-web/http/FetchHTTP.js";
+import { FetchHTTP } from "@arc/platform-browser/http/FetchHTTP.js";
 import { useChatStore } from "../chat-store";
 import { webAttachmentsToCore } from "../utils/attachment-converter";
 
@@ -270,7 +270,7 @@ export class LiveChatAPI implements IChatAPI {
       throw new Error("LiveChatAPI can only be initialized in the browser");
     }
 
-    const { SqlJsDatabase } = await import("@arc/platform-web/database/SqlJsDatabase.js");
+    const { SqlJsDatabase } = await import("@arc/platform-browser/database/SqlJsDatabase.js");
     this.db = new SqlJsDatabase();
     await this.db.init();
     await runMigrations(this.db);

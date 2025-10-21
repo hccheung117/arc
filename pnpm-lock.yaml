@@ -81,9 +81,9 @@ importers:
       '@arc/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@arc/platform-web':
+      '@arc/platform-browser':
         specifier: workspace:*
-        version: link:../../packages/platform-web
+        version: link:../../packages/platform-browser
       '@radix-ui/react-dialog':
         specifier: ^1.1.15
         version: 1.1.15(@types/react-dom@19.1.1(@types/react@19.1.0))(@types/react@19.1.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -222,26 +222,7 @@ importers:
         specifier: ^5.9.2
         version: 5.9.2
 
-  packages/platform-desktop:
-    dependencies:
-      '@arc/core':
-        specifier: workspace:*
-        version: link:../core
-      better-sqlite3:
-        specifier: ^11.0.0
-        version: 11.10.0
-    devDependencies:
-      '@types/better-sqlite3':
-        specifier: ^7.6.11
-        version: 7.6.13
-      '@types/node':
-        specifier: ^20
-        version: 20.19.22
-      typescript:
-        specifier: ^5.9.2
-        version: 5.9.2
-
-  packages/platform-web:
+  packages/platform-browser:
     dependencies:
       '@arc/core':
         specifier: workspace:*
@@ -256,6 +237,38 @@ importers:
       '@types/sql.js':
         specifier: ^1.4.9
         version: 1.4.9
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.2
+
+  packages/platform-capacitor:
+    dependencies:
+      '@arc/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: ^20
+        version: 20.19.22
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.2
+
+  packages/platform-electron:
+    dependencies:
+      '@arc/core':
+        specifier: workspace:*
+        version: link:../core
+      better-sqlite3:
+        specifier: ^11.0.0
+        version: 11.10.0
+    devDependencies:
+      '@types/better-sqlite3':
+        specifier: ^7.6.11
+        version: 7.6.13
+      '@types/node':
+        specifier: ^20
+        version: 20.19.22
       typescript:
         specifier: ^5.9.2
         version: 5.9.2

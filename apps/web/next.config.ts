@@ -12,12 +12,12 @@ const nextConfig: NextConfig = {
       };
     }
 
-    // platform-desktop uses better-sqlite3 (Node.js native module)
+    // platform-electron uses better-sqlite3 (Node.js native module)
     // It's only imported dynamically in Electron, so ignore it on the server
     if (isServer) {
       config.externals = config.externals || [];
       if (Array.isArray(config.externals)) {
-        config.externals.push("@arc/platform-desktop");
+        config.externals.push("@arc/platform-electron");
       }
     }
 

@@ -1,9 +1,9 @@
 {
-  "name": "@arc/platform-web",
+  "name": "@arc/platform-browser",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Web platform implementation for Arc (fetch-based HTTP)",
+  "description": "Browser platform implementation for Arc (fetch-based HTTP)",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

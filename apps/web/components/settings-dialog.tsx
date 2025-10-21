@@ -22,7 +22,7 @@ import {
 } from "./ui/select";
 import { useChatStore } from "@/lib/chat-store";
 import { OpenAIAdapter } from "@arc/core/providers/openai/OpenAIAdapter.js";
-import { FetchHTTP } from "@arc/platform-web/http/FetchHTTP.js";
+import { FetchHTTP } from "@arc/platform-browser/http/FetchHTTP.js";
 
 const MODELS = [
   { value: "gpt-4-turbo-preview", label: "GPT-4 Turbo" },

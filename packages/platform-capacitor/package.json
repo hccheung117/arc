@@ -1,9 +1,9 @@
 {
-  "name": "@arc/platform-desktop",
+  "name": "@arc/platform-capacitor",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Desktop (Electron) platform implementation for Arc",
+  "description": "Mobile (Capacitor) platform implementation for Arc",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -28,11 +28,9 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "@arc/core": "workspace:*",
-    "better-sqlite3": "^11.0.0"
+    "@arc/core": "workspace:*"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^20",
     "typescript": "^5.9.2"
   }

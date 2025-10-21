@@ -49,7 +49,7 @@ The project is a pnpm monorepo with shared configurations (ESLint, TypeScript) a
 └─ packages/
    ├─ core/               # Headless TS core
    ├─ db/                 # SQLite schema & migrations
-   ├─ platform-web/       # Browser platform implementation
+   ├─ platform-browser/       # Browser platform implementation
    ├─ platform-electron/  # Electron platform implementation
    └─ platform-capacitor/ # Capacitor platform implementation
 ```
@@ -104,8 +104,8 @@ We follow the testing pyramid using Vitest, React Testing Library, and Playwrigh
 
 **Solution:** A multi-layered approach is required to prevent `sql.js` from being included in the server-side bundle:
 
-1.  **Isolate the Import:** The module that interacts with `sql.js` (`@arc/platform-web/src/database/SqlJsDatabase.ts`) must import it dynamically *inside a method*, not at the top level.
-2.  **Isolate the Module:** The module containing the dynamic import must **not** be exported from any barrel file (e.g., `packages/platform-web/src/index.ts`).
+1.  **Isolate the Import:** The module that interacts with `sql.js` (`@arc/platform-browser/src/database/SqlJsDatabase.ts`) must import it dynamically *inside a method*, not at the top level.
+2.  **Isolate the Module:** The module containing the dynamic import must **not** be exported from any barrel file (e.g., `packages/platform-browser/src/index.ts`).
 3.  **Dynamic Import in Consumer:** The UI-layer code that uses the database module (`apps/web/lib/api/live-chat-api.ts`) must *also* dynamically import it.
 4.  **Webpack Fallback (Safety Net):** Configure webpack in `next.config.js` to provide empty fallbacks for Node.js modules like `fs` and `path`.
 
