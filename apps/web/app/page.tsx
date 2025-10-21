@@ -27,7 +27,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useChatAPI } from "@/lib/api/chat-api-provider";
 
 export default function Home() {
-  const { providerConfig, hasCompletedFirstRun, isHydrated } = useApp();
+  const { providerConfig, isHydrated } = useApp();
   const { api } = useChatAPI();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -46,8 +46,18 @@ export default function Home() {
   const [globalSearchQuery, setGlobalSearchQuery] = useState("");
   const [globalSearchResults, setGlobalSearchResults] = useState<Array<{ message: { id: string; chatId: string; content: string; role: string; createdAt: number }; chatTitle: string }>>([]);
 
+  // Sidebar search state
+  const [sidebarSearchQuery, setSidebarSearchQuery] = useState("");
+
   // Chat store
   const chats = useChatStore((state) => state.chats);
+  
+  // Filter chats based on sidebar search
+  const filteredChats = sidebarSearchQuery.trim()
+    ? chats.filter(chat => 
+        chat.title.toLowerCase().includes(sidebarSearchQuery.toLowerCase())
+      )
+    : chats;
   const activeChatId = useChatStore((state) => state.activeChatId);
   const streamingChatId = useChatStore((state) => state.streamingChatId);
   const createChat = useChatStore((state) => state.createChat);
@@ -74,12 +84,6 @@ export default function Home() {
     }
   }, [messages.length, isStreaming, virtualizer]);
 
-  // Auto-open provider modal on first run
-  useEffect(() => {
-    if (isHydrated && !hasCompletedFirstRun && !providerConfig) {
-      setProviderModalOpen(true);
-    }
-  }, [isHydrated, hasCompletedFirstRun, providerConfig]);
 
   // Keyboard shortcuts: Cmd/Ctrl+K for command palette, Cmd/Ctrl+F for search
   useEffect(() => {
@@ -357,11 +361,18 @@ export default function Home() {
         <div className="flex flex-col h-full">
           {/* Sidebar header */}
           <div className="p-4 border-b border-sidebar-border space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-sidebar-foreground">
-                Chats
-              </h2>
+            {/* Search input */}
+            <div className="relative">
+              <SearchIcon className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search chats..."
+                value={sidebarSearchQuery}
+                onChange={(e) => setSidebarSearchQuery(e.target.value)}
+                className="pl-8 h-9"
+              />
             </div>
+            
             <Link href="/new" className="block" onClick={() => setSidebarOpen(false)}>
               <Button variant="outline" className="w-full" size="sm">
                 <Sparkles className="size-4 mr-2" />
@@ -373,7 +384,7 @@ export default function Home() {
           {/* Chat list */}
           <ScrollArea className="flex-1">
             <div className="p-2">
-              {chats.map((chat) => (
+              {filteredChats.map((chat) => (
                 <ChatListItem
                   key={chat.id}
                   chat={chat}
@@ -386,17 +397,6 @@ export default function Home() {
               ))}
             </div>
           </ScrollArea>
-
-          {/* Sidebar footer */}
-          <div className="p-4 border-t border-sidebar-border">
-            <div className="text-xs text-muted-foreground">
-              Press{" "}
-              <kbd className="px-1.5 py-0.5 rounded bg-accent text-accent-foreground font-mono text-xs">
-                ⌘K
-              </kbd>{" "}
-              to search
-            </div>
-          </div>
         </div>
       </aside>
 
