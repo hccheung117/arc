@@ -7,12 +7,7 @@
       "request": "launch",
       "cwd": "${workspaceFolder}/apps/web",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["dev"],
-      "serverReadyAction": {
-        "pattern": "- Local:.+(https?://.+)",
-        "uriFormat": "%s",
-        "action": "debugWithChrome"
-      },
+      "runtimeArgs": ["dev", "--turbo"],
       "skipFiles": ["<node_internals>/**"],
       "console": "integratedTerminal"
     },

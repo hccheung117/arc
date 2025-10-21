@@ -2,23 +2,20 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "export",
+
+  // Prevent bundling of native modules for server-side code
+  serverExternalPackages: ['@arc/platform-electron'],
+
+  // Webpack config (used by default for production builds)
+  // Turbopack for dev mode works without additional config due to dynamic imports
   webpack: (config, { isServer }) => {
-    // sql.js has Node.js-specific code that shouldn't be bundled for the browser
+    // Provide empty modules for Node.js APIs that shouldn't be bundled for browser
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,
         path: false,
       };
-    }
-
-    // platform-electron uses better-sqlite3 (Node.js native module)
-    // It's only imported dynamically in Electron, so ignore it on the server
-    if (isServer) {
-      config.externals = config.externals || [];
-      if (Array.isArray(config.externals)) {
-        config.externals.push("@arc/platform-electron");
-      }
     }
 
     return config;
