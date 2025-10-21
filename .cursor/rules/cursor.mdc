@@ -3,15 +3,14 @@ alwaysApply: true
 ---
 # Arc: AI Chat Client
 
-## 1. Vision & Principles
+## 1. Overview
 
-Arc is a premier, cross-platform AI chat client for desktop (macOS, Windows, Linux), web, and mobile (iOS, Android), designed for a seamless user experience.
+Arc is a premier, cross-platform AI chat client for desktop (macOS, Windows, Linux), web, and mobile (iOS, Android), designed for a seamless user experience. Our development is guided by these principles:
 
-Our development is guided by these principles:
-- **Web-First, Cross-Platform:** A single Next.js web stack serves as the foundation for all platforms.
-- **Maximum Code Reuse:** A layered architecture shares the vast majority of code, with a thin, platform-specific layer.
-- **Clean Separation of Concerns:** Business logic (core) is strictly separated from the UI and platform code.
-- **Lean & Focused:** We use a minimal, well-defined technology stack to avoid complexity and focus on functionality.
+-   **Web-First, Cross-Platform:** A single Next.js web stack serves as the foundation for all platforms.
+-   **Maximum Code Reuse:** A layered architecture shares the vast majority of code, with a thin, platform-specific layer.
+-   **Clean Separation of Concerns:** Business logic (core) is strictly separated from the UI and platform code.
+-   **Lean & Focused:** We use a minimal, well-defined technology stack to avoid complexity and focus on functionality.
 
 ## 2. Architecture
 
@@ -25,23 +24,20 @@ UI Layer (Next.js + shadcn/ui)
 Headless Core (TypeScript)
 ```
 
-- **Headless Core:** A platform-agnostic TypeScript module containing all business logic, state management, and database schema. It has no UI or Node.js dependencies.
-- **UI Layer:** A single Next.js application providing the user interface for all platforms, interacting exclusively with the Headless Core.
-- **Platform Layer:** Provides platform-specific implementations for native functionalities like database access and file system I/O.
+-   **Headless Core:** A platform-agnostic TypeScript module containing all business logic, state management, and database schema. It has no UI or Node.js dependencies.
+-   **UI Layer:** A single Next.js application providing the user interface for all platforms, interacting exclusively with the Headless Core.
+-   **Platform Layer:** Provides platform-specific implementations for native functionalities like database access and file system I/O. The Core defines platform-agnostic interfaces (e.g., for SQLite, File System, HTTP) that each platform package implements.
 
-### 2.1. Platform Abstraction
-The Core defines platform-agnostic interfaces (e.g., for SQLite, File System, HTTP) that each platform package implements. This decouples application logic from the underlying environment.
+### Technology Stack & Monorepo
 
-### 2.2. Technology Stack
-- **UI & Web App:** Next.js 15, shadcn/ui, Tailwind CSS 4
-- **Desktop Wrapper:** Electron 38
-- **Mobile Wrapper:** Capacitor 7
-- **Data Persistence:** SQLite (via platform-specific drivers)
-- **Core Logic:** Pure TypeScript (ESM)
-- **Monorepo Management:** pnpm & Turborepo
+-   **UI & Web App:** Next.js 15, shadcn/ui, Tailwind CSS 4
+-   **Desktop Wrapper:** Electron 38
+-   **Mobile Wrapper:** Capacitor 7
+-   **Data Persistence:** SQLite (via platform-specific drivers)
+-   **Core Logic:** Pure TypeScript (ESM)
+-   **Monorepo Management:** pnpm & Turborepo
 
-### 2.3. Monorepo Structure
-The project is a pnpm monorepo. Shared configurations (ESLint, TypeScript) are at the root to minimize indirection.
+The project is a pnpm monorepo with shared configurations (ESLint, TypeScript) at the root to minimize indirection.
 
 ```
 /
@@ -58,121 +54,68 @@ The project is a pnpm monorepo. Shared configurations (ESLint, TypeScript) are a
    └─ platform-capacitor/ # Capacitor platform implementation
 ```
 
-### 2.4. Build Strategy
+### Build Strategy
+
 Arc uses a static-first build strategy for maximum portability and performance. The Next.js app is exported as a static site (`output: 'export'`), removing the need for a Node.js server at runtime. Electron and Capacitor apps load these static assets directly.
 
-## 3. Features
+## 3. Core Features
 
-### 3.1. Core Chat Experience
-- **Full Chat Management:** Create, edit, delete, and browse chat history with fast global and per-chat search.
-- **Message Actions:** Stop, regenerate, delete, or fork conversations from any message.
-- **UX Polish:** Auto-saving drafts, auto-generating titles, "thinking" indicators, and one-click copy for code blocks.
+### Chat Experience
 
-### 3.2. Provider Integration (BYOK)
-- **Multi-provider Support:** Native support for OpenAI, Gemini, Anthropic, and any MCP-compliant server.
-- **Custom Connections:** Override base URLs and headers for proxies.
-- **Connection Management:** Validate keys, check health, and dynamically fetch available models.
+-   **Full Chat Management:** Create, edit, delete, and browse chat history with fast global and per-chat search.
+-   **Message Actions:** Stop, regenerate, delete, or fork conversations from any message.
+-   **UX Polish:** Auto-saving drafts, auto-generating titles, "thinking" indicators, and one-click copy for code blocks.
+
+### Provider Integration (BYOK)
+
+-   **Multi-provider Support:** Native support for OpenAI, Gemini, Anthropic, and any MCP-compliant server.
+-   **Custom Connections:** Override base URLs and headers for proxies.
+-   **Connection Management:** Validate keys, check health, and dynamically fetch available models.
+
 > **Note:** We use a minimal, custom HTTP transport layer instead of official SDKs to ensure cross-platform compatibility and a small footprint.
 
-### 3.3. Rendering & Attachments
-- **Rich Text:** Full Markdown support, including Mermaid charts, LaTeX math, and syntax-highlighted code blocks.
-- **Image Support:** Drag-and-drop/paste images, with a built-in, mobile-friendly viewer.
+### Rendering & Customization
 
-### 3.4. Performance & Customization
-- **Resilience:** Robust request streaming with reconnection logic and abort signals.
-- **Efficient Rendering:** A virtualized message list ensures smooth performance in long conversations.
-- **Theming & Accessibility:** Light/dark/system themes, UI localization, and adjustable font sizes.
-- **Cost Management:** Optional token meter to track usage.
+-   **Rich Text:** Full Markdown support, including Mermaid charts, LaTeX math, and syntax-highlighted code blocks.
+-   **Image Support:** Drag-and-drop/paste images, with a built-in, mobile-friendly viewer.
+-   **Theming:** Light/dark/system themes, UI localization, and adjustable font sizes.
+-   **Performance:** A virtualized message list and robust request streaming ensure a smooth, resilient experience.
+-   **Cost Management:** Optional token meter to track usage.
 
-## 4. UI/UX Design
+## 4. Development Guide
 
-### 4.1. Philosophy
-"Feels like ChatGPT, works like a power tool." The UI prioritizes simplicity for new users while making advanced features accessible when needed.
+### UI/UX Philosophy
 
-### 4.2. Progressive Disclosure
-- **Level 1 (Beginner):** A simple, familiar chat interface that works out-of-the-box after a one-time provider setup.
-- **Level 2 (Intermediate):** Contextual actions (copy, regenerate) and basic settings (theme, font size) are available on-demand.
-- **Level 3 (Power User):** Advanced features like multi-provider setup, preset management, and model parameter tuning are in a dedicated "Advanced Settings" area.
+Our design philosophy is "Feels like ChatGPT, works like a power tool." The UI prioritizes simplicity for new users while making advanced features accessible through progressive disclosure:
 
-### 4.3. Theming Strategy
-- **Centralized & Semantic:** All colors are defined as semantic CSS custom properties (e.g., `--primary`) in `apps/web/app/globals.css`.
-- **Theming:** Light and dark themes are supported via a `.dark` class on the `<html>` element.
+-   **Level 1 (Beginner):** A simple, familiar chat interface.
+-   **Level 2 (Intermediate):** Contextual actions (copy, regenerate) and basic settings.
+-   **Level 3 (Power User):** Advanced features like multi-provider setup and model tuning are in dedicated settings.
 
-## 5. Quality Assurance
+### Quality Assurance
 
-### 5.1. Testing Strategy
-We follow the testing pyramid:
-- **Unit Tests:** For isolated logic in the Headless Core.
-- **Component Tests:** For UI components in the `web` app.
-- **Integration Tests:** For interactions between the Core, UI, and Platform layers.
-- **E2E Tests:** For complete user journeys on web, desktop, and mobile.
+We follow the testing pyramid using Vitest, React Testing Library, and Playwright for unit, component, and E2E tests, respectively.
 
-### 5.2. Tooling
-- **Test Runner:** Vitest
-- **UI Testing:** React Testing Library
-- **E2E Testing:** Playwright
+### Important Development Patterns
 
-## 6. Development Gotchas
+#### Handling `sql.js` in Next.js (SSR)
 
-### 6.1. Handling `sql.js` in Next.js (SSR)
+**Problem:** The `sql.js` package includes Node.js APIs that fail Next.js server-side builds.
 
-**Problem:** The `sql.js` package includes Node.js-specific APIs (e.g., `require('fs')`) that cause build failures when Next.js attempts to bundle it for Server-Side Rendering (SSR), even if it's part of a dynamically imported module. The bundler's static analysis will detect the `require` and fail the build.
+**Solution:** A multi-layered approach is required to prevent `sql.js` from being included in the server-side bundle:
 
-**Solution:** A multi-layered approach is required to prevent `sql.js` from ever being included in the server-side bundle:
-
-1.  **Isolate the Import:** The module that directly interacts with `sql.js` (e.g., `@arc/platform-web/src/database/SqlJsDatabase.ts`) must import it dynamically *inside a method*, not at the top level of the file.
-
-    ```typescript
-    // Inside SqlJsDatabase.ts
-    import type { SqlJsStatic } from "sql.js"; // Type-only imports are safe
-
-    class SqlJsDatabase {
-      private sql: SqlJsStatic | null = null;
-
-      async init() {
-        if (typeof window === "undefined") {
-          throw new Error("Browser only");
-        }
-        // Dynamically import the library *inside* the method
-        const initSqlJs = (await import("sql.js")).default;
-        this.sql = await initSqlJs(/* ... */);
-      }
-    }
-    ```
-
-2.  **Isolate the Module:** The module that contains the dynamic import (`SqlJsDatabase.ts`) must **not** be exported from any barrel file (e.g., `packages/platform-web/src/index.ts`) that is statically consumed by other parts of the application.
-
+1.  **Isolate the Import:** The module that interacts with `sql.js` (`@arc/platform-web/src/database/SqlJsDatabase.ts`) must import it dynamically *inside a method*, not at the top level.
+2.  **Isolate the Module:** The module containing the dynamic import must **not** be exported from any barrel file (e.g., `packages/platform-web/src/index.ts`).
 3.  **Dynamic Import in Consumer:** The UI-layer code that uses the database module (`apps/web/lib/api/live-chat-api.ts`) must *also* dynamically import it.
+4.  **Webpack Fallback (Safety Net):** Configure webpack in `next.config.js` to provide empty fallbacks for Node.js modules like `fs` and `path`.
 
-    ```typescript
-    // Inside live-chat-api.ts
-    class LiveChatAPI {
-      private db: IPlatformDatabase | null = null;
+#### No Barrel Imports
 
-      async initialize() {
-        const { SqlJsDatabase } = await import("@arc/platform-web/database/SqlJsDatabase");
-        this.db = new SqlJsDatabase();
-        await this.db.init();
-      }
-    }
-    ```
+**Problem:** Barrel files (`index.ts`) can break tree-shaking, cause circular dependencies, and obscure the dependency graph.
 
-4.  **Webpack Fallback (Safety Net):** As a final measure, configure webpack in `next.config.js` to provide empty fallbacks for Node.js modules. This prevents errors if a dependency inadvertently pulls them in on the client side. **Note:** This configuration only works with webpack, not Turbopack.
+**Solution:** Strictly avoid barrel files for re-exporting. Always import directly from the source file.
 
-    ```javascript
-    // next.config.js
-    const nextConfig = {
-      // ...
-      webpack: (config, { isServer }) => {
-        if (!isServer) {
-          config.resolve.fallback = {
-            fs: false,
-            path: false,
-          };
-        }
-        return config;
-      },
-    };
-    ```
+-   **Don't:** `import { ChatService } from '@arc/core';`
+-   **Do:** `import { ChatService } from '@arc/core/services/ChatService';`
 
-By following all these steps, you ensure that `sql.js` is completely excluded from the server build and only loaded on-demand in the browser.
+This discipline is essential for maintaining a clean architecture and preventing bundling issues.
