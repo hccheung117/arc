@@ -6,8 +6,7 @@ const nextConfig: NextConfig = {
   // Prevent bundling of native modules for server-side code
   serverExternalPackages: ['@arc/platform-electron'],
 
-  // Webpack config (used by default for production builds)
-  // Turbopack for dev mode works without additional config due to dynamic imports
+  // Webpack configuration for handling platform-specific modules
   webpack: (config, { isServer }) => {
     // Provide empty modules for Node.js APIs that shouldn't be bundled for browser
     if (!isServer) {
@@ -15,6 +14,15 @@ const nextConfig: NextConfig = {
         ...config.resolve.fallback,
         fs: false,
         path: false,
+      };
+
+      // Prevent bundling of platform-electron for client-side
+      // These are dynamically imported only in Electron context
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        '@arc/platform-electron/database/BetterSqlite3Database.js': false,
+        '@arc/platform-electron/http/NodeFetchHTTP.js': false,
+        '@arc/platform-electron/filesystem/ElectronFileSystem.js': false,
       };
     }
 

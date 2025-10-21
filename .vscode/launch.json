@@ -7,7 +7,7 @@
       "request": "launch",
       "cwd": "${workspaceFolder}/apps/web",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["dev", "--turbo"],
+      "runtimeArgs": ["dev"],
       "skipFiles": ["<node_internals>/**"],
       "console": "integratedTerminal"
     },
