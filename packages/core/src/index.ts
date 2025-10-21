@@ -16,6 +16,11 @@ export type {
   DatabaseExecResult,
   DatabaseQueryResult,
 } from "./platform/IPlatformDatabase.js";
+export type {
+  IPlatformFileSystem,
+  PickedFile,
+  AttachmentMetadata,
+} from "./platform/IPlatformFileSystem.js";
 
 // Repository interfaces
 export type { IChatRepository } from "./repositories/IChatRepository.js";

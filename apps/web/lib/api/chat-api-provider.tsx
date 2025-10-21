@@ -3,16 +3,17 @@
 /**
  * ChatAPIProvider - React context for dependency injection of IChatAPI
  *
- * This provider supplies the active IChatAPI implementation (Mock or Live)
+ * This provider supplies the active IChatAPI implementation (Mock or Live/Desktop)
  * to all components in the application. The implementation is determined by
- * the apiMode setting in AppContext.
+ * the apiMode setting in AppContext and automatically adapts to the platform
+ * (web or Electron desktop).
  */
 
-import React, { createContext, useContext, useEffect, useMemo } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useApp } from "../app-context";
 import type { IChatAPI } from "./chat-api.interface";
 import { MockChatAPI } from "./mock-chat-api";
-import { LiveChatAPI } from "./live-chat-api";
+import { getChatAPIInstance, isElectron } from "./index";
 
 // ============================================================================
 // Context Definition
@@ -31,32 +32,52 @@ const ChatAPIContext = createContext<ChatAPIContextValue | undefined>(undefined)
 
 export function ChatAPIProvider({ children }: { children: React.ReactNode }) {
   const { apiMode, isHydrated } = useApp();
+  const [liveApi, setLiveApi] = useState<IChatAPI | null>(null);
 
-  // Create API instances (memoized to avoid recreating on every render)
+  // Create mock API instance (memoized to avoid recreating on every render)
   const mockApi = useMemo(() => new MockChatAPI(), []);
-  const liveApi = useMemo(() => new LiveChatAPI(), []);
 
+  // Load platform-appropriate live API implementation
   useEffect(() => {
-    if (!isHydrated) {
+    if (!isHydrated || apiMode !== "live") {
       return;
     }
-    if (apiMode === "live") {
-      void liveApi.ready();
-    }
-  }, [apiMode, isHydrated, liveApi]);
+
+    let mounted = true;
+
+    const initLiveApi = async () => {
+      try {
+        const api = await getChatAPIInstance();
+        if (mounted) {
+          setLiveApi(api);
+          if (api.ready) {
+            await api.ready();
+          }
+        }
+      } catch (error) {
+        console.error("Failed to initialize ChatAPI:", error);
+      }
+    };
+
+    void initLiveApi();
+
+    return () => {
+      mounted = false;
+    };
+  }, [apiMode, isHydrated]);
 
   // Select the active API based on apiMode
   const api = apiMode === "live" ? liveApi : mockApi;
 
-  const value: ChatAPIContextValue = {
-    api,
-    mode: apiMode || "mock",
-  };
-
-  // Don't render children until hydrated to avoid mismatches
-  if (!isHydrated) {
+  // Don't render if we're in live mode but the API isn't ready yet
+  if (!isHydrated || (apiMode === "live" && !liveApi)) {
     return null;
   }
+
+  const value: ChatAPIContextValue = {
+    api: api!,
+    mode: apiMode || "mock",
+  };
 
   return (
     <ChatAPIContext.Provider value={value}>

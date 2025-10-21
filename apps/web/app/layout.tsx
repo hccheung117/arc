@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AppProvider } from "@/lib/app-context";
 import { ChatAPIProvider } from "@/lib/api/chat-api-provider";
+import { ElectronIntegration } from "@/components/ElectronIntegration";
 
 export const metadata: Metadata = {
   title: "Arc",
@@ -19,6 +20,7 @@ export default function RootLayout({
         <AppProvider>
           <ChatAPIProvider>
             {children}
+            <ElectronIntegration />
           </ChatAPIProvider>
         </AppProvider>
       </body>

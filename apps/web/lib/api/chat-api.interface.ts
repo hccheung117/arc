@@ -10,6 +10,12 @@ import type { ImageAttachment } from "../types";
 import type { SearchResult } from "@arc/core";
 
 export interface IChatAPI {
+  /**
+   * Initialize the API and ensure it's ready to use
+   * Optional method for implementations that require async setup
+   */
+  ready?(): Promise<void>;
+
   // ============================================================================
   // Chat Operations
   // ============================================================================

@@ -8,3 +8,8 @@ export type {
   DatabaseExecResult,
   DatabaseQueryResult,
 } from "./IPlatformDatabase.js";
+export type {
+  IPlatformFileSystem,
+  PickedFile,
+  AttachmentMetadata,
+} from "./IPlatformFileSystem.js";
