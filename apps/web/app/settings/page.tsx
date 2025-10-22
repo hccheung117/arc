@@ -18,7 +18,7 @@ import { useChatStore, type ProviderConfig } from "@/lib/chat-store";
 import { ArrowLeft, Moon, Sun, Monitor, Plus, AlertCircle, Loader2, ChevronDown } from "lucide-react";
 import { ProviderCard } from "@/components/provider-card";
 import { ProviderFormDialog } from "@/components/provider-form-dialog";
-import { OpenAIAdapter } from "@arc/core/providers/openai/OpenAIAdapter.js";
+import { OpenAIAdapter } from "@arc/ai/openai/OpenAIAdapter.js";
 import { FetchHTTP } from "@arc/platform-browser/http/FetchHTTP.js";
 
 const PROVIDER_NAMES: Record<ProviderConfig["provider"], string> = {

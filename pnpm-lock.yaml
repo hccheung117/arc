@@ -75,6 +75,12 @@ importers:
 
   apps/web:
     dependencies:
+      '@arc/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
+      '@arc/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@arc/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -200,7 +206,39 @@ importers:
         specifier: ^5
         version: 5.9.2
 
+  packages/ai:
+    dependencies:
+      '@arc/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@arc/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: ^20
+        version: 20.19.22
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.2
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/debug@4.1.12)(@types/node@20.19.22)(@vitest/ui@3.2.4)(happy-dom@20.0.5)(jiti@2.6.1)(jsdom@27.0.1(postcss@8.5.6))(lightningcss@1.30.1)
+
+  packages/contracts:
+    devDependencies:
+      '@types/node':
+        specifier: ^20
+        version: 20.19.22
+      typescript:
+        specifier: ^5.9.2
+        version: 5.9.2
+
   packages/core:
+    dependencies:
+      '@arc/contracts':
+        specifier: workspace:*
+        version: link:../contracts
     devDependencies:
       '@types/node':
         specifier: ^20

@@ -1,4 +1,4 @@
-import { ProviderError, ProviderErrorCode } from "../../domain/ProviderError.js";
+import { ProviderError, ProviderErrorCode } from "@arc/core/domain/ProviderError.js";
 import type { OpenAIErrorResponse } from "./types.js";
 
 /**

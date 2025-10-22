@@ -24,7 +24,9 @@ UI Layer (Next.js + shadcn/ui)
 Headless Core (TypeScript)
 ```
 
+-   **Contracts:** Shared TypeScript interfaces and types used across all packages (e.g., `IProvider`, `ImageAttachment`). Zero dependencies, pure type definitions.
 -   **Headless Core:** A platform-agnostic TypeScript module containing all business logic, state management, and database schema. It has no UI or Node.js dependencies.
+-   **AI Providers:** Independent implementations of AI provider integrations (OpenAI, Anthropic, etc.) that implement the contracts defined in `@arc/contracts`.
 -   **UI Layer:** A single Next.js application providing the user interface for all platforms, interacting exclusively with the Headless Core.
 -   **Platform Layer:** Provides platform-specific implementations for native functionalities like database access and file system I/O. The Core defines platform-agnostic interfaces (e.g., for SQLite, File System, HTTP) that each platform package implements.
 
@@ -47,9 +49,11 @@ The project is a pnpm monorepo with shared configurations (ESLint, TypeScript) a
 │  └─ mobile/             # Capacitor wrapper
 │
 └─ packages/
+   ├─ contracts/          # Shared interfaces (IProvider, etc.)
    ├─ core/               # Headless TS core
+   ├─ ai/                 # AI provider implementations (OpenAI, etc.)
    ├─ db/                 # SQLite schema & migrations
-   ├─ platform-browser/       # Browser platform implementation
+   ├─ platform-browser/   # Browser platform implementation
    ├─ platform-electron/  # Electron platform implementation
    └─ platform-capacitor/ # Capacitor platform implementation
 ```

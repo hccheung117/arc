@@ -9,7 +9,7 @@ import type { IChatAPI, ModelInfo } from "./chat-api.interface";
 import type { ImageAttachment } from "../types";
 import type { ProviderConfig } from "../chat-store";
 import { ChatService, type SearchResult } from "@arc/core/services/ChatService.js";
-import { OpenAIAdapter } from "@arc/core/providers/openai/OpenAIAdapter.js";
+import { OpenAIAdapter } from "@arc/ai/openai/OpenAIAdapter.js";
 import { ProviderError } from "@arc/core/domain/ProviderError.js";
 import type { Chat as CoreChat } from "@arc/core/domain/Chat.js";
 import type { Message as CoreMessage } from "@arc/core/domain/Message.js";

@@ -12,6 +12,8 @@
     "postinstall": "node ./scripts/copy-sql-wasm.mjs"
   },
   "dependencies": {
+    "@arc/ai": "workspace:*",
+    "@arc/contracts": "workspace:*",
     "@arc/core": "workspace:*",
     "@arc/db": "workspace:*",
     "@arc/platform-browser": "workspace:*",

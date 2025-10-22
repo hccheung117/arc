@@ -1,9 +1,9 @@
 import type { Chat } from "../domain/Chat.js";
 import type { Message, MessageStatus } from "../domain/Message.js";
-import type { ImageAttachment } from "../domain/ImageAttachment.js";
+import type { ImageAttachment } from "@arc/contracts/ImageAttachment.js";
 import type { IChatRepository } from "../repositories/IChatRepository.js";
 import type { IMessageRepository } from "../repositories/IMessageRepository.js";
-import type { OpenAIAdapter } from "../providers/openai/OpenAIAdapter.js";
+import type { IProvider } from "@arc/contracts/IProvider.js";
 import { ProviderError, ProviderErrorCode } from "../domain/ProviderError.js";
 import { generateId } from "../utils/id.js";
 
@@ -41,7 +41,7 @@ export interface SearchResult {
 export class ChatService {
   private chatRepo: IChatRepository;
   private messageRepo: IMessageRepository;
-  private openAI: OpenAIAdapter;
+  private provider: IProvider;
   private model: string;
   private activeStreams = new Map<string, AbortController>();
   private runInTransaction: <T>(fn: () => Promise<T>) => Promise<T>;
@@ -49,13 +49,13 @@ export class ChatService {
   constructor(
     chatRepo: IChatRepository,
     messageRepo: IMessageRepository,
-    openAI: OpenAIAdapter,
+    provider: IProvider,
     model: string = "gpt-4-turbo-preview",
     runInTransaction?: <T>(fn: () => Promise<T>) => Promise<T>
   ) {
     this.chatRepo = chatRepo;
     this.messageRepo = messageRepo;
-    this.openAI = openAI;
+    this.provider = provider;
     this.model = model;
     this.runInTransaction = runInTransaction ?? ((fn) => fn());
   }
@@ -223,7 +223,7 @@ export class ChatService {
 
     try {
       const effectiveModel = model ?? this.model;
-      const stream = this.openAI.streamChatCompletion(
+      const stream = this.provider.streamChatCompletion(
         conversationHistory,
         effectiveModel,
         attachments,

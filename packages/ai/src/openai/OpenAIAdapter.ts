@@ -1,5 +1,6 @@
-import type { IPlatformHTTP } from "../../platform/IPlatformHTTP.js";
-import type { ImageAttachment } from "../../domain/ImageAttachment.js";
+import type { IPlatformHTTP } from "@arc/core/platform/IPlatformHTTP.js";
+import type { ImageAttachment } from "@arc/contracts/ImageAttachment.js";
+import type { IProvider, ModelInfo } from "@arc/contracts/IProvider.js";
 import type {
   OpenAIMessage,
   OpenAIMessageContent,
@@ -25,7 +26,7 @@ import {
  * - Health check
  * - Stream chat completions
  */
-export class OpenAIAdapter {
+export class OpenAIAdapter implements IProvider {
   private http: IPlatformHTTP;
   private apiKey: string;
   private baseUrl: string;
@@ -57,7 +58,7 @@ export class OpenAIAdapter {
   /**
    * List available models
    */
-  async listModels(): Promise<OpenAIModel[]> {
+  async listModels(): Promise<ModelInfo[]> {
     try {
       const response = await this.http.request(`${this.baseUrl}/models`, {
         method: "GET",

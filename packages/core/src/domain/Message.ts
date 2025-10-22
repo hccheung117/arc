@@ -1,4 +1,4 @@
-import type { ImageAttachment } from "./ImageAttachment.js";
+import type { ImageAttachment } from "@arc/contracts/ImageAttachment.js";
 
 /**
  * Role of the message author

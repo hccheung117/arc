@@ -1,0 +1,31 @@
+{
+  "name": "@arc/ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "AI provider implementations for Arc chat application",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./openai/*.js": {
+      "types": "./dist/openai/*.d.ts",
+      "import": "./dist/openai/*.js",
+      "default": "./dist/openai/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "check-types": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run"
+  },
+  "dependencies": {
+    "@arc/contracts": "workspace:*",
+    "@arc/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

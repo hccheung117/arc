@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import type { OpenAIAdapter } from "../src/providers/openai/OpenAIAdapter.js";
+import type { IProvider } from "@arc/contracts/IProvider.js";
 import { ChatService } from "../src/services/ChatService.js";
 import { InMemoryChatRepository } from "../src/repositories/InMemoryChatRepository.js";
 import { InMemoryMessageRepository } from "../src/repositories/InMemoryMessageRepository.js";
 
-class MockOpenAIAdapter {
+class MockProvider implements IProvider {
   async listModels(): Promise<unknown[]> {
     return [];
   }
@@ -39,13 +39,13 @@ describe("ChatService", () => {
   let chatService: ChatService;
   let chatRepo: InMemoryChatRepository;
   let messageRepo: InMemoryMessageRepository;
-  let openAI: OpenAIAdapter;
+  let provider: IProvider;
 
   beforeEach(() => {
     chatRepo = new InMemoryChatRepository();
     messageRepo = new InMemoryMessageRepository();
-    openAI = new MockOpenAIAdapter() as unknown as OpenAIAdapter;
-    chatService = new ChatService(chatRepo, messageRepo, openAI);
+    provider = new MockProvider();
+    chatService = new ChatService(chatRepo, messageRepo, provider);
   });
 
   describe("Chat Operations", () => {

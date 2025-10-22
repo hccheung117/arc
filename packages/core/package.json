@@ -27,11 +27,6 @@
       "import": "./dist/services/*.js",
       "default": "./dist/services/*.js"
     },
-    "./providers/openai/*.js": {
-      "types": "./dist/providers/openai/*.d.ts",
-      "import": "./dist/providers/openai/*.js",
-      "default": "./dist/providers/openai/*.js"
-    },
     "./utils/*.js": {
       "types": "./dist/utils/*.d.ts",
       "import": "./dist/utils/*.js",
@@ -43,6 +38,9 @@
     "check-types": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run"
+  },
+  "dependencies": {
+    "@arc/contracts": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20",
