@@ -394,12 +394,18 @@ export default function Home() {
               />
             </div>
             
-            <Link href="/new" className="block" onClick={() => setSidebarOpen(false)}>
-              <Button variant="outline" className="w-full" size="sm">
-                <Sparkles className="size-4 mr-2" />
-                New Chat
-              </Button>
-            </Link>
+            <Button
+              variant="outline"
+              className="w-full"
+              size="sm"
+              onClick={() => {
+                createChat("New Chat");
+                setSidebarOpen(false);
+              }}
+            >
+              <Sparkles className="size-4 mr-2" />
+              New Chat
+            </Button>
           </div>
 
           {/* Chat list */}
@@ -576,55 +582,62 @@ export default function Home() {
               aria-hidden="true"
             />
 
-            {/* Unified input container with inline buttons - full width */}
-            <div className="flex items-end gap-1 px-3 py-2 border rounded-lg bg-background focus-within:ring-2 focus-within:ring-ring transition-shadow">
-                {/* Attachment button */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0 hover:bg-accent"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={!hasProvider || isStreaming}
-                  aria-label="Attach image"
-                >
-                  <ImageIcon className="size-4" />
-                </Button>
+            {/* Unified input container - vertically stacked */}
+            <div className="border rounded-lg bg-background focus-within:ring-2 focus-within:ring-ring transition-shadow">
+                {/* Textarea section (top) */}
+                <div className="px-4 pt-3 pb-2">
+                  <textarea
+                    ref={textareaRef}
+                    rows={1}
+                    placeholder={
+                      !hasProvider
+                        ? "Configure a provider in settings first..."
+                        : isStreaming
+                          ? "Waiting for response..."
+                          : "Ask anything"
+                    }
+                    className="w-full bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 resize-none overflow-y-auto"
+                    aria-label="Message input"
+                    value={messageInput}
+                    onChange={(e) => setMessageInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onPaste={handlePaste}
+                    disabled={!hasProvider || isStreaming}
+                  />
+                </div>
 
-                {/* Message input - multiline textarea */}
-                <textarea
-                  ref={textareaRef}
-                  rows={1}
-                  placeholder={
-                    !hasProvider
-                      ? "Configure a provider in settings first..."
-                      : isStreaming
-                        ? "Waiting for response..."
-                        : "Type a message..."
-                  }
-                  className="flex-1 bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 resize-none overflow-y-auto py-1"
-                  aria-label="Message input"
-                  value={messageInput}
-                  onChange={(e) => setMessageInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  onPaste={handlePaste}
-                  disabled={!hasProvider || isStreaming}
-                />
+                {/* Controls bar (bottom) */}
+                <div className="px-3 pb-2 flex items-center gap-1">
+                  {/* Attachment button */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0 hover:bg-accent"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={!hasProvider || isStreaming}
+                    aria-label="Attach image"
+                  >
+                    <ImageIcon className="size-4" />
+                  </Button>
 
-                {/* Send button */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0 hover:bg-accent disabled:opacity-30"
-                  aria-label="Send message"
-                  onClick={handleSendMessage}
-                  disabled={
-                    !hasProvider ||
-                    isStreaming ||
-                    (!messageInput.trim() && attachedImages.length === 0)
-                  }
-                >
-                  <SendIcon className="size-4" />
-                </Button>
+                  <div className="flex-1" />
+
+                  {/* Send button */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0 hover:bg-accent disabled:opacity-30"
+                    aria-label="Send message"
+                    onClick={handleSendMessage}
+                    disabled={
+                      !hasProvider ||
+                      isStreaming ||
+                      (!messageInput.trim() && attachedImages.length === 0)
+                    }
+                  >
+                    <SendIcon className="size-4" />
+                  </Button>
+                </div>
             </div>
           </div>
         </div>
