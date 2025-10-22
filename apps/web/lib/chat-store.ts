@@ -2,10 +2,13 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Chat, Message, ImageAttachment } from "./types";
 
-interface ProviderSettings {
+export type Theme = "light" | "dark" | "system";
+
+export interface ProviderConfig {
+  provider: "openai" | "anthropic" | "google" | "custom";
   apiKey: string;
-  baseUrl: string;
-  model: string;
+  baseUrl?: string;
+  model?: string;
 }
 
 interface ProviderErrorInfo {
@@ -23,8 +26,11 @@ interface ChatState {
   streamingChatId: string | null;
   streamIntervalId: NodeJS.Timeout | null;
 
-  // Provider settings
-  providerSettings: ProviderSettings;
+  // App settings
+  theme: Theme;
+  fontSize: number;
+  providerConfig: ProviderConfig | null;
+  isHydrated: boolean;
 
   // Error state
   lastError: ProviderErrorInfo | null;
@@ -40,8 +46,10 @@ interface ChatState {
   deleteMessage: (id: string) => void;
   seedLargeDataset: () => void;
 
-  // Provider settings actions
-  updateProviderSettings: (settings: Partial<ProviderSettings>) => void;
+  // App settings actions
+  setTheme: (theme: Theme) => void;
+  setFontSize: (fontSize: number) => void;
+  setProviderConfig: (config: ProviderConfig | null) => void;
 
   // Error actions
   setError: (error: ProviderErrorInfo) => void;
@@ -79,12 +87,11 @@ export const useChatStore = create<ChatState>()(
       streamingChatId: null,
       streamIntervalId: null,
 
-      // Provider settings with defaults
-      providerSettings: {
-        apiKey: "",
-        baseUrl: "https://api.openai.com/v1",
-        model: "gpt-4-turbo-preview",
-      },
+      // App settings with defaults
+      theme: "system",
+      fontSize: 16,
+      providerConfig: null,
+      isHydrated: false,
 
       // Error state
       lastError: null,
@@ -437,11 +444,17 @@ export const useChatStore = create<ChatState>()(
     });
   },
 
-  // Update provider settings
-  updateProviderSettings: (settings: Partial<ProviderSettings>) => {
-    set((state) => ({
-      providerSettings: { ...state.providerSettings, ...settings },
-    }));
+  // Update app settings
+  setTheme: (theme: Theme) => {
+    set({ theme });
+  },
+
+  setFontSize: (fontSize: number) => {
+    set({ fontSize });
+  },
+
+  setProviderConfig: (providerConfig: ProviderConfig | null) => {
+    set({ providerConfig });
   },
 
   // Set error
@@ -457,9 +470,20 @@ export const useChatStore = create<ChatState>()(
     {
       name: "arc-chat-storage",
       partialize: (state) => ({
-        providerSettings: state.providerSettings,
-        // Don't persist runtime state like streamIntervalId
+        theme: state.theme,
+        fontSize: state.fontSize,
+        providerConfig: state.providerConfig,
+        chats: state.chats,
+        messages: state.messages,
+        // Don't persist runtime state like streamIntervalId, activeChatId, streamingChatId, isHydrated
       }),
+      onRehydrateStorage: () => {
+        return (state) => {
+          if (state) {
+            state.isHydrated = true;
+          }
+        };
+      },
     }
   )
 );

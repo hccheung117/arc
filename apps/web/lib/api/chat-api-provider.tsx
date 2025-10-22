@@ -9,7 +9,7 @@
  */
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { useApp } from "../app-context";
+import { useChatStore } from "../chat-store";
 import type { IChatAPI } from "./chat-api.interface";
 import { getChatAPIInstance } from "./chat-api-factory";
 
@@ -28,7 +28,7 @@ const ChatAPIContext = createContext<ChatAPIContextValue | undefined>(undefined)
 // ============================================================================
 
 export function ChatAPIProvider({ children }: { children: React.ReactNode }) {
-  const { isHydrated } = useApp();
+  const isHydrated = useChatStore((state) => state.isHydrated);
   const [api, setApi] = useState<IChatAPI | null>(null);
 
   // Load platform-appropriate API implementation

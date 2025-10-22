@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useApp, type ProviderConfig } from "@/lib/app-context";
+import { useChatStore, type ProviderConfig } from "@/lib/chat-store";
 
 interface ConnectProviderModalProps {
   open: boolean;
@@ -33,7 +33,7 @@ interface FormErrors {
 }
 
 export function ConnectProviderModal({ open, onOpenChange }: ConnectProviderModalProps) {
-  const { setProviderConfig, completeFirstRun } = useApp();
+  const setProviderConfig = useChatStore((state) => state.setProviderConfig);
 
   const [provider, setProvider] = useState<ProviderConfig["provider"]>("openai");
   const [apiKey, setApiKey] = useState("");
@@ -101,7 +101,6 @@ export function ConnectProviderModal({ open, onOpenChange }: ConnectProviderModa
       };
 
       setProviderConfig(config);
-      completeFirstRun();
 
       // Close modal
       onOpenChange(false);

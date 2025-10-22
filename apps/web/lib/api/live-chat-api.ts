@@ -275,13 +275,25 @@ export class LiveChatAPI implements IChatAPI {
     await this.db.init();
     await runMigrations(this.db);
 
-    const { providerSettings } = useChatStore.getState();
+    const { providerConfig } = useChatStore.getState();
+
+    if (!providerConfig) {
+      throw new Error("No provider configured");
+    }
+
     const http = new FetchHTTP();
-    this.openAI = new OpenAIAdapter(
-      http,
-      providerSettings.apiKey,
-      providerSettings.baseUrl
-    );
+
+    // Create adapter based on provider type
+    // For now, only OpenAI is supported, but this allows for future expansion
+    if (providerConfig.provider === "openai" || providerConfig.provider === "custom") {
+      this.openAI = new OpenAIAdapter(
+        http,
+        providerConfig.apiKey,
+        providerConfig.baseUrl
+      );
+    } else {
+      throw new Error(`Provider ${providerConfig.provider} is not yet supported`);
+    }
 
     const chatRepo = new SQLiteChatRepository(this.db);
     const messageRepo = new SQLiteMessageRepository(this.db);
@@ -290,7 +302,7 @@ export class LiveChatAPI implements IChatAPI {
       chatRepo,
       messageRepo,
       this.openAI,
-      providerSettings.model,
+      providerConfig.model || "gpt-4-turbo-preview",
       (fn) => this.db!.transaction(fn)
     );
 

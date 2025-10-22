@@ -14,12 +14,10 @@ import {
 } from "@/components/ui/dialog";
 import { MenuIcon, SettingsIcon, SendIcon, SearchIcon, Sparkles, ImageIcon, X, AlertCircle } from "lucide-react";
 import { ConnectProviderModal } from "@/components/connect-provider-modal";
-import { useApp } from "@/lib/app-context";
 import { useChatStore } from "@/lib/chat-store";
 import { ChatListItem } from "@/components/chat-list-item";
 import { Message } from "@/components/message";
 import { ImageAttachmentChip } from "@/components/image-attachment-chip";
-import { SettingsDialog } from "@/components/settings-dialog";
 import { ErrorBanner } from "@/components/error-banner";
 import { SearchBar } from "@/components/search-bar";
 import type { ImageAttachment } from "@/lib/types";
@@ -27,7 +25,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useChatAPI } from "@/lib/api/chat-api-provider";
 
 export default function Home() {
-  const { providerConfig, isHydrated } = useApp();
+  const providerConfig = useChatStore((state) => state.providerConfig);
   const { api } = useChatAPI();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -405,7 +403,11 @@ export default function Home() {
         {/* Header */}
         <header className="border-b h-14 flex items-center justify-between px-4 md:px-6">
           <h1 className="text-lg font-semibold ml-10 md:ml-0">Arc</h1>
-          <SettingsDialog />
+          <Link href="/settings">
+            <Button variant="ghost" size="icon" title="Settings">
+              <SettingsIcon className="h-5 w-5" />
+            </Button>
+          </Link>
         </header>
 
         {/* Search Bar */}
