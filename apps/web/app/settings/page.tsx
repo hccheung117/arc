@@ -4,101 +4,89 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Slider } from "@/components/ui/slider";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useChatStore, type ProviderConfig } from "@/lib/chat-store";
-import { ArrowLeft, Moon, Sun, Monitor, Check, X, Loader2 } from "lucide-react";
+import { ArrowLeft, Moon, Sun, Monitor, Plus, AlertCircle, Loader2 } from "lucide-react";
+import { ProviderCard } from "@/components/provider-card";
+import { ProviderFormDialog } from "@/components/provider-form-dialog";
 import { OpenAIAdapter } from "@arc/core/providers/openai/OpenAIAdapter.js";
 import { FetchHTTP } from "@arc/platform-browser/http/FetchHTTP.js";
-
-const OPENAI_MODELS = [
-  { value: "gpt-4-turbo-preview", label: "GPT-4 Turbo" },
-  { value: "gpt-4", label: "GPT-4" },
-  { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo" },
-  { value: "gpt-3.5-turbo-16k", label: "GPT-3.5 Turbo 16K" },
-];
-
-type TestStatus = "idle" | "testing" | "success" | "error";
 
 export default function SettingsPage() {
   const theme = useChatStore((state) => state.theme);
   const setTheme = useChatStore((state) => state.setTheme);
   const fontSize = useChatStore((state) => state.fontSize);
   const setFontSize = useChatStore((state) => state.setFontSize);
-  const providerConfig = useChatStore((state) => state.providerConfig);
-  const setProviderConfig = useChatStore((state) => state.setProviderConfig);
+  const providerConfigs = useChatStore((state) => state.providerConfigs);
+  const addProvider = useChatStore((state) => state.addProvider);
+  const updateProvider = useChatStore((state) => state.updateProvider);
+  const deleteProvider = useChatStore((state) => state.deleteProvider);
+  const toggleProvider = useChatStore((state) => state.toggleProvider);
 
-  // Local form state for provider settings
-  const [provider, setProvider] = useState<ProviderConfig["provider"]>(
-    providerConfig?.provider || "openai"
-  );
-  const [apiKey, setApiKey] = useState(providerConfig?.apiKey || "");
-  const [baseUrl, setBaseUrl] = useState(providerConfig?.baseUrl || "");
-  const [model, setModel] = useState(providerConfig?.model || "gpt-4-turbo-preview");
+  // Dialog state
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
+  const [editingProvider, setEditingProvider] = useState<ProviderConfig | undefined>(undefined);
 
   // Test connection state
-  const [testStatus, setTestStatus] = useState<TestStatus>("idle");
-  const [testMessage, setTestMessage] = useState("");
+  const [testingProvider, setTestingProvider] = useState<string | null>(null);
+  const [testError, setTestError] = useState<string | null>(null);
 
-  const hasChanges =
-    provider !== (providerConfig?.provider || "openai") ||
-    apiKey !== (providerConfig?.apiKey || "") ||
-    baseUrl !== (providerConfig?.baseUrl || "") ||
-    model !== (providerConfig?.model || "");
+  const handleAddProvider = () => {
+    setDialogMode("add");
+    setEditingProvider(undefined);
+    setIsDialogOpen(true);
+  };
 
-  const handleTestConnection = async () => {
-    if (!apiKey.trim()) {
-      setTestStatus("error");
-      setTestMessage("API key is required");
-      return;
-    }
+  const handleEditProvider = (config: ProviderConfig) => {
+    setDialogMode("edit");
+    setEditingProvider(config);
+    setIsDialogOpen(true);
+  };
 
-    setTestStatus("testing");
-    setTestMessage("");
-
-    try {
-      const http = new FetchHTTP();
-      const adapter = new OpenAIAdapter(http, apiKey, baseUrl || undefined);
-      await adapter.healthCheck();
-
-      setTestStatus("success");
-      setTestMessage("Connection successful!");
-    } catch (error) {
-      setTestStatus("error");
-      if (error instanceof Error) {
-        setTestMessage(error.message || "Connection failed");
-      } else {
-        setTestMessage("Connection failed");
+  const handleSaveProvider = (config: ProviderConfig) => {
+    if (dialogMode === "add") {
+      // Check if provider already exists
+      const exists = providerConfigs.some((p) => p.provider === config.provider);
+      if (exists) {
+        setTestError(`Provider ${config.provider} is already configured`);
+        return;
       }
+      addProvider(config);
+    } else {
+      updateProvider(config.provider, config);
+    }
+    setTestError(null);
+  };
+
+  const handleDeleteProvider = (provider: ProviderConfig["provider"]) => {
+    if (confirm(`Are you sure you want to delete ${provider}? This action cannot be undone.`)) {
+      deleteProvider(provider);
     }
   };
 
-  const handleSaveProvider = () => {
-    if (!apiKey.trim()) {
-      setTestStatus("error");
-      setTestMessage("API key is required");
-      return;
+  const handleToggleProvider = (provider: ProviderConfig["provider"], enabled: boolean) => {
+    toggleProvider(provider, !enabled);
+  };
+
+  const handleTestProvider = async (config: ProviderConfig) => {
+    setTestingProvider(config.provider);
+    setTestError(null);
+
+    try {
+      const http = new FetchHTTP();
+      const adapter = new OpenAIAdapter(http, config.apiKey, config.baseUrl || undefined);
+      await adapter.healthCheck();
+      alert(`Connection to ${config.provider} successful!`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Connection failed";
+      setTestError(`${config.provider}: ${message}`);
+    } finally {
+      setTestingProvider(null);
     }
-
-    const config: ProviderConfig = {
-      provider,
-      apiKey,
-      ...(baseUrl && { baseUrl }),
-      ...(model && { model }),
-    };
-
-    setProviderConfig(config);
-    setTestStatus("idle");
-    setTestMessage("");
   };
 
   return (
@@ -209,137 +197,67 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Provider Configuration Section */}
-          <Card>
-            <CardHeader>
-              <CardTitle>AI Provider</CardTitle>
-              <CardDescription>
-                Configure your AI provider settings
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Provider Selection */}
-              <div className="space-y-2">
-                <Label htmlFor="provider">Provider</Label>
-                <Select
-                  value={provider}
-                  onValueChange={(value) => setProvider(value as ProviderConfig["provider"])}
-                >
-                  <SelectTrigger id="provider">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="openai">OpenAI</SelectItem>
-                    <SelectItem value="anthropic">Anthropic (Coming Soon)</SelectItem>
-                    <SelectItem value="google">Google (Coming Soon)</SelectItem>
-                    <SelectItem value="custom">Custom</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* API Key */}
-              <div className="space-y-2">
-                <Label htmlFor="apiKey">
-                  API Key <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="apiKey"
-                  type="password"
-                  placeholder="sk-..."
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  className="font-mono text-sm"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Your API key is stored locally and never sent to our servers
+          {/* AI Providers Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">AI Providers</h2>
+                <p className="text-sm text-muted-foreground">
+                  Configure multiple AI providers. Models from all enabled providers will be available for use.
                 </p>
               </div>
-
-              {/* Base URL */}
-              <div className="space-y-2">
-                <Label htmlFor="baseUrl">Base URL (Optional)</Label>
-                <Input
-                  id="baseUrl"
-                  type="url"
-                  placeholder="https://api.openai.com/v1"
-                  value={baseUrl}
-                  onChange={(e) => setBaseUrl(e.target.value)}
-                  className="font-mono text-sm"
-                />
-                <p className="text-xs text-muted-foreground">
-                  For proxies or custom endpoints
-                </p>
-              </div>
-
-              {/* Model Selection */}
-              <div className="space-y-2">
-                <Label htmlFor="model">Model</Label>
-                <Select value={model} onValueChange={setModel}>
-                  <SelectTrigger id="model">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {OPENAI_MODELS.map((m) => (
-                      <SelectItem key={m.value} value={m.value}>
-                        {m.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Test Connection */}
-              <div className="space-y-2">
-                <Button
-                  onClick={handleTestConnection}
-                  disabled={!apiKey.trim() || testStatus === "testing"}
-                  variant="outline"
-                  className="w-full"
-                >
-                  {testStatus === "testing" ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Testing Connection...
-                    </>
-                  ) : testStatus === "success" ? (
-                    <>
-                      <Check className="mr-2 h-4 w-4 text-green-600" />
-                      Connection Successful
-                    </>
-                  ) : testStatus === "error" ? (
-                    <>
-                      <X className="mr-2 h-4 w-4 text-destructive" />
-                      Connection Failed
-                    </>
-                  ) : (
-                    "Test Connection"
-                  )}
-                </Button>
-                {testMessage && (
-                  <p
-                    className={`text-sm ${
-                      testStatus === "success"
-                        ? "text-green-600"
-                        : "text-destructive"
-                    }`}
-                  >
-                    {testMessage}
-                  </p>
-                )}
-              </div>
-
-              {/* Save Button */}
-              <Button
-                onClick={handleSaveProvider}
-                disabled={!hasChanges || !apiKey.trim()}
-                className="w-full"
-              >
-                Save Provider Settings
+              <Button onClick={handleAddProvider}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Provider
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+
+            {testError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{testError}</AlertDescription>
+              </Alert>
+            )}
+
+            {providerConfigs.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                  <p className="text-muted-foreground mb-4">
+                    No providers configured yet. Add your first provider to get started.
+                  </p>
+                  <Button onClick={handleAddProvider}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Provider
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4">
+                {providerConfigs.map((config) => (
+                  <ProviderCard
+                    key={config.provider}
+                    config={config}
+                    onEdit={() => handleEditProvider(config)}
+                    onDelete={() => handleDeleteProvider(config.provider)}
+                    onTest={() => handleTestProvider(config)}
+                    onToggle={() => handleToggleProvider(config.provider, config.enabled)}
+                    isTesting={testingProvider === config.provider}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </main>
+
+      {/* Provider Form Dialog */}
+      <ProviderFormDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+        onSave={handleSaveProvider}
+        initialConfig={editingProvider}
+        mode={dialogMode}
+      />
     </div>
   );
 }

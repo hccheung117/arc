@@ -6,8 +6,9 @@
  * Data is stored in IndexedDB so it survives page reloads in Live mode.
  */
 
-import type { IChatAPI } from "./chat-api.interface";
+import type { IChatAPI, ModelInfo } from "./chat-api.interface";
 import type { ImageAttachment } from "../types";
+import type { ProviderConfig } from "../chat-store";
 import { ChatService, type SearchResult } from "@arc/core/services/ChatService.js";
 import { OpenAIAdapter } from "@arc/core/providers/openai/OpenAIAdapter.js";
 import { ProviderError } from "@arc/core/domain/ProviderError.js";
@@ -47,7 +48,7 @@ export class LiveChatAPI implements IChatAPI {
   private db: IPlatformDatabase | null = null;
   private initialization: Promise<void> | null = null;
   private chatService: ChatService | null = null;
-  private openAI: OpenAIAdapter | null = null;
+  private adapters: Map<string, OpenAIAdapter> = new Map();  // Map provider type to adapter
   private activeStreamMessageId: string | null = null;
 
   /**
@@ -123,6 +124,7 @@ export class LiveChatAPI implements IChatAPI {
   async sendMessage(
     chatId: string,
     content: string,
+    model: string,
     attachments?: ImageAttachment[]
   ): Promise<void> {
     const chatService = await this.getChatService();
@@ -142,7 +144,8 @@ export class LiveChatAPI implements IChatAPI {
       const stream = chatService.sendMessage(
         chatId,
         content,
-        coreAttachments
+        coreAttachments,
+        model
       );
 
       for await (const update of stream) {
@@ -245,6 +248,46 @@ export class LiveChatAPI implements IChatAPI {
   }
 
   // ============================================================================
+  // Provider Operations
+  // ============================================================================
+
+  async getAvailableModels(): Promise<ModelInfo[]> {
+    await this.ensureInitialized();
+
+    const { providerConfigs } = useChatStore.getState();
+    const models: ModelInfo[] = [];
+
+    // Fetch models from all enabled providers
+    for (const config of providerConfigs) {
+      if (!config.enabled) {
+        continue;
+      }
+
+      const adapter = this.adapters.get(config.provider);
+      if (!adapter) {
+        continue;
+      }
+
+      try {
+        const providerModels = await adapter.listModels();
+
+        // Convert to ModelInfo format and add to the list
+        for (const model of providerModels) {
+          models.push({
+            id: model.id,
+            name: model.id,  // For OpenAI, we use the ID as the name
+            provider: config.provider,
+          });
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch models from ${config.provider}:`, error);
+      }
+    }
+
+    return models;
+  }
+
+  // ============================================================================
   // Search Operations
   // ============================================================================
 
@@ -275,34 +318,50 @@ export class LiveChatAPI implements IChatAPI {
     await this.db.init();
     await runMigrations(this.db);
 
-    const { providerConfig } = useChatStore.getState();
+    const { providerConfigs } = useChatStore.getState();
 
-    if (!providerConfig) {
-      throw new Error("No provider configured");
+    if (!providerConfigs || providerConfigs.length === 0) {
+      throw new Error("No providers configured");
     }
 
     const http = new FetchHTTP();
 
-    // Create adapter based on provider type
-    // For now, only OpenAI is supported, but this allows for future expansion
-    if (providerConfig.provider === "openai" || providerConfig.provider === "custom") {
-      this.openAI = new OpenAIAdapter(
-        http,
-        providerConfig.apiKey,
-        providerConfig.baseUrl
-      );
-    } else {
-      throw new Error(`Provider ${providerConfig.provider} is not yet supported`);
+    // Create adapters for all enabled providers
+    for (const config of providerConfigs) {
+      if (!config.enabled) {
+        continue;
+      }
+
+      // For now, only OpenAI is supported, but this allows for future expansion
+      if (config.provider === "openai" || config.provider === "custom") {
+        const adapter = new OpenAIAdapter(
+          http,
+          config.apiKey,
+          config.baseUrl
+        );
+        this.adapters.set(config.provider, adapter);
+      } else {
+        console.warn(`Provider ${config.provider} is not yet supported`);
+      }
+    }
+
+    if (this.adapters.size === 0) {
+      throw new Error("No supported providers configured");
     }
 
     const chatRepo = new SQLiteChatRepository(this.db);
     const messageRepo = new SQLiteMessageRepository(this.db);
 
+    // Use the first enabled provider's adapter as the primary adapter for ChatService
+    // The model can be overridden per message via sendMessage
+    const primaryAdapter = Array.from(this.adapters.values())[0]!;
+    const primaryConfig = providerConfigs.find((c) => c.enabled);
+
     this.chatService = new ChatService(
       chatRepo,
       messageRepo,
-      this.openAI,
-      providerConfig.model || "gpt-4-turbo-preview",
+      primaryAdapter,
+      primaryConfig?.defaultModel || "gpt-4-turbo-preview",
       (fn) => this.db!.transaction(fn)
     );
 

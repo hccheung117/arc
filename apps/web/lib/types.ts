@@ -23,6 +23,8 @@ export interface Message {
   role: MessageRole;
   content: string;
   attachments?: ImageAttachment[];
+  model?: string;     // Which model generated this message (e.g., "gpt-4-turbo-preview")
+  provider?: string;  // Which provider was used (e.g., "openai", "anthropic")
   status: MessageStatus;
   createdAt: number;  // timestamp
   updatedAt: number;  // timestamp

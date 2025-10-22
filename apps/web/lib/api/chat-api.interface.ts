@@ -9,6 +9,15 @@
 import type { ImageAttachment } from "../types";
 import type { SearchResult } from "@arc/core/services/ChatService.js";
 
+/**
+ * Model information for display in UI
+ */
+export interface ModelInfo {
+  id: string;          // Model ID (e.g., "gpt-4-turbo-preview")
+  name: string;        // Display name (e.g., "GPT-4 Turbo")
+  provider: string;    // Provider type (e.g., "openai", "anthropic")
+}
+
 export interface IChatAPI {
   /**
    * Initialize the API and ensure it's ready to use
@@ -54,11 +63,13 @@ export interface IChatAPI {
    * Send a message in a chat
    * @param chatId ID of the chat to send the message to
    * @param content Text content of the message
+   * @param model Model to use for generating the response
    * @param attachments Optional image attachments
    */
   sendMessage(
     chatId: string,
     content: string,
+    model: string,
     attachments?: ImageAttachment[]
   ): Promise<void>;
 
@@ -79,6 +90,16 @@ export interface IChatAPI {
    * @param messageId ID of the message to delete
    */
   deleteMessage(messageId: string): Promise<void>;
+
+  // ============================================================================
+  // Provider Operations
+  // ============================================================================
+
+  /**
+   * Get all available models from all enabled providers
+   * @returns Promise resolving to array of available models
+   */
+  getAvailableModels(): Promise<ModelInfo[]>;
 
   // ============================================================================
   // Search Operations

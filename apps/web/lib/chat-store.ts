@@ -8,7 +8,8 @@ export interface ProviderConfig {
   provider: "openai" | "anthropic" | "google" | "custom";
   apiKey: string;
   baseUrl?: string;
-  model?: string;
+  defaultModel?: string;  // Renamed from "model" for clarity
+  enabled: boolean;        // Toggle without deleting
 }
 
 interface ProviderErrorInfo {
@@ -29,7 +30,7 @@ interface ChatState {
   // App settings
   theme: Theme;
   fontSize: number;
-  providerConfig: ProviderConfig | null;
+  providerConfigs: ProviderConfig[];  // Changed from single to array
   isHydrated: boolean;
 
   // Error state
@@ -49,7 +50,12 @@ interface ChatState {
   // App settings actions
   setTheme: (theme: Theme) => void;
   setFontSize: (fontSize: number) => void;
-  setProviderConfig: (config: ProviderConfig | null) => void;
+
+  // Provider management actions
+  addProvider: (config: ProviderConfig) => void;
+  updateProvider: (provider: ProviderConfig["provider"], updates: Partial<ProviderConfig>) => void;
+  deleteProvider: (provider: ProviderConfig["provider"]) => void;
+  toggleProvider: (provider: ProviderConfig["provider"], enabled: boolean) => void;
 
   // Error actions
   setError: (error: ProviderErrorInfo) => void;
@@ -90,7 +96,7 @@ export const useChatStore = create<ChatState>()(
       // App settings with defaults
       theme: "system",
       fontSize: 16,
-      providerConfig: null,
+      providerConfigs: [],
       isHydrated: false,
 
       // Error state
@@ -453,8 +459,41 @@ export const useChatStore = create<ChatState>()(
     set({ fontSize });
   },
 
-  setProviderConfig: (providerConfig: ProviderConfig | null) => {
-    set({ providerConfig });
+  // Provider management actions
+  addProvider: (config: ProviderConfig) => {
+    set((state) => {
+      // Check if provider already exists
+      const exists = state.providerConfigs.some((p) => p.provider === config.provider);
+      if (exists) {
+        console.warn(`Provider ${config.provider} already exists. Use updateProvider instead.`);
+        return state;
+      }
+      return {
+        providerConfigs: [...state.providerConfigs, config],
+      };
+    });
+  },
+
+  updateProvider: (provider: ProviderConfig["provider"], updates: Partial<ProviderConfig>) => {
+    set((state) => ({
+      providerConfigs: state.providerConfigs.map((p) =>
+        p.provider === provider ? { ...p, ...updates } : p
+      ),
+    }));
+  },
+
+  deleteProvider: (provider: ProviderConfig["provider"]) => {
+    set((state) => ({
+      providerConfigs: state.providerConfigs.filter((p) => p.provider !== provider),
+    }));
+  },
+
+  toggleProvider: (provider: ProviderConfig["provider"], enabled: boolean) => {
+    set((state) => ({
+      providerConfigs: state.providerConfigs.map((p) =>
+        p.provider === provider ? { ...p, enabled } : p
+      ),
+    }));
   },
 
   // Set error
@@ -472,7 +511,7 @@ export const useChatStore = create<ChatState>()(
       partialize: (state) => ({
         theme: state.theme,
         fontSize: state.fontSize,
-        providerConfig: state.providerConfig,
+        providerConfigs: state.providerConfigs,  // Changed from providerConfig to providerConfigs
         chats: state.chats,
         messages: state.messages,
         // Don't persist runtime state like streamIntervalId, activeChatId, streamingChatId, isHydrated
@@ -480,6 +519,30 @@ export const useChatStore = create<ChatState>()(
       onRehydrateStorage: () => {
         return (state) => {
           if (state) {
+            // Data migration: Convert old single providerConfig to array providerConfigs
+            // @ts-expect-error - Old data structure might have providerConfig instead of providerConfigs
+            if (state.providerConfig && !state.providerConfigs) {
+              // @ts-expect-error - Accessing old property for migration
+              const oldConfig = state.providerConfig;
+
+              // Convert old config to new array structure
+              state.providerConfigs = [
+                {
+                  provider: oldConfig.provider,
+                  apiKey: oldConfig.apiKey,
+                  ...(oldConfig.baseUrl && { baseUrl: oldConfig.baseUrl }),
+                  ...(oldConfig.model && { defaultModel: oldConfig.model }),
+                  enabled: true, // Old configs are enabled by default
+                },
+              ];
+
+              // Remove old property
+              // @ts-expect-error - Removing old property
+              delete state.providerConfig;
+
+              console.log("Migrated provider configuration from old format to new array format");
+            }
+
             state.isHydrated = true;
           }
         };

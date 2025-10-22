@@ -150,12 +150,14 @@ export class ChatService {
   /**
    * Send a message and stream the assistant's response
    *
+   * @param model Optional model override for this specific message
    * @returns AsyncGenerator that yields message updates, returns final result
    */
   async *sendMessage(
     chatId: string,
     content: string,
-    attachments?: ImageAttachment[]
+    attachments?: ImageAttachment[],
+    model?: string
   ): AsyncGenerator<MessageUpdate, SendMessageResult, void> {
     const now = Date.now();
     let chat: Chat | null = null;
@@ -220,9 +222,10 @@ export class ChatService {
     this.activeStreams.set(assistantMessage.id, abortController);
 
     try {
+      const effectiveModel = model ?? this.model;
       const stream = this.openAI.streamChatCompletion(
         conversationHistory,
-        this.model,
+        effectiveModel,
         attachments,
         abortController.signal
       );

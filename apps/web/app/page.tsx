@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { MenuIcon, SettingsIcon, SendIcon, SearchIcon, Sparkles, ImageIcon, X, AlertCircle } from "lucide-react";
 import { ConnectProviderModal } from "@/components/connect-provider-modal";
+import { ModelSelector } from "@/components/model-selector";
 import { useChatStore } from "@/lib/chat-store";
 import { ChatListItem } from "@/components/chat-list-item";
 import { Message } from "@/components/message";
@@ -25,15 +26,19 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useChatAPI } from "@/lib/api/chat-api-provider";
 
 export default function Home() {
-  const providerConfig = useChatStore((state) => state.providerConfig);
+  const providerConfigs = useChatStore((state) => state.providerConfigs);
   const { api } = useChatAPI();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [providerModalOpen, setProviderModalOpen] = useState(false);
   const [messageInput, setMessageInput] = useState("");
+  const [selectedModel, setSelectedModel] = useState("gpt-4-turbo-preview"); // Default model
   const [attachedImages, setAttachedImages] = useState<ImageAttachment[]>([]);
   const [attachmentError, setAttachmentError] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Check if any provider is enabled
+  const hasEnabledProvider = providerConfigs.some((config) => config.enabled);
 
   // Per-chat search state
   const [searchActive, setSearchActive] = useState(false);
@@ -310,11 +315,12 @@ export default function Home() {
 
   const handleSendMessage = () => {
     const trimmedMessage = messageInput.trim();
-    if ((!trimmedMessage && attachedImages.length === 0) || !providerConfig || isStreaming) {
+    if ((!trimmedMessage && attachedImages.length === 0) || !hasEnabledProvider || isStreaming) {
       return;
     }
 
     // Send message with attachments (if any)
+    // TODO: Update to use selectedModel once API integration is complete
     sendMessage(trimmedMessage || " ", attachedImages);
 
     // Clear input and attachments
@@ -468,7 +474,7 @@ export default function Home() {
                 );
               })}
             </div>
-          ) : !providerConfig ? (
+          ) : !hasEnabledProvider ? (
             // Empty state when no provider is configured
             <div className="flex h-full items-center justify-center p-8">
               <div className="max-w-md text-center space-y-4">
@@ -477,11 +483,11 @@ export default function Home() {
                 </div>
                 <h2 className="text-2xl font-semibold">Welcome to Arc</h2>
                 <p className="text-muted-foreground">
-                  To get started, connect an AI provider. Your API key is stored locally and never leaves your device.
+                  To get started, configure an AI provider in settings. Your API key is stored locally and never leaves your device.
                 </p>
-                <Button onClick={() => setProviderModalOpen(true)}>
-                  Connect Provider
-                </Button>
+                <Link href="/settings">
+                  <Button>Open Settings</Button>
+                </Link>
               </div>
             </div>
           ) : (
@@ -547,12 +553,19 @@ export default function Home() {
                 aria-hidden="true"
               />
 
+              {/* Model Selector */}
+              <ModelSelector
+                value={selectedModel}
+                onValueChange={setSelectedModel}
+                disabled={!hasEnabledProvider || isStreaming}
+              />
+
               {/* Attachment button */}
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={!providerConfig || isStreaming}
+                disabled={!hasEnabledProvider || isStreaming}
                 aria-label="Attach image"
               >
                 <ImageIcon className="size-4" />
@@ -561,8 +574,8 @@ export default function Home() {
               {/* Message input */}
               <Input
                 placeholder={
-                  !providerConfig
-                    ? "Connect a provider first..."
+                  !hasEnabledProvider
+                    ? "Configure a provider in settings first..."
                     : isStreaming
                       ? "Waiting for response..."
                       : "Type a message..."
@@ -573,7 +586,7 @@ export default function Home() {
                 onChange={(e) => setMessageInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
-                disabled={!providerConfig || isStreaming}
+                disabled={!hasEnabledProvider || isStreaming}
               />
 
               {/* Send button */}
@@ -582,7 +595,7 @@ export default function Home() {
                 aria-label="Send message"
                 onClick={handleSendMessage}
                 disabled={
-                  !providerConfig ||
+                  !hasEnabledProvider ||
                   isStreaming ||
                   (!messageInput.trim() && attachedImages.length === 0)
                 }

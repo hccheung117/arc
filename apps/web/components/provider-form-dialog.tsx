@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,11 +19,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useChatStore, type ProviderConfig } from "@/lib/chat-store";
+import type { ProviderConfig } from "@/lib/chat-store";
 
-interface ConnectProviderModalProps {
+interface ProviderFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onSave: (config: ProviderConfig) => void;
+  initialConfig?: ProviderConfig | undefined;
+  mode: "add" | "edit";
 }
 
 interface FormErrors {
@@ -32,14 +35,33 @@ interface FormErrors {
   baseUrl?: string;
 }
 
-export function ConnectProviderModal({ open, onOpenChange }: ConnectProviderModalProps) {
-  const addProvider = useChatStore((state) => state.addProvider);
-
-  const [provider, setProvider] = useState<ProviderConfig["provider"]>("openai");
-  const [apiKey, setApiKey] = useState("");
-  const [baseUrl, setBaseUrl] = useState("");
+export function ProviderFormDialog({
+  open,
+  onOpenChange,
+  onSave,
+  initialConfig,
+  mode,
+}: ProviderFormDialogProps) {
+  const [provider, setProvider] = useState<ProviderConfig["provider"]>(
+    initialConfig?.provider || "openai"
+  );
+  const [apiKey, setApiKey] = useState(initialConfig?.apiKey || "");
+  const [baseUrl, setBaseUrl] = useState(initialConfig?.baseUrl || "");
+  const [enabled, setEnabled] = useState(initialConfig?.enabled ?? true);
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  // Reset form when dialog opens/closes or initial config changes
+  useEffect(() => {
+    if (open) {
+      setProvider(initialConfig?.provider || "openai");
+      setApiKey(initialConfig?.apiKey || "");
+      setBaseUrl(initialConfig?.baseUrl || "");
+      setEnabled(initialConfig?.enabled ?? true);
+      setErrors({});
+      setTouched({});
+    }
+  }, [open, initialConfig]);
 
   const validateField = (field: string, value: string): string | undefined => {
     switch (field) {
@@ -91,54 +113,43 @@ export function ConnectProviderModal({ open, onOpenChange }: ConnectProviderModa
     const hasErrors = Object.keys(newErrors).length > 0;
 
     if (!hasErrors) {
-      // Add new provider configuration
       const config: ProviderConfig = {
         provider,
         apiKey,
         ...(baseUrl && { baseUrl }),
-        enabled: true, // New providers are enabled by default
+        enabled,
       };
 
-      addProvider(config);
-
-      // Close modal
+      onSave(config);
       onOpenChange(false);
-
-      // Reset form
-      setApiKey("");
-      setBaseUrl("");
-      setErrors({});
-      setTouched({});
     }
   };
 
   const handleCancel = () => {
     onOpenChange(false);
-    // Reset form
-    setApiKey("");
-    setBaseUrl("");
-    setErrors({});
-    setTouched({});
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Connect AI Provider</DialogTitle>
+          <DialogTitle>{mode === "add" ? "Add Provider" : "Edit Provider"}</DialogTitle>
           <DialogDescription>
-            Enter your API credentials to start chatting. Your keys are stored locally and never sent to our servers.
+            {mode === "add"
+              ? "Configure a new AI provider. Your API keys are stored locally."
+              : "Update your provider configuration."}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
-            {/* Provider Selection */}
+            {/* Provider Selection (disabled in edit mode) */}
             <div className="space-y-2">
               <Label htmlFor="provider">Provider</Label>
               <Select
                 value={provider}
                 onValueChange={(value) => setProvider(value as ProviderConfig["provider"])}
+                disabled={mode === "edit"}
               >
                 <SelectTrigger id="provider">
                   <SelectValue placeholder="Select a provider" />
@@ -150,6 +161,11 @@ export function ConnectProviderModal({ open, onOpenChange }: ConnectProviderModa
                   <SelectItem value="custom">Custom</SelectItem>
                 </SelectContent>
               </Select>
+              {mode === "edit" && (
+                <p className="text-xs text-muted-foreground">
+                  Provider type cannot be changed after creation
+                </p>
+              )}
             </div>
 
             {/* API Key */}
@@ -198,7 +214,7 @@ export function ConnectProviderModal({ open, onOpenChange }: ConnectProviderModa
             <Button type="button" variant="outline" onClick={handleCancel}>
               Cancel
             </Button>
-            <Button type="submit">Connect</Button>
+            <Button type="submit">{mode === "add" ? "Add Provider" : "Save Changes"}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
