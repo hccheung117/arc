@@ -43,14 +43,6 @@ export function ConnectProviderModal({ open, onOpenChange }: ConnectProviderModa
 
   const validateField = (field: string, value: string): string | undefined => {
     switch (field) {
-      case "apiKey":
-        if (!value.trim()) {
-          return "API Key is required";
-        }
-        if (value.length < 10) {
-          return "API Key seems too short";
-        }
-        break;
       case "baseUrl":
         if (value && !value.match(/^https?:\/\/.+/)) {
           return "Base URL must start with http:// or https://";
@@ -71,10 +63,8 @@ export function ConnectProviderModal({ open, onOpenChange }: ConnectProviderModa
 
     // Validate all fields
     const newErrors: FormErrors = {};
-    const apiKeyError = validateField("apiKey", apiKey);
     const baseUrlError = validateField("baseUrl", baseUrl);
 
-    if (apiKeyError) newErrors.apiKey = apiKeyError;
     if (baseUrlError) newErrors.baseUrl = baseUrlError;
 
     // Mark all fields as touched
@@ -92,11 +82,10 @@ export function ConnectProviderModal({ open, onOpenChange }: ConnectProviderModa
 
     if (!hasErrors) {
       // Add new provider configuration
-      const config: ProviderConfig = {
+      const config: Omit<ProviderConfig, "id"> = {
         provider,
-        apiKey,
+        ...(apiKey && { apiKey }),  // Only include if provided
         ...(baseUrl && { baseUrl }),
-        enabled: true, // New providers are enabled by default
       };
 
       addProvider(config);
@@ -147,7 +136,6 @@ export function ConnectProviderModal({ open, onOpenChange }: ConnectProviderModa
                   <SelectItem value="openai">OpenAI</SelectItem>
                   <SelectItem value="anthropic">Anthropic</SelectItem>
                   <SelectItem value="google">Google</SelectItem>
-                  <SelectItem value="custom">Custom</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -155,7 +143,7 @@ export function ConnectProviderModal({ open, onOpenChange }: ConnectProviderModa
             {/* API Key */}
             <div className="space-y-2">
               <Label htmlFor="apiKey">
-                API Key <span className="text-destructive">*</span>
+                API Key <span className="text-xs text-muted-foreground">(Optional)</span>
               </Label>
               <Input
                 id="apiKey"
@@ -169,6 +157,9 @@ export function ConnectProviderModal({ open, onOpenChange }: ConnectProviderModa
               {touched.apiKey && errors.apiKey && (
                 <p className="text-sm text-destructive">{errors.apiKey}</p>
               )}
+              <p className="text-xs text-muted-foreground">
+                Some proxies don&apos;t require an API key
+              </p>
             </div>
 
             {/* Base URL (Optional) */}

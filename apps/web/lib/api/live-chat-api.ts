@@ -257,12 +257,8 @@ export class LiveChatAPI implements IChatAPI {
     const { providerConfigs } = useChatStore.getState();
     const models: ModelInfo[] = [];
 
-    // Fetch models from all enabled providers
+    // Fetch models from all providers
     for (const config of providerConfigs) {
-      if (!config.enabled) {
-        continue;
-      }
-
       const adapter = this.adapters.get(config.provider);
       if (!adapter) {
         continue;
@@ -326,17 +322,13 @@ export class LiveChatAPI implements IChatAPI {
 
     const http = new FetchHTTP();
 
-    // Create adapters for all enabled providers
+    // Create adapters for all providers
     for (const config of providerConfigs) {
-      if (!config.enabled) {
-        continue;
-      }
-
       // For now, only OpenAI is supported, but this allows for future expansion
-      if (config.provider === "openai" || config.provider === "custom") {
+      if (config.provider === "openai") {
         const adapter = new OpenAIAdapter(
           http,
-          config.apiKey,
+          config.apiKey || "",  // Some proxies don't need an API key
           config.baseUrl
         );
         this.adapters.set(config.provider, adapter);
@@ -352,10 +344,10 @@ export class LiveChatAPI implements IChatAPI {
     const chatRepo = new SQLiteChatRepository(this.db);
     const messageRepo = new SQLiteMessageRepository(this.db);
 
-    // Use the first enabled provider's adapter as the primary adapter for ChatService
+    // Use the first provider's adapter as the primary adapter for ChatService
     // The model can be overridden per message via sendMessage
     const primaryAdapter = Array.from(this.adapters.values())[0]!;
-    const primaryConfig = providerConfigs.find((c) => c.enabled);
+    const primaryConfig = providerConfigs[0];
 
     this.chatService = new ChatService(
       chatRepo,

@@ -12,21 +12,15 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import type { ProviderConfig } from "@/lib/chat-store";
 
 interface ProviderFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (config: ProviderConfig) => void;
+  onSave: (config: Partial<ProviderConfig>) => void;
   initialConfig?: ProviderConfig | undefined;
   mode: "add" | "edit";
+  preselectedProvider?: ProviderConfig["provider"] | undefined;
 }
 
 interface FormErrors {
@@ -35,29 +29,31 @@ interface FormErrors {
   baseUrl?: string;
 }
 
+const PROVIDER_NAMES: Record<ProviderConfig["provider"], string> = {
+  openai: "OpenAI",
+  anthropic: "Anthropic",
+  google: "Google",
+};
+
 export function ProviderFormDialog({
   open,
   onOpenChange,
   onSave,
   initialConfig,
   mode,
+  preselectedProvider,
 }: ProviderFormDialogProps) {
-  const [provider, setProvider] = useState<ProviderConfig["provider"]>(
-    initialConfig?.provider || "openai"
-  );
+  const provider = initialConfig?.provider || preselectedProvider || "openai";
   const [apiKey, setApiKey] = useState(initialConfig?.apiKey || "");
   const [baseUrl, setBaseUrl] = useState(initialConfig?.baseUrl || "");
-  const [enabled, setEnabled] = useState(initialConfig?.enabled ?? true);
   const [errors, setErrors] = useState<FormErrors>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   // Reset form when dialog opens/closes or initial config changes
   useEffect(() => {
     if (open) {
-      setProvider(initialConfig?.provider || "openai");
       setApiKey(initialConfig?.apiKey || "");
       setBaseUrl(initialConfig?.baseUrl || "");
-      setEnabled(initialConfig?.enabled ?? true);
       setErrors({});
       setTouched({});
     }
@@ -65,14 +61,6 @@ export function ProviderFormDialog({
 
   const validateField = (field: string, value: string): string | undefined => {
     switch (field) {
-      case "apiKey":
-        if (!value.trim()) {
-          return "API Key is required";
-        }
-        if (value.length < 10) {
-          return "API Key seems too short";
-        }
-        break;
       case "baseUrl":
         if (value && !value.match(/^https?:\/\/.+/)) {
           return "Base URL must start with http:// or https://";
@@ -93,15 +81,12 @@ export function ProviderFormDialog({
 
     // Validate all fields
     const newErrors: FormErrors = {};
-    const apiKeyError = validateField("apiKey", apiKey);
     const baseUrlError = validateField("baseUrl", baseUrl);
 
-    if (apiKeyError) newErrors.apiKey = apiKeyError;
     if (baseUrlError) newErrors.baseUrl = baseUrlError;
 
     // Mark all fields as touched
     setTouched({
-      provider: true,
       apiKey: true,
       baseUrl: true,
     });
@@ -113,11 +98,10 @@ export function ProviderFormDialog({
     const hasErrors = Object.keys(newErrors).length > 0;
 
     if (!hasErrors) {
-      const config: ProviderConfig = {
+      const config: Partial<ProviderConfig> = {
         provider,
-        apiKey,
+        ...(apiKey && { apiKey }),  // Only include if provided
         ...(baseUrl && { baseUrl }),
-        enabled,
       };
 
       onSave(config);
@@ -143,35 +127,18 @@ export function ProviderFormDialog({
 
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
-            {/* Provider Selection (disabled in edit mode) */}
+            {/* Provider Type (Read-only) */}
             <div className="space-y-2">
-              <Label htmlFor="provider">Provider</Label>
-              <Select
-                value={provider}
-                onValueChange={(value) => setProvider(value as ProviderConfig["provider"])}
-                disabled={mode === "edit"}
-              >
-                <SelectTrigger id="provider">
-                  <SelectValue placeholder="Select a provider" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="openai">OpenAI</SelectItem>
-                  <SelectItem value="anthropic">Anthropic</SelectItem>
-                  <SelectItem value="google">Google</SelectItem>
-                  <SelectItem value="custom">Custom</SelectItem>
-                </SelectContent>
-              </Select>
-              {mode === "edit" && (
-                <p className="text-xs text-muted-foreground">
-                  Provider type cannot be changed after creation
-                </p>
-              )}
+              <Label>Provider</Label>
+              <div className="rounded-md border border-input bg-muted px-3 py-2 text-sm">
+                {PROVIDER_NAMES[provider]}
+              </div>
             </div>
 
             {/* API Key */}
             <div className="space-y-2">
               <Label htmlFor="apiKey">
-                API Key <span className="text-destructive">*</span>
+                API Key <span className="text-xs text-muted-foreground">(Optional)</span>
               </Label>
               <Input
                 id="apiKey"
@@ -185,6 +152,9 @@ export function ProviderFormDialog({
               {touched.apiKey && errors.apiKey && (
                 <p className="text-sm text-destructive">{errors.apiKey}</p>
               )}
+              <p className="text-xs text-muted-foreground">
+                Some proxies don&apos;t require an API key
+              </p>
             </div>
 
             {/* Base URL (Optional) */}

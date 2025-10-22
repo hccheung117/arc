@@ -38,8 +38,8 @@ export default function Home() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Check if any provider is enabled
-  const hasEnabledProvider = providerConfigs.some((config) => config.enabled);
+  // Check if any provider is configured
+  const hasProvider = providerConfigs.length > 0;
 
   // Per-chat search state
   const [searchActive, setSearchActive] = useState(false);
@@ -316,7 +316,7 @@ export default function Home() {
 
   const handleSendMessage = () => {
     const trimmedMessage = messageInput.trim();
-    if ((!trimmedMessage && attachedImages.length === 0) || !hasEnabledProvider || isStreaming) {
+    if ((!trimmedMessage && attachedImages.length === 0) || !hasProvider || isStreaming) {
       return;
     }
 
@@ -430,7 +430,7 @@ export default function Home() {
             <ModelSelector
               value={selectedModel}
               onValueChange={setSelectedModel}
-              disabled={!hasEnabledProvider || isStreaming}
+              disabled={!hasProvider || isStreaming}
             />
           </div>
           <Link href="/settings">
@@ -498,7 +498,7 @@ export default function Home() {
                 );
               })}
             </div>
-          ) : !hasEnabledProvider ? (
+          ) : !hasProvider ? (
             // Empty state when no provider is configured
             <div className="flex h-full items-center justify-center p-8">
               <div className="max-w-md text-center space-y-4">
@@ -584,7 +584,7 @@ export default function Home() {
                   size="icon"
                   className="h-8 w-8 shrink-0 hover:bg-accent"
                   onClick={() => fileInputRef.current?.click()}
-                  disabled={!hasEnabledProvider || isStreaming}
+                  disabled={!hasProvider || isStreaming}
                   aria-label="Attach image"
                 >
                   <ImageIcon className="size-4" />
@@ -595,7 +595,7 @@ export default function Home() {
                   ref={textareaRef}
                   rows={1}
                   placeholder={
-                    !hasEnabledProvider
+                    !hasProvider
                       ? "Configure a provider in settings first..."
                       : isStreaming
                         ? "Waiting for response..."
@@ -607,7 +607,7 @@ export default function Home() {
                   onChange={(e) => setMessageInput(e.target.value)}
                   onKeyDown={handleKeyDown}
                   onPaste={handlePaste}
-                  disabled={!hasEnabledProvider || isStreaming}
+                  disabled={!hasProvider || isStreaming}
                 />
 
                 {/* Send button */}
@@ -618,7 +618,7 @@ export default function Home() {
                   aria-label="Send message"
                   onClick={handleSendMessage}
                   disabled={
-                    !hasEnabledProvider ||
+                    !hasProvider ||
                     isStreaming ||
                     (!messageInput.trim() && attachedImages.length === 0)
                   }

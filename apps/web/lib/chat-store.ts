@@ -5,11 +5,11 @@ import type { Chat, Message, ImageAttachment } from "./types";
 export type Theme = "light" | "dark" | "system";
 
 export interface ProviderConfig {
-  provider: "openai" | "anthropic" | "google" | "custom";
-  apiKey: string;
+  id: string;
+  provider: "openai" | "anthropic" | "google";
+  apiKey?: string;  // Optional for proxies that don't need keys
   baseUrl?: string;
   defaultModel?: string;  // Renamed from "model" for clarity
-  enabled: boolean;        // Toggle without deleting
 }
 
 interface ProviderErrorInfo {
@@ -52,10 +52,9 @@ interface ChatState {
   setFontSize: (fontSize: number) => void;
 
   // Provider management actions
-  addProvider: (config: ProviderConfig) => void;
-  updateProvider: (provider: ProviderConfig["provider"], updates: Partial<ProviderConfig>) => void;
-  deleteProvider: (provider: ProviderConfig["provider"]) => void;
-  toggleProvider: (provider: ProviderConfig["provider"], enabled: boolean) => void;
+  addProvider: (config: Omit<ProviderConfig, "id">) => void;
+  updateProvider: (id: string, updates: Partial<ProviderConfig>) => void;
+  deleteProvider: (id: string) => void;
 
   // Error actions
   setError: (error: ProviderErrorInfo) => void;
@@ -460,39 +459,46 @@ export const useChatStore = create<ChatState>()(
   },
 
   // Provider management actions
-  addProvider: (config: ProviderConfig) => {
+  addProvider: (config: Omit<ProviderConfig, "id">) => {
     set((state) => {
-      // Check if provider already exists
+      // Check if provider type already exists
       const exists = state.providerConfigs.some((p) => p.provider === config.provider);
       if (exists) {
         console.warn(`Provider ${config.provider} already exists. Use updateProvider instead.`);
         return state;
       }
+      // Generate unique ID
+      const id = generateId();
+      const newConfig: ProviderConfig = { ...config, id };
       return {
-        providerConfigs: [...state.providerConfigs, config],
+        providerConfigs: [...state.providerConfigs, newConfig],
       };
     });
   },
 
-  updateProvider: (provider: ProviderConfig["provider"], updates: Partial<ProviderConfig>) => {
-    set((state) => ({
-      providerConfigs: state.providerConfigs.map((p) =>
-        p.provider === provider ? { ...p, ...updates } : p
-      ),
-    }));
+  updateProvider: (id: string, updates: Partial<ProviderConfig>) => {
+    set((state) => {
+      // If updating provider type, check for duplicates
+      if (updates.provider) {
+        const duplicate = state.providerConfigs.some(
+          (p) => p.id !== id && p.provider === updates.provider
+        );
+        if (duplicate) {
+          console.warn(`Provider ${updates.provider} already exists.`);
+          return state;
+        }
+      }
+      return {
+        providerConfigs: state.providerConfigs.map((p) =>
+          p.id === id ? { ...p, ...updates } : p
+        ),
+      };
+    });
   },
 
-  deleteProvider: (provider: ProviderConfig["provider"]) => {
+  deleteProvider: (id: string) => {
     set((state) => ({
-      providerConfigs: state.providerConfigs.filter((p) => p.provider !== provider),
-    }));
-  },
-
-  toggleProvider: (provider: ProviderConfig["provider"], enabled: boolean) => {
-    set((state) => ({
-      providerConfigs: state.providerConfigs.map((p) =>
-        p.provider === provider ? { ...p, enabled } : p
-      ),
+      providerConfigs: state.providerConfigs.filter((p) => p.id !== id),
     }));
   },
 
@@ -528,11 +534,11 @@ export const useChatStore = create<ChatState>()(
               // Convert old config to new array structure
               state.providerConfigs = [
                 {
+                  id: generateId(),
                   provider: oldConfig.provider,
                   apiKey: oldConfig.apiKey,
                   ...(oldConfig.baseUrl && { baseUrl: oldConfig.baseUrl }),
                   ...(oldConfig.model && { defaultModel: oldConfig.model }),
-                  enabled: true, // Old configs are enabled by default
                 },
               ];
 
@@ -541,6 +547,19 @@ export const useChatStore = create<ChatState>()(
               delete state.providerConfig;
 
               console.log("Migrated provider configuration from old format to new array format");
+            }
+
+            // Add IDs to existing configs that don't have them, remove enabled field
+            if (state.providerConfigs) {
+              state.providerConfigs = state.providerConfigs.map((config) => {
+                // @ts-expect-error - Removing old enabled property if it exists
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                const { enabled, ...rest } = config;
+                return {
+                  ...rest,
+                  id: config.id || generateId(),
+                };
+              });
             }
 
             state.isHydrated = true;

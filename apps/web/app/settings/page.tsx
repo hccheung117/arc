@@ -8,12 +8,26 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Slider } from "@/components/ui/slider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useChatStore, type ProviderConfig } from "@/lib/chat-store";
-import { ArrowLeft, Moon, Sun, Monitor, Plus, AlertCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, Moon, Sun, Monitor, Plus, AlertCircle, Loader2, ChevronDown } from "lucide-react";
 import { ProviderCard } from "@/components/provider-card";
 import { ProviderFormDialog } from "@/components/provider-form-dialog";
 import { OpenAIAdapter } from "@arc/core/providers/openai/OpenAIAdapter.js";
 import { FetchHTTP } from "@arc/platform-browser/http/FetchHTTP.js";
+
+const PROVIDER_NAMES: Record<ProviderConfig["provider"], string> = {
+  openai: "OpenAI",
+  anthropic: "Anthropic",
+  google: "Google",
+};
+
+const AVAILABLE_PROVIDERS: ProviderConfig["provider"][] = ["openai", "anthropic", "google"];
 
 export default function SettingsPage() {
   const theme = useChatStore((state) => state.theme);
@@ -24,20 +38,26 @@ export default function SettingsPage() {
   const addProvider = useChatStore((state) => state.addProvider);
   const updateProvider = useChatStore((state) => state.updateProvider);
   const deleteProvider = useChatStore((state) => state.deleteProvider);
-  const toggleProvider = useChatStore((state) => state.toggleProvider);
+
+  // Get available provider types (not yet configured)
+  const availableProviderTypes = AVAILABLE_PROVIDERS.filter(
+    (type) => !providerConfigs.some((config) => config.provider === type)
+  );
 
   // Dialog state
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
   const [editingProvider, setEditingProvider] = useState<ProviderConfig | undefined>(undefined);
+  const [selectedProviderType, setSelectedProviderType] = useState<ProviderConfig["provider"]>("openai");
 
   // Test connection state
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
 
-  const handleAddProvider = () => {
+  const handleAddProvider = (providerType: ProviderConfig["provider"]) => {
     setDialogMode("add");
     setEditingProvider(undefined);
+    setSelectedProviderType(providerType);
     setIsDialogOpen(true);
   };
 
@@ -47,7 +67,7 @@ export default function SettingsPage() {
     setIsDialogOpen(true);
   };
 
-  const handleSaveProvider = (config: ProviderConfig) => {
+  const handleSaveProvider = (config: Partial<ProviderConfig>) => {
     if (dialogMode === "add") {
       // Check if provider already exists
       const exists = providerConfigs.some((p) => p.provider === config.provider);
@@ -55,21 +75,17 @@ export default function SettingsPage() {
         setTestError(`Provider ${config.provider} is already configured`);
         return;
       }
-      addProvider(config);
-    } else {
-      updateProvider(config.provider, config);
+      addProvider(config as Omit<ProviderConfig, "id">);
+    } else if (editingProvider) {
+      updateProvider(editingProvider.id, config);
     }
     setTestError(null);
   };
 
-  const handleDeleteProvider = (provider: ProviderConfig["provider"]) => {
-    if (confirm(`Are you sure you want to delete ${provider}? This action cannot be undone.`)) {
-      deleteProvider(provider);
+  const handleDeleteProvider = (id: string, providerName: string) => {
+    if (confirm(`Are you sure you want to delete ${providerName}? This action cannot be undone.`)) {
+      deleteProvider(id);
     }
-  };
-
-  const handleToggleProvider = (provider: ProviderConfig["provider"], enabled: boolean) => {
-    toggleProvider(provider, !enabled);
   };
 
   const handleTestProvider = async (config: ProviderConfig) => {
@@ -78,7 +94,7 @@ export default function SettingsPage() {
 
     try {
       const http = new FetchHTTP();
-      const adapter = new OpenAIAdapter(http, config.apiKey, config.baseUrl || undefined);
+      const adapter = new OpenAIAdapter(http, config.apiKey || "", config.baseUrl || undefined);
       await adapter.healthCheck();
       alert(`Connection to ${config.provider} successful!`);
     } catch (error) {
@@ -203,13 +219,25 @@ export default function SettingsPage() {
               <div>
                 <h2 className="text-xl font-semibold">AI Providers</h2>
                 <p className="text-sm text-muted-foreground">
-                  Configure multiple AI providers. Models from all enabled providers will be available for use.
+                  Configure multiple AI providers. Models from all providers will be available for use.
                 </p>
               </div>
-              <Button onClick={handleAddProvider}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Provider
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button disabled={availableProviderTypes.length === 0}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Provider
+                    <ChevronDown className="h-4 w-4 ml-2" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {availableProviderTypes.map((type) => (
+                    <DropdownMenuItem key={type} onClick={() => handleAddProvider(type)}>
+                      {PROVIDER_NAMES[type]}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             {testError && (
@@ -225,22 +253,33 @@ export default function SettingsPage() {
                   <p className="text-muted-foreground mb-4">
                     No providers configured yet. Add your first provider to get started.
                   </p>
-                  <Button onClick={handleAddProvider}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Provider
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Provider
+                        <ChevronDown className="h-4 w-4 ml-2" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="center">
+                      {AVAILABLE_PROVIDERS.map((type) => (
+                        <DropdownMenuItem key={type} onClick={() => handleAddProvider(type)}>
+                          {PROVIDER_NAMES[type]}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </CardContent>
               </Card>
             ) : (
               <div className="grid gap-4">
                 {providerConfigs.map((config) => (
                   <ProviderCard
-                    key={config.provider}
+                    key={config.id}
                     config={config}
                     onEdit={() => handleEditProvider(config)}
-                    onDelete={() => handleDeleteProvider(config.provider)}
+                    onDelete={() => handleDeleteProvider(config.id, PROVIDER_NAMES[config.provider])}
                     onTest={() => handleTestProvider(config)}
-                    onToggle={() => handleToggleProvider(config.provider, config.enabled)}
                     isTesting={testingProvider === config.provider}
                   />
                 ))}
@@ -257,6 +296,7 @@ export default function SettingsPage() {
         onSave={handleSaveProvider}
         initialConfig={editingProvider}
         mode={dialogMode}
+        preselectedProvider={dialogMode === "add" ? selectedProviderType : undefined}
       />
     </div>
   );
