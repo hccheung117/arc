@@ -36,6 +36,7 @@ export default function Home() {
   const [attachedImages, setAttachedImages] = useState<ImageAttachment[]>([]);
   const [attachmentError, setAttachmentError] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Check if any provider is enabled
   const hasEnabledProvider = providerConfigs.some((config) => config.enabled);
@@ -329,12 +330,28 @@ export default function Home() {
     setAttachmentError("");
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
   };
+
+  // Auto-resize textarea based on content
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    // Reset height to get accurate scrollHeight
+    textarea.style.height = "auto";
+    
+    // Calculate new height (max 10 lines)
+    const lineHeight = 20; // approximate line height in pixels
+    const maxHeight = lineHeight * 10;
+    const newHeight = Math.min(textarea.scrollHeight, maxHeight);
+    
+    textarea.style.height = `${newHeight}px`;
+  }, [messageInput]);
 
   // Find the last assistant message for regenerate detection
   const lastAssistantMessage = messages
@@ -408,7 +425,14 @@ export default function Home() {
       <div className="flex flex-1 flex-col min-w-0">
         {/* Header */}
         <header className="border-b h-14 flex items-center justify-between px-4 md:px-6">
-          <h1 className="text-lg font-semibold ml-10 md:ml-0">Arc</h1>
+          <div className="flex items-center gap-3 ml-10 md:ml-0">
+            <h1 className="text-lg font-semibold">Arc</h1>
+            <ModelSelector
+              value={selectedModel}
+              onValueChange={setSelectedModel}
+              disabled={!hasEnabledProvider || isStreaming}
+            />
+          </div>
           <Link href="/settings">
             <Button variant="ghost" size="icon" title="Settings">
               <SettingsIcon className="h-5 w-5" />
@@ -509,7 +533,7 @@ export default function Home() {
           onDrop={handleDrop}
           onDragOver={handleDragOver}
         >
-          <div className="max-w-3xl mx-auto space-y-3">
+          <div className="space-y-3 px-2 md:px-4">
             {/* Error banner */}
             {attachmentError && (
               <div className="flex items-center gap-2 px-3 py-2 bg-destructive/10 border border-destructive/20 rounded-lg text-sm">
@@ -541,67 +565,66 @@ export default function Home() {
             )}
 
             {/* Input area */}
-            <div className="flex gap-2">
-              {/* Hidden file input */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/jpg,image/webp"
-                multiple
-                onChange={handleFileInputChange}
-                className="hidden"
-                aria-hidden="true"
-              />
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/jpg,image/webp"
+              multiple
+              onChange={handleFileInputChange}
+              className="hidden"
+              aria-hidden="true"
+            />
 
-              {/* Model Selector */}
-              <ModelSelector
-                value={selectedModel}
-                onValueChange={setSelectedModel}
-                disabled={!hasEnabledProvider || isStreaming}
-              />
+            {/* Unified input container with inline buttons - full width */}
+            <div className="flex items-end gap-1 px-3 py-2 border rounded-lg bg-background focus-within:ring-2 focus-within:ring-ring transition-shadow">
+                {/* Attachment button */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 hover:bg-accent"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={!hasEnabledProvider || isStreaming}
+                  aria-label="Attach image"
+                >
+                  <ImageIcon className="size-4" />
+                </Button>
 
-              {/* Attachment button */}
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={!hasEnabledProvider || isStreaming}
-                aria-label="Attach image"
-              >
-                <ImageIcon className="size-4" />
-              </Button>
+                {/* Message input - multiline textarea */}
+                <textarea
+                  ref={textareaRef}
+                  rows={1}
+                  placeholder={
+                    !hasEnabledProvider
+                      ? "Configure a provider in settings first..."
+                      : isStreaming
+                        ? "Waiting for response..."
+                        : "Type a message..."
+                  }
+                  className="flex-1 bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 resize-none overflow-y-auto py-1"
+                  aria-label="Message input"
+                  value={messageInput}
+                  onChange={(e) => setMessageInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onPaste={handlePaste}
+                  disabled={!hasEnabledProvider || isStreaming}
+                />
 
-              {/* Message input */}
-              <Input
-                placeholder={
-                  !hasEnabledProvider
-                    ? "Configure a provider in settings first..."
-                    : isStreaming
-                      ? "Waiting for response..."
-                      : "Type a message..."
-                }
-                className="flex-1"
-                aria-label="Message input"
-                value={messageInput}
-                onChange={(e) => setMessageInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                onPaste={handlePaste}
-                disabled={!hasEnabledProvider || isStreaming}
-              />
-
-              {/* Send button */}
-              <Button
-                size="icon"
-                aria-label="Send message"
-                onClick={handleSendMessage}
-                disabled={
-                  !hasEnabledProvider ||
-                  isStreaming ||
-                  (!messageInput.trim() && attachedImages.length === 0)
-                }
-              >
-                <SendIcon className="size-4" />
-              </Button>
+                {/* Send button */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 hover:bg-accent disabled:opacity-30"
+                  aria-label="Send message"
+                  onClick={handleSendMessage}
+                  disabled={
+                    !hasEnabledProvider ||
+                    isStreaming ||
+                    (!messageInput.trim() && attachedImages.length === 0)
+                  }
+                >
+                  <SendIcon className="size-4" />
+                </Button>
             </div>
           </div>
         </div>
