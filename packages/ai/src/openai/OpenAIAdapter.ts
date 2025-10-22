@@ -1,10 +1,11 @@
 import type { IPlatformHTTP } from "@arc/core/platform/IPlatformHTTP.js";
 import type { ImageAttachment } from "@arc/contracts/ImageAttachment.js";
-import type { IProvider, ModelInfo } from "@arc/contracts/IProvider.js";
+import type { IProvider, ModelInfo, ProviderCapabilities } from "@arc/contracts/IProvider.js";
 import type {
   OpenAIMessage,
   OpenAIMessageContent,
   ChatCompletionRequest,
+  LegacyCompletionRequest,
   ListModelsResponse,
   OpenAIModel,
 } from "./types.js";
@@ -17,6 +18,7 @@ import {
   createProviderErrorFromResponse,
   createProviderErrorFromNetworkError,
 } from "./errors.js";
+import { ProviderErrorCode } from "@arc/core/domain/ProviderError.js";
 
 /**
  * OpenAI API adapter
@@ -101,9 +103,107 @@ export class OpenAIAdapter implements IProvider {
   }
 
   /**
-   * Stream chat completion
+   * Get capabilities for a specific model
+   *
+   * @param model - Model to check capabilities for
+   * @returns Provider capabilities
+   */
+  getCapabilities(model: string): ProviderCapabilities {
+    // Vision-capable models (GPT-4V and beyond)
+    const visionModels = [
+      'gpt-4-vision',
+      'gpt-4-turbo',
+      'gpt-4o',
+      'gpt-4.1',
+      'gpt-4.5',
+      'gpt-5',
+    ];
+
+    const supportsVision = visionModels.some(vm => model.includes(vm));
+
+    return {
+      supportsVision,
+      supportsStreaming: true,
+      requiresMaxTokens: false, // OpenAI has defaults
+      supportedMessageRoles: ['user', 'assistant', 'system'],
+    };
+  }
+
+  /**
+   * Convert messages array to a prompt string for legacy completions
+   */
+  private messagesToPrompt(
+    messages: Array<{ role: "user" | "assistant" | "system"; content: string }>
+  ): string {
+    return messages
+      .map((msg) => {
+        const roleLabel = msg.role === "system" ? "System" :
+                         msg.role === "user" ? "User" : "Assistant";
+        return `${roleLabel}: ${msg.content}`;
+      })
+      .join("\n\n") + "\n\nAssistant:";
+  }
+
+  /**
+   * Stream using legacy /v1/completions endpoint
+   */
+  private async *streamLegacyCompletion(
+    messages: Array<{ role: "user" | "assistant" | "system"; content: string }>,
+    model: string,
+    signal?: AbortSignal
+  ): AsyncGenerator<string, void, undefined> {
+    const prompt = this.messagesToPrompt(messages);
+
+    const request: LegacyCompletionRequest = {
+      model,
+      prompt,
+      stream: true,
+      temperature: 0.7,
+    };
+
+    const requestOptions: {
+      method: "POST";
+      headers: Record<string, string>;
+      body: string;
+      signal?: AbortSignal;
+    } = {
+      method: "POST",
+      headers: this.getHeaders(),
+      body: JSON.stringify(request),
+    };
+
+    if (signal !== undefined) {
+      requestOptions.signal = signal;
+    }
+
+    const stream = this.http.stream(
+      `${this.baseUrl}/completions`,
+      requestOptions
+    );
+
+    for await (const line of stream) {
+      const chunk = parseStreamChunk(line);
+
+      if (!chunk) {
+        continue;
+      }
+
+      if (isStreamComplete(chunk)) {
+        return;
+      }
+
+      const content = extractChunkContent(chunk);
+      if (content) {
+        yield content;
+      }
+    }
+  }
+
+  /**
+   * Stream chat completion with auto-fallback to legacy completions
    *
    * Converts Arc's message format to OpenAI format and streams the response
+   * Automatically falls back to legacy /v1/completions if chat completions fail
    *
    * @param messages - Array of messages (user/assistant/system)
    * @param model - Model to use (e.g., "gpt-4", "gpt-3.5-turbo")
@@ -191,6 +291,24 @@ export class OpenAIAdapter implements IProvider {
       if (error instanceof Error) {
         // Check if it's already a ProviderError
         if (error.constructor.name === "ProviderError") {
+          const providerError = error as any; // Type assertion for error code access
+
+          // Auto-fallback to legacy completions for 404 or model not found
+          // Also fallback if the error mentions chat completions not being supported
+          if (
+            providerError.code === ProviderErrorCode.MODEL_NOT_FOUND ||
+            error.message.includes("does not support chat completions") ||
+            error.message.includes("404")
+          ) {
+            // Fallback to legacy completions (no vision support in legacy)
+            if (attachments && attachments.length > 0) {
+              throw new Error("Legacy completions API does not support image attachments");
+            }
+
+            yield* this.streamLegacyCompletion(messages, model, signal);
+            return;
+          }
+
           throw error;
         }
 
@@ -200,6 +318,16 @@ export class OpenAIAdapter implements IProvider {
           if (match) {
             const status = Number.parseInt(match[1] || "500", 10);
             const body = error.message.split("\n").slice(1).join("\n");
+
+            // Try fallback on 404
+            if (status === 404) {
+              if (attachments && attachments.length > 0) {
+                throw new Error("Legacy completions API does not support image attachments");
+              }
+              yield* this.streamLegacyCompletion(messages, model, signal);
+              return;
+            }
+
             throw createProviderErrorFromResponse(status, body);
           }
         }

@@ -131,3 +131,42 @@ export interface OpenAIErrorResponse {
     code?: string;
   };
 }
+
+/**
+ * Legacy completion request (for /v1/completions endpoint)
+ */
+export interface LegacyCompletionRequest {
+  model: string;
+  prompt: string;
+  temperature?: number;
+  top_p?: number;
+  n?: number;
+  stream?: boolean;
+  stop?: string | string[];
+  max_tokens?: number;
+  presence_penalty?: number;
+  frequency_penalty?: number;
+  logit_bias?: Record<string, number>;
+  user?: string;
+}
+
+/**
+ * Legacy completion streaming chunk
+ */
+export interface LegacyCompletionChunk {
+  id: string;
+  object: "text_completion";
+  created: number;
+  model: string;
+  choices: Array<{
+    text: string;
+    index: number;
+    logprobs?: unknown;
+    finish_reason: "stop" | "length" | null;
+  }>;
+}
+
+/**
+ * Union type for all streaming chunk types
+ */
+export type StreamChunk = ChatCompletionChunk | LegacyCompletionChunk;

@@ -11,6 +11,16 @@
       "types": "./dist/openai/*.d.ts",
       "import": "./dist/openai/*.js",
       "default": "./dist/openai/*.js"
+    },
+    "./anthropic/*.js": {
+      "types": "./dist/anthropic/*.d.ts",
+      "import": "./dist/anthropic/*.js",
+      "default": "./dist/anthropic/*.js"
+    },
+    "./gemini/*.js": {
+      "types": "./dist/gemini/*.d.ts",
+      "import": "./dist/gemini/*.js",
+      "default": "./dist/gemini/*.js"
     }
   },
   "scripts": {

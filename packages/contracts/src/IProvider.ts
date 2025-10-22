@@ -11,6 +11,38 @@ export interface ModelInfo {
 }
 
 /**
+ * Provider capabilities - describes what features a provider/model supports
+ */
+export interface ProviderCapabilities {
+  /**
+   * Whether the model supports vision/image inputs
+   */
+  supportsVision: boolean;
+
+  /**
+   * Whether the provider supports streaming responses
+   */
+  supportsStreaming: boolean;
+
+  /**
+   * Whether max_tokens parameter is required
+   */
+  requiresMaxTokens: boolean;
+
+  /**
+   * Default max_tokens value if required
+   */
+  maxTokensDefault?: number;
+
+  /**
+   * Supported message roles for this provider
+   * e.g., ["user", "assistant", "system"] for OpenAI
+   * e.g., ["user", "assistant"] for Anthropic (system is separate)
+   */
+  supportedMessageRoles: string[];
+}
+
+/**
  * Generic provider interface for AI chat completions
  *
  * All provider implementations (OpenAI, Anthropic, etc.) should implement this interface
@@ -44,4 +76,15 @@ export interface IProvider {
     attachments?: ImageAttachment[],
     signal?: AbortSignal
   ): AsyncGenerator<string, void, undefined>;
+
+  /**
+   * Get capabilities for a specific model
+   *
+   * This allows Arc to understand what features are supported
+   * and adapt the UI/UX accordingly
+   *
+   * @param model - Model identifier to check capabilities for
+   * @returns Capabilities object describing supported features
+   */
+  getCapabilities(model: string): ProviderCapabilities;
 }
