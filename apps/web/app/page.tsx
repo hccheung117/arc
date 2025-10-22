@@ -27,6 +27,7 @@ import { useChatAPI } from "@/lib/api/chat-api-provider";
 
 export default function Home() {
   const providerConfigs = useChatStore((state) => state.providerConfigs);
+  const setAPI = useChatStore((state) => state.setAPI);
   const { api } = useChatAPI();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -55,10 +56,12 @@ export default function Home() {
 
   // Chat store
   const chats = useChatStore((state) => state.chats);
-  
+  const isHydrated = useChatStore((state) => state.isHydrated);
+  const transientChat = useChatStore((state) => state.transientChat);
+
   // Filter chats based on sidebar search
   const filteredChats = sidebarSearchQuery.trim()
-    ? chats.filter(chat => 
+    ? chats.filter(chat =>
         chat.title.toLowerCase().includes(sidebarSearchQuery.toLowerCase())
       )
     : chats;
@@ -88,6 +91,19 @@ export default function Home() {
     }
   }, [messages.length, isStreaming, virtualizer]);
 
+  // Set API instance in store when it becomes available
+  useEffect(() => {
+    if (api) {
+      setAPI(api);
+    }
+  }, [api, setAPI]);
+
+  // Auto-create transient chat when there's no active chat
+  useEffect(() => {
+    if (isHydrated && !activeChatId && !transientChat) {
+      createChat("", true); // Create transient chat with empty title
+    }
+  }, [isHydrated, activeChatId, transientChat, createChat]);
 
   // Keyboard shortcuts: Cmd/Ctrl+K for command palette, Cmd/Ctrl+F for search
   useEffect(() => {
@@ -321,8 +337,7 @@ export default function Home() {
     }
 
     // Send message with attachments (if any)
-    // TODO: Update to use selectedModel once API integration is complete
-    sendMessage(trimmedMessage || " ", attachedImages);
+    sendMessage(trimmedMessage || " ", attachedImages, selectedModel);
 
     // Clear input and attachments
     setMessageInput("");
@@ -399,7 +414,7 @@ export default function Home() {
               className="w-full"
               size="sm"
               onClick={() => {
-                createChat("New Chat");
+                createChat("", true); // Create transient chat
                 setSidebarOpen(false);
               }}
             >

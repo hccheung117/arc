@@ -36,4 +36,5 @@ export interface Chat {
   createdAt: number;  // timestamp
   updatedAt: number;  // timestamp
   lastMessageAt: number;  // timestamp for sorting
+  isTransient?: boolean;  // If true, chat exists only in memory until first message
 }

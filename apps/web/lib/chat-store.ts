@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Chat, Message, ImageAttachment } from "./types";
+import type { IChatAPI } from "./api/chat-api.interface";
 
 export type Theme = "light" | "dark" | "system";
 
@@ -26,6 +27,8 @@ interface ChatState {
   activeChatId: string | null;
   streamingChatId: string | null;
   streamIntervalId: NodeJS.Timeout | null;
+  transientChat: Chat | null; // Temporary chat not yet persisted
+  api: IChatAPI | null; // API instance for persistence
 
   // App settings
   theme: Theme;
@@ -37,15 +40,17 @@ interface ChatState {
   lastError: ProviderErrorInfo | null;
 
   // Actions
-  createChat: (title?: string) => string;
+  createChat: (title?: string, isTransient?: boolean) => string;
   selectChat: (id: string) => void;
   renameChat: (id: string, title: string) => void;
   deleteChat: (id: string) => void;
-  sendMessage: (content: string, attachments?: ImageAttachment[]) => void;
+  sendMessage: (content: string, attachments?: ImageAttachment[], model?: string) => void;
   stopStreaming: () => void;
   regenerateMessage: (messageId: string) => void;
   deleteMessage: (id: string) => void;
   seedLargeDataset: () => void;
+  convertTransientToPersistent: () => string | null;
+  setAPI: (api: IChatAPI) => void;
 
   // App settings actions
   setTheme: (theme: Theme) => void;
@@ -91,6 +96,8 @@ export const useChatStore = create<ChatState>()(
       activeChatId: null,
       streamingChatId: null,
       streamIntervalId: null,
+      transientChat: null,
+      api: null,
 
       // App settings with defaults
       theme: "system",
@@ -102,22 +109,64 @@ export const useChatStore = create<ChatState>()(
       lastError: null,
 
   // Create a new chat
-  createChat: (title?: string) => {
+  createChat: (title?: string, isTransient = false) => {
     const now = Date.now();
     const newChat: Chat = {
       id: generateId(),
-      title: title || "New Chat",
+      title: title || (isTransient ? "" : "New Chat"),
       createdAt: now,
       updatedAt: now,
       lastMessageAt: now,
+      ...(isTransient && { isTransient: true }),
+    };
+
+    if (isTransient) {
+      // Transient chat: store separately, don't add to chats array
+      set({
+        transientChat: newChat,
+        activeChatId: newChat.id,
+      });
+    } else {
+      // Regular chat: add to chats array
+      set((state) => ({
+        chats: [newChat, ...state.chats],
+        activeChatId: newChat.id,
+        transientChat: null, // Clear any existing transient chat
+      }));
+    }
+
+    return newChat.id;
+  },
+
+  // Convert transient chat to persistent
+  convertTransientToPersistent: () => {
+    const { transientChat, api } = get();
+
+    if (!transientChat) {
+      return null;
+    }
+
+    // Remove isTransient flag and add to chats array
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { isTransient, ...chatWithoutTransient } = transientChat;
+    const persistentChat: Chat = {
+      ...chatWithoutTransient,
+      title: chatWithoutTransient.title || "New Chat",
     };
 
     set((state) => ({
-      chats: [newChat, ...state.chats],
-      activeChatId: newChat.id,
+      chats: [persistentChat, ...state.chats],
+      transientChat: null,
     }));
 
-    return newChat.id;
+    // Persist to SQLite database if API is available
+    if (api) {
+      api.createChat(persistentChat.title).catch((error) => {
+        console.error("Failed to persist chat to database:", error);
+      });
+    }
+
+    return persistentChat.id;
   },
 
   // Select a different chat
@@ -169,18 +218,36 @@ export const useChatStore = create<ChatState>()(
   },
 
   // Send a message and trigger fake streaming
-  sendMessage: (content: string, attachments?: ImageAttachment[]) => {
-    const { activeChatId, streamingChatId } = get();
+  sendMessage: (content: string, attachments?: ImageAttachment[], model = "gpt-4-turbo-preview") => {
+    const { streamingChatId, transientChat, api } = get();
+    let { activeChatId } = get();
 
     if (!activeChatId) {
       console.error("No active chat to send message to");
       return;
     }
 
+    // Convert transient chat to persistent before sending first message
+    if (transientChat && activeChatId === transientChat.id) {
+      const convertedChatId = get().convertTransientToPersistent();
+      if (!convertedChatId) {
+        console.error("Failed to convert transient chat to persistent");
+        return;
+      }
+      activeChatId = convertedChatId;
+    }
+
     // Prevent concurrent streams
     if (streamingChatId) {
       console.warn("Already streaming in another chat");
       return;
+    }
+
+    // Persist message to SQLite database if API is available
+    if (api) {
+      api.sendMessage(activeChatId, content, model, attachments).catch((error) => {
+        console.error("Failed to persist message to database:", error);
+      });
     }
 
     const now = Date.now();
@@ -338,7 +405,11 @@ export const useChatStore = create<ChatState>()(
 
   // Get the active chat
   getActiveChat: () => {
-    const { chats, activeChatId } = get();
+    const { chats, activeChatId, transientChat } = get();
+    // Check transient chat first, then regular chats
+    if (transientChat && activeChatId === transientChat.id) {
+      return transientChat;
+    }
     return chats.find((chat) => chat.id === activeChatId) || null;
   },
 
@@ -449,6 +520,11 @@ export const useChatStore = create<ChatState>()(
     });
   },
 
+  // Set API instance for persistence
+  setAPI: (api: IChatAPI) => {
+    set({ api });
+  },
+
   // Update app settings
   setTheme: (theme: Theme) => {
     set({ theme });
@@ -520,7 +596,7 @@ export const useChatStore = create<ChatState>()(
         providerConfigs: state.providerConfigs,  // Changed from providerConfig to providerConfigs
         chats: state.chats,
         messages: state.messages,
-        // Don't persist runtime state like streamIntervalId, activeChatId, streamingChatId, isHydrated
+        // Don't persist runtime state like streamIntervalId, activeChatId, streamingChatId, isHydrated, transientChat
       }),
       onRehydrateStorage: () => {
         return (state) => {
