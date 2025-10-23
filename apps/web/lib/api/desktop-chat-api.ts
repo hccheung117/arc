@@ -12,7 +12,7 @@ import { ChatService, type SearchResult } from "@arc/core/services/ChatService.j
 import { OpenAIProvider } from "@arc/ai/openai/OpenAIProvider.js";
 import { AnthropicProvider } from "@arc/ai/anthropic/AnthropicProvider.js";
 import { GeminiProvider } from "@arc/ai/gemini/GeminiProvider.js";
-import { ProviderRouter } from "./provider-router.js";
+import { ProviderRouter } from "./provider-router";
 import { ProviderError } from "@arc/core/domain/ProviderError.js";
 import type { Chat as CoreChat } from "@arc/core/domain/Chat.js";
 import type { Message as CoreMessage } from "@arc/core/domain/Message.js";

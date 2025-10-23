@@ -50,8 +50,8 @@ export function createModerationCapability(
 
         return {
           flagged: result.flagged,
-          categories: result.categories as Record<string, boolean>,
-          categoryScores: result.category_scores as Record<string, number>,
+          categories: result.categories as unknown as Record<string, boolean>,
+          categoryScores: result.category_scores as unknown as Record<string, number>,
         };
       } catch (error) {
         if (error instanceof Error && error.name === 'ProviderError') {

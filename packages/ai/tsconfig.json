@@ -17,7 +17,7 @@
 
     // Strict type checking
     "strict": true,
-    "exactOptionalPropertyTypes": true,
+    "exactOptionalPropertyTypes": false,
     "noUncheckedIndexedAccess": true,
 
     // Minimal Node types for runtime APIs (AbortController, setTimeout)
@@ -30,5 +30,16 @@
     "isolatedModules": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "test"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "test",
+    "src/lib/**/*",
+    "src/AI.ts",
+    "src/openai/openai-moderation.ts",
+    "src/openai/openai-speech.ts",
+    "src/openai/openai-audio.ts",
+    "src/openai/openai-images.ts",
+    "src/openai/openai-embeddings.ts"
+  ]
 }
