@@ -19,6 +19,8 @@ import { ArrowLeft, Moon, Sun, Monitor, Plus, AlertCircle, Loader2, ChevronDown 
 import { ProviderCard } from "@/components/provider-card";
 import { ProviderFormDialog } from "@/components/provider-form-dialog";
 import { OpenAIProvider } from "@arc/ai/openai/OpenAIProvider.js";
+import { AnthropicProvider } from "@arc/ai/anthropic/AnthropicProvider.js";
+import { GeminiProvider } from "@arc/ai/gemini/GeminiProvider.js";
 import { FetchHTTP } from "@arc/platform-browser/http/FetchHTTP.js";
 
 const PROVIDER_NAMES: Record<ProviderConfig["provider"], string> = {
@@ -94,7 +96,23 @@ export default function SettingsPage() {
 
     try {
       const http = new FetchHTTP();
-      const provider = new OpenAIProvider(http, config.apiKey || "", config.baseUrl || undefined);
+
+      let provider;
+      if (config.provider === "openai") {
+        provider = new OpenAIProvider(http, config.apiKey || "", config.baseUrl || undefined);
+      } else if (config.provider === "anthropic") {
+        provider = new AnthropicProvider(http, config.apiKey || "", {
+          baseUrl: config.baseUrl,
+          defaultMaxTokens: 4096,
+        });
+      } else if (config.provider === "google") {
+        provider = new GeminiProvider(http, config.apiKey || "", {
+          baseUrl: config.baseUrl,
+        });
+      } else {
+        throw new Error(`Provider ${config.provider} is not supported`);
+      }
+
       await provider.healthCheck();
       alert(`Connection to ${config.provider} successful!`);
     } catch (error) {
