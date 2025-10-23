@@ -10,9 +10,9 @@ import { AudioBuilder } from './builders/AudioBuilder.js';
 import { SpeechBuilder } from './builders/SpeechBuilder.js';
 import { ModerationBuilder } from './builders/ModerationBuilder.js';
 
-import { OpenAIAdapter } from './openai/OpenAIAdapter.js';
-import { AnthropicAdapter } from './anthropic/AnthropicAdapter.js';
-import { GeminiAdapter } from './gemini/GeminiAdapter.js';
+import { OpenAIAdapterExtended } from './openai/OpenAIAdapterExtended.js';
+import { AnthropicAdapterExtended } from './anthropic/AnthropicAdapterExtended.js';
+import { GeminiAdapterExtended } from './gemini/GeminiAdapterExtended.js';
 
 import type { IEmbeddingProvider } from './builders/EmbeddingBuilder.js';
 import type { IImageProvider } from './builders/ImageBuilder.js';
@@ -96,16 +96,16 @@ export class AI implements IAI {
 
     switch (provider) {
       case 'openai':
-        this.providerAdapter = new OpenAIAdapter(
+        this.providerAdapter = new OpenAIAdapterExtended(
           httpClient,
           config.apiKey,
           config.baseUrl,
           config.customHeaders
-        ) as unknown as IExtendedProvider;
+        );
         break;
 
       case 'anthropic':
-        this.providerAdapter = new AnthropicAdapter(
+        this.providerAdapter = new AnthropicAdapterExtended(
           httpClient,
           config.apiKey,
           {
@@ -113,16 +113,16 @@ export class AI implements IAI {
             customHeaders: config.customHeaders,
             defaultMaxTokens: config.defaultMaxTokens,
           }
-        ) as unknown as IExtendedProvider;
+        );
         break;
 
       case 'gemini':
-        this.providerAdapter = new GeminiAdapter(
+        this.providerAdapter = new GeminiAdapterExtended(
           httpClient,
           config.apiKey,
           config.baseUrl,
           config.customHeaders
-        ) as unknown as IExtendedProvider;
+        );
         break;
 
       default:
