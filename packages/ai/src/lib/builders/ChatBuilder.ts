@@ -8,7 +8,7 @@ import type { CancellableStream as ICancellableStream } from '@arc/contracts/ai/
 import type { ImageAttachment } from '@arc/contracts/ImageAttachment.js';
 import type { IProvider } from '@arc/contracts/IProvider.js';
 import type { Provider } from '@arc/contracts/ai/Metadata.js';
-import { createCancellableStream } from '../utils/CancellableStream.js';
+import { createCancellableStream } from '../streams/CancellableStream.js';
 import type { ChatMetadata } from '@arc/contracts/ai/Metadata.js';
 
 /**

@@ -3,22 +3,22 @@ import type { Provider } from '@arc/contracts/ai/Metadata.js';
 import type { ModelInfo, ProviderCapabilities } from '@arc/contracts/IProvider.js';
 import type { IPlatformHTTP } from '@arc/core/platform/IPlatformHTTP.js';
 
-import { ChatBuilder } from './builders/ChatBuilder.js';
-import { EmbeddingBuilder } from './builders/EmbeddingBuilder.js';
-import { ImageBuilder } from './builders/ImageBuilder.js';
-import { AudioBuilder } from './builders/AudioBuilder.js';
-import { SpeechBuilder } from './builders/SpeechBuilder.js';
-import { ModerationBuilder } from './builders/ModerationBuilder.js';
+import { ChatBuilder } from './lib/builders/ChatBuilder.js';
+import { EmbeddingBuilder } from './lib/builders/EmbeddingBuilder.js';
+import { ImageBuilder } from './lib/builders/ImageBuilder.js';
+import { AudioBuilder } from './lib/builders/AudioBuilder.js';
+import { SpeechBuilder } from './lib/builders/SpeechBuilder.js';
+import { ModerationBuilder } from './lib/builders/ModerationBuilder.js';
 
-import { OpenAIAdapterExtended } from './openai/OpenAIAdapterExtended.js';
-import { AnthropicAdapterExtended } from './anthropic/AnthropicAdapterExtended.js';
-import { GeminiAdapterExtended } from './gemini/GeminiAdapterExtended.js';
+import { OpenAIProvider } from './openai/OpenAIProvider.js';
+import { AnthropicProvider } from './anthropic/AnthropicProvider.js';
+import { GeminiProvider } from './gemini/GeminiProvider.js';
 
-import type { IEmbeddingProvider } from './builders/EmbeddingBuilder.js';
-import type { IImageProvider } from './builders/ImageBuilder.js';
-import type { IAudioProvider } from './builders/AudioBuilder.js';
-import type { ISpeechProvider } from './builders/SpeechBuilder.js';
-import type { IModerationProvider } from './builders/ModerationBuilder.js';
+import type { IEmbeddingProvider } from './lib/builders/EmbeddingBuilder.js';
+import type { IImageProvider } from './lib/builders/ImageBuilder.js';
+import type { IAudioProvider } from './lib/builders/AudioBuilder.js';
+import type { ISpeechProvider } from './lib/builders/SpeechBuilder.js';
+import type { IModerationProvider } from './lib/builders/ModerationBuilder.js';
 
 /**
  * Extended provider interface that includes all API capabilities
@@ -96,7 +96,7 @@ export class AI implements IAI {
 
     switch (provider) {
       case 'openai':
-        this.providerAdapter = new OpenAIAdapterExtended(
+        this.providerAdapter = new OpenAIProvider(
           httpClient,
           config.apiKey,
           config.baseUrl,
@@ -105,7 +105,7 @@ export class AI implements IAI {
         break;
 
       case 'anthropic':
-        this.providerAdapter = new AnthropicAdapterExtended(
+        this.providerAdapter = new AnthropicProvider(
           httpClient,
           config.apiKey,
           {
@@ -117,11 +117,13 @@ export class AI implements IAI {
         break;
 
       case 'gemini':
-        this.providerAdapter = new GeminiAdapterExtended(
+        this.providerAdapter = new GeminiProvider(
           httpClient,
           config.apiKey,
-          config.baseUrl,
-          config.customHeaders
+          {
+            baseUrl: config.baseUrl,
+            customHeaders: config.customHeaders,
+          }
         );
         break;
 
