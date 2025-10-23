@@ -18,7 +18,7 @@ import { useChatStore, type ProviderConfig } from "@/lib/chat-store";
 import { ArrowLeft, Moon, Sun, Monitor, Plus, AlertCircle, Loader2, ChevronDown } from "lucide-react";
 import { ProviderCard } from "@/components/provider-card";
 import { ProviderFormDialog } from "@/components/provider-form-dialog";
-import { OpenAIAdapter } from "@arc/ai/openai/OpenAIAdapter.js";
+import { OpenAIProvider } from "@arc/ai/openai/OpenAIProvider.js";
 import { FetchHTTP } from "@arc/platform-browser/http/FetchHTTP.js";
 
 const PROVIDER_NAMES: Record<ProviderConfig["provider"], string> = {
@@ -94,8 +94,8 @@ export default function SettingsPage() {
 
     try {
       const http = new FetchHTTP();
-      const adapter = new OpenAIAdapter(http, config.apiKey || "", config.baseUrl || undefined);
-      await adapter.healthCheck();
+      const provider = new OpenAIProvider(http, config.apiKey || "", config.baseUrl || undefined);
+      await provider.healthCheck();
       alert(`Connection to ${config.provider} successful!`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Connection failed";

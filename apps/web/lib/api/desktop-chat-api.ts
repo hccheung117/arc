@@ -9,7 +9,7 @@ import type { IChatAPI, ModelInfo } from "./chat-api.interface";
 import type { ImageAttachment } from "../types";
 import type { ProviderConfig } from "../chat-store";
 import { ChatService, type SearchResult } from "@arc/core/services/ChatService.js";
-import { OpenAIAdapter } from "@arc/ai/openai/OpenAIAdapter.js";
+import { OpenAIProvider } from "@arc/ai/openai/OpenAIProvider.js";
 import { ProviderError } from "@arc/core/domain/ProviderError.js";
 import type { Chat as CoreChat } from "@arc/core/domain/Chat.js";
 import type { Message as CoreMessage } from "@arc/core/domain/Message.js";
@@ -48,7 +48,7 @@ export class DesktopChatAPI implements IChatAPI {
   private fs: IPlatformFileSystem | null = null;
   private initialization: Promise<void> | null = null;
   private chatService: ChatService | null = null;
-  private adapters: Map<string, OpenAIAdapter> = new Map();  // Map provider type to adapter
+  private adapters: Map<string, OpenAIProvider> = new Map();  // Map provider type to provider
   private activeStreamMessageId: string | null = null;
 
   /**
@@ -384,16 +384,16 @@ export class DesktopChatAPI implements IChatAPI {
 
     const http = new NodeFetchHTTP();
 
-    // Create adapters for all providers
+    // Create providers for all configured providers
     for (const config of providerConfigs) {
       // For now, only OpenAI is supported, but this allows for future expansion
       if (config.provider === "openai") {
-        const adapter = new OpenAIAdapter(
+        const provider = new OpenAIProvider(
           http,
           config.apiKey || "",  // Some proxies don't need an API key
           config.baseUrl
         );
-        this.adapters.set(config.provider, adapter);
+        this.adapters.set(config.provider, provider);
       } else {
         console.warn(`Provider ${config.provider} is not yet supported`);
       }
@@ -407,16 +407,16 @@ export class DesktopChatAPI implements IChatAPI {
     const chatRepo = new SQLiteChatRepository(this.db!);
     const messageRepo = new SQLiteMessageRepository(this.db!);
 
-    // Use the first provider's adapter as the primary adapter for ChatService
+    // Use the first provider as the primary provider for ChatService
     // The model can be overridden per message via sendMessage
-    const primaryAdapter = Array.from(this.adapters.values())[0]!;
+    const primaryProvider = Array.from(this.adapters.values())[0]!;
     const primaryConfig = providerConfigs[0];
 
     // Initialize chat service
     this.chatService = new ChatService(
       chatRepo,
       messageRepo,
-      primaryAdapter,
+      primaryProvider,
       primaryConfig?.defaultModel || "gpt-4-turbo-preview",
       (fn) => this.db!.transaction(fn)
     );
