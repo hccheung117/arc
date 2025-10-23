@@ -8,7 +8,7 @@
     "dev": "wait-on http://localhost:3000 && electron .",
     "build": "tsc --noEmit",
     "check-types": "tsc --noEmit",
-    "lint": "eslint src",
+    "lint": "eslint src --fix",
     "test": "echo 'No tests yet' && exit 0"
   },
   "dependencies": {

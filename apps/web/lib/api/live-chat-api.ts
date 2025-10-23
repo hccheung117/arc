@@ -8,7 +8,7 @@
 
 import type { IChatAPI, ModelInfo } from "./chat-api.interface";
 import type { ImageAttachment } from "../types";
-import type { ProviderConfig } from "../chat-store";
+// import type { ProviderConfig } from "../chat-store";
 import { ChatService, type SearchResult } from "@arc/core/services/ChatService.js";
 import { OpenAIProvider } from "@arc/ai/openai/OpenAIProvider.js";
 import { AnthropicProvider } from "@arc/ai/anthropic/AnthropicProvider.js";

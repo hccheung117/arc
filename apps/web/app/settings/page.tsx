@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useChatStore, type ProviderConfig } from "@/lib/chat-store";
-import { ArrowLeft, Moon, Sun, Monitor, Plus, AlertCircle, Loader2, ChevronDown } from "lucide-react";
+import { ArrowLeft, Moon, Sun, Monitor, Plus, AlertCircle, ChevronDown } from "lucide-react";
 import { ProviderCard } from "@/components/provider-card";
 import { ProviderFormDialog } from "@/components/provider-form-dialog";
 import { OpenAIProvider } from "@arc/ai/openai/OpenAIProvider.js";

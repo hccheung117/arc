@@ -41,7 +41,7 @@ export function ModelSelector({ value, onValueChange, disabled }: ModelSelectorP
     };
 
     void fetchModels();
-  }, [api]);
+  }, [api, onValueChange, value]);
 
   if (loading) {
     return (
