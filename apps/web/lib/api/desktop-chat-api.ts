@@ -10,6 +10,9 @@ import type { ImageAttachment } from "../types";
 import type { ProviderConfig } from "../chat-store";
 import { ChatService, type SearchResult } from "@arc/core/services/ChatService.js";
 import { OpenAIProvider } from "@arc/ai/openai/OpenAIProvider.js";
+import { AnthropicProvider } from "@arc/ai/anthropic/AnthropicProvider.js";
+import { GeminiProvider } from "@arc/ai/gemini/GeminiProvider.js";
+import { ProviderRouter } from "./provider-router.js";
 import { ProviderError } from "@arc/core/domain/ProviderError.js";
 import type { Chat as CoreChat } from "@arc/core/domain/Chat.js";
 import type { Message as CoreMessage } from "@arc/core/domain/Message.js";
@@ -48,7 +51,8 @@ export class DesktopChatAPI implements IChatAPI {
   private fs: IPlatformFileSystem | null = null;
   private initialization: Promise<void> | null = null;
   private chatService: ChatService | null = null;
-  private adapters: Map<string, OpenAIProvider> = new Map();  // Map provider type to provider
+  private adapters: Map<string, OpenAIProvider | AnthropicProvider | GeminiProvider> = new Map();  // Map provider type to provider
+  private providerRouter: ProviderRouter | null = null;
   private activeStreamMessageId: string | null = null;
 
   /**
@@ -309,6 +313,11 @@ export class DesktopChatAPI implements IChatAPI {
       }
     }
 
+    // Update the provider router with the model-to-provider mapping
+    if (this.providerRouter) {
+      this.providerRouter.updateModelMapping(models);
+    }
+
     return models;
   }
 
@@ -386,12 +395,30 @@ export class DesktopChatAPI implements IChatAPI {
 
     // Create providers for all configured providers
     for (const config of providerConfigs) {
-      // For now, only OpenAI is supported, but this allows for future expansion
       if (config.provider === "openai") {
         const provider = new OpenAIProvider(
           http,
-          config.apiKey || "",  // Some proxies don't need an API key
+          config.apiKey || "",
           config.baseUrl
+        );
+        this.adapters.set(config.provider, provider);
+      } else if (config.provider === "anthropic") {
+        const provider = new AnthropicProvider(
+          http,
+          config.apiKey || "",
+          {
+            baseUrl: config.baseUrl,
+            defaultMaxTokens: 4096,
+          }
+        );
+        this.adapters.set(config.provider, provider);
+      } else if (config.provider === "google") {
+        const provider = new GeminiProvider(
+          http,
+          config.apiKey || "",
+          {
+            baseUrl: config.baseUrl,
+          }
         );
         this.adapters.set(config.provider, provider);
       } else {
@@ -407,16 +434,18 @@ export class DesktopChatAPI implements IChatAPI {
     const chatRepo = new SQLiteChatRepository(this.db!);
     const messageRepo = new SQLiteMessageRepository(this.db!);
 
-    // Use the first provider as the primary provider for ChatService
-    // The model can be overridden per message via sendMessage
-    const primaryProvider = Array.from(this.adapters.values())[0]!;
+    // Create a provider router that can route to any configured provider
     const primaryConfig = providerConfigs[0];
+    this.providerRouter = new ProviderRouter(
+      this.adapters,
+      primaryConfig!.provider
+    );
 
     // Initialize chat service
     this.chatService = new ChatService(
       chatRepo,
       messageRepo,
-      primaryProvider,
+      this.providerRouter,
       primaryConfig?.defaultModel || "gpt-4-turbo-preview",
       (fn) => this.db!.transaction(fn)
     );
