@@ -24,11 +24,12 @@ import { AlertCircle, Loader2 } from "lucide-react";
 import type { ProviderConfig } from "@/lib/chat-store";
 import { useProviderDetection } from "@/lib/hooks/use-provider-detection";
 import { ProviderChooser } from "./provider-chooser";
+import { normalizeBaseUrl } from "@/lib/utils/normalize-base-url";
 
 interface ProviderFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (config: Partial<ProviderConfig>) => void;
+  onSave: (config: Partial<ProviderConfig>, originalBaseUrl?: string) => void;
   initialConfig?: ProviderConfig | undefined;
   mode: "add" | "edit";
 }
@@ -66,6 +67,7 @@ export function ProviderFormDialog({
   // Provider chooser state (for multiple detections)
   const [showChooser, setShowChooser] = useState(false);
   const [detectedProviders, setDetectedProviders] = useState<ProviderConfig["provider"][]>([]);
+  const [normalizedUrls, setNormalizedUrls] = useState<Record<string, string | undefined>>({});
 
   // Provider detection hook
   const { isDetecting, results, successfulProviders, detect, cancel } = useProviderDetection();
@@ -81,6 +83,7 @@ export function ProviderFormDialog({
       setManualProvider(initialConfig?.provider || "openai");
       setShowChooser(false);
       setDetectedProviders([]);
+      setNormalizedUrls({});
     } else {
       // Cancel detection when dialog closes
       cancel();
@@ -131,13 +134,16 @@ export function ProviderFormDialog({
 
     // In edit mode or manual mode, save directly without detection
     if (mode === "edit" || manualMode) {
+      // Normalize the base URL before saving
+      const normalizedUrl = baseUrl ? normalizeBaseUrl(baseUrl) : undefined;
+
       const config: Partial<ProviderConfig> = {
         provider: manualProvider,
         ...(apiKey && { apiKey }),  // Only include if provided
-        ...(baseUrl && { baseUrl }),
+        ...(normalizedUrl && { baseUrl: normalizedUrl }),
       };
 
-      onSave(config);
+      onSave(config, baseUrl || undefined);
       onOpenChange(false);
       return;
     }
@@ -163,18 +169,29 @@ export function ProviderFormDialog({
         });
         setManualMode(true);
       } else if (successfulProviders.length === 1) {
-        // Single success - auto-select and save
+        // Single success - auto-select and save with normalized URL
         const provider = successfulProviders[0]!;
+        const result = results.find((r) => r.provider === provider && r.success);
+        const normalizedUrl = result?.normalizedBaseUrl;
+
         const config: Partial<ProviderConfig> = {
           provider,
           ...(apiKey && { apiKey }),
-          ...(baseUrl && { baseUrl }),
+          ...(normalizedUrl && { baseUrl: normalizedUrl }),
         };
 
-        onSave(config);
+        onSave(config, baseUrl || undefined);
         onOpenChange(false);
       } else {
-        // Multiple successes - show chooser
+        // Multiple successes - build normalized URL map and show chooser
+        const urlMap: Record<string, string | undefined> = {};
+        results
+          .filter((r) => r.success)
+          .forEach((r) => {
+            urlMap[r.provider] = r.normalizedBaseUrl;
+          });
+
+        setNormalizedUrls(urlMap);
         setDetectedProviders(successfulProviders);
         setShowChooser(true);
       }
@@ -182,13 +199,16 @@ export function ProviderFormDialog({
   }, [isDetecting, results, successfulProviders, apiKey, baseUrl, onSave, onOpenChange]);
 
   const handleProviderSelect = (provider: ProviderConfig["provider"]) => {
+    // Use the normalized URL from detection results
+    const normalizedUrl = normalizedUrls[provider];
+
     const config: Partial<ProviderConfig> = {
       provider,
       ...(apiKey && { apiKey }),
-      ...(baseUrl && { baseUrl }),
+      ...(normalizedUrl && { baseUrl: normalizedUrl }),
     };
 
-    onSave(config);
+    onSave(config, baseUrl || undefined);
     onOpenChange(false);
   };
 

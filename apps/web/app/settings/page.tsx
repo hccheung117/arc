@@ -47,10 +47,12 @@ export default function SettingsPage() {
   // Test connection state
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const handleAddProvider = () => {
     setDialogMode("add");
     setEditingProvider(undefined);
+    setSuccessMessage(null);
     setIsDialogOpen(true);
   };
 
@@ -60,7 +62,7 @@ export default function SettingsPage() {
     setIsDialogOpen(true);
   };
 
-  const handleSaveProvider = (config: Partial<ProviderConfig>) => {
+  const handleSaveProvider = (config: Partial<ProviderConfig>, originalBaseUrl?: string) => {
     if (dialogMode === "add") {
       // Check if provider already exists
       const exists = providerConfigs.some((p) => p.provider === config.provider);
@@ -69,6 +71,16 @@ export default function SettingsPage() {
         return;
       }
       addProvider(config as Omit<ProviderConfig, "id">);
+
+      // Check if URL was normalized and show success message
+      const normalizedUrl = config.baseUrl;
+      const wasNormalized = originalBaseUrl && normalizedUrl && originalBaseUrl !== normalizedUrl;
+
+      if (wasNormalized) {
+        setSuccessMessage(`Provider added successfully. Base URL normalized to: ${normalizedUrl}`);
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => setSuccessMessage(null), 5000);
+      }
     } else if (editingProvider) {
       updateProvider(editingProvider.id, config);
     }
@@ -246,6 +258,13 @@ export default function SettingsPage() {
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{testError}</AlertDescription>
+              </Alert>
+            )}
+
+            {successMessage && (
+              <Alert className="border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-100">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{successMessage}</AlertDescription>
               </Alert>
             )}
 

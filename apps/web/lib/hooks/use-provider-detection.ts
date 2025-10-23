@@ -4,6 +4,7 @@ import { AnthropicProvider } from "@arc/ai/anthropic/AnthropicProvider.js";
 import { GeminiProvider } from "@arc/ai/gemini/GeminiProvider.js";
 import { BrowserFetch } from "@arc/platform-browser/http/BrowserFetch.js";
 import type { ProviderConfig } from "@/lib/chat-store";
+import { normalizeBaseUrl, generateUrlVariations } from "@/lib/utils/normalize-base-url";
 
 /**
  * Provider detection timeout (ms)
@@ -17,6 +18,7 @@ export interface ProviderDetectionResult {
   provider: ProviderConfig["provider"];
   success: boolean;
   error?: string;
+  normalizedBaseUrl?: string; // The actual URL that worked (if success=true)
 }
 
 /**
@@ -72,53 +74,67 @@ export function useProviderDetection() {
     const detectProvider = async (
       uiProviderType: ProviderConfig["provider"]
     ): Promise<ProviderDetectionResult> => {
-      try {
-        // Create a timeout promise
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => {
-            reject(new Error("Detection timeout"));
-          }, DETECTION_TIMEOUT_MS);
-        });
+      // Normalize the base URL and generate variations to try
+      const cleanedUrl = normalizeBaseUrl(baseUrl);
+      const urlVariations = generateUrlVariations(cleanedUrl, uiProviderType);
 
-        // Create provider instance based on type
-        let provider;
-        if (uiProviderType === "openai") {
-          provider = new OpenAIProvider(http, apiKey || "", baseUrl);
-        } else if (uiProviderType === "anthropic") {
-          provider = new AnthropicProvider(http, apiKey || "", {
-            ...(baseUrl ? { baseUrl } : {}),
+      // Try each URL variation until one works
+      let lastError: Error | undefined;
+      for (const urlToTry of urlVariations) {
+        try {
+          // Create a timeout promise
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => {
+              reject(new Error("Detection timeout"));
+            }, DETECTION_TIMEOUT_MS);
           });
-        } else if (uiProviderType === "google") {
-          provider = new GeminiProvider(http, apiKey || "", {
-            ...(baseUrl ? { baseUrl } : {}),
-          });
-        } else {
-          throw new Error(`Unsupported provider: ${uiProviderType}`);
+
+          // Create provider instance based on type
+          let provider;
+          if (uiProviderType === "openai") {
+            provider = new OpenAIProvider(http, apiKey || "", urlToTry || undefined);
+          } else if (uiProviderType === "anthropic") {
+            provider = new AnthropicProvider(http, apiKey || "", {
+              ...(urlToTry ? { baseUrl: urlToTry } : {}),
+            });
+          } else if (uiProviderType === "google") {
+            provider = new GeminiProvider(http, apiKey || "", {
+              ...(urlToTry ? { baseUrl: urlToTry } : {}),
+            });
+          } else {
+            throw new Error(`Unsupported provider: ${uiProviderType}`);
+          }
+
+          // Race between health check and timeout
+          await Promise.race([
+            provider.healthCheck(),
+            timeoutPromise,
+          ]);
+
+          // Success! Return the working URL
+          return {
+            provider: uiProviderType,
+            success: true,
+            ...(urlToTry && { normalizedBaseUrl: urlToTry }),
+          };
+        } catch (error) {
+          // Store the error and try next variation
+          lastError = error as Error;
+          continue;
         }
-
-        // Race between health check and timeout
-        await Promise.race([
-          provider.healthCheck(),
-          timeoutPromise,
-        ]);
-
-        return {
-          provider: uiProviderType,
-          success: true,
-        };
-      } catch (error) {
-        // Extract error message
-        let errorMessage = "Unknown error";
-        if (error instanceof Error) {
-          errorMessage = error.message;
-        }
-
-        return {
-          provider: uiProviderType,
-          success: false,
-          error: errorMessage,
-        };
       }
+
+      // All variations failed - return the last error
+      let errorMessage = "Unknown error";
+      if (lastError) {
+        errorMessage = lastError.message;
+      }
+
+      return {
+        provider: uiProviderType,
+        success: false,
+        error: errorMessage,
+      };
     };
 
     // Run all detections concurrently
