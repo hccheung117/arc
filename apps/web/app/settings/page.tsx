@@ -102,12 +102,12 @@ export default function SettingsPage() {
         provider = new OpenAIProvider(http, config.apiKey || "", config.baseUrl || undefined);
       } else if (config.provider === "anthropic") {
         provider = new AnthropicProvider(http, config.apiKey || "", {
-          baseUrl: config.baseUrl,
+          ...(config.baseUrl ? { baseUrl: config.baseUrl } : {}),
           defaultMaxTokens: 4096,
         });
       } else if (config.provider === "google") {
         provider = new GeminiProvider(http, config.apiKey || "", {
-          baseUrl: config.baseUrl,
+          ...(config.baseUrl ? { baseUrl: config.baseUrl } : {}),
         });
       } else {
         throw new Error(`Provider ${config.provider} is not supported`);

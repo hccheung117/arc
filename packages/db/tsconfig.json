@@ -3,6 +3,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist",
+    "rootDir": "./src",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
@@ -19,7 +20,8 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "paths": {
-      "@arc/core/*": ["../core/src/*"]
+      "@arc/core/*": ["../core/dist/*"],
+      "@arc/contracts/*": ["../contracts/dist/*"]
     }
   },
   "include": ["src/**/*"],

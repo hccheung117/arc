@@ -4,6 +4,7 @@
   "compilerOptions": {
     // Output configuration
     "outDir": "./dist",
+    "rootDir": "./src",
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
@@ -30,7 +31,7 @@
 
     // Path mappings for development
     "paths": {
-      "@arc/core/*": ["../core/src/*"]
+      "@arc/core/*": ["../core/dist/*"]
     }
   },
   "include": ["src/**/*"],

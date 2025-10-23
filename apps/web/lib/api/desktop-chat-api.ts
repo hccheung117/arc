@@ -407,7 +407,7 @@ export class DesktopChatAPI implements IChatAPI {
           http,
           config.apiKey || "",
           {
-            baseUrl: config.baseUrl,
+            ...(config.baseUrl ? { baseUrl: config.baseUrl } : {}),
             defaultMaxTokens: 4096,
           }
         );
@@ -417,7 +417,7 @@ export class DesktopChatAPI implements IChatAPI {
           http,
           config.apiKey || "",
           {
-            baseUrl: config.baseUrl,
+            ...(config.baseUrl ? { baseUrl: config.baseUrl } : {}),
           }
         );
         this.adapters.set(config.provider, provider);

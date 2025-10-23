@@ -2,8 +2,9 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "./dist",
+    "rootDir": "./src",
     "paths": {
-      "@arc/core/*": ["../core/src/*"]
+      "@arc/core/*": ["../core/dist/*"]
     }
   },
   "include": ["src/**/*"],
