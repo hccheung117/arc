@@ -1,6 +1,6 @@
 {
   "name": "@arc/platform-browser",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Browser platform implementation for Arc (fetch-based HTTP)",
@@ -23,6 +23,7 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
+    "@arc/contracts": "workspace:*",
     "@arc/core": "workspace:*",
     "sql.js": "^1.11.0"
   },

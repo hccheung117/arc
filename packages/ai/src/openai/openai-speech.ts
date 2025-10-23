@@ -1,4 +1,4 @@
-import type { IPlatformHTTP } from "@arc/core/platform/IPlatformHTTP.js";
+import type { IPlatformHTTP } from "@arc/contracts/platform/IPlatformHTTP.js";
 import type { Voice, SpeechOptions } from "@arc/contracts/ai/speech/builder.js";
 import type { SpeechGenerationRequest } from "./types.js";
 import {

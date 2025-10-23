@@ -1,4 +1,4 @@
-import type { IPlatformHTTP } from "@arc/core/platform/IPlatformHTTP.js";
+import type { IPlatformHTTP } from "@arc/contracts/platform/IPlatformHTTP.js";
 import type { ImageGenerationRequest, ImageGenerationResponse } from "./types.js";
 import type { ImageGenerationOptions, ImageEditOptions, ImageVariationsOptions, ImageResponseFormat } from "@arc/contracts/ai/image/builder.js";
 import {

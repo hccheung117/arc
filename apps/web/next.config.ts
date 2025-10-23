@@ -21,7 +21,7 @@ const nextConfig: NextConfig = {
       config.resolve.alias = {
         ...config.resolve.alias,
         '@arc/platform-electron/database/BetterSqlite3Database.js': false,
-        '@arc/platform-electron/http/NodeFetchHTTP.js': false,
+        '@arc/platform-electron/http/ElectronFetch.js': false,
         '@arc/platform-electron/filesystem/ElectronFileSystem.js': false,
       };
     }

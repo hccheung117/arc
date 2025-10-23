@@ -1,7 +1,7 @@
 import type { IAI, AIConfig, IChatBuilderWithUtils } from '@arc/contracts/ai/ai.js';
 import type { Provider } from '@arc/contracts/ai/common/metadata.js';
 import type { ModelInfo, ProviderCapabilities } from '@arc/contracts/IProvider.js';
-import type { IPlatformHTTP } from '@arc/core/platform/IPlatformHTTP.js';
+import type { IPlatformHTTP } from '@arc/contracts/platform/IPlatformHTTP.js';
 
 import { ChatBuilder } from './lib/builders/ChatBuilder.js';
 import { EmbeddingBuilder } from './lib/builders/EmbeddingBuilder.js';

@@ -1,4 +1,4 @@
-import type { IPlatformHTTP } from "@arc/core/platform/IPlatformHTTP.js";
+import type { IPlatformHTTP } from "@arc/contracts/platform/IPlatformHTTP.js";
 import type { ImageAttachment } from "@arc/contracts/ImageAttachment.js";
 import type { IProvider, ModelInfo, ProviderCapabilities } from "@arc/contracts/IProvider.js";
 import type { ListModelsResponse } from "./types.js";

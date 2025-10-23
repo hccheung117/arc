@@ -1,6 +1,6 @@
 {
   "name": "@arc/contracts",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Shared interfaces and contracts for Arc packages",
@@ -21,6 +21,11 @@
       "types": "./dist/ai/*/*.d.ts",
       "import": "./dist/ai/*/*.js",
       "default": "./dist/ai/*/*.js"
+    },
+    "./platform/*.js": {
+      "types": "./dist/platform/*.d.ts",
+      "import": "./dist/platform/*.js",
+      "default": "./dist/platform/*.js"
     }
   },
   "scripts": {

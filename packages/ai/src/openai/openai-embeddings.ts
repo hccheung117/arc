@@ -1,4 +1,4 @@
-import type { IPlatformHTTP } from "@arc/core/platform/IPlatformHTTP.js";
+import type { IPlatformHTTP } from "@arc/contracts/platform/IPlatformHTTP.js";
 import type { EmbeddingRequest, EmbeddingResponse } from "./types.js";
 import {
   createProviderErrorFromResponse,
