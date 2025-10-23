@@ -21,7 +21,7 @@ import type { IPlatformDatabase } from "@arc/core/platform/IPlatformDatabase.js"
 import { runMigrations } from "@arc/db/migrations/runner.js";
 import { SQLiteChatRepository } from "@arc/db/repositories/SQLiteChatRepository.js";
 import { SQLiteMessageRepository } from "@arc/db/repositories/SQLiteMessageRepository.js";
-import { FetchHTTP } from "@arc/platform-browser/http/FetchHTTP.js";
+import { BrowserFetch } from "@arc/platform-browser/http/BrowserFetch.js";
 import { useChatStore } from "../chat-store";
 import { webAttachmentsToCore } from "../utils/attachment-converter";
 
@@ -329,7 +329,7 @@ export class LiveChatAPI implements IChatAPI {
       throw new Error("No providers configured");
     }
 
-    const http = new FetchHTTP();
+    const http = new BrowserFetch();
 
     // Create providers for all configured providers
     for (const config of providerConfigs) {

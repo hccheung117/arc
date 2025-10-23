@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@arc/core": "workspace:*",
+    "@arc/platform-browser": "workspace:*",
     "better-sqlite3": "^11.0.0"
   },
   "devDependencies": {

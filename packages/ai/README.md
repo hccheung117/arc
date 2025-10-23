@@ -6,10 +6,10 @@ Arc AI is a provider‑agnostic, usage‑first SDK with a fluent API for chat, e
 
 ```ts
 import { AI } from '@arc/ai/AI.js';
-import { FetchHTTP } from '@arc/platform-browser/http/FetchHTTP.js';
+import { BrowserFetch } from '@arc/platform-browser/http/BrowserFetch.js';
 
 // Required: pass an HTTP implementation from your platform package
-const http = new FetchHTTP();
+const http = new BrowserFetch();
 
 const ai = new AI('openai', {
   apiKey: process.env.OPENAI_API_KEY!,

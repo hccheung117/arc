@@ -28,7 +28,8 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "@arc/core": "workspace:*"
+    "@arc/core": "workspace:*",
+    "@arc/platform-browser": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20",

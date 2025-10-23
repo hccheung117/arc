@@ -21,7 +21,7 @@ import { ProviderFormDialog } from "@/components/provider-form-dialog";
 import { OpenAIProvider } from "@arc/ai/openai/OpenAIProvider.js";
 import { AnthropicProvider } from "@arc/ai/anthropic/AnthropicProvider.js";
 import { GeminiProvider } from "@arc/ai/gemini/GeminiProvider.js";
-import { FetchHTTP } from "@arc/platform-browser/http/FetchHTTP.js";
+import { BrowserFetch } from "@arc/platform-browser/http/BrowserFetch.js";
 
 const PROVIDER_NAMES: Record<ProviderConfig["provider"], string> = {
   openai: "OpenAI",
@@ -95,7 +95,7 @@ export default function SettingsPage() {
     setTestError(null);
 
     try {
-      const http = new FetchHTTP();
+      const http = new BrowserFetch();
 
       let provider;
       if (config.provider === "openai") {

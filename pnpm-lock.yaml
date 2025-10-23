@@ -287,6 +287,9 @@ importers:
       '@arc/core':
         specifier: workspace:*
         version: link:../core
+      '@arc/platform-browser':
+        specifier: workspace:*
+        version: link:../platform-browser
     devDependencies:
       '@types/node':
         specifier: ^20
@@ -300,6 +303,9 @@ importers:
       '@arc/core':
         specifier: workspace:*
         version: link:../core
+      '@arc/platform-browser':
+        specifier: workspace:*
+        version: link:../platform-browser
       better-sqlite3:
         specifier: ^11.0.0
         version: 11.10.0

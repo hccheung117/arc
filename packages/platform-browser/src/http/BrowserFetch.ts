@@ -19,7 +19,7 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
 };
 
 /**
- * Node.js/Electron platform HTTP implementation using native fetch API
+ * Browser platform HTTP implementation using native fetch API
  *
  * Supports:
  * - Standard HTTP requests
@@ -27,7 +27,7 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
  * - Request cancellation via AbortSignal
  * - Automatic retry with exponential backoff for network errors and 5xx responses
  */
-export class NodeFetchHTTP implements IPlatformHTTP {
+export class BrowserFetch implements IPlatformHTTP {
   private retryConfig: RetryConfig;
 
   constructor(retryConfig: Partial<RetryConfig> = {}) {
@@ -61,13 +61,11 @@ export class NodeFetchHTTP implements IPlatformHTTP {
    */
   private async sleep(retryCount: number): Promise<void> {
     const delay = Math.min(
-      this.retryConfig.initialDelayMs *
-        Math.pow(this.retryConfig.backoffMultiplier, retryCount),
+      this.retryConfig.initialDelayMs * Math.pow(this.retryConfig.backoffMultiplier, retryCount),
       this.retryConfig.maxDelayMs
     );
-    await new Promise((resolve) => setTimeout(resolve, delay));
+    await new Promise(resolve => setTimeout(resolve, delay));
   }
-
   /**
    * Perform a standard HTTP request with retry logic
    */
@@ -114,16 +112,9 @@ export class NodeFetchHTTP implements IPlatformHTTP {
 
         // If response is 5xx, treat it as retryable
         if (!response.ok && response.status >= 500) {
-          lastError = new Error(
-            `Server error: ${response.status} ${response.statusText}`
-          );
-          if (
-            attempt < this.retryConfig.maxRetries &&
-            this.shouldRetry(lastError, response.status)
-          ) {
-            console.warn(
-              `Request failed with ${response.status}, retrying (${attempt + 1}/${this.retryConfig.maxRetries})...`
-            );
+          lastError = new Error(`Server error: ${response.status} ${response.statusText}`);
+          if (attempt < this.retryConfig.maxRetries && this.shouldRetry(lastError, response.status)) {
+            console.warn(`Request failed with ${response.status}, retrying (${attempt + 1}/${this.retryConfig.maxRetries})...`);
             await this.sleep(attempt);
             continue;
           }
@@ -131,8 +122,7 @@ export class NodeFetchHTTP implements IPlatformHTTP {
 
         return result;
       } catch (error) {
-        lastError =
-          error instanceof Error ? error : new Error("Unknown network error");
+        lastError = error instanceof Error ? error : new Error("Unknown network error");
 
         // Don't retry abort errors
         if (lastError.name === "AbortError") {
@@ -140,13 +130,8 @@ export class NodeFetchHTTP implements IPlatformHTTP {
         }
 
         // Retry network errors
-        if (
-          attempt < this.retryConfig.maxRetries &&
-          this.shouldRetry(error, lastStatus)
-        ) {
-          console.warn(
-            `Network error, retrying (${attempt + 1}/${this.retryConfig.maxRetries}): ${lastError.message}`
-          );
+        if (attempt < this.retryConfig.maxRetries && this.shouldRetry(error, lastStatus)) {
+          console.warn(`Network error, retrying (${attempt + 1}/${this.retryConfig.maxRetries}): ${lastError.message}`);
           await this.sleep(attempt);
           continue;
         }
@@ -201,13 +186,8 @@ export class NodeFetchHTTP implements IPlatformHTTP {
           );
 
           // Retry 5xx errors
-          if (
-            response.status >= 500 &&
-            attempt < this.retryConfig.maxRetries
-          ) {
-            console.warn(
-              `Stream connection failed with ${response.status}, retrying (${attempt + 1}/${this.retryConfig.maxRetries})...`
-            );
+          if (response.status >= 500 && attempt < this.retryConfig.maxRetries) {
+            console.warn(`Stream connection failed with ${response.status}, retrying (${attempt + 1}/${this.retryConfig.maxRetries})...`);
             await this.sleep(attempt);
             continue;
           }
@@ -222,21 +202,15 @@ export class NodeFetchHTTP implements IPlatformHTTP {
         // Connection successful, break retry loop
         break;
       } catch (error) {
-        lastError =
-          error instanceof Error ? error : new Error("Unknown network error");
+        lastError = error instanceof Error ? error : new Error("Unknown network error");
 
         if (lastError.name === "AbortError") {
           throw new Error("Request cancelled");
         }
 
         // Retry network errors
-        if (
-          attempt < this.retryConfig.maxRetries &&
-          this.shouldRetry(error)
-        ) {
-          console.warn(
-            `Stream connection error, retrying (${attempt + 1}/${this.retryConfig.maxRetries}): ${lastError.message}`
-          );
+        if (attempt < this.retryConfig.maxRetries && this.shouldRetry(error)) {
+          console.warn(`Stream connection error, retrying (${attempt + 1}/${this.retryConfig.maxRetries}): ${lastError.message}`);
           await this.sleep(attempt);
           continue;
         }

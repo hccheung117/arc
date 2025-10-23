@@ -366,7 +366,7 @@ export class DesktopChatAPI implements IChatAPI {
     // @ts-expect-error - Platform-desktop is only available in Electron context
     const { BetterSqlite3Database } = await import("@arc/platform-electron/database/BetterSqlite3Database.js");
     // @ts-expect-error - Platform-desktop is only available in Electron context
-    const { NodeFetchHTTP } = await import("@arc/platform-electron/http/NodeFetchHTTP.js");
+    const { ElectronFetch } = await import("@arc/platform-electron/http/ElectronFetch.js");
     // @ts-expect-error - Platform-desktop is only available in Electron context
     const { ElectronFileSystem } = await import("@arc/platform-electron/filesystem/ElectronFileSystem.js");
 
@@ -391,7 +391,7 @@ export class DesktopChatAPI implements IChatAPI {
       throw new Error("No providers configured");
     }
 
-    const http = new NodeFetchHTTP();
+    const http = new ElectronFetch();
 
     // Create providers for all configured providers
     for (const config of providerConfigs) {
