@@ -170,3 +170,189 @@ export interface LegacyCompletionChunk {
  * Union type for all streaming chunk types
  */
 export type StreamChunk = ChatCompletionChunk | LegacyCompletionChunk;
+
+/**
+ * Embedding request
+ */
+export interface EmbeddingRequest {
+  model: string;
+  input: string | string[];
+  encoding_format?: 'float' | 'base64';
+  dimensions?: number;
+  user?: string;
+}
+
+/**
+ * Embedding object
+ */
+export interface EmbeddingObject {
+  object: 'embedding';
+  embedding: number[];
+  index: number;
+}
+
+/**
+ * Embedding response
+ */
+export interface EmbeddingResponse {
+  object: 'list';
+  data: EmbeddingObject[];
+  model: string;
+  usage: {
+    prompt_tokens: number;
+    total_tokens: number;
+  };
+}
+
+/**
+ * Image generation request
+ */
+export interface ImageGenerationRequest {
+  prompt: string;
+  model?: string;
+  n?: number;
+  quality?: 'standard' | 'hd';
+  response_format?: 'url' | 'b64_json';
+  size?: '256x256' | '512x512' | '1024x1024' | '1792x1024' | '1024x1792';
+  style?: 'vivid' | 'natural';
+  user?: string;
+}
+
+/**
+ * Image object
+ */
+export interface ImageObject {
+  url?: string;
+  b64_json?: string;
+  revised_prompt?: string;
+}
+
+/**
+ * Image generation response
+ */
+export interface ImageGenerationResponse {
+  created: number;
+  data: ImageObject[];
+}
+
+/**
+ * Audio transcription request (multipart form data)
+ */
+export interface AudioTranscriptionRequest {
+  file: File | Blob | ArrayBuffer;
+  model: string;
+  language?: string;
+  prompt?: string;
+  response_format?: 'json' | 'text' | 'srt' | 'verbose_json' | 'vtt';
+  temperature?: number;
+}
+
+/**
+ * Audio transcription response (text format)
+ */
+export type AudioTranscriptionTextResponse = string;
+
+/**
+ * Audio segment (verbose format)
+ */
+export interface AudioSegment {
+  id: number;
+  seek: number;
+  start: number;
+  end: number;
+  text: string;
+  tokens: number[];
+  temperature: number;
+  avg_logprob: number;
+  compression_ratio: number;
+  no_speech_prob: number;
+}
+
+/**
+ * Audio transcription response (verbose JSON format)
+ */
+export interface AudioTranscriptionVerboseResponse {
+  task: string;
+  language: string;
+  duration: number;
+  text: string;
+  segments?: AudioSegment[];
+}
+
+/**
+ * Audio transcription response (JSON format)
+ */
+export interface AudioTranscriptionJsonResponse {
+  text: string;
+}
+
+/**
+ * Speech generation request
+ */
+export interface SpeechGenerationRequest {
+  model: string;
+  input: string;
+  voice: 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer';
+  response_format?: 'mp3' | 'opus' | 'aac' | 'flac' | 'wav' | 'pcm';
+  speed?: number;
+}
+
+/**
+ * Moderation request
+ */
+export interface ModerationRequest {
+  input: string | string[];
+  model?: string;
+}
+
+/**
+ * Moderation categories
+ */
+export interface ModerationCategories {
+  hate: boolean;
+  'hate/threatening': boolean;
+  harassment: boolean;
+  'harassment/threatening': boolean;
+  'self-harm': boolean;
+  'self-harm/intent': boolean;
+  'self-harm/instructions': boolean;
+  sexual: boolean;
+  'sexual/minors': boolean;
+  violence: boolean;
+  'violence/graphic': boolean;
+}
+
+/**
+ * Moderation category scores
+ */
+export interface ModerationCategoryScores {
+  hate: number;
+  'hate/threatening': number;
+  harassment: number;
+  'harassment/threatening': number;
+  'self-harm': number;
+  'self-harm/intent': number;
+  'self-harm/instructions': number;
+  sexual: number;
+  'sexual/minors': number;
+  violence: number;
+  'violence/graphic': number;
+}
+
+/**
+ * Moderation result
+ */
+export interface ModerationResult {
+  flagged: boolean;
+  categories: ModerationCategories;
+  category_scores: ModerationCategoryScores;
+}
+
+/**
+ * Moderation response
+ */
+export interface ModerationResponse {
+  id: string;
+  model: string;
+  results: ModerationResult[];
+}
