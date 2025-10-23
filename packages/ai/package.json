@@ -7,6 +7,11 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
+    "./AI.js": {
+      "types": "./dist/AI.d.ts",
+      "import": "./dist/AI.js",
+      "default": "./dist/AI.js"
+    },
     "./openai/*.js": {
       "types": "./dist/openai/*.d.ts",
       "import": "./dist/openai/*.js",

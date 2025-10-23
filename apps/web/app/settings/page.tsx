@@ -9,16 +9,10 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Slider } from "@/components/ui/slider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { SettingsSidebar } from "@/components/settings-sidebar";
 import { useChatStore, type ProviderConfig } from "@/lib/chat-store";
-import { ArrowLeft, Moon, Sun, Monitor, Plus, AlertCircle, ChevronDown } from "lucide-react";
+import { ArrowLeft, Moon, Sun, Monitor, Plus, AlertCircle } from "lucide-react";
 import { ProviderCard } from "@/components/provider-card";
 import { ProviderFormDialog } from "@/components/provider-form-dialog";
 import { OpenAIProvider } from "@arc/ai/openai/OpenAIProvider.js";
@@ -31,8 +25,6 @@ const PROVIDER_NAMES: Record<ProviderConfig["provider"], string> = {
   anthropic: "Anthropic",
   google: "Google",
 };
-
-const AVAILABLE_PROVIDERS: ProviderConfig["provider"][] = ["openai", "anthropic", "google"];
 
 export default function SettingsPage() {
   const searchParams = useSearchParams();
@@ -47,25 +39,18 @@ export default function SettingsPage() {
   const updateProvider = useChatStore((state) => state.updateProvider);
   const deleteProvider = useChatStore((state) => state.deleteProvider);
 
-  // Get available provider types (not yet configured)
-  const availableProviderTypes = AVAILABLE_PROVIDERS.filter(
-    (type) => !providerConfigs.some((config) => config.provider === type)
-  );
-
   // Dialog state
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<"add" | "edit">("add");
   const [editingProvider, setEditingProvider] = useState<ProviderConfig | undefined>(undefined);
-  const [selectedProviderType, setSelectedProviderType] = useState<ProviderConfig["provider"]>("openai");
 
   // Test connection state
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
 
-  const handleAddProvider = (providerType: ProviderConfig["provider"]) => {
+  const handleAddProvider = () => {
     setDialogMode("add");
     setEditingProvider(undefined);
-    setSelectedProviderType(providerType);
     setIsDialogOpen(true);
   };
 
@@ -248,25 +233,13 @@ export default function SettingsPage() {
               <div>
                 <h2 className="text-xl font-semibold">AI Providers</h2>
                 <p className="text-sm text-muted-foreground">
-                  Configure multiple AI providers. Models from all providers will be available for use.
+                  Configure multiple AI providers. We&apos;ll automatically detect which provider works with your credentials.
                 </p>
               </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button disabled={availableProviderTypes.length === 0}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Provider
-                    <ChevronDown className="h-4 w-4 ml-2" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {availableProviderTypes.map((type) => (
-                    <DropdownMenuItem key={type} onClick={() => handleAddProvider(type)}>
-                      {PROVIDER_NAMES[type]}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Button onClick={handleAddProvider}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Provider
+              </Button>
             </div>
 
             {testError && (
@@ -282,22 +255,10 @@ export default function SettingsPage() {
                   <p className="text-muted-foreground mb-4">
                     No providers configured yet. Add your first provider to get started.
                   </p>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Provider
-                        <ChevronDown className="h-4 w-4 ml-2" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="center">
-                      {AVAILABLE_PROVIDERS.map((type) => (
-                        <DropdownMenuItem key={type} onClick={() => handleAddProvider(type)}>
-                          {PROVIDER_NAMES[type]}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <Button onClick={handleAddProvider}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Provider
+                  </Button>
                 </CardContent>
               </Card>
             ) : (
@@ -326,7 +287,6 @@ export default function SettingsPage() {
         onSave={handleSaveProvider}
         initialConfig={editingProvider}
         mode={dialogMode}
-        preselectedProvider={dialogMode === "add" ? selectedProviderType : undefined}
       />
     </div>
       </SidebarInset>
