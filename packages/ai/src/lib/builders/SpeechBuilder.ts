@@ -6,7 +6,7 @@ import type {
 import type { SpeechResult, SpeechChunk } from '@arc/contracts/ai/Results.js';
 import type { CancellableStream as ICancellableStream } from '@arc/contracts/ai/Streams.js';
 import type { Provider } from '@arc/contracts/ai/Metadata.js';
-import { createCancellableStream } from '../utils/CancellableStream.js';
+import { createCancellableStream } from '../streams/CancellableStream.js';
 
 /**
  * Provider interface for speech synthesis
