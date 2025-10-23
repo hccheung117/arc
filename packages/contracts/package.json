@@ -11,6 +11,16 @@
       "types": "./dist/*.d.ts",
       "import": "./dist/*.js",
       "default": "./dist/*.js"
+    },
+    "./ai/*.js": {
+      "types": "./dist/ai/*.d.ts",
+      "import": "./dist/ai/*.js",
+      "default": "./dist/ai/*.js"
+    },
+    "./ai/*/*.js": {
+      "types": "./dist/ai/*/*.d.ts",
+      "import": "./dist/ai/*/*.js",
+      "default": "./dist/ai/*/*.js"
     }
   },
   "scripts": {

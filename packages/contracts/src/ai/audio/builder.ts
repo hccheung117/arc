@@ -1,4 +1,4 @@
-import type { AudioResult } from './Results.js';
+import type { AudioResult } from './results.js';
 
 /**
  * Audio transcription format

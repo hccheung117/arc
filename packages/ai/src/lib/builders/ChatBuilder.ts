@@ -2,14 +2,14 @@ import type {
   IChatBuilder,
   ChatMessage,
   ChatModelOptions,
-} from '@arc/contracts/ai/ChatBuilder.js';
-import type { ChatResult, ChatChunk } from '@arc/contracts/ai/Results.js';
-import type { CancellableStream as ICancellableStream } from '@arc/contracts/ai/Streams.js';
+} from '@arc/contracts/ai/chat/builder.js';
+import type { ChatResult, ChatChunk } from '@arc/contracts/ai/chat/results.js';
+import type { CancellableStream as ICancellableStream } from '@arc/contracts/ai/streams/cancellable-stream.js';
 import type { ImageAttachment } from '@arc/contracts/ImageAttachment.js';
 import type { IProvider } from '@arc/contracts/IProvider.js';
-import type { Provider } from '@arc/contracts/ai/Metadata.js';
+import type { Provider } from '@arc/contracts/ai/common/metadata.js';
 import { createCancellableStream } from '../streams/CancellableStream.js';
-import type { ChatMetadata } from '@arc/contracts/ai/Metadata.js';
+import type { ChatMetadata } from '@arc/contracts/ai/chat/metadata.js';
 
 /**
  * Fluent chat builder implementation

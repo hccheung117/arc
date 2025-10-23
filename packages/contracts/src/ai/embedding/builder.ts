@@ -1,5 +1,5 @@
-import type { EmbeddingResult, EmbeddingBatchResult, EmbeddingChunk } from './Results.js';
-import type { CancellableStream } from './Streams.js';
+import type { EmbeddingResult, EmbeddingBatchResult, EmbeddingChunk } from './results.js';
+import type { CancellableStream } from '../streams/cancellable-stream.js';
 
 /**
  * Fluent builder interface for embeddings

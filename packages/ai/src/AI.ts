@@ -1,5 +1,5 @@
-import type { IAI, AIConfig, IChatBuilderWithUtils } from '@arc/contracts/ai/IAI.js';
-import type { Provider } from '@arc/contracts/ai/Metadata.js';
+import type { IAI, AIConfig, IChatBuilderWithUtils } from '@arc/contracts/ai/ai.js';
+import type { Provider } from '@arc/contracts/ai/common/metadata.js';
 import type { ModelInfo, ProviderCapabilities } from '@arc/contracts/IProvider.js';
 import type { IPlatformHTTP } from '@arc/core/platform/IPlatformHTTP.js';
 

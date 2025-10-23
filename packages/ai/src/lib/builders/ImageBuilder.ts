@@ -4,9 +4,9 @@ import type {
   ImageEditOptions,
   ImageVariationsOptions,
   ImageResponseFormat,
-} from '@arc/contracts/ai/ImageBuilder.js';
-import type { ImageResult, ImageVariationsResult } from '@arc/contracts/ai/Results.js';
-import type { Provider } from '@arc/contracts/ai/Metadata.js';
+} from '@arc/contracts/ai/image/builder.js';
+import type { ImageResult, ImageVariationsResult } from '@arc/contracts/ai/image/results.js';
+import type { Provider } from '@arc/contracts/ai/common/metadata.js';
 
 /**
  * Provider interface for image generation

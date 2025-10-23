@@ -2,10 +2,10 @@ import type {
   ISpeechBuilder,
   Voice,
   SpeechOptions,
-} from '@arc/contracts/ai/SpeechBuilder.js';
-import type { SpeechResult, SpeechChunk } from '@arc/contracts/ai/Results.js';
-import type { CancellableStream as ICancellableStream } from '@arc/contracts/ai/Streams.js';
-import type { Provider } from '@arc/contracts/ai/Metadata.js';
+} from '@arc/contracts/ai/speech/builder.js';
+import type { SpeechResult, SpeechChunk } from '@arc/contracts/ai/speech/results.js';
+import type { CancellableStream as ICancellableStream } from '@arc/contracts/ai/streams/cancellable-stream.js';
+import type { Provider } from '@arc/contracts/ai/common/metadata.js';
 import { createCancellableStream } from '../streams/CancellableStream.js';
 
 /**

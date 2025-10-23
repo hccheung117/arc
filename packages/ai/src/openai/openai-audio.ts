@@ -1,5 +1,5 @@
 import type { IPlatformHTTP } from "@arc/core/platform/IPlatformHTTP.js";
-import type { AudioTranscriptionOptions } from "@arc/contracts/ai/AudioBuilder.js";
+import type { AudioTranscriptionOptions } from "@arc/contracts/ai/audio/builder.js";
 
 /**
  * Create audio transcription capability

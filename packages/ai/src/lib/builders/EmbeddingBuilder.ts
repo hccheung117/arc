@@ -1,11 +1,11 @@
-import type { IEmbeddingBuilder } from '@arc/contracts/ai/EmbeddingBuilder.js';
+import type { IEmbeddingBuilder } from '@arc/contracts/ai/embedding/builder.js';
 import type {
   EmbeddingResult,
   EmbeddingBatchResult,
   EmbeddingChunk,
-} from '@arc/contracts/ai/Results.js';
-import type { CancellableStream as ICancellableStream } from '@arc/contracts/ai/Streams.js';
-import type { Provider } from '@arc/contracts/ai/Metadata.js';
+} from '@arc/contracts/ai/embedding/results.js';
+import type { CancellableStream as ICancellableStream } from '@arc/contracts/ai/streams/cancellable-stream.js';
+import type { Provider } from '@arc/contracts/ai/common/metadata.js';
 import { createCancellableStream } from '../streams/CancellableStream.js';
 
 /**

@@ -1,9 +1,9 @@
 import type {
   IAudioBuilder,
   AudioTranscriptionOptions,
-} from '@arc/contracts/ai/AudioBuilder.js';
-import type { AudioResult } from '@arc/contracts/ai/Results.js';
-import type { Provider } from '@arc/contracts/ai/Metadata.js';
+} from '@arc/contracts/ai/audio/builder.js';
+import type { AudioResult } from '@arc/contracts/ai/audio/results.js';
+import type { Provider } from '@arc/contracts/ai/common/metadata.js';
 
 /**
  * Provider interface for audio transcription

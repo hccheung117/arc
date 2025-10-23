@@ -1,4 +1,4 @@
-import type { ModerationResult } from './Results.js';
+import type { ModerationResult } from './results.js';
 
 /**
  * Fluent builder interface for content moderation

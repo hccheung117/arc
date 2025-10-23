@@ -1,11 +1,11 @@
-import type { IChatBuilder } from './ChatBuilder.js';
-import type { IEmbeddingBuilder } from './EmbeddingBuilder.js';
-import type { IImageBuilder } from './ImageBuilder.js';
-import type { IAudioBuilder } from './AudioBuilder.js';
-import type { ISpeechBuilder } from './SpeechBuilder.js';
-import type { IModerationBuilder } from './ModerationBuilder.js';
+import type { IChatBuilder } from './chat/builder.js';
+import type { IEmbeddingBuilder } from './embedding/builder.js';
+import type { IImageBuilder } from './image/builder.js';
+import type { IAudioBuilder } from './audio/builder.js';
+import type { ISpeechBuilder } from './speech/builder.js';
+import type { IModerationBuilder } from './moderation/builder.js';
 import type { ModelInfo, ProviderCapabilities } from '../IProvider.js';
-import type { Provider } from './Metadata.js';
+import type { Provider } from './common/metadata.js';
 
 /**
  * Configuration options for AI provider

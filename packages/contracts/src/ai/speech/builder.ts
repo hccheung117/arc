@@ -1,5 +1,5 @@
-import type { SpeechResult, SpeechChunk } from './Results.js';
-import type { CancellableStream } from './Streams.js';
+import type { SpeechResult, SpeechChunk } from './results.js';
+import type { CancellableStream } from '../streams/cancellable-stream.js';
 
 /**
  * Available voices for speech synthesis

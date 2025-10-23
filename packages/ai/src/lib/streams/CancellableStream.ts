@@ -1,4 +1,4 @@
-import type { CancellableStream as ICancellableStream } from '@arc/contracts/ai/Streams.js';
+import type { CancellableStream as ICancellableStream } from '@arc/contracts/ai/streams/cancellable-stream.js';
 
 /**
  * Implementation of a self-cancellable async iterable stream

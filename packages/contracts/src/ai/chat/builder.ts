@@ -1,6 +1,6 @@
-import type { ChatResult, ChatChunk } from './Results.js';
-import type { CancellableStream } from './Streams.js';
-import type { ImageAttachment } from '../ImageAttachment.js';
+import type { ChatResult, ChatChunk } from './results.js';
+import type { CancellableStream } from '../streams/cancellable-stream.js';
+import type { ImageAttachment } from '../../ImageAttachment.js';
 
 /**
  * Message in a conversation

@@ -1,4 +1,4 @@
-import type { ImageResult, ImageVariationsResult } from './Results.js';
+import type { ImageResult, ImageVariationsResult } from './results.js';
 
 /**
  * Image size options

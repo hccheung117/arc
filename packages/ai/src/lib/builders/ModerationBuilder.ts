@@ -1,6 +1,6 @@
-import type { IModerationBuilder } from '@arc/contracts/ai/ModerationBuilder.js';
-import type { ModerationResult } from '@arc/contracts/ai/Results.js';
-import type { Provider } from '@arc/contracts/ai/Metadata.js';
+import type { IModerationBuilder } from '@arc/contracts/ai/moderation/builder.js';
+import type { ModerationResult } from '@arc/contracts/ai/moderation/results.js';
+import type { Provider } from '@arc/contracts/ai/common/metadata.js';
 
 /**
  * Provider interface for moderation
