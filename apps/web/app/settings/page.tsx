@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -14,6 +15,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { SettingsSidebar } from "@/components/settings-sidebar";
 import { useChatStore, type ProviderConfig } from "@/lib/chat-store";
 import { ArrowLeft, Moon, Sun, Monitor, Plus, AlertCircle, ChevronDown } from "lucide-react";
 import { ProviderCard } from "@/components/provider-card";
@@ -32,6 +35,9 @@ const PROVIDER_NAMES: Record<ProviderConfig["provider"], string> = {
 const AVAILABLE_PROVIDERS: ProviderConfig["provider"][] = ["openai", "anthropic", "google"];
 
 export default function SettingsPage() {
+  const searchParams = useSearchParams();
+  const activeTab = searchParams?.get("tab") || "appearance";
+
   const theme = useChatStore((state) => state.theme);
   const setTheme = useChatStore((state) => state.setTheme);
   const fontSize = useChatStore((state) => state.fontSize);
@@ -124,26 +130,29 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="mx-auto max-w-4xl px-4 py-4">
-          <div className="flex items-center gap-4">
-            <Link href="/">
-              <Button variant="ghost" size="icon">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
-            <h1 className="text-2xl font-semibold">Settings</h1>
-          </div>
-        </div>
-      </header>
+    <SidebarProvider defaultOpen={true}>
+      <SettingsSidebar activeTab={activeTab} />
+      <SidebarInset>
+        <div className="min-h-screen bg-background">
+          {/* Header */}
+          <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
+            <div className="flex items-center gap-4 px-4 py-4">
+              <SidebarTrigger />
+              <Link href="/">
+                <Button variant="ghost" size="icon">
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+              </Link>
+              <h1 className="text-2xl font-semibold">Settings</h1>
+            </div>
+          </header>
 
-      {/* Content */}
-      <main className="mx-auto max-w-4xl px-4 py-8">
-        <div className="space-y-6">
-          {/* Appearance Section */}
-          <Card>
+          {/* Content */}
+          <main className="px-4 py-8">
+            <div className="space-y-6 mx-auto max-w-4xl">
+              {/* Appearance Section */}
+              {activeTab === "appearance" && (
+                <Card>
             <CardHeader>
               <CardTitle>Appearance</CardTitle>
               <CardDescription>
@@ -230,8 +239,10 @@ export default function SettingsPage() {
               </div>
             </CardContent>
           </Card>
+              )}
 
           {/* AI Providers Section */}
+          {activeTab === "providers" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -304,6 +315,7 @@ export default function SettingsPage() {
               </div>
             )}
           </div>
+          )}
         </div>
       </main>
 
@@ -317,5 +329,7 @@ export default function SettingsPage() {
         preselectedProvider={dialogMode === "add" ? selectedProviderType : undefined}
       />
     </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

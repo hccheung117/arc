@@ -19,6 +19,13 @@ const PROVIDER_NAMES: Record<string, string> = {
   google: "Google",
 };
 
+// Brand color gradients for each provider
+const PROVIDER_GRADIENTS: Record<string, string> = {
+  openai: "linear-gradient(135deg, rgba(16, 163, 127, 0.08) 0%, rgba(16, 163, 127, 0.02) 100%)",
+  anthropic: "linear-gradient(135deg, rgba(212, 129, 107, 0.08) 0%, rgba(212, 129, 107, 0.02) 100%)",
+  google: "linear-gradient(135deg, rgba(66, 133, 244, 0.08) 0%, rgba(66, 133, 244, 0.02) 100%)",
+};
+
 export function ProviderCard({
   config,
   onEdit,
@@ -31,8 +38,11 @@ export function ProviderCard({
     ? `${config.apiKey.substring(0, 7)}...${config.apiKey.substring(config.apiKey.length - 4)}`
     : "Not set";
 
+  // Get brand gradient for this provider
+  const backgroundImage = PROVIDER_GRADIENTS[config.provider];
+
   return (
-    <Card>
+    <Card style={backgroundImage ? { backgroundImage } : undefined}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-semibold">
