@@ -1,20 +1,35 @@
 ---
 alwaysApply: true
 ---
-# Arc: AI Chat Client
+# Arc: Architectural Philosophy & Guiding Principles
 
-## 1. Overview
+This document outlines the core principles and architectural philosophy of Arc. It serves as a high-level guide for developers, focusing on the "why" behind our technical decisions to ensure we build a consistent, maintainable, and scalable application.
 
-Arc is a premier, cross-platform AI chat client for desktop (macOS, Windows, Linux), web, and mobile (iOS, Android), designed for a seamless user experience. Our development is guided by these principles:
+## 1. Core Principles
 
--   **Web-First, Cross-Platform:** A single Next.js web stack serves as the foundation for all platforms.
--   **Maximum Code Reuse:** A layered architecture shares the vast majority of code, with a thin, platform-specific layer.
--   **Clean Separation of Concerns:** Business logic (core) is strictly separated from the UI and platform code.
--   **Lean & Focused:** We use a minimal, well-defined technology stack to avoid complexity and focus on functionality.
+Our architecture is founded on two principles that dictate how we design, build, and reason about our codebase.
 
-## 2. Architecture
+### 1.1. Consumer-First Design
 
-Arc uses a three-layer model to ensure a clean separation of concerns and maximize code reuse.
+> **The design of any layer or package must be guided by the experience of its consumer.**
+
+We build our APIs from the outside in. When designing `@arc/core`, we think like UI developers. When designing `@arc/ai`, we think like `@arc/core` developers. This principle ensures our APIs are elegant and intuitive, prioritizing usability over implementation convenience. **Usage guides implementation, not the other way around.**
+
+### 1.2. A Strictly Layered Architecture
+
+> **Higher layers demand, lower layers fulfill.**
+
+Arc is organized into three distinct layers. Dependencies must always point inwards, from a higher layer to a lower one. A lower-level module must **never** import from a higher-level one.
+
+1.  **Application Layer (Highest):** The user-facing applications (`web`, `desktop`, `mobile`).
+2.  **Core Layer (Middle):** The headless business logic backend (`@arc/core`).
+3.  **Module Layer (Lowest):** Specialized packages (`@arc/ai`, `@arc/db`, `@arc/platform`).
+
+This structure creates a clear flow of control. The Application layer *demands* functionality, the Core layer *orchestrates* it, and the Module layer *fulfills* the specific I/O and AI provider requests.
+
+## 2. Architecture in Practice
+
+Our principles are realized through a clean, decoupled architecture.
 
 ```
 Platform (Web | Electron | Capacitor)
@@ -24,13 +39,49 @@ UI Layer (Next.js + shadcn/ui)
 Headless Core (TypeScript)
 ```
 
--   **Contracts:** Shared TypeScript interfaces and types used across all packages (e.g., `IProvider`, `ImageAttachment`). Zero dependencies, pure type definitions.
--   **Headless Core:** A platform-agnostic TypeScript module containing all business logic, state management, and database schema. It has no UI or Node.js dependencies.
--   **AI Providers:** Independent implementations of AI provider integrations (OpenAI, Anthropic, etc.) that implement the contracts defined in `@arc/contracts`.
--   **UI Layer:** A single Next.js application providing the user interface for all platforms, interacting exclusively with the Headless Core.
--   **Platform Layer:** Provides platform-specific implementations for native functionalities like database access and file system I/O. The Core defines platform-agnostic interfaces (e.g., for SQLite, File System, HTTP) that each platform package implements.
+-   **The UI Layer: The Demander.** The UI's primary role is to handle user interaction and translate it into demands on the Headless Core. It is the ultimate consumer of the system's business logic.
 
-### Technology Stack & Monorepo
+-   **The Headless Core: The Orchestrator.** `@arc/core` is a platform-agnostic engine that contains all business logic. It acts as a facade, fulfilling the UI's demands by orchestrating the specialized modules below it. It knows *what* to do, but not *how* it's done on a specific platform.
+
+-   **The Platform Layer: The Fulfiller.** The unified `@arc/platform` package is the ultimate Fulfiller. It provides the Core with concrete implementations for platform-specific capabilities like database access and file system I/O. This dependency injection mechanism allows the Core to remain portable and unaware of its environment.
+
+### Monorepo Structure
+
+This philosophy is reflected in our pnpm monorepo structure, where packages are organized by their layer and role.
+
+```
+/
+├─ apps/
+│  ├─ web/                # Next.js UI (The Demander)
+│  ├─ desktop/            #
+│  └─ mobile/             #
+│
+└─ packages/
+   ├─ core/               # Headless TS core (The Orchestrator)
+   ├─ ai/                 # Specialized Fulfillers
+   ├─ db/                 #
+   └─ platform/           # The Ultimate Fulfiller
+```
+
+## 3. Key Architectural Patterns
+
+To protect this architecture, we enforce several critical development patterns. These are not just suggestions; they are essential for maintaining a clean codebase.
+
+### 3.1. Module-Owned Contracts
+
+To maintain the strict, one-way dependency flow, we have no central `contracts` package. Instead, **each low-level module defines and owns its own contracts**. For example, the `Provider` interface is defined in `@arc/ai`. `@arc/core` then imports this contract, ensuring dependencies only point inwards.
+
+### 3.2. No Barrel Imports
+
+Barrel files (`index.ts`) that re-export modules are strictly forbidden. They obscure the dependency graph and break tree-shaking. **Always import directly from the source file.**
+
+### 3.3. Strict Platform Isolation
+
+Platform-specific code must be strictly isolated to prevent it from leaking into the wrong environment (e.g., Node.js APIs in the browser). Our `sql.js` integration is a prime example, where we use a multi-layered dynamic import strategy to ensure it's only ever loaded in a browser context, keeping our Core and UI layers pure.
+
+## 4. Development Guide
+
+### Technology Stack
 
 -   **UI & Web App:** Next.js 15, shadcn/ui, Tailwind CSS 4
 -   **Desktop Wrapper:** Electron 38
@@ -39,54 +90,9 @@ Headless Core (TypeScript)
 -   **Core Logic:** Pure TypeScript (ESM)
 -   **Monorepo Management:** pnpm & Turborepo
 
-The project is a pnpm monorepo with shared configurations (ESLint, TypeScript) at the root to minimize indirection.
-
-```
-/
-├─ apps/
-│  ├─ web/                # Next.js UI
-│  ├─ desktop/            # Electron wrapper
-│  └─ mobile/             # Capacitor wrapper
-│
-└─ packages/
-   ├─ contracts/          # Shared interfaces (IProvider, etc.)
-   ├─ core/               # Headless TS core
-   ├─ ai/                 # AI provider implementations (OpenAI, etc.)
-   ├─ db/                 # SQLite schema & migrations
-   ├─ platform-browser/   # Browser platform implementation
-   ├─ platform-electron/  # Electron platform implementation
-   └─ platform-capacitor/ # Capacitor platform implementation
-```
-
 ### Build Strategy
 
 Arc uses a static-first build strategy for maximum portability and performance. The Next.js app is exported as a static site (`output: 'export'`), removing the need for a Node.js server at runtime. Electron and Capacitor apps load these static assets directly.
-
-## 3. Core Features
-
-### Chat Experience
-
--   **Full Chat Management:** Create, edit, delete, and browse chat history with fast global and per-chat search.
--   **Message Actions:** Stop, regenerate, delete, or fork conversations from any message.
--   **UX Polish:** Auto-saving drafts, auto-generating titles, "thinking" indicators, and one-click copy for code blocks.
-
-### Provider Integration (BYOK)
-
--   **Multi-provider Support:** Native support for OpenAI, Gemini, Anthropic, and any MCP-compliant server.
--   **Custom Connections:** Override base URLs and headers for proxies.
--   **Connection Management:** Validate keys, check health, and dynamically fetch available models.
-
-> **Note:** We use a minimal, custom HTTP transport layer instead of official SDKs to ensure cross-platform compatibility and a small footprint.
-
-### Rendering & Customization
-
--   **Rich Text:** Full Markdown support, including Mermaid charts, LaTeX math, and syntax-highlighted code blocks.
--   **Image Support:** Drag-and-drop/paste images, with a built-in, mobile-friendly viewer.
--   **Theming:** Light/dark/system themes, UI localization, and adjustable font sizes.
--   **Performance:** A virtualized message list and robust request streaming ensure a smooth, resilient experience.
--   **Cost Management:** Optional token meter to track usage.
-
-## 4. Development Guide
 
 ### UI/UX Philosophy
 
@@ -95,31 +101,3 @@ Our design philosophy is "Feels like ChatGPT, works like a power tool." The UI p
 -   **Level 1 (Beginner):** A simple, familiar chat interface.
 -   **Level 2 (Intermediate):** Contextual actions (copy, regenerate) and basic settings.
 -   **Level 3 (Power User):** Advanced features like multi-provider setup and model tuning are in dedicated settings.
-
-### Quality Assurance
-
-We follow the testing pyramid using Vitest, React Testing Library, and Playwright for unit, component, and E2E tests, respectively.
-
-### Important Development Patterns
-
-#### Handling `sql.js` in Next.js (SSR)
-
-**Problem:** The `sql.js` package includes Node.js APIs that fail Next.js server-side builds.
-
-**Solution:** A multi-layered approach is required to prevent `sql.js` from being included in the server-side bundle:
-
-1.  **Isolate the Import:** The module that interacts with `sql.js` (`@arc/platform-browser/src/database/SqlJsDatabase.ts`) must import it dynamically *inside a method*, not at the top level.
-2.  **Isolate the Module:** The module containing the dynamic import must **not** be exported from any barrel file (e.g., `packages/platform-browser/src/index.ts`).
-3.  **Dynamic Import in Consumer:** The UI-layer code that uses the database module (`apps/web/lib/api/live-chat-api.ts`) must *also* dynamically import it.
-4.  **Webpack Fallback (Safety Net):** Configure webpack in `next.config.js` to provide empty fallbacks for Node.js modules like `fs` and `path`.
-
-#### No Barrel Imports
-
-**Problem:** Barrel files (`index.ts`) can break tree-shaking, cause circular dependencies, and obscure the dependency graph.
-
-**Solution:** Strictly avoid barrel files for re-exporting. Always import directly from the source file.
-
--   **Don't:** `import { ChatService } from '@arc/core';`
--   **Do:** `import { ChatService } from '@arc/core/services/ChatService';`
-
-This discipline is essential for maintaining a clean architecture and preventing bundling issues.
