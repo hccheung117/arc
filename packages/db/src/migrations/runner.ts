@@ -1,11 +1,22 @@
-import type { IPlatformDatabase } from "@arc/core/platform/IPlatformDatabase.js";
+/**
+ * Migration runner for @arc/db
+ *
+ * Executes SQL migrations sequentially and tracks which migrations have been
+ * applied. Ensures migrations are idempotent and wraps errors for proper
+ * error handling in the Core layer.
+ */
 
-import type { Migration } from "./migrations.js";
-import { migrations } from "./migrations.js";
+import type { IPlatformDatabase } from "@arc/platform/contracts/database.js";
+import type { Migration } from "./definitions.js";
+import { migrations } from "./definitions.js";
+import { MigrationError } from "../db-errors.js";
 
 type MigrationRow = { name: string };
 type CountRow = { count: number };
 
+/**
+ * Retrieve the set of migrations that have already been applied.
+ */
 async function getAppliedMigrations(
   db: IPlatformDatabase
 ): Promise<Set<string>> {
@@ -20,7 +31,13 @@ async function getAppliedMigrations(
   }
 }
 
-async function recordMigration(db: IPlatformDatabase, name: string): Promise<void> {
+/**
+ * Record that a migration has been successfully applied.
+ */
+async function recordMigration(
+  db: IPlatformDatabase,
+  name: string
+): Promise<void> {
   const now = Date.now();
   await db.exec("INSERT INTO migrations (name, applied_at) VALUES (?, ?)", [
     name,
@@ -28,16 +45,34 @@ async function recordMigration(db: IPlatformDatabase, name: string): Promise<voi
   ]);
 }
 
+/**
+ * Apply a single migration within a transaction.
+ */
 async function applyMigration(
   db: IPlatformDatabase,
   migration: Migration
 ): Promise<void> {
-  await db.transaction(async () => {
-    await db.execScript(migration.sql);
-    await recordMigration(db, migration.name);
-  });
+  try {
+    await db.transaction(async () => {
+      await db.execScript(migration.sql);
+      await recordMigration(db, migration.name);
+    });
+  } catch (error) {
+    throw new MigrationError(
+      `Failed to apply migration: ${migration.name}`,
+      migration.name,
+      error
+    );
+  }
 }
 
+/**
+ * Run all pending migrations sequentially.
+ *
+ * @param db - The platform database instance
+ * @returns The number of migrations applied
+ * @throws MigrationError if any migration fails
+ */
 export async function runMigrations(db: IPlatformDatabase): Promise<number> {
   const applied = await getAppliedMigrations(db);
   let appliedCount = 0;
@@ -59,6 +94,12 @@ export async function runMigrations(db: IPlatformDatabase): Promise<number> {
   return appliedCount;
 }
 
+/**
+ * Get the current schema version (number of applied migrations).
+ *
+ * @param db - The platform database instance
+ * @returns The number of applied migrations
+ */
 export async function getSchemaVersion(db: IPlatformDatabase): Promise<number> {
   try {
     const result = await db.query<CountRow>(

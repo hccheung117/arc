@@ -27,65 +27,65 @@ CREATE TABLE IF NOT EXISTS migrations (
   applied_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now') * 1000)
 );
 
+-- Provider connections table (AI provider API credentials)
+CREATE TABLE IF NOT EXISTS provider_connections (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  provider_type TEXT NOT NULL CHECK(provider_type IN ('openai', 'anthropic', 'gemini', 'custom')),
+  api_key TEXT NOT NULL,
+  base_url TEXT,
+  custom_headers TEXT,
+  is_active INTEGER NOT NULL DEFAULT 1 CHECK(is_active IN (0, 1)),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+-- Unique constraint on provider connection name
+CREATE UNIQUE INDEX IF NOT EXISTS idx_provider_connections_name ON provider_connections(name);
+
 -- Chats table (conversation threads)
+-- NOTE: No model or provider fields here - that's tracked per-message
+-- NOTE: No last_message_at - derived via query instead
 CREATE TABLE IF NOT EXISTS chats (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
   created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL,
-  last_message_at INTEGER NOT NULL
+  updated_at INTEGER NOT NULL
 );
 
--- Index for sorting chats by most recent activity
-CREATE INDEX IF NOT EXISTS idx_chats_last_message_at ON chats(last_message_at DESC);
-
 -- Messages table (individual messages within chats)
+-- This is the single source of truth for model and provider selection
 CREATE TABLE IF NOT EXISTS messages (
   id TEXT PRIMARY KEY,
   chat_id TEXT NOT NULL,
   role TEXT NOT NULL CHECK(role IN ('user', 'assistant', 'system')),
   content TEXT NOT NULL,
-  status TEXT NOT NULL CHECK(status IN ('pending', 'streaming', 'complete', 'stopped', 'error')),
+  model TEXT,
+  provider_connection_id TEXT,
+  token_count INTEGER,
+  parent_message_id TEXT,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
-  FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
+  FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE,
+  FOREIGN KEY (parent_message_id) REFERENCES messages(id) ON DELETE SET NULL
 );
 
--- Indexes for message queries
-CREATE INDEX IF NOT EXISTS idx_messages_chat_id ON messages(chat_id);
-CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at ASC);
+-- Index for fetching messages by chat, ordered by creation time
+CREATE INDEX IF NOT EXISTS idx_messages_chat_id_created_at ON messages(chat_id, created_at ASC);
 
--- Attachments table (image attachments for messages)
-CREATE TABLE IF NOT EXISTS attachments (
+-- Message attachments table (image attachments for messages)
+CREATE TABLE IF NOT EXISTS message_attachments (
   id TEXT PRIMARY KEY,
   message_id TEXT NOT NULL,
-  data TEXT NOT NULL, -- Base64-encoded image data
+  type TEXT NOT NULL CHECK(type IN ('image')),
   mime_type TEXT NOT NULL,
-  size INTEGER NOT NULL,
-  name TEXT,
+  data TEXT NOT NULL,
   created_at INTEGER NOT NULL,
   FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
 );
 
 -- Index for fetching attachments by message
-CREATE INDEX IF NOT EXISTS idx_attachments_message_id ON attachments(message_id);
-
--- Provider configs table (AI provider API credentials)
-CREATE TABLE IF NOT EXISTS provider_configs (
-  id TEXT PRIMARY KEY,
-  type TEXT NOT NULL CHECK(type IN ('openai', 'anthropic', 'gemini', 'custom')),
-  name TEXT NOT NULL,
-  api_key TEXT NOT NULL,
-  base_url TEXT NOT NULL,
-  default_model TEXT,
-  custom_headers TEXT, -- JSON-serialized
-  enabled INTEGER NOT NULL CHECK(enabled IN (0, 1)),
-  created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL
-);
-
--- Index for finding enabled providers
-CREATE INDEX IF NOT EXISTS idx_provider_configs_enabled ON provider_configs(enabled);
+CREATE INDEX IF NOT EXISTS idx_message_attachments_message_id ON message_attachments(message_id);
 
 -- Settings table (app-level key-value settings)
 CREATE TABLE IF NOT EXISTS settings (
@@ -93,6 +93,28 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT NOT NULL,
   updated_at INTEGER NOT NULL
 );
+
+-- Full-text search virtual table for messages
+CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+  message_id UNINDEXED,
+  content,
+  tokenize='porter unicode61'
+);
+
+-- Trigger: Keep FTS index synchronized on INSERT
+CREATE TRIGGER IF NOT EXISTS messages_fts_insert AFTER INSERT ON messages BEGIN
+  INSERT INTO messages_fts(message_id, content) VALUES (new.id, new.content);
+END;
+
+-- Trigger: Keep FTS index synchronized on DELETE
+CREATE TRIGGER IF NOT EXISTS messages_fts_delete AFTER DELETE ON messages BEGIN
+  DELETE FROM messages_fts WHERE message_id = old.id;
+END;
+
+-- Trigger: Keep FTS index synchronized on UPDATE
+CREATE TRIGGER IF NOT EXISTS messages_fts_update AFTER UPDATE ON messages BEGIN
+  UPDATE messages_fts SET content = new.content WHERE message_id = new.id;
+END;
 `.trim(),
   },
 ];

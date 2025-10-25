@@ -1,32 +1,47 @@
 {
   "name": "@arc/db",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "description": "SQLite schema, migrations, and repository implementations for Arc",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "description": "SQLite schema, migrations, and database wrapper for Arc",
+  "main": "./dist/database.js",
+  "types": "./dist/database.d.ts",
   "exports": {
+    "./database.js": {
+      "types": "./dist/database.d.ts",
+      "import": "./dist/database.js",
+      "default": "./dist/database.js"
+    },
+    "./schema.js": {
+      "types": "./dist/schema.d.ts",
+      "import": "./dist/schema.js",
+      "default": "./dist/schema.js"
+    },
+    "./db-errors.js": {
+      "types": "./dist/db-errors.d.ts",
+      "import": "./dist/db-errors.js",
+      "default": "./dist/db-errors.js"
+    },
     "./migrations/*.js": {
       "types": "./dist/migrations/*.d.ts",
       "import": "./dist/migrations/*.js",
       "default": "./dist/migrations/*.js"
-    },
-    "./repositories/*.js": {
-      "types": "./dist/repositories/*.d.ts",
-      "import": "./dist/repositories/*.js",
-      "default": "./dist/repositories/*.js"
     }
   },
   "scripts": {
     "build": "tsc",
-    "check-types": "tsc --noEmit"
+    "check-types": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run"
   },
   "dependencies": {
-    "@arc/core": "workspace:*"
+    "@arc/platform": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20",
-    "typescript": "^5.9.2"
+    "@vitest/ui": "^3.2.4",
+    "happy-dom": "^15.11.7",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
   }
 }

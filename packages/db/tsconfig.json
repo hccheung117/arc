@@ -14,16 +14,15 @@
     "strict": true,
     "exactOptionalPropertyTypes": true,
     "noUncheckedIndexedAccess": true,
-    "types": ["node"],
+    "types": ["node", "vitest/globals"],
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "paths": {
-      "@arc/core/*": ["../core/dist/*"],
-      "@arc/contracts/*": ["../contracts/dist/*"]
+      "@arc/platform/*": ["../platform/dist/*"]
     }
   },
   "include": ["src/**/*"],
-  "exclude": ["dist", "node_modules"]
+  "exclude": ["dist", "node_modules", "__tests__"]
 }
