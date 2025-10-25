@@ -4,28 +4,28 @@
   "private": true,
   "type": "module",
   "description": "AI provider implementations for Arc chat application",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/ai.js",
+  "types": "./dist/ai.d.ts",
   "exports": {
-    "./AI.js": {
-      "types": "./dist/AI.d.ts",
-      "import": "./dist/AI.js",
-      "default": "./dist/AI.js"
+    "./ai.js": {
+      "types": "./dist/ai.d.ts",
+      "import": "./dist/ai.js",
+      "default": "./dist/ai.js"
     },
-    "./openai/*.js": {
-      "types": "./dist/openai/*.d.ts",
-      "import": "./dist/openai/*.js",
-      "default": "./dist/openai/*.js"
+    "./provider.js": {
+      "types": "./dist/provider.d.ts",
+      "import": "./dist/provider.js",
+      "default": "./dist/provider.js"
     },
-    "./anthropic/*.js": {
-      "types": "./dist/anthropic/*.d.ts",
-      "import": "./dist/anthropic/*.js",
-      "default": "./dist/anthropic/*.js"
+    "./errors.js": {
+      "types": "./dist/errors.d.ts",
+      "import": "./dist/errors.js",
+      "default": "./dist/errors.js"
     },
-    "./gemini/*.js": {
-      "types": "./dist/gemini/*.d.ts",
-      "import": "./dist/gemini/*.js",
-      "default": "./dist/gemini/*.js"
+    "./providers/*.js": {
+      "types": "./dist/providers/*.d.ts",
+      "import": "./dist/providers/*.js",
+      "default": "./dist/providers/*.js"
     }
   },
   "scripts": {
@@ -35,8 +35,7 @@
     "test:run": "vitest run"
   },
   "dependencies": {
-    "@arc/contracts": "workspace:*",
-    "@arc/core": "workspace:*"
+    "@arc/platform": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20",

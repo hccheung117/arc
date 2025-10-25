@@ -1,154 +1,238 @@
-import type { IAI, AIConfig, IChatBuilderWithUtils } from '@arc/contracts/ai/ai.js';
-import type { Provider } from '@arc/contracts/ai/common/metadata.js';
-import type { ModelInfo, ProviderCapabilities } from '@arc/contracts/IProvider.js';
-import type { IPlatformHTTP } from '@arc/contracts/platform/IPlatformHTTP.js';
-
-import { ChatBuilder } from './lib/builders/ChatBuilder.js';
-import { EmbeddingBuilder } from './lib/builders/EmbeddingBuilder.js';
-import { ImageBuilder } from './lib/builders/ImageBuilder.js';
-import { AudioBuilder } from './lib/builders/AudioBuilder.js';
-import { SpeechBuilder } from './lib/builders/SpeechBuilder.js';
-import { ModerationBuilder } from './lib/builders/ModerationBuilder.js';
-
-import { OpenAIProvider } from './openai/OpenAIProvider.js';
-import { AnthropicProvider } from './anthropic/AnthropicProvider.js';
-import { GeminiProvider } from './gemini/GeminiProvider.js';
-
-import type { IEmbeddingProvider } from './lib/builders/EmbeddingBuilder.js';
-import type { IImageProvider } from './lib/builders/ImageBuilder.js';
-import type { IAudioProvider } from './lib/builders/AudioBuilder.js';
-import type { ISpeechProvider } from './lib/builders/SpeechBuilder.js';
-import type { IModerationProvider } from './lib/builders/ModerationBuilder.js';
+import type {
+  Provider,
+  ProviderType,
+  AIConfig,
+  ChatMessage,
+  ChatChunk,
+  ChatResult,
+  ModelInfo,
+  ProviderCapabilities,
+  ImageAttachment,
+} from "./provider.js";
+import type { IPlatformHTTP } from "@arc/platform/contracts/http.js";
+import { OpenAIProvider } from "./providers/openai.js";
+import { AnthropicProvider } from "./providers/anthropic.js";
+import { GeminiProvider } from "./providers/gemini.js";
 
 /**
- * Extended provider interface that includes all API capabilities
+ * Cancellable stream wrapper
  */
-interface IExtendedProvider extends
-  IEmbeddingProvider,
-  IImageProvider,
-  IAudioProvider,
-  ISpeechProvider,
-  IModerationProvider {
-  // Chat methods from IProvider are inherited through the adapters
-  listModels(): Promise<ModelInfo[]>;
-  healthCheck(): Promise<boolean>;
-  getCapabilities(model: string): ProviderCapabilities;
+export interface CancellableStream<T> extends AsyncIterable<T> {
+  /**
+   * Cancel the stream
+   */
+  cancel(): void;
 }
 
 /**
- * Chat builder with utility methods
+ * Create a cancellable stream from an async generator
  */
-class ChatBuilderWithUtils extends ChatBuilder implements IChatBuilderWithUtils {
+function createCancellableStream<T>(
+  generatorFn: (signal: AbortSignal) => AsyncGenerator<T, void, undefined>
+): CancellableStream<T> {
+  const controller = new AbortController();
+  const generator = generatorFn(controller.signal);
+
+  return {
+    [Symbol.asyncIterator]() {
+      return generator;
+    },
+    cancel() {
+      controller.abort();
+    },
+  };
+}
+
+/**
+ * Fluent chat builder interface
+ */
+export interface ChatBuilder {
+  /**
+   * Set the model to use for this chat
+   */
+  model(model: string): ChatBuilder;
+
+  /**
+   * Add a system message to the conversation
+   */
+  systemSays(content: string): ChatBuilder;
+
+  /**
+   * Add a user message to the conversation
+   */
+  userSays(content: string, options?: { images?: ImageAttachment[] }): ChatBuilder;
+
+  /**
+   * Add an assistant message to the conversation
+   */
+  assistantSays(content: string): ChatBuilder;
+
+  /**
+   * Generate a non-streaming chat completion
+   */
+  generate(): Promise<ChatResult>;
+
+  /**
+   * Stream a chat completion
+   */
+  stream(): CancellableStream<ChatChunk>;
+
+  /**
+   * List available models
+   */
+  models(): Promise<ModelInfo[]>;
+
+  /**
+   * Perform a health check on the provider
+   */
+  healthCheck(): Promise<boolean>;
+
+  /**
+   * Get capabilities for a specific model
+   */
+  capabilities(model: string): ProviderCapabilities;
+}
+
+/**
+ * Internal chat builder implementation
+ */
+class ChatBuilderImpl implements ChatBuilder {
+  private messages: ChatMessage[] = [];
+  private selectedModel?: string;
+
   constructor(
-    provider: IExtendedProvider,
-    providerType: Provider
-  ) {
-    super(provider as any, providerType);
-    this.extendedProvider = provider;
+    private provider: Provider,
+    private providerType: ProviderType
+  ) {}
+
+  model(model: string): ChatBuilder {
+    this.selectedModel = model;
+    return this;
   }
 
-  private extendedProvider: IExtendedProvider;
+  systemSays(content: string): ChatBuilder {
+    this.messages.push({ role: "system", content });
+    return this;
+  }
+
+  userSays(content: string, options?: { images?: ImageAttachment[] }): ChatBuilder {
+    this.messages.push({
+      role: "user",
+      content,
+      images: options?.images,
+    });
+    return this;
+  }
+
+  assistantSays(content: string): ChatBuilder {
+    this.messages.push({ role: "assistant", content });
+    return this;
+  }
+
+  async generate(): Promise<ChatResult> {
+    this.validateState();
+
+    return this.provider.generateChatCompletion(
+      this.messages,
+      this.selectedModel!
+    );
+  }
+
+  stream(): CancellableStream<ChatChunk> {
+    this.validateState();
+
+    const provider = this.provider;
+    const messages = this.messages;
+    const model = this.selectedModel!;
+
+    return createCancellableStream((signal) => {
+      return provider.streamChatCompletion(messages, model, { signal });
+    });
+  }
 
   async models(): Promise<ModelInfo[]> {
-    return this.extendedProvider.listModels();
+    return this.provider.listModels();
   }
 
   async healthCheck(): Promise<boolean> {
-    return this.extendedProvider.healthCheck();
+    return this.provider.healthCheck();
   }
 
-  async capabilities(model: string): Promise<ProviderCapabilities> {
-    return Promise.resolve(this.extendedProvider.getCapabilities(model));
+  capabilities(model: string): ProviderCapabilities {
+    return this.provider.getCapabilities(model);
+  }
+
+  private validateState(): void {
+    if (!this.selectedModel) {
+      throw new Error("Model must be set before generating (call .model() first)");
+    }
+    if (this.messages.length === 0) {
+      throw new Error("At least one message must be added before generating");
+    }
   }
 }
 
 /**
  * Main AI class - entry point for all AI operations
  *
- * Usage:
+ * Provides a fluent API for interacting with various AI providers.
+ *
+ * @example
  * ```typescript
- * const ai = new AI('openai', { apiKey: '...' });
- * const result = await ai.chat.model('gpt-4').userSays('Hi').generate();
+ * // Create an AI instance
+ * const ai = new AI('openai', { apiKey: '...' }, http);
+ *
+ * // Simple streaming chat
+ * for await (const chunk of ai.chat
+ *   .model('gpt-4')
+ *   .userSays('Hello!')
+ *   .stream()) {
+ *   console.log(chunk);
+ * }
+ *
+ * // Non-streaming chat with conversation history
+ * const result = await ai.chat
+ *   .model('gpt-4')
+ *   .systemSays('You are a helpful assistant')
+ *   .userSays('What is 2+2?')
+ *   .assistantSays('2+2 equals 4')
+ *   .userSays('What about 3+3?')
+ *   .generate();
  * ```
  */
-export class AI implements IAI {
+export class AI {
   public readonly provider: Provider;
-  public readonly chat: IChatBuilderWithUtils;
-  public readonly embedding: EmbeddingBuilder;
-  public readonly image: ImageBuilder;
-  public readonly audio: AudioBuilder;
-  public readonly speech: SpeechBuilder;
-  public readonly moderation: ModerationBuilder;
-
-  private providerAdapter: IExtendedProvider;
-
-  constructor(
-    provider: Provider,
-    config: AIConfig,
-    http?: IPlatformHTTP
-  ) {
-    this.provider = provider;
-
-    // Create provider adapter
-    // Note: For now, we'll use a placeholder for the HTTP client
-    // In a real implementation, this would be injected from the platform
-    const httpClient = http || this.createDefaultHTTP();
-
-    switch (provider) {
-      case 'openai':
-        this.providerAdapter = new OpenAIProvider(
-          httpClient,
-          config.apiKey,
-          config.baseUrl,
-          config.customHeaders
-        );
-        break;
-
-      case 'anthropic':
-        this.providerAdapter = new AnthropicProvider(
-          httpClient,
-          config.apiKey,
-          {
-            baseUrl: config.baseUrl,
-            customHeaders: config.customHeaders,
-            defaultMaxTokens: config.defaultMaxTokens,
-          }
-        );
-        break;
-
-      case 'gemini':
-        this.providerAdapter = new GeminiProvider(
-          httpClient,
-          config.apiKey,
-          {
-            baseUrl: config.baseUrl,
-            customHeaders: config.customHeaders,
-          }
-        );
-        break;
-
-      default:
-        throw new Error(`Unsupported provider: ${provider}`);
-    }
-
-    // Create builders
-    this.chat = new ChatBuilderWithUtils(this.providerAdapter, provider);
-    this.embedding = new EmbeddingBuilder(this.providerAdapter, provider);
-    this.image = new ImageBuilder(this.providerAdapter, provider);
-    this.audio = new AudioBuilder(this.providerAdapter, provider);
-    this.speech = new SpeechBuilder(this.providerAdapter, provider);
-    this.moderation = new ModerationBuilder(this.providerAdapter, provider);
-  }
+  public readonly chat: ChatBuilder;
 
   /**
-   * Create a default HTTP client (placeholder)
-   * In production, this would be injected from the platform layer
+   * Create an AI instance with the specified provider
+   *
+   * @param providerType - The type of provider to create ('openai', 'anthropic', 'gemini')
+   * @param config - Configuration for the provider (API key, base URL, etc.)
+   * @param http - Platform HTTP client
    */
-  private createDefaultHTTP(): IPlatformHTTP {
-    // This is a placeholder implementation
-    // In a real app, the HTTP client would be provided by the platform
-    throw new Error(
-      'HTTP client not provided. Please pass an IPlatformHTTP instance to the AI constructor.'
-    );
+  constructor(
+    providerType: ProviderType,
+    config: AIConfig,
+    http: IPlatformHTTP
+  ) {
+    let provider: Provider;
+
+    switch (providerType) {
+      case "openai":
+        provider = new OpenAIProvider(http, config);
+        break;
+      case "anthropic":
+        provider = new AnthropicProvider(http, config);
+        break;
+      case "gemini":
+        provider = new GeminiProvider(http, config);
+        break;
+      default:
+        throw new Error(`Unknown provider type: ${providerType}`);
+    }
+
+    this.provider = provider;
+    this.chat = new ChatBuilderImpl(provider, providerType);
   }
 }

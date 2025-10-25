@@ -33,13 +33,6 @@
   "exclude": [
     "node_modules",
     "dist",
-    "test",
-    "src/lib/**/*",
-    "src/AI.ts",
-    "src/openai/openai-moderation.ts",
-    "src/openai/openai-speech.ts",
-    "src/openai/openai-audio.ts",
-    "src/openai/openai-images.ts",
-    "src/openai/openai-embeddings.ts"
+    "__tests__"
   ]
 }
