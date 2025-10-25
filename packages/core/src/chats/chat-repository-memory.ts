@@ -1,5 +1,5 @@
-import type { Chat } from "../domain/Chat.js";
-import type { IChatRepository } from "./IChatRepository.js";
+import type { Chat } from "./chat.js";
+import type { IChatRepository } from "./chat-repository.type.js";
 
 /**
  * In-memory implementation of IChatRepository
@@ -40,6 +40,19 @@ export class InMemoryChatRepository implements IChatRepository {
 
   async delete(id: string): Promise<boolean> {
     return this.chats.delete(id);
+  }
+
+  async search(query: string): Promise<Chat[]> {
+    if (!query.trim()) {
+      return [];
+    }
+
+    const lowerQuery = query.toLowerCase();
+
+    return Array.from(this.chats.values())
+      .filter((chat) => chat.title.toLowerCase().includes(lowerQuery))
+      .map((chat) => ({ ...chat }))
+      .sort((a, b) => b.lastMessageAt - a.lastMessageAt);
   }
 
   /**

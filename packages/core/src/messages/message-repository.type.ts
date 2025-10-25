@@ -1,4 +1,4 @@
-import type { Message } from "../domain/Message.js";
+import type { Message } from "./message.js";
 
 /**
  * Repository interface for Message entities

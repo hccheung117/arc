@@ -1,4 +1,4 @@
-import type { ImageAttachment } from "@arc/contracts/ImageAttachment.js";
+import type { ImageAttachment } from "../shared/image-attachment.js";
 
 /**
  * Role of the message author
@@ -23,6 +23,8 @@ export interface Message {
   chatId: string;
   role: MessageRole;
   content: string;
+  model?: string; // Which model was used (e.g., "gpt-4", "claude-3-opus")
+  providerConnectionId?: string; // Which provider connection was used
   attachments?: ImageAttachment[];
   status: MessageStatus;
   createdAt: number; // Unix timestamp in milliseconds

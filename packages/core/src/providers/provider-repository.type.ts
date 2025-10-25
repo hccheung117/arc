@@ -1,4 +1,4 @@
-import type { ProviderConfig } from "../domain/ProviderConfig.js";
+import type { ProviderConfig } from "./provider-config.js";
 
 /**
  * Repository interface for ProviderConfig persistence

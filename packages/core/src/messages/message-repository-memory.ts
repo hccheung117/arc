@@ -1,5 +1,5 @@
-import type { Message } from "../domain/Message.js";
-import type { IMessageRepository } from "./IMessageRepository.js";
+import type { Message } from "./message.js";
+import type { IMessageRepository } from "./message-repository.type.js";
 
 /**
  * In-memory implementation of IMessageRepository

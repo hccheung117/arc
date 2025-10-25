@@ -1,4 +1,4 @@
-import type { Chat } from "../domain/Chat.js";
+import type { Chat } from "./chat.js";
 
 /**
  * Repository interface for Chat entities
@@ -34,4 +34,11 @@ export interface IChatRepository {
    * @returns true if deleted, false if not found
    */
   delete(id: string): Promise<boolean>;
+
+  /**
+   * Search chats by title
+   * @param query - Search query string
+   * @returns Chats with titles matching the query, sorted by relevance/date
+   */
+  search(query: string): Promise<Chat[]>;
 }

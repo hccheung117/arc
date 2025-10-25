@@ -236,9 +236,15 @@ importers:
 
   packages/core:
     dependencies:
-      '@arc/contracts':
+      '@arc/ai':
         specifier: workspace:*
-        version: link:../contracts
+        version: link:../ai
+      '@arc/db':
+        specifier: workspace:*
+        version: link:../db
+      '@arc/platform':
+        specifier: workspace:*
+        version: link:../platform
     devDependencies:
       '@types/node':
         specifier: ^20

@@ -1,5 +1,5 @@
-import type { ProviderConfig } from "../domain/ProviderConfig.js";
-import type { IProviderConfigRepository } from "./IProviderConfigRepository.js";
+import type { ProviderConfig } from "./provider-config.js";
+import type { IProviderConfigRepository } from "./provider-repository.type.js";
 
 /**
  * In-memory implementation of IProviderConfigRepository

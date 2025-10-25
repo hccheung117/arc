@@ -4,33 +4,13 @@
   "private": true,
   "type": "module",
   "description": "Headless TypeScript core for Arc chat application",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/core.js",
+  "types": "./dist/core.d.ts",
   "exports": {
-    "./domain/*.js": {
-      "types": "./dist/domain/*.d.ts",
-      "import": "./dist/domain/*.js",
-      "default": "./dist/domain/*.js"
-    },
-    "./platform/*.js": {
-      "types": "./dist/platform/*.d.ts",
-      "import": "./dist/platform/*.js",
-      "default": "./dist/platform/*.js"
-    },
-    "./repositories/*.js": {
-      "types": "./dist/repositories/*.d.ts",
-      "import": "./dist/repositories/*.js",
-      "default": "./dist/repositories/*.js"
-    },
-    "./services/*.js": {
-      "types": "./dist/services/*.d.ts",
-      "import": "./dist/services/*.js",
-      "default": "./dist/services/*.js"
-    },
-    "./utils/*.js": {
-      "types": "./dist/utils/*.d.ts",
-      "import": "./dist/utils/*.js",
-      "default": "./dist/utils/*.js"
+    "./core.js": {
+      "types": "./dist/core.d.ts",
+      "import": "./dist/core.js",
+      "default": "./dist/core.js"
     }
   },
   "scripts": {
@@ -40,7 +20,9 @@
     "test:run": "vitest run"
   },
   "dependencies": {
-    "@arc/contracts": "workspace:*"
+    "@arc/ai": "workspace:*",
+    "@arc/db": "workspace:*",
+    "@arc/platform": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20",
