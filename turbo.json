@@ -20,6 +20,10 @@
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", "vitest.config.*"]
     },
+    "test:run": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "vitest.config.*"]
+    },
     "format": {
       "inputs": ["$TURBO_DEFAULT$", ".prettierrc*"],
       "outputs": []

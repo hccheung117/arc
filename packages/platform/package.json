@@ -1,0 +1,55 @@
+{
+  "name": "@arc/platform",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Unified platform layer providing I/O implementations for Arc",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./contracts/*.js": {
+      "types": "./dist/contracts/*.d.ts",
+      "import": "./dist/contracts/*.js",
+      "default": "./dist/contracts/*.js"
+    },
+    "./browser/*.js": {
+      "types": "./dist/browser/*.d.ts",
+      "import": "./dist/browser/*.js",
+      "default": "./dist/browser/*.js"
+    },
+    "./electron/*.js": {
+      "types": "./dist/electron/*.d.ts",
+      "import": "./dist/electron/*.js",
+      "default": "./dist/electron/*.js"
+    },
+    "./capacitor/*.js": {
+      "types": "./dist/capacitor/*.d.ts",
+      "import": "./dist/capacitor/*.js",
+      "default": "./dist/capacitor/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "check-types": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run"
+  },
+  "dependencies": {
+    "sql.js": "^1.11.0",
+    "better-sqlite3": "^11.0.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^20",
+    "@types/sql.js": "^1.4.9",
+    "@vitest/ui": "^3.2.4",
+    "happy-dom": "^15.11.7",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

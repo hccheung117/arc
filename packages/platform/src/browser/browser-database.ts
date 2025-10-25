@@ -1,7 +1,10 @@
 import type { Database, SqlJsStatic, SqlValue } from "sql.js";
-import type { IPlatformDatabase } from "@arc/core/platform/IPlatformDatabase.js";
-import type { DatabaseExecResult, DatabaseQueryResult } from "@arc/core/platform/IPlatformDatabase.js";
-
+import type {
+  IPlatformDatabase,
+  DatabaseExecResult,
+  DatabaseQueryResult,
+} from "../contracts/database.js";
+import { DatabaseDriverError } from "../contracts/errors.js";
 import { IndexedDbStorage } from "./idb-storage.js";
 
 export interface SqlJsDatabaseOptions {
@@ -32,6 +35,15 @@ export interface SqlJsDatabaseOptions {
 const DEFAULT_STORAGE_KEY = "arc.sqlite";
 const DEFAULT_DEBOUNCE_MS = 400;
 
+/**
+ * Browser platform database implementation using sql.js (WASM-based SQLite)
+ *
+ * Features:
+ * - In-memory SQLite database powered by sql.js
+ * - Automatic persistence to IndexedDB
+ * - Debounced writes for performance
+ * - Transaction support with automatic persistence
+ */
 export class SqlJsDatabase implements IPlatformDatabase {
   private readonly options: SqlJsDatabaseOptions;
   private readonly storage: IndexedDbStorage;
@@ -88,20 +100,28 @@ export class SqlJsDatabase implements IPlatformDatabase {
     await this.ensureInitialized();
     const db = this.requireDatabase();
 
-    const statement = db.prepare(sql);
     try {
-      if (params.length > 0) {
-        statement.bind(params as SqlValue[]);
-      }
+      const statement = db.prepare(sql);
+      try {
+        if (params.length > 0) {
+          statement.bind(params as SqlValue[]);
+        }
 
-      const rows: Row[] = [];
-      while (statement.step()) {
-        rows.push(statement.getAsObject() as Row);
-      }
+        const rows: Row[] = [];
+        while (statement.step()) {
+          rows.push(statement.getAsObject() as Row);
+        }
 
-      return { rows };
-    } finally {
-      statement.free();
+        return { rows };
+      } finally {
+        statement.free();
+      }
+    } catch (error) {
+      throw new DatabaseDriverError(
+        `Query failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        sql,
+        error
+      );
     }
   }
 
@@ -112,14 +132,22 @@ export class SqlJsDatabase implements IPlatformDatabase {
     await this.ensureInitialized();
     const db = this.requireDatabase();
 
-    db.run(sql, params as SqlValue[]);
-    const rowsAffected = db.getRowsModified();
+    try {
+      db.run(sql, params as SqlValue[]);
+      const rowsAffected = db.getRowsModified();
 
-    if (this.transactionDepth === 0) {
-      this.schedulePersist();
+      if (this.transactionDepth === 0) {
+        this.schedulePersist();
+      }
+
+      return { rowsAffected };
+    } catch (error) {
+      throw new DatabaseDriverError(
+        `Exec failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        sql,
+        error
+      );
     }
-
-    return { rowsAffected };
   }
 
   async execScript(sql: string): Promise<void> {
@@ -130,7 +158,15 @@ export class SqlJsDatabase implements IPlatformDatabase {
 
     await this.transaction(async () => {
       const db = this.requireDatabase();
-      db.exec(script);
+      try {
+        db.exec(script);
+      } catch (error) {
+        throw new DatabaseDriverError(
+          `Script execution failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+          sql,
+          error
+        );
+      }
     });
   }
 
@@ -181,35 +217,53 @@ export class SqlJsDatabase implements IPlatformDatabase {
     }
 
     if (typeof window === "undefined") {
-      throw new Error(
+      throw new DatabaseDriverError(
         "SqlJsDatabase can only be initialised in a browser environment"
       );
     }
 
     if (!this.sql) {
-      // Dynamically import sql.js to avoid bundling it in SSR
-      const initSqlJs = (await import("sql.js")).default;
-      this.sql = await initSqlJs({
-        locateFile: (file) => {
-          if (file.endsWith(".wasm")) {
-            return this.resolveWasmPath();
-          }
-          return file;
-        },
-      });
+      try {
+        // Dynamically import sql.js to avoid bundling it in SSR
+        const initSqlJs = (await import("sql.js")).default;
+        this.sql = await initSqlJs({
+          locateFile: (file) => {
+            if (file.endsWith(".wasm")) {
+              return this.resolveWasmPath();
+            }
+            return file;
+          },
+        });
+      } catch (error) {
+        throw new DatabaseDriverError(
+          "Failed to load sql.js",
+          undefined,
+          error
+        );
+      }
     }
 
     if (!this.sql) {
-      throw new Error("SqlJsDatabase failed to load sql.js");
+      throw new DatabaseDriverError("SqlJsDatabase failed to load sql.js");
     }
 
-    const persisted = await this.storage.load(this.storageKey);
-    this.db = persisted ? new this.sql.Database(persisted) : new this.sql.Database();
+    try {
+      const persisted = await this.storage.load(this.storageKey);
+      this.db = persisted
+        ? new this.sql.Database(persisted)
+        : new this.sql.Database();
+    } catch (error) {
+      throw new DatabaseDriverError(
+        "Failed to initialize database from IndexedDB",
+        undefined,
+        error
+      );
+    }
   }
 
   private requireDatabase(): Database {
     if (!this.db) {
-      throw new Error("SqlJsDatabase is not initialised");
+      throw new DatabaseDriverError("SqlJsDatabase is not initialised");
     }
     return this.db;
   }

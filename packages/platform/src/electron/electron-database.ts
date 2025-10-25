@@ -1,6 +1,10 @@
 import Database from "better-sqlite3";
-import type { IPlatformDatabase } from "@arc/core/platform/IPlatformDatabase.js";
-import type { DatabaseExecResult, DatabaseQueryResult } from "@arc/core/platform/IPlatformDatabase.js";
+import type {
+  IPlatformDatabase,
+  DatabaseExecResult,
+  DatabaseQueryResult,
+} from "../contracts/database.js";
+import { DatabaseDriverError } from "../contracts/errors.js";
 
 export interface BetterSqlite3DatabaseOptions {
   /**
@@ -15,6 +19,15 @@ export interface BetterSqlite3DatabaseOptions {
   enableWAL?: boolean;
 }
 
+/**
+ * Electron platform database implementation using better-sqlite3
+ *
+ * Features:
+ * - Native SQLite database with better-sqlite3
+ * - WAL mode for improved concurrency
+ * - Synchronous API wrapped in async for consistency
+ * - Transaction support with nested transaction handling
+ */
 export class BetterSqlite3Database implements IPlatformDatabase {
   private readonly options: BetterSqlite3DatabaseOptions;
   private db: Database.Database | null = null;
@@ -50,10 +63,18 @@ export class BetterSqlite3Database implements IPlatformDatabase {
     await this.ensureInitialized();
     const db = this.requireDatabase();
 
-    const stmt = db.prepare(sql);
-    const rows = stmt.all(...params) as Row[];
+    try {
+      const stmt = db.prepare(sql);
+      const rows = stmt.all(...params) as Row[];
 
-    return { rows };
+      return { rows };
+    } catch (error) {
+      throw new DatabaseDriverError(
+        `Query failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        sql,
+        error
+      );
+    }
   }
 
   async exec(
@@ -63,10 +84,18 @@ export class BetterSqlite3Database implements IPlatformDatabase {
     await this.ensureInitialized();
     const db = this.requireDatabase();
 
-    const stmt = db.prepare(sql);
-    const info = stmt.run(...params);
+    try {
+      const stmt = db.prepare(sql);
+      const info = stmt.run(...params);
 
-    return { rowsAffected: info.changes };
+      return { rowsAffected: info.changes };
+    } catch (error) {
+      throw new DatabaseDriverError(
+        `Exec failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        sql,
+        error
+      );
+    }
   }
 
   async execScript(sql: string): Promise<void> {
@@ -77,7 +106,15 @@ export class BetterSqlite3Database implements IPlatformDatabase {
 
     await this.transaction(async () => {
       const db = this.requireDatabase();
-      db.exec(script);
+      try {
+        db.exec(script);
+      } catch (error) {
+        throw new DatabaseDriverError(
+          `Script execution failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+          sql,
+          error
+        );
+      }
     });
   }
 
@@ -130,22 +167,30 @@ export class BetterSqlite3Database implements IPlatformDatabase {
       return;
     }
 
-    // Use in-memory database if no file path provided
-    const dbPath = this.options.filePath ?? ":memory:";
-    this.db = new Database(dbPath);
+    try {
+      // Use in-memory database if no file path provided
+      const dbPath = this.options.filePath ?? ":memory:";
+      this.db = new Database(dbPath);
 
-    // Enable WAL mode for better concurrent performance
-    if (this.options.enableWAL !== false && dbPath !== ":memory:") {
-      this.db.pragma("journal_mode = WAL");
+      // Enable WAL mode for better concurrent performance
+      if (this.options.enableWAL !== false && dbPath !== ":memory:") {
+        this.db.pragma("journal_mode = WAL");
+      }
+
+      // Enable foreign keys
+      this.db.pragma("foreign_keys = ON");
+    } catch (error) {
+      throw new DatabaseDriverError(
+        "Failed to initialize database",
+        undefined,
+        error
+      );
     }
-
-    // Enable foreign keys
-    this.db.pragma("foreign_keys = ON");
   }
 
   private requireDatabase(): Database.Database {
     if (!this.db) {
-      throw new Error("BetterSqlite3Database is not initialised");
+      throw new DatabaseDriverError("BetterSqlite3Database is not initialised");
     }
     return this.db;
   }
