@@ -1,15 +1,15 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import type { IProviderConfigRepository } from "../src/providers/provider-repository.type.js";
+import type { ProviderConfigRepository } from "../src/providers/provider-repository.type.js";
 import { InMemoryProviderConfigRepository } from "../src/providers/provider-repository-memory.js";
 import { SQLiteProviderConfigRepository } from "../src/providers/provider-repository-sqlite.js";
 import type { ProviderConfig } from "../src/providers/provider-config.js";
-import type { IPlatformDatabase } from "@arc/platform";
+import type { PlatformDatabase } from "@arc/platform";
 
 /**
  * Provider Config Repository Contract Tests
  */
 
-function createMockDatabase(): IPlatformDatabase {
+function createMockDatabase(): PlatformDatabase {
   const store = new Map<string, {
     id: string;
     name: string;
@@ -73,7 +73,7 @@ describe.each([
   { name: "InMemoryProviderConfigRepository", factory: () => new InMemoryProviderConfigRepository() },
   { name: "SQLiteProviderConfigRepository", factory: () => new SQLiteProviderConfigRepository(createMockDatabase()) },
 ])("$name", ({ factory }) => {
-  let repo: IProviderConfigRepository;
+  let repo: ProviderConfigRepository;
 
   beforeEach(() => {
     repo = factory();

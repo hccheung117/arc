@@ -3,7 +3,7 @@ import type { ProviderConfig } from "./provider-config.js";
 /**
  * Repository interface for ProviderConfig persistence
  */
-export interface IProviderConfigRepository {
+export interface ProviderConfigRepository {
   /**
    * Create a new provider configuration
    */

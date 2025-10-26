@@ -1,8 +1,8 @@
 import type { Message } from "./message.js";
-import type { IMessageRepository } from "./message-repository.type.js";
-import type { IChatRepository } from "../chats/chat-repository.type.js";
+import type { MessageRepository } from "./message-repository.type.js";
+import type { ChatRepository } from "../chats/chat-repository.type.js";
 import type { Provider } from "@arc/ai/provider.js";
-import type { IPlatformDatabase } from "@arc/platform";
+import type { PlatformDatabase } from "@arc/platform";
 import { MessageStreamer } from "./message-streamer.js";
 import { RequestCancelledError } from "@arc/ai/errors.js";
 import { generateId } from "../shared/id-generator.js";
@@ -27,16 +27,16 @@ export interface RegenerateResult {
  * Public API for managing individual messages
  */
 export class MessagesAPI {
-  private messageRepo: IMessageRepository;
-  private chatRepo: IChatRepository;
-  private db: IPlatformDatabase;
+  private messageRepo: MessageRepository;
+  private chatRepo: ChatRepository;
+  private db: PlatformDatabase;
   private getProvider: (configId: string) => Promise<Provider>;
   private streamer: MessageStreamer;
 
   constructor(
-    messageRepo: IMessageRepository,
-    chatRepo: IChatRepository,
-    db: IPlatformDatabase,
+    messageRepo: MessageRepository,
+    chatRepo: ChatRepository,
+    db: PlatformDatabase,
     getProvider: (configId: string) => Promise<Provider>,
     streamer?: MessageStreamer
   ) {

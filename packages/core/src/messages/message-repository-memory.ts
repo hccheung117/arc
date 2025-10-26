@@ -1,13 +1,13 @@
 import type { Message } from "./message.js";
-import type { IMessageRepository } from "./message-repository.type.js";
+import type { MessageRepository } from "./message-repository.type.js";
 
 /**
- * In-memory implementation of IMessageRepository
+ * In-memory implementation of MessageRepository
  *
  * Stores messages in a Map for fast lookups.
  * Suitable for development, testing, and single-session usage.
  */
-export class InMemoryMessageRepository implements IMessageRepository {
+export class InMemoryMessageRepository implements MessageRepository {
   private messages = new Map<string, Message>();
 
   async create(message: Message): Promise<Message> {

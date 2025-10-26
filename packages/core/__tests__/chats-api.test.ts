@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { ChatsAPI, type SendMessageParams } from "../src/chats/chats-api.js";
-import type { IChatRepository } from "../src/chats/chat-repository.type.js";
-import type { IMessageRepository } from "../src/messages/message-repository.type.js";
+import type { ChatRepository } from "../src/chats/chat-repository.type.js";
+import type { MessageRepository } from "../src/messages/message-repository.type.js";
 import type { Chat } from "../src/chats/chat.js";
 import type { Message } from "../src/messages/message.js";
 import type { Provider } from "@arc/ai/provider.type.js";
-import type { IPlatformDatabase } from "@arc/platform";
+import type { PlatformDatabase } from "@arc/platform";
 
 /**
  * ChatsAPI Tests
@@ -16,9 +16,9 @@ import type { IPlatformDatabase } from "@arc/platform";
 
 describe("ChatsAPI", () => {
   let api: ChatsAPI;
-  let mockChatRepo: IChatRepository;
-  let mockMessageRepo: IMessageRepository;
-  let mockDb: IPlatformDatabase;
+  let mockChatRepo: ChatRepository;
+  let mockMessageRepo: MessageRepository;
+  let mockDb: PlatformDatabase;
   let mockGetProvider: (configId: string) => Promise<Provider>;
   let mockProvider: Provider;
 

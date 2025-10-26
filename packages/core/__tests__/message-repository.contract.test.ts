@@ -1,22 +1,22 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import type { IMessageRepository } from "../src/messages/message-repository.type.js";
+import type { MessageRepository } from "../src/messages/message-repository.type.js";
 import { InMemoryMessageRepository } from "../src/messages/message-repository-memory.js";
 import { SQLiteMessageRepository } from "../src/messages/message-repository-sqlite.js";
 import type { Message } from "../src/messages/message.js";
 import type { ImageAttachment } from "../src/shared/image-attachment.js";
-import type { IPlatformDatabase } from "@arc/platform";
+import type { PlatformDatabase } from "@arc/platform";
 
 /**
  * Message Repository Contract Tests
  *
  * These tests ensure both in-memory and SQLite implementations
- * satisfy the IMessageRepository contract.
+ * satisfy the MessageRepository contract.
  */
 
 /**
  * Create a mock in-memory database for testing SQLite repository
  */
-function createMockDatabase(): IPlatformDatabase {
+function createMockDatabase(): PlatformDatabase {
   const messagesStore = new Map<string, {
     id: string;
     chat_id: string;
@@ -166,7 +166,7 @@ describe.each([
   { name: "InMemoryMessageRepository", factory: () => new InMemoryMessageRepository() },
   { name: "SQLiteMessageRepository", factory: () => new SQLiteMessageRepository(createMockDatabase()) },
 ])("$name", ({ factory }) => {
-  let repo: IMessageRepository;
+  let repo: MessageRepository;
 
   beforeEach(() => {
     repo = factory();

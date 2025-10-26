@@ -6,7 +6,7 @@ import type { Chat } from "./chat.js";
  * Defines the contract for persisting and querying chats.
  * Implementations may use in-memory storage, SQLite, or other backends.
  */
-export interface IChatRepository {
+export interface ChatRepository {
   /**
    * Create a new chat
    */

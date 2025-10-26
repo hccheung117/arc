@@ -7,7 +7,7 @@
  */
 
 import type {
-  IPlatformDatabase,
+  PlatformDatabase,
   DatabaseQueryResult,
   DatabaseExecResult,
 } from "@arc/platform/contracts/database.js";
@@ -25,7 +25,7 @@ import {
  * required by some platform drivers (e.g., sql.js WASM loading).
  */
 export class Database {
-  private constructor(private readonly platformDb: IPlatformDatabase) {}
+  private constructor(private readonly platformDb: PlatformDatabase) {}
 
   /**
    * Create and initialize a Database instance.
@@ -34,7 +34,7 @@ export class Database {
    * @returns A fully initialized Database instance
    * @throws DatabaseConnectionError if initialization fails
    */
-  static async create(platformDb: IPlatformDatabase): Promise<Database> {
+  static async create(platformDb: PlatformDatabase): Promise<Database> {
     try {
       await platformDb.init();
       return new Database(platformDb);

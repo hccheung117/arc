@@ -1,19 +1,19 @@
 import type { Message } from "./message.js";
-import type { IMessageRepository } from "./message-repository.type.js";
+import type { MessageRepository } from "./message-repository.type.js";
 import type { ImageAttachment } from "../shared/image-attachment.js";
-import type { IPlatformDatabase } from "@arc/platform";
+import type { PlatformDatabase } from "@arc/platform";
 import type { Message as MessageRow, MessageAttachment } from "@arc/db/schema.js";
 
 /**
- * SQLite implementation of IMessageRepository
+ * SQLite implementation of MessageRepository
  *
  * Persists messages to the SQLite database using the platform database driver.
  * Handles attachments as separate rows in the message_attachments table.
  */
-export class SQLiteMessageRepository implements IMessageRepository {
-  private db: IPlatformDatabase;
+export class SQLiteMessageRepository implements MessageRepository {
+  private db: PlatformDatabase;
 
-  constructor(db: IPlatformDatabase) {
+  constructor(db: PlatformDatabase) {
     this.db = db;
   }
 

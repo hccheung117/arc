@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { SearchAPI } from "../src/search/search-api.js";
 import type { SearchEngine, SearchResult } from "../src/search/search-engine.js";
-import type { IChatRepository } from "../src/chats/chat-repository.type.js";
+import type { ChatRepository } from "../src/chats/chat-repository.type.js";
 import type { Chat } from "../src/chats/chat.js";
 
 /**
@@ -13,7 +13,7 @@ import type { Chat } from "../src/chats/chat.js";
 describe("SearchAPI", () => {
   let api: SearchAPI;
   let mockEngine: SearchEngine;
-  let mockChatRepo: IChatRepository;
+  let mockChatRepo: ChatRepository;
 
   beforeEach(() => {
     mockEngine = {

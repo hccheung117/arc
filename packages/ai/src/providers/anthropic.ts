@@ -1,4 +1,4 @@
-import type { IPlatformHTTP } from "@arc/platform/contracts/http.js";
+import type { PlatformHTTP } from "@arc/platform/contracts/http.js";
 import type {
   Provider,
   ChatMessage,
@@ -126,13 +126,13 @@ interface AnthropicErrorResponse {
  * Supports streaming, vision models (Claude 3), and comprehensive error handling.
  */
 export class AnthropicProvider implements Provider {
-  private http: IPlatformHTTP;
+  private http: PlatformHTTP;
   private apiKey: string;
   private baseUrl: string;
   private customHeaders: Record<string, string>;
   private defaultMaxTokens: number;
 
-  constructor(http: IPlatformHTTP, config: AIConfig) {
+  constructor(http: PlatformHTTP, config: AIConfig) {
     this.http = http;
     this.apiKey = config.apiKey;
     this.baseUrl = config.baseUrl?.endsWith("/")

@@ -1,17 +1,17 @@
 import type { Chat } from "./chat.js";
-import type { IChatRepository } from "./chat-repository.type.js";
-import type { IPlatformDatabase } from "@arc/platform";
+import type { ChatRepository } from "./chat-repository.type.js";
+import type { PlatformDatabase } from "@arc/platform";
 import type { Chat as ChatRow } from "@arc/db/schema.js";
 
 /**
- * SQLite implementation of IChatRepository
+ * SQLite implementation of ChatRepository
  *
  * Persists chats to the SQLite database using the platform database driver.
  */
-export class SQLiteChatRepository implements IChatRepository {
-  private db: IPlatformDatabase;
+export class SQLiteChatRepository implements ChatRepository {
+  private db: PlatformDatabase;
 
-  constructor(db: IPlatformDatabase) {
+  constructor(db: PlatformDatabase) {
     this.db = db;
   }
 

@@ -1,21 +1,21 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import type { IChatRepository } from "../src/chats/chat-repository.type.js";
+import type { ChatRepository } from "../src/chats/chat-repository.type.js";
 import { InMemoryChatRepository } from "../src/chats/chat-repository-memory.js";
 import { SQLiteChatRepository } from "../src/chats/chat-repository-sqlite.js";
 import type { Chat } from "../src/chats/chat.js";
-import type { IPlatformDatabase } from "@arc/platform";
+import type { PlatformDatabase } from "@arc/platform";
 
 /**
  * Chat Repository Contract Tests
  *
  * These tests ensure both in-memory and SQLite implementations
- * satisfy the IChatRepository contract.
+ * satisfy the ChatRepository contract.
  */
 
 /**
  * Create a mock in-memory database for testing SQLite repository
  */
-function createMockDatabase(): IPlatformDatabase {
+function createMockDatabase(): PlatformDatabase {
   const chatsStore = new Map<string, {
     id: string;
     title: string;
@@ -105,7 +105,7 @@ describe.each([
   { name: "InMemoryChatRepository", factory: () => new InMemoryChatRepository() },
   { name: "SQLiteChatRepository", factory: () => new SQLiteChatRepository(createMockDatabase()) },
 ])("$name", ({ factory }) => {
-  let repo: IChatRepository;
+  let repo: ChatRepository;
 
   beforeEach(() => {
     repo = factory();

@@ -6,7 +6,7 @@ import type { Message } from "./message.js";
  * Defines the contract for persisting and querying messages.
  * Implementations may use in-memory storage, SQLite, or other backends.
  */
-export interface IMessageRepository {
+export interface MessageRepository {
   /**
    * Create a new message
    */

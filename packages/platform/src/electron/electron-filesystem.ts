@@ -1,5 +1,5 @@
 import type {
-  IPlatformFileSystem,
+  PlatformFileSystem,
   PickedFile,
 } from "../contracts/filesystem.js";
 import { FileSystemError } from "../contracts/errors.js";
@@ -38,7 +38,7 @@ declare global {
  * This implementation delegates to the Electron main process via the
  * preload script's exposed API for security and proper file system access.
  */
-export class ElectronFileSystem implements IPlatformFileSystem {
+export class ElectronFileSystem implements PlatformFileSystem {
   private ensureElectronAPI(): ElectronAPI {
     if (typeof window === "undefined" || !window.electron) {
       throw new FileSystemError(

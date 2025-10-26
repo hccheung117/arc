@@ -1,5 +1,5 @@
 import type {
-  IPlatformFileSystem,
+  PlatformFileSystem,
   PickedFile,
 } from "../contracts/filesystem.js";
 import { FileSystemError } from "../contracts/errors.js";
@@ -21,7 +21,7 @@ import { FileSystemError } from "../contracts/errors.js";
  *
  * @see https://capacitorjs.com/docs/apis/filesystem
  */
-export class CapacitorFileSystem implements IPlatformFileSystem {
+export class CapacitorFileSystem implements PlatformFileSystem {
   async pickImages(options?: { multiple?: boolean }): Promise<PickedFile[]> {
     throw new FileSystemError(
       "Capacitor filesystem not yet implemented. Use @capacitor/filesystem and native image picker."

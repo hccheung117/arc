@@ -1,4 +1,4 @@
-import type { IPlatformHTTP } from "@arc/platform/contracts/http.js";
+import type { PlatformHTTP } from "@arc/platform/contracts/http.js";
 import type {
   Provider,
   ChatMessage,
@@ -105,12 +105,12 @@ interface OpenAIErrorResponse {
  * Supports streaming, vision models, and comprehensive error handling.
  */
 export class OpenAIProvider implements Provider {
-  private http: IPlatformHTTP;
+  private http: PlatformHTTP;
   private apiKey: string;
   private baseUrl: string;
   private customHeaders: Record<string, string>;
 
-  constructor(http: IPlatformHTTP, config: AIConfig) {
+  constructor(http: PlatformHTTP, config: AIConfig) {
     this.http = http;
     this.apiKey = config.apiKey;
     this.baseUrl = config.baseUrl?.endsWith("/")

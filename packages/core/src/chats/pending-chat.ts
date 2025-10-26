@@ -1,10 +1,10 @@
 import type { Chat } from "./chat.js";
-import type { IChatRepository } from "./chat-repository.type.js";
-import type { IMessageRepository } from "../messages/message-repository.type.js";
+import type { ChatRepository } from "./chat-repository.type.js";
+import type { MessageRepository } from "../messages/message-repository.type.js";
 import type { Message } from "../messages/message.js";
 import type { ImageAttachment } from "../shared/image-attachment.js";
 import type { Provider } from "@arc/ai/provider.js";
-import type { IPlatformDatabase } from "@arc/platform";
+import type { PlatformDatabase } from "@arc/platform";
 import { MessageStreamer } from "../messages/message-streamer.js";
 import { RequestCancelledError } from "@arc/ai/errors.js";
 import { generateId } from "../shared/id-generator.js";
@@ -55,17 +55,17 @@ export class PendingChat {
   readonly id: string;
   readonly title: string;
 
-  private chatRepo: IChatRepository;
-  private messageRepo: IMessageRepository;
-  private db: IPlatformDatabase;
+  private chatRepo: ChatRepository;
+  private messageRepo: MessageRepository;
+  private db: PlatformDatabase;
   private getProvider: (configId: string) => Promise<Provider>;
   private streamer: MessageStreamer;
 
   constructor(
     title: string,
-    chatRepo: IChatRepository,
-    messageRepo: IMessageRepository,
-    db: IPlatformDatabase,
+    chatRepo: ChatRepository,
+    messageRepo: MessageRepository,
+    db: PlatformDatabase,
     getProvider: (configId: string) => Promise<Provider>,
     streamer?: MessageStreamer
   ) {

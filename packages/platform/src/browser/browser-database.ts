@@ -1,6 +1,6 @@
 import type { Database, SqlJsStatic, SqlValue } from "sql.js";
 import type {
-  IPlatformDatabase,
+  PlatformDatabase,
   DatabaseExecResult,
   DatabaseQueryResult,
 } from "../contracts/database.js";
@@ -44,7 +44,7 @@ const DEFAULT_DEBOUNCE_MS = 400;
  * - Debounced writes for performance
  * - Transaction support with automatic persistence
  */
-export class SqlJsDatabase implements IPlatformDatabase {
+export class SqlJsDatabase implements PlatformDatabase {
   private readonly options: SqlJsDatabaseOptions;
   private readonly storage: IndexedDbStorage;
   private readonly storageKey: string;

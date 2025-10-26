@@ -1,7 +1,7 @@
 /**
  * Repository interface for application settings stored as key/value pairs.
  */
-export interface ISettingsRepository {
+export interface SettingsRepository {
   /**
    * Get a setting by key.
    */

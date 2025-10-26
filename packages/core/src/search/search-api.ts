@@ -1,5 +1,5 @@
 import type { SearchEngine, SearchResult } from "./search-engine.js";
-import type { IChatRepository } from "../chats/chat-repository.type.js";
+import type { ChatRepository } from "../chats/chat-repository.type.js";
 import type { Chat } from "../chats/chat.js";
 
 /**
@@ -7,9 +7,9 @@ import type { Chat } from "../chats/chat.js";
  */
 export class SearchAPI {
   private engine: SearchEngine;
-  private chatRepo: IChatRepository;
+  private chatRepo: ChatRepository;
 
-  constructor(engine: SearchEngine, chatRepo: IChatRepository) {
+  constructor(engine: SearchEngine, chatRepo: ChatRepository) {
     this.engine = engine;
     this.chatRepo = chatRepo;
   }

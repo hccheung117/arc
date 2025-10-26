@@ -5,9 +5,9 @@
  * It combines all I/O capabilities (database, HTTP, filesystem).
  */
 
-import type { IPlatformDatabase } from "./database.js";
-import type { IPlatformHTTP } from "./http.js";
-import type { IPlatformFileSystem } from "./filesystem.js";
+import type { PlatformDatabase } from "./database.js";
+import type { PlatformHTTP } from "./http.js";
+import type { PlatformFileSystem } from "./filesystem.js";
 
 /**
  * Complete platform interface
@@ -24,15 +24,15 @@ export interface Platform {
   /**
    * Database I/O operations
    */
-  readonly database: IPlatformDatabase;
+  readonly database: PlatformDatabase;
 
   /**
    * HTTP I/O operations
    */
-  readonly http: IPlatformHTTP;
+  readonly http: PlatformHTTP;
 
   /**
    * File system I/O operations (may be limited or unavailable on web)
    */
-  readonly filesystem: IPlatformFileSystem;
+  readonly filesystem: PlatformFileSystem;
 }

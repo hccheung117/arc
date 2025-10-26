@@ -8,9 +8,9 @@
 import initSqlJs, { type Database, type SqlJsStatic, type SqlValue } from 'sql.js';
 import type {
   Platform,
-  IPlatformDatabase,
-  IPlatformHTTP,
-  IPlatformFileSystem,
+  PlatformDatabase,
+  PlatformHTTP,
+  PlatformFileSystem,
   DatabaseQueryResult,
   DatabaseExecResult,
   HTTPRequest,
@@ -20,7 +20,7 @@ import type {
 /**
  * In-memory test database using sql.js without IndexedDB
  */
-class InMemoryTestDatabase implements IPlatformDatabase {
+class InMemoryTestDatabase implements PlatformDatabase {
   private sql: SqlJsStatic | null = null;
   private db: Database | null = null;
   private initialization: Promise<void> | null = null;
@@ -231,7 +231,7 @@ class InMemoryTestDatabase implements IPlatformDatabase {
 /**
  * Test HTTP implementation that mocks AI provider responses
  */
-class TestHTTP implements IPlatformHTTP {
+class TestHTTP implements PlatformHTTP {
   async request(
     url: string,
     options: HTTPRequest
@@ -441,7 +441,7 @@ class TestHTTP implements IPlatformHTTP {
 /**
  * Minimal filesystem stub (not used in smoke tests)
  */
-class TestFileSystem implements IPlatformFileSystem {
+class TestFileSystem implements PlatformFileSystem {
   async pickImages(options?: { multiple?: boolean }): Promise<import('../contracts/filesystem.js').PickedFile[]> {
     throw new Error('FileSystem not implemented in test environment');
   }

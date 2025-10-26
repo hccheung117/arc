@@ -6,7 +6,7 @@
  * error handling in the Core layer.
  */
 
-import type { IPlatformDatabase } from "@arc/platform/contracts/database.js";
+import type { PlatformDatabase } from "@arc/platform/contracts/database.js";
 import type { Migration } from "./definitions.js";
 import { migrations } from "./definitions.js";
 import { MigrationError } from "../db-errors.js";
@@ -18,7 +18,7 @@ type CountRow = { count: number };
  * Retrieve the set of migrations that have already been applied.
  */
 async function getAppliedMigrations(
-  db: IPlatformDatabase
+  db: PlatformDatabase
 ): Promise<Set<string>> {
   try {
     const result = await db.query<MigrationRow>(
@@ -35,7 +35,7 @@ async function getAppliedMigrations(
  * Record that a migration has been successfully applied.
  */
 async function recordMigration(
-  db: IPlatformDatabase,
+  db: PlatformDatabase,
   name: string
 ): Promise<void> {
   const now = Date.now();
@@ -49,7 +49,7 @@ async function recordMigration(
  * Apply a single migration within a transaction.
  */
 async function applyMigration(
-  db: IPlatformDatabase,
+  db: PlatformDatabase,
   migration: Migration
 ): Promise<void> {
   try {
@@ -73,7 +73,7 @@ async function applyMigration(
  * @returns The number of migrations applied
  * @throws MigrationError if any migration fails
  */
-export async function runMigrations(db: IPlatformDatabase): Promise<number> {
+export async function runMigrations(db: PlatformDatabase): Promise<number> {
   const applied = await getAppliedMigrations(db);
   let appliedCount = 0;
 
@@ -100,7 +100,7 @@ export async function runMigrations(db: IPlatformDatabase): Promise<number> {
  * @param db - The platform database instance
  * @returns The number of applied migrations
  */
-export async function getSchemaVersion(db: IPlatformDatabase): Promise<number> {
+export async function getSchemaVersion(db: PlatformDatabase): Promise<number> {
   try {
     const result = await db.query<CountRow>(
       "SELECT COUNT(*) as count FROM migrations"

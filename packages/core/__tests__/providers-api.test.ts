@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { ProvidersAPI, type CreateProviderInput, type UpdateProviderInput } from "../src/providers/providers-api.js";
-import type { IProviderConfigRepository } from "../src/providers/provider-repository.type.js";
+import type { ProviderConfigRepository } from "../src/providers/provider-repository.type.js";
 import type { ProviderConfig } from "../src/providers/provider-config.js";
 import type { ProviderManager } from "../src/providers/provider-manager.js";
 
@@ -13,7 +13,7 @@ import type { ProviderManager } from "../src/providers/provider-manager.js";
 
 describe("ProvidersAPI", () => {
   let api: ProvidersAPI;
-  let mockRepository: IProviderConfigRepository;
+  let mockRepository: ProviderConfigRepository;
   let mockManager: ProviderManager;
 
   beforeEach(() => {

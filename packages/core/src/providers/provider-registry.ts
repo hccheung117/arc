@@ -1,10 +1,10 @@
 import type { Provider, AIConfig, ProviderType } from "@arc/ai/provider.js";
-import type { IPlatformHTTP } from "@arc/platform";
+import type { PlatformHTTP } from "@arc/platform";
 
 /**
  * Factory function type for creating provider instances
  */
-export type ProviderFactory = (config: AIConfig, http: IPlatformHTTP) => Provider;
+export type ProviderFactory = (config: AIConfig, http: PlatformHTTP) => Provider;
 
 /**
  * Internal registry of available AI provider types
@@ -35,7 +35,7 @@ export class ProviderRegistry {
    *
    * @throws {Error} If provider type is not registered
    */
-  create(type: ProviderType, config: AIConfig, http: IPlatformHTTP): Provider {
+  create(type: ProviderType, config: AIConfig, http: PlatformHTTP): Provider {
     const factory = this.factories.get(type);
     if (!factory) {
       throw new Error(`Provider type "${type}" is not registered`);
@@ -55,7 +55,7 @@ export class ProviderRegistry {
  * Create and initialize the default provider registry
  * with built-in providers (OpenAI, Anthropic, Gemini)
  */
-export function createDefaultRegistry(http: IPlatformHTTP): ProviderRegistry {
+export function createDefaultRegistry(http: PlatformHTTP): ProviderRegistry {
   const registry = new ProviderRegistry();
 
   // Register built-in providers

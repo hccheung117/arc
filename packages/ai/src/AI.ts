@@ -9,7 +9,7 @@ import type {
   ProviderCapabilities,
   ImageAttachment,
 } from "./provider.js";
-import type { IPlatformHTTP } from "@arc/platform/contracts/http.js";
+import type { PlatformHTTP } from "@arc/platform/contracts/http.js";
 import { OpenAIProvider } from "./providers/openai.js";
 import { AnthropicProvider } from "./providers/anthropic.js";
 import { GeminiProvider } from "./providers/gemini.js";
@@ -214,7 +214,7 @@ export class AI {
   constructor(
     providerType: ProviderType,
     config: AIConfig,
-    http: IPlatformHTTP
+    http: PlatformHTTP
   ) {
     let provider: Provider;
 

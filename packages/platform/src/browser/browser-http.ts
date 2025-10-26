@@ -1,5 +1,5 @@
 import type {
-  IPlatformHTTP,
+  PlatformHTTP,
   HTTPRequest,
   HTTPResponse,
 } from "../contracts/http.js";
@@ -31,7 +31,7 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
  * - Request cancellation via AbortSignal
  * - Automatic retry with exponential backoff for network errors and 5xx responses
  */
-export class BrowserFetch implements IPlatformHTTP {
+export class BrowserFetch implements PlatformHTTP {
   private retryConfig: RetryConfig;
 
   constructor(retryConfig: Partial<RetryConfig> = {}) {

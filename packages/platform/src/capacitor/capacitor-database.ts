@@ -1,5 +1,5 @@
 import type {
-  IPlatformDatabase,
+  PlatformDatabase,
   DatabaseExecResult,
   DatabaseQueryResult,
 } from "../contracts/database.js";
@@ -21,7 +21,7 @@ import { DatabaseDriverError } from "../contracts/errors.js";
  *
  * @see https://github.com/capacitor-community/sqlite
  */
-export class CapacitorSqliteDatabase implements IPlatformDatabase {
+export class CapacitorSqliteDatabase implements PlatformDatabase {
   async init(): Promise<void> {
     throw new DatabaseDriverError(
       "Capacitor database not yet implemented. Use @capacitor-community/sqlite plugin."

@@ -69,7 +69,7 @@ export interface AttachmentMetadata {
  * - Attachment retrieval
  * - Cleanup of deleted attachments
  */
-export interface IPlatformFileSystem {
+export interface PlatformFileSystem {
   /**
    * Open a file picker dialog to select images
    *

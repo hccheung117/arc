@@ -1,13 +1,13 @@
 import type { Chat } from "./chat.js";
-import type { IChatRepository } from "./chat-repository.type.js";
+import type { ChatRepository } from "./chat-repository.type.js";
 
 /**
- * In-memory implementation of IChatRepository
+ * In-memory implementation of ChatRepository
  *
  * Stores chats in a Map for fast lookups.
  * Suitable for development, testing, and single-session usage.
  */
-export class InMemoryChatRepository implements IChatRepository {
+export class InMemoryChatRepository implements ChatRepository {
   private chats = new Map<string, Chat>();
 
   async create(chat: Chat): Promise<Chat> {

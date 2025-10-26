@@ -1,15 +1,15 @@
 import type { Settings } from "./settings.js";
-import type { ISettingsRepository } from "./settings-repository.type.js";
+import type { SettingsRepository } from "./settings-repository.type.js";
 import { defaultSettings } from "./settings.js";
 
 /**
  * Public API for managing user preferences
  */
 export class SettingsAPI {
-  private repository: ISettingsRepository;
+  private repository: SettingsRepository;
   private readonly settingsKey = "app:settings";
 
-  constructor(repository: ISettingsRepository) {
+  constructor(repository: SettingsRepository) {
     this.repository = repository;
   }
 

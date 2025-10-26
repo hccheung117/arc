@@ -1,13 +1,13 @@
 import type { ProviderConfig } from "./provider-config.js";
-import type { IProviderConfigRepository } from "./provider-repository.type.js";
+import type { ProviderConfigRepository } from "./provider-repository.type.js";
 
 /**
- * In-memory implementation of IProviderConfigRepository
+ * In-memory implementation of ProviderConfigRepository
  *
  * For testing and development. Production should use SQLite or similar.
  */
 export class InMemoryProviderConfigRepository
-  implements IProviderConfigRepository
+  implements ProviderConfigRepository
 {
   private configs = new Map<string, ProviderConfig>();
 

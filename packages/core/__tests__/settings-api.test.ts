@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { SettingsAPI } from "../src/settings/settings-api.js";
-import type { ISettingsRepository } from "../src/settings/settings-repository.type.js";
+import type { SettingsRepository } from "../src/settings/settings-repository.type.js";
 import { defaultSettings, type Settings } from "../src/settings/settings.js";
 
 /**
@@ -11,7 +11,7 @@ import { defaultSettings, type Settings } from "../src/settings/settings.js";
 
 describe("SettingsAPI", () => {
   let api: SettingsAPI;
-  let mockRepository: ISettingsRepository;
+  let mockRepository: SettingsRepository;
 
   beforeEach(() => {
     mockRepository = {

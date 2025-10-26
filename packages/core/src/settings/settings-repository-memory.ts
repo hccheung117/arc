@@ -1,11 +1,11 @@
-import type { ISettingsRepository } from "./settings-repository.type.js";
+import type { SettingsRepository } from "./settings-repository.type.js";
 
 /**
- * In-memory implementation of ISettingsRepository
+ * In-memory implementation of SettingsRepository
  *
  * Stores settings in a Map. Suitable for testing and single-session usage.
  */
-export class InMemorySettingsRepository implements ISettingsRepository {
+export class InMemorySettingsRepository implements SettingsRepository {
   private settings = new Map<string, string>();
 
   async get<T = unknown>(key: string): Promise<T | null> {

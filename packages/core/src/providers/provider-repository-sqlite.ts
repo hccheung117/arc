@@ -1,17 +1,17 @@
 import type { ProviderConfig } from "./provider-config.js";
-import type { IProviderConfigRepository } from "./provider-repository.type.js";
-import type { IPlatformDatabase } from "@arc/platform";
+import type { ProviderConfigRepository } from "./provider-repository.type.js";
+import type { PlatformDatabase } from "@arc/platform";
 import type { ProviderConnection } from "@arc/db/schema.js";
 
 /**
- * SQLite implementation of IProviderConfigRepository
+ * SQLite implementation of ProviderConfigRepository
  *
  * Uses the platform database to persist provider configurations
  */
-export class SQLiteProviderConfigRepository implements IProviderConfigRepository {
-  private db: IPlatformDatabase;
+export class SQLiteProviderConfigRepository implements ProviderConfigRepository {
+  private db: PlatformDatabase;
 
-  constructor(db: IPlatformDatabase) {
+  constructor(db: PlatformDatabase) {
     this.db = db;
   }
 

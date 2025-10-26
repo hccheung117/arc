@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 import type {
-  IPlatformDatabase,
+  PlatformDatabase,
   DatabaseExecResult,
   DatabaseQueryResult,
 } from "../contracts/database.js";
@@ -28,7 +28,7 @@ export interface BetterSqlite3DatabaseOptions {
  * - Synchronous API wrapped in async for consistency
  * - Transaction support with nested transaction handling
  */
-export class BetterSqlite3Database implements IPlatformDatabase {
+export class BetterSqlite3Database implements PlatformDatabase {
   private readonly options: BetterSqlite3DatabaseOptions;
   private db: Database.Database | null = null;
   private initialization: Promise<void> | null = null;

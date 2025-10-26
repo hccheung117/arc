@@ -1,6 +1,6 @@
 import type { Message } from "../messages/message.js";
-import type { IMessageRepository } from "../messages/message-repository.type.js";
-import type { IChatRepository } from "../chats/chat-repository.type.js";
+import type { MessageRepository } from "../messages/message-repository.type.js";
+import type { ChatRepository } from "../chats/chat-repository.type.js";
 
 /**
  * Search result with chat context
@@ -18,10 +18,10 @@ export interface SearchResult {
  * Uses the repository's search method which may leverage SQLite FTS.
  */
 export class SearchEngine {
-  private messageRepo: IMessageRepository;
-  private chatRepo: IChatRepository;
+  private messageRepo: MessageRepository;
+  private chatRepo: ChatRepository;
 
-  constructor(messageRepo: IMessageRepository, chatRepo: IChatRepository) {
+  constructor(messageRepo: MessageRepository, chatRepo: ChatRepository) {
     this.messageRepo = messageRepo;
     this.chatRepo = chatRepo;
   }

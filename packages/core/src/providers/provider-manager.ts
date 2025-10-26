@@ -1,7 +1,7 @@
 import type { Provider } from "@arc/ai/provider.js";
 import type { ProviderConfig } from "./provider-config.js";
 import type { ProviderRegistry } from "./provider-registry.js";
-import type { IPlatformHTTP } from "@arc/platform";
+import type { PlatformHTTP } from "@arc/platform";
 
 /**
  * Manages the lifecycle of AI provider instances
@@ -13,10 +13,10 @@ import type { IPlatformHTTP } from "@arc/platform";
  */
 export class ProviderManager {
   private registry: ProviderRegistry;
-  private http: IPlatformHTTP;
+  private http: PlatformHTTP;
   private activeProviders = new Map<string, Provider>();
 
-  constructor(registry: ProviderRegistry, http: IPlatformHTTP) {
+  constructor(registry: ProviderRegistry, http: PlatformHTTP) {
     this.registry = registry;
     this.http = http;
   }

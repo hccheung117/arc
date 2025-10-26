@@ -1,16 +1,16 @@
-import type { ISettingsRepository } from "./settings-repository.type.js";
-import type { IPlatformDatabase } from "@arc/platform";
+import type { SettingsRepository } from "./settings-repository.type.js";
+import type { PlatformDatabase } from "@arc/platform";
 import type { Setting } from "@arc/db/schema.js";
 
 /**
- * SQLite implementation of ISettingsRepository
+ * SQLite implementation of SettingsRepository
  *
  * Persists settings to the SQLite database using the platform database driver.
  */
-export class SQLiteSettingsRepository implements ISettingsRepository {
-  private db: IPlatformDatabase;
+export class SQLiteSettingsRepository implements SettingsRepository {
+  private db: PlatformDatabase;
 
-  constructor(db: IPlatformDatabase) {
+  constructor(db: PlatformDatabase) {
     this.db = db;
   }
 

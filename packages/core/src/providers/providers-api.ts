@@ -1,5 +1,5 @@
 import type { ProviderConfig } from "./provider-config.js";
-import type { IProviderConfigRepository } from "./provider-repository.type.js";
+import type { ProviderConfigRepository } from "./provider-repository.type.js";
 import type { ProviderManager } from "./provider-manager.js";
 import type { ModelInfo } from "@arc/ai/provider.js";
 import { generateId } from "../shared/id-generator.js";
@@ -36,10 +36,10 @@ export interface UpdateProviderInput {
  * and validates connections.
  */
 export class ProvidersAPI {
-  private repository: IProviderConfigRepository;
+  private repository: ProviderConfigRepository;
   private manager: ProviderManager;
 
-  constructor(repository: IProviderConfigRepository, manager: ProviderManager) {
+  constructor(repository: ProviderConfigRepository, manager: ProviderManager) {
     this.repository = repository;
     this.manager = manager;
   }

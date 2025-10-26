@@ -26,7 +26,7 @@ export interface DatabaseExecResult {
 /**
  * Minimal contract each platform-specific database must satisfy.
  */
-export interface IPlatformDatabase {
+export interface PlatformDatabase {
   /**
    * Initialise the underlying database. Safe to call multiple times.
    */

@@ -1,20 +1,20 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import type { ISettingsRepository } from "../src/settings/settings-repository.type.js";
+import type { SettingsRepository } from "../src/settings/settings-repository.type.js";
 import { InMemorySettingsRepository } from "../src/settings/settings-repository-memory.js";
 import { SQLiteSettingsRepository } from "../src/settings/settings-repository-sqlite.js";
-import type { IPlatformDatabase } from "@arc/platform";
+import type { PlatformDatabase } from "@arc/platform";
 
 /**
  * Settings Repository Contract Tests
  *
  * These tests ensure both in-memory and SQLite implementations
- * satisfy the ISettingsRepository contract.
+ * satisfy the SettingsRepository contract.
  */
 
 /**
  * Create a mock in-memory database for testing SQLite repository
  */
-function createMockDatabase(): IPlatformDatabase {
+function createMockDatabase(): PlatformDatabase {
   const store = new Map<string, { key: string; value: string; updated_at: number }>();
 
   return {
@@ -60,7 +60,7 @@ describe.each([
   { name: "InMemorySettingsRepository", factory: () => new InMemorySettingsRepository() },
   { name: "SQLiteSettingsRepository", factory: () => new SQLiteSettingsRepository(createMockDatabase()) },
 ])("$name", ({ factory }) => {
-  let repo: ISettingsRepository;
+  let repo: SettingsRepository;
 
   beforeEach(() => {
     repo = factory();

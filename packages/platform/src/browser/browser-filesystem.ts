@@ -1,5 +1,5 @@
 import type {
-  IPlatformFileSystem,
+  PlatformFileSystem,
   PickedFile,
 } from "../contracts/filesystem.js";
 import { FileSystemError } from "../contracts/errors.js";
@@ -14,7 +14,7 @@ import { FileSystemError } from "../contracts/errors.js";
  * Note: Full file system access is not available in browsers without
  * user interaction for each operation, unlike desktop platforms.
  */
-export class BrowserFileSystem implements IPlatformFileSystem {
+export class BrowserFileSystem implements PlatformFileSystem {
   /**
    * Open a file picker dialog to select images
    *

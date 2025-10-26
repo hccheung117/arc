@@ -35,7 +35,7 @@ export interface HTTPResponse {
  * - Request cancellation via AbortSignal
  * - Error handling and timeout
  */
-export interface IPlatformHTTP {
+export interface PlatformHTTP {
   /**
    * Perform a standard HTTP request
    *

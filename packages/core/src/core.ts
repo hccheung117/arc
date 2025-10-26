@@ -1,4 +1,4 @@
-import type { Platform, IPlatformDatabase, IPlatformHTTP } from "@arc/platform";
+import type { Platform, PlatformDatabase, PlatformHTTP } from "@arc/platform";
 import { createPlatform, type PlatformType, type BrowserPlatformOptions, type ElectronPlatformOptions, type CapacitorPlatformOptions } from "@arc/platform";
 import type { Provider } from "@arc/ai/provider.js";
 import { Database } from "@arc/db/database.js";
