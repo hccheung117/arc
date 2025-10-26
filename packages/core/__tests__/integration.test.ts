@@ -11,7 +11,7 @@ import { InMemorySettingsRepository } from "../src/settings/settings-repository-
 import { ProviderManager } from "../src/providers/provider-manager.js";
 import { createDefaultRegistry } from "../src/providers/provider-registry.js";
 import { SearchEngine } from "../src/search/search-engine.js";
-import type { Provider } from "@arc/ai/provider.js";
+import type { Provider } from "@arc/ai/provider.type.js";
 import type { IPlatformDatabase, IPlatformHTTP } from "@arc/platform";
 
 /**

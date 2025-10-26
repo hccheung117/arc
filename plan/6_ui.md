@@ -21,7 +21,7 @@ The current API abstractions in `apps/web/lib/api/*` will be removed and replace
 1.  **Create `apps/web/lib/core-provider.tsx`**:
     -   This React component will be responsible for the one-time initialization of the Core.
     -   It will detect the current platform (`browser` or `electron`).
-    -   It will call `createPlatform()` and `createCore()` on mount.
+    -   It will call `createCore()` with the correct platform type on mount. Core handles the platform creation internally.
     -   The resulting `core` instance will be provided to the entire application via React Context.
 
 ### B. Component & Hook Adaptation
@@ -45,7 +45,7 @@ The testing strategy focuses on **functional behavior and integration with the C
 ### B. Platform Initialization Tests
 
 -   **Goal**: Test that the `core-provider.tsx` correctly initializes the Core for both `browser` and `electron` platforms.
--   **Implementation**: The `createPlatform` and `createCore` functions will be mocked to verify they are called with the correct platform identifier. Error states during initialization will also be tested.
+-   **Implementation**: The `createCore` function will be mocked to verify it is called with the correct platform option (e.g., `{ platform: 'browser' }`). Error states during initialization will also be tested.
 
 ### C. Critical User Journey Smoke Tests
 

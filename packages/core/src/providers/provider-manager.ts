@@ -1,4 +1,4 @@
-import type { Provider } from "@arc/ai/provider.js";
+import type { Provider } from "@arc/ai/provider.type.js";
 import type { ProviderConfig } from "./provider-config.js";
 import type { ProviderRegistry } from "./provider-registry.js";
 import type { IPlatformHTTP } from "@arc/platform";

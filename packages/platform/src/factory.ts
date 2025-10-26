@@ -1,4 +1,4 @@
-import type { Platform } from "./contracts/index.js";
+import type { Platform } from "./contracts/platform.js";
 import type { BrowserPlatformOptions } from "./browser/browser-platform.js";
 import type { ElectronPlatformOptions } from "./electron/electron-platform.js";
 import type { CapacitorPlatformOptions } from "./capacitor/capacitor-platform.js";
@@ -6,7 +6,7 @@ import type { CapacitorPlatformOptions } from "./capacitor/capacitor-platform.js
 /**
  * Platform type identifier
  */
-export type PlatformType = "browser" | "electron" | "capacitor";
+export type PlatformType = "browser" | "electron" | "capacitor" | "test";
 
 /**
  * Platform-specific configuration options
@@ -55,6 +55,9 @@ export async function createPlatform(
   options?: CapacitorPlatformOptions
 ): Promise<Platform>;
 export async function createPlatform(
+  type: "test"
+): Promise<Platform>;
+export async function createPlatform(
   type: PlatformType,
   options?: BrowserPlatformOptions | ElectronPlatformOptions | CapacitorPlatformOptions
 ): Promise<Platform> {
@@ -76,6 +79,12 @@ export async function createPlatform(
         "./capacitor/capacitor-platform.js"
       );
       return createCapacitorPlatform(options as CapacitorPlatformOptions);
+    }
+    case "test": {
+      const { createTestPlatform } = await import(
+        "./test/test-platform.js"
+      );
+      return createTestPlatform();
     }
     default: {
       const exhaustiveCheck: never = type;

@@ -9,7 +9,6 @@
  */
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { createPlatform } from "@arc/platform";
 import { createCore, type Core } from "@arc/core/core.js";
 
 // ============================================================================
@@ -54,13 +53,11 @@ export function CoreProvider({ children }: { children: React.ReactNode }) {
         // Detect platform (browser or electron)
         const isElectronEnv = isElectron();
 
-        // Create platform
-        const platform = isElectronEnv
-          ? await createPlatform("electron")
-          : await createPlatform("browser");
-
-        // Create core
-        const coreInstance = await createCore(platform);
+        // Create core with the appropriate platform type
+        // Core handles platform creation internally
+        const coreInstance = isElectronEnv
+          ? await createCore({ platform: "electron" })
+          : await createCore({ platform: "browser" });
 
         if (mounted) {
           setCore(coreInstance);

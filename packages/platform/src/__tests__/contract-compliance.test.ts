@@ -7,7 +7,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import type { IPlatformDatabase, IPlatformHTTP } from "../contracts/index.js";
+import type { IPlatformDatabase } from "../contracts/database.js";
+import type { IPlatformHTTP } from "../contracts/http.js";
 
 /**
  * Database contract compliance tests

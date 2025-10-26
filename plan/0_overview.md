@@ -63,7 +63,7 @@ Each layer and package has a distinct role.
 
 -   **Role:** Acts as a headless facade, encapsulating all business logic, state management, and orchestration. It is the single entry point for the Application Layer.
 -   **API:** Exposes a clean, namespaced API (e.g., `core.chats`, `core.providers`).
--   **Initialization:** Initialized via an async factory to handle complex setup like database migrations: `createCore(platform)`.
+-   **Initialization:** Initialized via an async factory. The UI layer provides platform metadata (e.g., `'browser'` or `'electron'`), and Core handles the platform creation internally: `createCore({ platform: 'browser' })`.
 
 ### 3.3. Module Layer (`@arc/ai`, `@arc/db`, `@arc/platform`)
 
@@ -104,14 +104,14 @@ We use a requirement-driven approach to API instantiation:
 -   **Use constructors (`new ...`)** when initialization is synchronous and straightforward.
 
 **Examples:**
--   `@arc/platform`: `createPlatform()` (async, dynamic)
--   `@arc/core`: `createCore()` (async, complex)
+-   `@arc/platform`: `createPlatform()` (async, dynamic, internal to Core)
+-   `@arc/core`: `createCore({ platform: 'browser' })` (async, UI-facing)
 -   `@arc/db`: `Database.create()` (async, mandatory)
 -   `@arc/ai`: `new AI()` (sync, simple)
 
 ### 4.2. Import & Module Rules
 
--   **No Barrel Imports:** Barrel files (`index.ts`) that re-export modules are strictly forbidden. They break tree-shaking and obscure the dependency graph. **Always import directly from the source file.**
+-   **No Barrel Imports:** Barrel files (`index.ts`) that re-export modules are strictly forbidden. They break tree-shaking and obscure the dependency graph. **Always import directly from the source file.** Package entry points are allowed but must not be named `index.ts` - use descriptive names like `platform.ts`, `core.ts`, etc.
 
 ### 4.3. Naming Conventions
 
@@ -129,7 +129,7 @@ We use a requirement-driven approach to API instantiation:
 Architectural boundaries and naming conventions will be enforced automatically wherever possible.
 -   **ESLint Import Restrictions:**
     -   The UI Layer (`apps/*`) is only allowed to import from `@arc/core`.
-    -   Direct UI access to `@arc/ai`, `@arc/db`, or `@arc/platform` will be disallowed.
+    -   Direct UI access to `@arc/ai`, `@arc/db`, or `@arc/platform` will be disallowed and enforced via linting.
     -   Barrel imports will be banned.
 -   **ESLint Filename Rules:** An ESLint plugin will enforce kebab-case for all new files.
 -   **Gradual Adoption:** These rules will apply to all new code. Existing code will be refactored gradually.

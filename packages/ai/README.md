@@ -5,11 +5,12 @@ Arc AI is a provider‑agnostic, usage‑first SDK with a fluent API for chat, e
 ## Quick Start
 
 ```ts
-import { AI } from '@arc/ai/AI.js';
-import { BrowserFetch } from '@arc/platform-browser/http/BrowserFetch.js';
+import { AI } from '@arc/ai/ai.js';
+import { createBrowserPlatform } from '@arc/platform/platform.js';
 
 // Required: pass an HTTP implementation from your platform package
-const http = new BrowserFetch();
+const platform = await createBrowserPlatform();
+const http = platform.http;
 
 const ai = new AI('openai', {
   apiKey: process.env.OPENAI_API_KEY!,
@@ -167,6 +168,6 @@ try {
 
 ## Contributors (high‑level)
 
-- No barrel files; import from concrete modules, e.g., `@arc/ai/AI.js`, `@arc/ai/openai/OpenAIProvider.js`.
+- No barrel files; import from concrete modules, e.g., `@arc/ai/ai.js`, `@arc/ai/provider.type.js`.
 - Shared utilities live under `@arc/ai/lib/*`.
 - Provider modules are flat, capability‑named files (`openai-chat.ts`, `openai-embeddings.ts`, etc.).

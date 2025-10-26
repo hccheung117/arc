@@ -10,16 +10,11 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { CoreProvider, useCore } from '@/lib/core-provider';
 import type { Core } from '@arc/core/core.js';
 
-// Mock the platform and core modules
-vi.mock('@arc/platform', () => ({
-  createPlatform: vi.fn(),
-}));
-
+// Mock the core module
 vi.mock('@arc/core/core.js', () => ({
   createCore: vi.fn(),
 }));
 
-import { createPlatform } from '@arc/platform';
 import { createCore } from '@arc/core/core.js';
 
 describe('CoreProvider', () => {
@@ -66,8 +61,7 @@ describe('CoreProvider', () => {
       close: vi.fn().mockResolvedValue(undefined),
     };
 
-    // Setup default mock implementations
-    vi.mocked(createPlatform).mockResolvedValue({} as any);
+    // Setup default mock implementation
     vi.mocked(createCore).mockResolvedValue(mockCore as Core);
 
     // Clear window.electron
@@ -86,10 +80,9 @@ describe('CoreProvider', () => {
     );
 
     await waitFor(() => {
-      expect(createPlatform).toHaveBeenCalledWith('browser');
+      expect(createCore).toHaveBeenCalledWith({ platform: 'browser' });
     });
 
-    expect(createCore).toHaveBeenCalled();
     expect(screen.getByText('Content')).toBeInTheDocument();
   });
 
@@ -104,10 +97,9 @@ describe('CoreProvider', () => {
     );
 
     await waitFor(() => {
-      expect(createPlatform).toHaveBeenCalledWith('electron');
+      expect(createCore).toHaveBeenCalledWith({ platform: 'electron' });
     });
 
-    expect(createCore).toHaveBeenCalled();
     expect(screen.getByText('Content')).toBeInTheDocument();
   });
 
@@ -122,24 +114,6 @@ describe('CoreProvider', () => {
     );
 
     expect(screen.getByText('Initializing...')).toBeInTheDocument();
-    expect(screen.queryByText('Content')).not.toBeInTheDocument();
-  });
-
-  it('displays error state if platform creation fails', async () => {
-    const error = new Error('Failed to create platform');
-    vi.mocked(createPlatform).mockRejectedValue(error);
-
-    render(
-      <CoreProvider>
-        <div>Content</div>
-      </CoreProvider>
-    );
-
-    await waitFor(() => {
-      expect(screen.getByText('Failed to Initialize')).toBeInTheDocument();
-    });
-
-    expect(screen.getByText('Failed to create platform')).toBeInTheDocument();
     expect(screen.queryByText('Content')).not.toBeInTheDocument();
   });
 
@@ -280,8 +254,7 @@ describe('CoreProvider', () => {
       </CoreProvider>
     );
 
-    // createPlatform and createCore should only be called once
-    expect(createPlatform).toHaveBeenCalledTimes(1);
+    // createCore should only be called once
     expect(createCore).toHaveBeenCalledTimes(1);
   });
 });

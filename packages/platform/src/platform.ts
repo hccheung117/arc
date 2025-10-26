@@ -30,17 +30,26 @@ export type { CapacitorPlatformOptions } from "./capacitor/capacitor-platform.js
 
 // Export contracts and types
 export type {
-  Platform,
   IPlatformDatabase,
   DatabaseQueryResult,
   DatabaseExecResult,
+} from "./contracts/database.js";
+
+export type {
   IPlatformHTTP,
   HTTPRequest,
   HTTPResponse,
+} from "./contracts/http.js";
+
+export type {
   IPlatformFileSystem,
   PickedFile,
   AttachmentMetadata,
-} from "./contracts/index.js";
+} from "./contracts/filesystem.js";
+
+export type {
+  Platform,
+} from "./contracts/platform.js";
 
 // Export errors
 export {

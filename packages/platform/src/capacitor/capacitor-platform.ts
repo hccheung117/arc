@@ -1,4 +1,4 @@
-import type { Platform } from "../contracts/index.js";
+import type { Platform } from "../contracts/platform.js";
 import { CapacitorSqliteDatabase } from "./capacitor-database.js";
 import { BrowserFetch } from "../browser/browser-http.js";
 import { CapacitorFileSystem } from "./capacitor-filesystem.js";

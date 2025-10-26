@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type { IPlatformHTTP, HTTPResponse } from "@arc/platform/contracts/http.js";
 import { AnthropicProvider } from "../src/providers/anthropic.js";
-import type { ChatMessage, ImageAttachment } from "../src/provider.js";
+import type { ChatMessage, ImageAttachment } from "../src/provider.type.js";
 import { ProviderAuthError, ProviderRateLimitError } from "../src/errors.js";
 
 /**

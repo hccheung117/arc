@@ -1,7 +1,7 @@
 import type { Message } from "./message.js";
 import type { IMessageRepository } from "./message-repository.type.js";
 import type { IChatRepository } from "../chats/chat-repository.type.js";
-import type { Provider } from "@arc/ai/provider.js";
+import type { Provider } from "@arc/ai/provider.type.js";
 import type { IPlatformDatabase } from "@arc/platform";
 import { MessageStreamer } from "./message-streamer.js";
 import { RequestCancelledError } from "@arc/ai/errors.js";

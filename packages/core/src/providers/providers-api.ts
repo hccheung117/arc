@@ -1,7 +1,7 @@
 import type { ProviderConfig } from "./provider-config.js";
 import type { IProviderConfigRepository } from "./provider-repository.type.js";
 import type { ProviderManager } from "./provider-manager.js";
-import type { ModelInfo } from "@arc/ai/provider.js";
+import type { ModelInfo } from "@arc/ai/provider.type.js";
 import { generateId } from "../shared/id-generator.js";
 
 /**

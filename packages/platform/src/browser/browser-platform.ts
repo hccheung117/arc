@@ -1,4 +1,4 @@
-import type { Platform } from "../contracts/index.js";
+import type { Platform } from "../contracts/platform.js";
 import { SqlJsDatabase, SqlJsDatabaseOptions } from "./browser-database.js";
 import { BrowserFetch } from "./browser-http.js";
 import { BrowserFileSystem } from "./browser-filesystem.js";

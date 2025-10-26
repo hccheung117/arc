@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type { IPlatformHTTP, HTTPResponse } from "@arc/platform/contracts/http.js";
 import { AI } from "../src/ai.js";
-import type { Provider } from "../src/provider.js";
+import type { Provider } from "../src/provider.type.js";
 import { OpenAIProvider } from "../src/providers/openai.js";
 import { AnthropicProvider } from "../src/providers/anthropic.js";
 import { GeminiProvider } from "../src/providers/gemini.js";

@@ -8,7 +8,6 @@
 import { vi } from 'vitest';
 import { createCore, type Core } from '@arc/core/core.js';
 import type { Provider } from '@arc/ai/provider.js';
-import { createTestPlatform } from './test-platform.js';
 
 /**
  * Local definition of RequestCancelledError for test environment
@@ -30,8 +29,6 @@ export async function createSmokeTestCore(): Promise<{
   mockProvider: Provider;
   cleanup: () => Promise<void>;
 }> {
-  // Create test platform with real in-memory SQLite
-  const platform = await createTestPlatform();
 
   // Create mock AI provider
   const mockProvider: Provider = {
@@ -84,8 +81,8 @@ export async function createSmokeTestCore(): Promise<{
     }
   );
 
-  // Create real Core instance with real database
-  const core = await createCore(platform);
+  // Create real Core instance with test platform (in-memory database)
+  const core = await createCore({ platform: 'test' });
 
   // Cleanup function
   const cleanup = async () => {

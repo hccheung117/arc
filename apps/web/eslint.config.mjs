@@ -23,7 +23,6 @@ const eslintConfig = [
   {
     rules: {
       // Prevent UI layer from importing lower-level packages
-      // Note: @arc/platform is allowed for platform initialization
       "no-restricted-imports": [
         "error",
         {
@@ -35,6 +34,10 @@ const eslintConfig = [
             {
               group: ["@arc/db", "@arc/db/*"],
               message: "UI layer should not import from @arc/db. Use @arc/core instead.",
+            },
+            {
+              group: ["@arc/platform", "@arc/platform/*"],
+              message: "UI layer should not import from @arc/platform. Use @arc/core instead.",
             },
           ],
         },

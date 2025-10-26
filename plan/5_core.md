@@ -24,10 +24,10 @@ Because the initialization of the Core is an asynchronous and complex process (r
 ```typescript
 // App layer
 import { createCore } from '@arc/core';
-import { createPlatform } from '@arc/platform';
 
-const platform = await createPlatform('browser');
-const core = await createCore(platform);
+// The UI layer simply specifies the desired platform type,
+// and the Core handles the platform creation internally.
+const core = await createCore({ platform: 'browser' });
 
 // Now the core facade is ready to be used
 const chats = await core.chats.list();

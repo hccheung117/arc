@@ -23,11 +23,15 @@ All platform code will be consolidated into a single package. Platform-agnostic 
 packages/platform/
 ├─ package.json
 └─ src/
-   ├─ database.ts            # Defines the PlatformDatabase contract
-   ├─ http.ts                # Defines the PlatformHTTP contract
-   ├─ filesystem.ts          # Defines the PlatformFilesystem contract
-   ├─ factory.ts             # create-platform() factory
-   ├─ errors.ts              # Defines the base PlatformError contract
+   ├─ platform.ts            # Package entry point (exports factory and contracts)
+   ├─ factory.ts             # createPlatform() factory
+   |
+   ├─ contracts/
+   │  ├─ database.ts         # Defines the PlatformDatabase contract
+   │  ├─ http.ts             # Defines the PlatformHTTP contract
+   │  ├─ filesystem.ts       # Defines the PlatformFilesystem contract
+   │  ├─ platform.ts         # Defines the Platform contract
+   │  └─ errors.ts           # Defines the base PlatformError contract
    |
    ├─ browser/
    │  ├─ browser-database.ts    # Implements PlatformDatabase using sql.js
@@ -39,10 +43,13 @@ packages/platform/
    │  ├─ electron-filesystem.ts # Implements PlatformFilesystem using Node fs
    │  └─ electron-platform.ts   # Exports createElectronPlatform()
    │
-   └─ capacitor/
-      ├─ capacitor-database.ts   # Implements PlatformDatabase via Capacitor plugin
-      ├─ capacitor-filesystem.ts # Implements PlatformFilesystem via Capacitor plugin
-      └─ capacitor-platform.ts   # Exports createCapacitorPlatform()
+   ├─ capacitor/
+   │  ├─ capacitor-database.ts   # Implements PlatformDatabase via Capacitor plugin
+   │  ├─ capacitor-filesystem.ts # Implements PlatformFilesystem via Capacitor plugin
+   │  └─ capacitor-platform.ts   # Exports createCapacitorPlatform()
+   │
+   └─ test/
+      └─ test-platform.ts      # Implements test platform with in-memory database
 ```
 
 ### B. Dynamic, Lazy Loading
@@ -147,12 +154,13 @@ platform.filesystem.getSize(path)
 
 ```javascript
 // The main factory accepts a platform identifier
-createPlatform('browser' | 'electron' | 'capacitor')
+createPlatform('browser' | 'electron' | 'capacitor' | 'test')
 
 // Convenience wrappers for each platform can also be exposed
 createBrowserPlatform()
 createElectronPlatform()
 createCapacitorPlatform()
+createTestPlatform()  // For testing with in-memory database
 ```
 
 ## 6. Error Handling

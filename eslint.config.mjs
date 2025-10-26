@@ -4,6 +4,7 @@ import turboPlugin from "eslint-plugin-turbo";
 import tseslint from "typescript-eslint";
 import onlyWarn from "eslint-plugin-only-warn";
 import vitest from "eslint-plugin-vitest";
+import unicorn from "eslint-plugin-unicorn";
 
 /**
  * Shared ESLint configuration for the Arc monorepo.
@@ -46,6 +47,54 @@ export default [
       globals: {
         ...vitest.environments.env.globals,
       },
+    },
+  },
+
+  // Architectural enforcement rules
+  {
+    plugins: {
+      unicorn,
+    },
+    rules: {
+      // VIOLATION 5: Enforce kebab-case filenames
+      "unicorn/filename-case": [
+        "error",
+        {
+          case: "kebabCase",
+          ignore: [
+            // Allow Next.js specific files
+            "^layout\\.tsx?$",
+            "^page\\.tsx?$",
+            "^loading\\.tsx?$",
+            "^error\\.tsx?$",
+            "^not-found\\.tsx?$",
+            "^route\\.ts$",
+            "^middleware\\.ts$",
+            "^instrumentation\\.ts$",
+            // Allow common config files
+            "^\\..*rc\\.m?js$",
+            "^.*\\.config\\.(m?js|ts)$",
+            // Allow README and LICENSE
+            "^README\\.md$",
+            "^LICENSE$",
+            "^CLAUDE\\.md$",
+          ],
+        },
+      ],
+
+      // VIOLATION 6: Ban barrel imports (index files)
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["*/index", "*/index.js", "*/index.ts", "**/index"],
+              message:
+                "Barrel imports are forbidden. Import directly from source files (e.g., './module.js' not './index.js').",
+            },
+          ],
+        },
+      ],
     },
   },
 

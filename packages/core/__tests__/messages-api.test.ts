@@ -3,7 +3,7 @@ import { MessagesAPI } from "../src/messages/messages-api.js";
 import type { IMessageRepository } from "../src/messages/message-repository.type.js";
 import type { IChatRepository } from "../src/chats/chat-repository.type.js";
 import type { Message } from "../src/messages/message.js";
-import type { Provider } from "@arc/ai/provider.js";
+import type { Provider } from "@arc/ai/provider.type.js";
 import type { IPlatformDatabase } from "@arc/platform";
 
 /**

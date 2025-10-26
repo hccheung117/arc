@@ -1,5 +1,6 @@
-import type { Platform, IPlatformDatabase, IPlatformHTTP } from "@arc/platform";
-import type { Provider } from "@arc/ai/provider.js";
+import type { Platform, IPlatformDatabase, IPlatformHTTP } from "@arc/platform/platform.js";
+import { createPlatform, type PlatformType, type BrowserPlatformOptions, type ElectronPlatformOptions, type CapacitorPlatformOptions } from "@arc/platform/platform.js";
+import type { Provider } from "@arc/ai/provider.type.js";
 import { Database } from "@arc/db/database.js";
 
 // Repositories
@@ -20,6 +21,21 @@ import { createDefaultRegistry } from "./providers/provider-registry.js";
 import { ProviderManager } from "./providers/provider-manager.js";
 import { SearchEngine } from "./search/search-engine.js";
 import { MessageStreamer } from "./messages/message-streamer.js";
+
+/**
+ * Options for creating a Core instance
+ */
+export interface CoreOptions {
+  /**
+   * Platform type to use (browser, electron, capacitor, or test)
+   */
+  platform: PlatformType;
+
+  /**
+   * Platform-specific configuration options
+   */
+  platformOptions?: BrowserPlatformOptions | ElectronPlatformOptions | CapacitorPlatformOptions;
+}
 
 /**
  * Core facade - the single entry point for all business logic
@@ -67,38 +83,47 @@ export interface Core {
  * Create and initialize the Core
  *
  * This async factory function:
- * 1. Initializes the database and runs migrations
- * 2. Creates all repositories (SQLite-based)
- * 3. Wires up all feature APIs with their dependencies
- * 4. Returns the unified Core facade
+ * 1. Creates the appropriate platform instance based on the provided type
+ * 2. Initializes the database and runs migrations
+ * 3. Creates all repositories (SQLite-based)
+ * 4. Wires up all feature APIs with their dependencies
+ * 5. Returns the unified Core facade
  *
- * @param platform - Platform-specific implementations
+ * @param options - Core configuration options including platform type
  * @returns Fully initialized Core instance
  *
  * @example
  * ```typescript
- * import { createPlatform } from '@arc/platform';
  * import { createCore } from '@arc/core';
  *
- * const platform = await createPlatform('browser');
- * const core = await createCore(platform);
+ * // Browser platform
+ * const core = await createCore({ platform: 'browser' });
+ *
+ * // Electron platform with custom database path
+ * const core = await createCore({
+ *   platform: 'electron',
+ *   platformOptions: { database: { filePath: '/path/to/app.db' } }
+ * });
  *
  * // Use the core
  * const chats = await core.chats.list();
  * ```
  */
-export async function createCore(platform: Platform): Promise<Core> {
-  // 1. Initialize database and run migrations
+export async function createCore(options: CoreOptions): Promise<Core> {
+  // 1. Create platform instance based on the provided type
+  const platform = await createPlatform(options.platform, options.platformOptions as any);
+
+  // 2. Initialize database and run migrations
   const db = await Database.create(platform.database);
   await db.migrate();
 
-  // 2. Create repositories
+  // 3. Create repositories
   const chatRepo = new SQLiteChatRepository(platform.database);
   const messageRepo = new SQLiteMessageRepository(platform.database);
   const providerRepo = new SQLiteProviderConfigRepository(platform.database);
   const settingsRepo = new SQLiteSettingsRepository(platform.database);
 
-  // 3. Initialize provider management
+  // 4. Initialize provider management
   const providerRegistry = createDefaultRegistry(platform.http);
   const providerManager = new ProviderManager(providerRegistry, platform.http);
 
@@ -111,10 +136,10 @@ export async function createCore(platform: Platform): Promise<Core> {
     return providerManager.getProvider(config);
   };
 
-  // 4. Create shared message streamer for coordinating stream cancellation
+  // 5. Create shared message streamer for coordinating stream cancellation
   const messageStreamer = new MessageStreamer();
 
-  // 5. Create feature APIs
+  // 6. Create feature APIs
   const providersAPI = new ProvidersAPI(providerRepo, providerManager);
 
   const chatsAPI = new ChatsAPI(
@@ -138,7 +163,7 @@ export async function createCore(platform: Platform): Promise<Core> {
 
   const settingsAPI = new SettingsAPI(settingsRepo);
 
-  // 6. Return the unified facade
+  // 7. Return the unified facade
   return {
     providers: providersAPI,
     chats: chatsAPI,

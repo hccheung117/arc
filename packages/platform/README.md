@@ -36,7 +36,7 @@ pnpm install
 ### Basic Usage
 
 ```typescript
-import { createPlatform } from '@arc/platform';
+import { createPlatform } from '@arc/platform/platform.js';
 
 // Create a platform instance (dynamically loaded)
 const platform = await createPlatform('browser', {
@@ -72,7 +72,7 @@ import {
   createBrowserPlatform,
   createElectronPlatform,
   createCapacitorPlatform
-} from '@arc/platform';
+} from '@arc/platform/platform.js';
 
 // Browser platform
 const browserPlatform = await createBrowserPlatform({
@@ -305,7 +305,7 @@ pnpm build
 
 ### Architecture Notes
 
-- **No barrel imports**: Always import from source files, never from index files
+- **No barrel imports**: Always import from source files. Package entry point is named `platform.ts`, not `index.ts`
 - **Dynamic imports**: Use `import()` for platform-specific code to enable tree-shaking
 - **Contract ownership**: This package owns all platform contracts (no dependencies on `@arc/contracts`)
 

@@ -3,7 +3,7 @@ import type { IChatRepository } from "./chat-repository.type.js";
 import type { IMessageRepository } from "../messages/message-repository.type.js";
 import type { Message } from "../messages/message.js";
 import type { ImageAttachment } from "../shared/image-attachment.js";
-import type { Provider } from "@arc/ai/provider.js";
+import type { Provider } from "@arc/ai/provider.type.js";
 import type { IPlatformDatabase } from "@arc/platform";
 import { MessageStreamer } from "../messages/message-streamer.js";
 import { RequestCancelledError } from "@arc/ai/errors.js";

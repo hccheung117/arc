@@ -4,13 +4,13 @@
   "private": true,
   "type": "module",
   "description": "Unified platform layer providing I/O implementations for Arc",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
+  "main": "./dist/platform.js",
+  "types": "./dist/platform.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "default": "./dist/index.js"
+      "types": "./dist/platform.d.ts",
+      "import": "./dist/platform.js",
+      "default": "./dist/platform.js"
     },
     "./contracts/*.js": {
       "types": "./dist/contracts/*.d.ts",

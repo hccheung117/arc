@@ -1,4 +1,4 @@
-import type { Platform } from "../contracts/index.js";
+import type { Platform } from "../contracts/platform.js";
 import {
   BetterSqlite3Database,
   BetterSqlite3DatabaseOptions,

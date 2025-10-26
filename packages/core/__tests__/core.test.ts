@@ -16,6 +16,13 @@ vi.mock("@arc/db/database.js", () => ({
   },
 }));
 
+// Mock the platform factory
+vi.mock("@arc/platform/platform.js", () => ({
+  createPlatform: vi.fn(),
+}));
+
+import { createPlatform } from "@arc/platform/platform.js";
+
 describe("createCore", () => {
   let mockPlatform: Platform;
   let mockDatabase: IPlatformDatabase;
@@ -37,8 +44,10 @@ describe("createCore", () => {
     };
 
     mockPlatform = {
+      type: 'browser',
       database: mockDatabase,
       http: mockHTTP,
+      filesystem: {} as any,
     };
 
     mockDbInstance = {
@@ -46,24 +55,38 @@ describe("createCore", () => {
       close: vi.fn().mockResolvedValue(undefined),
     };
 
+    vi.mocked(createPlatform).mockResolvedValue(mockPlatform);
     vi.mocked(Database.create).mockResolvedValue(mockDbInstance);
   });
 
   describe("initialization", () => {
+    it("should create platform instance", async () => {
+      await createCore({ platform: 'browser' });
+
+      expect(createPlatform).toHaveBeenCalledWith('browser', undefined);
+    });
+
+    it("should create platform with options", async () => {
+      const options = { wasmPath: '/custom/path.wasm' };
+      await createCore({ platform: 'browser', platformOptions: options });
+
+      expect(createPlatform).toHaveBeenCalledWith('browser', options);
+    });
+
     it("should create database instance", async () => {
-      await createCore(mockPlatform);
+      await createCore({ platform: 'browser' });
 
       expect(Database.create).toHaveBeenCalledWith(mockPlatform.database);
     });
 
     it("should run migrations", async () => {
-      await createCore(mockPlatform);
+      await createCore({ platform: 'browser' });
 
       expect(mockDbInstance.migrate).toHaveBeenCalled();
     });
 
     it("should create all repositories", async () => {
-      const core = await createCore(mockPlatform);
+      const core = await createCore({ platform: 'browser' });
 
       // Verify the core instance was created successfully
       expect(core).toBeDefined();
@@ -75,7 +98,7 @@ describe("createCore", () => {
     });
 
     it("should create provider registry", async () => {
-      const core = await createCore(mockPlatform);
+      const core = await createCore({ platform: 'browser' });
 
       // The provider registry is created internally
       // We verify it works by checking the providers API exists
@@ -83,7 +106,7 @@ describe("createCore", () => {
     });
 
     it("should create provider manager", async () => {
-      const core = await createCore(mockPlatform);
+      const core = await createCore({ platform: 'browser' });
 
       // The provider manager is created internally
       // We verify it works by checking the providers API exists
@@ -91,7 +114,7 @@ describe("createCore", () => {
     });
 
     it("should create all API instances", async () => {
-      const core = await createCore(mockPlatform);
+      const core = await createCore({ platform: 'browser' });
 
       expect(core.providers).toBeDefined();
       expect(core.chats).toBeDefined();
@@ -103,7 +126,7 @@ describe("createCore", () => {
 
   describe("facade structure", () => {
     it("should expose core.providers namespace", async () => {
-      const core = await createCore(mockPlatform);
+      const core = await createCore({ platform: 'browser' });
 
       expect(core.providers).toBeDefined();
       expect(typeof core.providers.list).toBe("function");
@@ -114,7 +137,7 @@ describe("createCore", () => {
     });
 
     it("should expose core.chats namespace", async () => {
-      const core = await createCore(mockPlatform);
+      const core = await createCore({ platform: 'browser' });
 
       expect(core.chats).toBeDefined();
       expect(typeof core.chats.create).toBe("function");
@@ -126,7 +149,7 @@ describe("createCore", () => {
     });
 
     it("should expose core.messages namespace", async () => {
-      const core = await createCore(mockPlatform);
+      const core = await createCore({ platform: 'browser' });
 
       expect(core.messages).toBeDefined();
       expect(typeof core.messages.regenerate).toBe("function");
@@ -136,7 +159,7 @@ describe("createCore", () => {
     });
 
     it("should expose core.search namespace", async () => {
-      const core = await createCore(mockPlatform);
+      const core = await createCore({ platform: 'browser' });
 
       expect(core.search).toBeDefined();
       expect(typeof core.search.messages).toBe("function");
@@ -145,7 +168,7 @@ describe("createCore", () => {
     });
 
     it("should expose core.settings namespace", async () => {
-      const core = await createCore(mockPlatform);
+      const core = await createCore({ platform: 'browser' });
 
       expect(core.settings).toBeDefined();
       expect(typeof core.settings.get).toBe("function");
@@ -154,7 +177,7 @@ describe("createCore", () => {
     });
 
     it("should expose core.close method", async () => {
-      const core = await createCore(mockPlatform);
+      const core = await createCore({ platform: 'browser' });
 
       expect(typeof core.close).toBe("function");
     });
@@ -162,7 +185,7 @@ describe("createCore", () => {
 
   describe("close", () => {
     it("should close platform database", async () => {
-      const core = await createCore(mockPlatform);
+      const core = await createCore({ platform: 'browser' });
 
       await core.close();
 

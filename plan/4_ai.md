@@ -24,7 +24,7 @@ The new structure will centralize provider logic and clarify the package's archi
 ```
 packages/ai/
   src/
-    provider.ts              # Defines the core interface and shared types.
+    provider.type.ts         # Defines the core interface and shared types.
     providers/
       openai.ts              # Internal implementation for OpenAI.
       anthropic.ts           # Internal implementation for Anthropic.

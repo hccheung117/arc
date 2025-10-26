@@ -242,12 +242,19 @@ class TestHTTP implements IPlatformHTTP {
     }
 
     // For non-AI requests, use real fetch
-    const response = await fetch(url, {
+    const fetchOptions: RequestInit = {
       method: options.method,
-      headers: options.headers,
-      body: options.body,
-      signal: options.signal,
-    });
+    };
+    if (options.headers) {
+      fetchOptions.headers = options.headers;
+    }
+    if (options.body) {
+      fetchOptions.body = options.body;
+    }
+    if (options.signal) {
+      fetchOptions.signal = options.signal;
+    }
+    const response = await fetch(url, fetchOptions);
 
     const headers: Record<string, string> = {};
     response.headers.forEach((value, key) => {
@@ -276,12 +283,19 @@ class TestHTTP implements IPlatformHTTP {
     }
 
     // For non-AI requests, use real fetch
-    const response = await fetch(url, {
+    const fetchOptions: RequestInit = {
       method: options.method,
-      headers: options.headers,
-      body: options.body,
-      signal: options.signal,
-    });
+    };
+    if (options.headers) {
+      fetchOptions.headers = options.headers;
+    }
+    if (options.body) {
+      fetchOptions.body = options.body;
+    }
+    if (options.signal) {
+      fetchOptions.signal = options.signal;
+    }
+    const response = await fetch(url, fetchOptions);
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -428,24 +442,30 @@ class TestHTTP implements IPlatformHTTP {
  * Minimal filesystem stub (not used in smoke tests)
  */
 class TestFileSystem implements IPlatformFileSystem {
-  async readFile(path: string): Promise<Uint8Array> {
+  async pickImages(options?: { multiple?: boolean }): Promise<import('../contracts/filesystem.js').PickedFile[]> {
     throw new Error('FileSystem not implemented in test environment');
   }
 
-  async writeFile(path: string, data: Uint8Array): Promise<void> {
+  async saveAttachment(
+    attachmentId: string,
+    chatId: string,
+    fileName: string,
+    mimeType: string,
+    data: string | Buffer
+  ): Promise<string> {
     throw new Error('FileSystem not implemented in test environment');
   }
 
-  async deleteFile(path: string): Promise<void> {
+  async loadAttachment(storagePath: string): Promise<string> {
     throw new Error('FileSystem not implemented in test environment');
   }
 
-  async exists(path: string): Promise<boolean> {
-    return false;
+  async deleteAttachment(storagePath: string): Promise<void> {
+    throw new Error('FileSystem not implemented in test environment');
   }
 
-  async list(path: string): Promise<string[]> {
-    return [];
+  async deleteAttachmentsForChat(chatId: string): Promise<void> {
+    throw new Error('FileSystem not implemented in test environment');
   }
 }
 

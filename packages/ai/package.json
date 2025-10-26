@@ -12,10 +12,10 @@
       "import": "./dist/ai.js",
       "default": "./dist/ai.js"
     },
-    "./provider.js": {
-      "types": "./dist/provider.d.ts",
-      "import": "./dist/provider.js",
-      "default": "./dist/provider.js"
+    "./provider.type.js": {
+      "types": "./dist/provider.type.d.ts",
+      "import": "./dist/provider.type.js",
+      "default": "./dist/provider.type.js"
     },
     "./errors.js": {
       "types": "./dist/errors.d.ts",
