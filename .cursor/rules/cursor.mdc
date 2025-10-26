@@ -15,89 +15,125 @@ Our architecture is founded on two principles that dictate how we design, build,
 
 We build our APIs from the outside in. When designing `@arc/core`, we think like UI developers. When designing `@arc/ai`, we think like `@arc/core` developers. This principle ensures our APIs are elegant and intuitive, prioritizing usability over implementation convenience. **Usage guides implementation, not the other way around.**
 
-### 1.2. A Strictly Layered Architecture
-
-> **Higher layers demand, lower layers fulfill.**
-
-Arc is organized into three distinct layers. Dependencies must always point inwards, from a higher layer to a lower one. A lower-level module must **never** import from a higher-level one.
-
-1.  **Application Layer (Highest):** The user-facing applications (`web`, `desktop`, `mobile`).
-2.  **Core Layer (Middle):** The headless business logic backend (`@arc/core`).
-3.  **Module Layer (Lowest):** Specialized packages (`@arc/ai`, `@arc/db`, `@arc/platform`).
-
-This structure creates a clear flow of control. The Application layer *demands* functionality, the Core layer *orchestrates* it, and the Module layer *fulfills* the specific I/O and AI provider requests.
-
-## 2. Architecture in Practice
-
-Our principles are realized through a clean, decoupled architecture.
-
-```
-Platform (Web | Electron | Capacitor)
-↕
-UI Layer (Next.js + shadcn/ui)
-↕
-Headless Core (TypeScript)
-```
-
--   **The UI Layer: The Demander.** The UI's primary role is to handle user interaction and translate it into demands on the Headless Core. It is the ultimate consumer of the system's business logic.
-
--   **The Headless Core: The Orchestrator.** `@arc/core` is a platform-agnostic engine that contains all business logic. It acts as a facade, fulfilling the UI's demands by orchestrating the specialized modules below it. It knows *what* to do, but not *how* it's done on a specific platform.
-
--   **The Platform Layer: The Fulfiller.** The unified `@arc/platform` package is the ultimate Fulfiller. It provides the Core with concrete implementations for platform-specific capabilities like database access and file system I/O. This dependency injection mechanism allows the Core to remain portable and unaware of its environment.
-
-### Monorepo Structure
-
-This philosophy is reflected in our pnpm monorepo structure, where packages are organized by their layer and role.
-
-```
-/
-├─ apps/
-│  ├─ web/                # Next.js UI (The Demander)
-│  ├─ desktop/            #
-│  └─ mobile/             #
-│
-└─ packages/
-   ├─ core/               # Headless TS core (The Orchestrator)
-   ├─ ai/                 # Specialized Fulfillers
-   ├─ db/                 #
-   └─ platform/           # The Ultimate Fulfiller
-```
-
-## 3. Key Architectural Patterns
-
-To protect this architecture, we enforce several critical development patterns. These are not just suggestions; they are essential for maintaining a clean codebase.
-
-### 3.1. Module-Owned Contracts
-
-To maintain the strict, one-way dependency flow, we have no central `contracts` package. Instead, **each low-level module defines and owns its own contracts**. For example, the `Provider` interface is defined in `@arc/ai`. `@arc/core` then imports this contract, ensuring dependencies only point inwards.
-
-### 3.2. No Barrel Imports
-
-Barrel files (`index.ts`) that re-export modules are strictly forbidden. They obscure the dependency graph and break tree-shaking. **Always import directly from the source file.**
-
-### 3.3. Strict Platform Isolation
-
-Platform-specific code must be strictly isolated to prevent it from leaking into the wrong environment (e.g., Node.js APIs in the browser). Our `sql.js` integration is a prime example, where we use a multi-layered dynamic import strategy to ensure it's only ever loaded in a browser context, keeping our Core and UI layers pure.
-
-## 4. Development Guide
-
-### Technology Stack
-
--   **UI & Web App:** Next.js 15, shadcn/ui, Tailwind CSS 4
--   **Desktop Wrapper:** Electron 38
--   **Mobile Wrapper:** Capacitor 7
--   **Data Persistence:** SQLite (via platform-specific drivers)
--   **Core Logic:** Pure TypeScript (ESM)
--   **Monorepo Management:** pnpm & Turborepo
-
-### Build Strategy
-
-Arc uses a static-first build strategy for maximum portability and performance. The Next.js app is exported as a static site (`output: 'export'`), removing the need for a Node.js server at runtime. Electron and Capacitor apps load these static assets directly.
-
-### UI/UX Philosophy
-
-Our design philosophy is "Feels like ChatGPT, works like a power tool." The UI prioritizes simplicity for new users while making advanced features accessible through progressive disclosure:
+This philosophy extends directly to our user experience. Our design goal is to create an application that **"Feels like ChatGPT, works like a power tool."** The UI prioritizes simplicity for new users while making advanced features accessible through progressive disclosure:
 
 -   **Level 1 (Beginner):** A simple, familiar chat interface.
 -   **Level 2 (Intermediate):** Contextual actions (copy, regenerate) and basic settings.
 -   **Level 3 (Power User):** Advanced features like multi-provider setup and model tuning are in dedicated settings.
+
+### 1.2. A Strictly Layered Architecture
+
+> **Higher layers demand, lower layers fulfill.**
+
+Arc is organized into distinct layers where dependencies must always point inwards, from a higher layer to a lower one. A lower-level module must **never** import from a higher-level one. This creates a clear, predictable flow of control and responsibility throughout the system.
+
+## 2. Architecture in Practice
+
+Our principles are realized through a clean, decoupled architecture that translates our philosophy into a concrete structure.
+
+### 2.1. The Three-Layer Model
+
+The strictly layered principle is implemented through a three-tier model:
+
+-   **The UI Layer (The Demander):** The user-facing applications (`web`, `desktop`, `mobile`). Its primary role is to handle user interaction and translate it into demands on the Headless Core. It is the ultimate consumer of the system's business logic.
+
+-   **The Headless Core (The Orchestrator):** `@arc/core` is a platform-agnostic engine that contains all business logic. It acts as a facade, fulfilling the UI's demands by orchestrating the specialized modules below it. It knows *what* to do, but not *how* it's done on a specific platform.
+
+-   **The Module Layer (The Fulfiller):** Specialized packages (`@arc/ai`, `@arc/db`) and the unified `@arc/platform` package act as the Fulfillers. They provide the Core with concrete implementations for capabilities like AI provider communication, database access, and file system I/O. This dependency injection mechanism allows the Core to remain portable and unaware of its environment.
+
+### 2.2. Monorepo Structure
+
+This philosophy is reflected in our pnpm monorepo structure, where packages are organized by their layer and role:
+
+```
+/
+├─ apps/                # UI Layer (The Demander)
+│  ├─ web/
+│  ├─ desktop/
+│  └─ mobile/
+│
+└─ packages/
+   ├─ core/             # Headless Core (The Orchestrator)
+   ├─ ai/               # Module Layer (Specialized Fulfillers)
+   ├─ db/
+   └─ platform/         # The Ultimate Fulfiller
+```
+
+### 2.3. Key Architectural Patterns
+
+To protect this architecture, we enforce several critical development patterns. These are not just suggestions; they are essential for maintaining a clean codebase.
+
+-   **Module-Owned Contracts:** To maintain the strict, one-way dependency flow, we have no central `contracts` package. Instead, **each low-level module defines and owns its own contracts**. For example, the `Provider` interface is defined in `@arc/ai`. `@arc/core` then imports this contract, ensuring dependencies only point inwards.
+
+-   **No Barrel Imports:** Barrel files (`index.ts`) that re-export modules are strictly forbidden. They obscure the dependency graph and break tree-shaking. **Always import directly from the source file.** Package entry points are allowed but must not be named `index.ts`—use descriptive names like `platform.ts` or `core.ts` instead.
+
+-   **Strict Platform Isolation:** Platform-specific code must be strictly isolated to prevent it from leaking into the wrong environment (e.g., Node.js APIs in the browser). Our `sql.js` integration is a prime example, where we use a multi-layered dynamic import strategy to ensure it's only ever loaded in a browser context, keeping our Core and UI layers pure.
+
+-   **API Design Patterns:** We use a requirement-driven approach to API instantiation:
+    -   **Use async factories (`create...`)** when initialization is async (I/O, WASM loading) or complex. This pattern enforces correct setup.
+    -   **Use constructors (`new ...`)** when initialization is synchronous and straightforward.
+    -   **Examples:** `@arc/db`: `Database.create()`, `@arc/core`: `createCore()`, `@arc/ai`: `new AI()`.
+
+## 3. Development Conventions
+
+This section provides practical guidance on the tools, standards, and conventions used to build Arc.
+
+### 3.1. Technology Stack & Build Strategy
+
+-   **Technology Stack:**
+    -   **UI & Web App:** Next.js 15, shadcn/ui, Tailwind CSS 4
+    -   **Desktop Wrapper:** Electron 38
+    -   **Mobile Wrapper:** Capacitor 7
+    -   **Data Persistence:** SQLite (via platform-specific drivers)
+    -   **Core Logic:** Pure TypeScript (ESM)
+    -   **Monorepo Management:** pnpm & Turborepo
+
+-   **Build Strategy:** Arc uses a **static-first** build strategy for maximum portability and performance. The Next.js app is exported as a static site (`output: 'export'`), removing the need for a Node.js server at runtime. Electron and Capacitor apps load these static assets directly.
+
+### 3.2. Naming & Import Conventions
+
+-   **Files & Folders:** **All kebab-case** (e.g., `chat-service.ts`, `ai-providers/`).
+    -   Avoid generic names like `types.ts`; be descriptive (e.g., `openai-errors.ts`).
+-   **Type-Only Files:** Use a `.type.ts` suffix for any module that *only* exports types or interfaces (e.g., `ai.type.ts`).
+-   **Interfaces/Contracts:** No `I` prefix. Define in descriptive, kebab-case `.type.ts` files (e.g., `ai.type.ts` exports `interface AI`).
+-   **Implementations:** Use specific, kebab-case filenames *without* the `.type` suffix (e.g., `openai.ts` exports `class OpenAI implements AI`).
+-   **React Components:** Kebab-case filenames (`chat-list-item.tsx`), but PascalCase component names (`export function ChatListItem()`).
+-   **React Hooks:** Kebab-case files with a `use-` prefix (`use-provider-detection.ts`).
+-   **Tests:** Kebab-case with a `.test` suffix (`chat-service.test.ts`).
+
+### 3.3. Enforcement
+
+Architectural boundaries and naming conventions will be enforced automatically wherever possible via ESLint:
+
+-   **Import Restrictions:**
+    -   The UI Layer (`apps/*`) is only allowed to import from `@arc/core`.
+    -   Direct UI access to `@arc/ai`, `@arc/db`, or `@arc/platform` is disallowed.
+    -   Barrel imports are banned.
+-   **Filename Rules:** A custom ESLint plugin will enforce kebab-case for all new files.
+-   **Gradual Adoption:** These rules will apply to all new code. Existing code will be refactored gradually.
+
+## 4. Quality & Resilience
+
+A robust strategy for quality and resilience is critical for building a reliable application. This involves a clear approach to handling failures and a rigorous, automated testing mindset.
+
+### 4.1. Error Handling Strategy
+
+Our approach is based on a layered model of error propagation and classification.
+
+-   **Error Propagation Flow:** Errors are handled at the boundary of each architectural layer. A lower layer may throw a technical error (e.g., `PlatformError`), which is then caught and wrapped by the consuming higher layer to add meaningful business context (e.g., `DatabaseError`, `CoreError`). This ensures the application layer receives errors it can act on.
+
+-   **Error Classification:** Errors are classified to enable intelligent recovery mechanisms.
+    -   **Retry-able Errors:** Transient failures (e.g., network timeouts, provider rate limits) that can be safely retried, often with an exponential backoff strategy.
+    -   **Non-Retry-able Errors:** Permanent failures (e.g., invalid API keys, validation errors) that should fail immediately and provide clear feedback to the user.
+
+### 4.2. Testing Mindset
+
+This project is guided by a test-driven mindset designed for a fully automated, AI-agent-led process.
+
+-   **Package-First Isolation**: Each package (`@arc/platform`, `@arc/db`, `@arc/ai`, `@arc/core`) will be tested in complete isolation. Dependencies on other `@arc/` packages will be mocked, ensuring a package's functionality can be proven without relying on other evolving parts of the system.
+
+-   **Bottom-Up Validation**: Testing proceeds from the lowest architectural layer upwards. A layer must pass its own isolated tests before it can be used as a dependency for the layer above it.
+
+-   **Fully Automated & Non-Interactive**: All tests are designed to run non-interactively in a CI/CD environment. There is no reliance on GUIs, browser windows, or manual steps. This ensures that an AI agent can run the entire test suite autonomously.
+
+-   **Integration Last**: Full end-to-end integration tests, where the real packages are wired together, will only be performed after all individual packages have passed their own comprehensive, isolated test suites.
