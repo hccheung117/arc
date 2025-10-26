@@ -7,7 +7,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { Core } from '@arc/core/core.js';
-import type { Provider } from '@arc/ai/provider.js';
+import type { Provider } from '@arc/ai/provider.type.js';
 import { createSmokeTestCore } from './smoke-test-utils';
 
 describe('Smoke Test: Provider Management', () => {

@@ -8,24 +8,29 @@
   "types": "./dist/ai.d.ts",
   "exports": {
     "./ai.js": {
-      "types": "./dist/ai.d.ts",
-      "import": "./dist/ai.js",
-      "default": "./dist/ai.js"
+      "types": "./src/ai.ts",
+      "import": "./src/ai.ts",
+      "default": "./src/ai.ts"
+    },
+    "./provider.js": {
+      "types": "./src/provider.ts",
+      "import": "./src/provider.ts",
+      "default": "./src/provider.ts"
     },
     "./provider.type.js": {
-      "types": "./dist/provider.type.d.ts",
-      "import": "./dist/provider.type.js",
-      "default": "./dist/provider.type.js"
+      "types": "./src/provider.type.ts",
+      "import": "./src/provider.type.ts",
+      "default": "./src/provider.type.ts"
     },
     "./errors.js": {
-      "types": "./dist/errors.d.ts",
-      "import": "./dist/errors.js",
-      "default": "./dist/errors.js"
+      "types": "./src/errors.ts",
+      "import": "./src/errors.ts",
+      "default": "./src/errors.ts"
     },
     "./providers/*.js": {
-      "types": "./dist/providers/*.d.ts",
-      "import": "./dist/providers/*.js",
-      "default": "./dist/providers/*.js"
+      "types": "./src/providers/*.ts",
+      "import": "./src/providers/*.ts",
+      "default": "./src/providers/*.ts"
     }
   },
   "scripts": {

@@ -57,6 +57,11 @@ export async function createPlatform(
 export async function createPlatform(
   type: "test"
 ): Promise<Platform>;
+// Broad overload to support union-typed callers (e.g., PlatformType variables)
+export async function createPlatform(
+  type: PlatformType,
+  options?: BrowserPlatformOptions | ElectronPlatformOptions | CapacitorPlatformOptions
+): Promise<Platform>;
 export async function createPlatform(
   type: PlatformType,
   options?: BrowserPlatformOptions | ElectronPlatformOptions | CapacitorPlatformOptions

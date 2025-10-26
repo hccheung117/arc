@@ -21,8 +21,16 @@ const eslintConfig = [
     ],
   },
   {
+    // Allow test files to import from @arc/ai for mocking purposes
+    files: ["**/__tests__/**/*.{ts,tsx}"],
     rules: {
-      // Prevent UI layer from importing lower-level packages
+      "no-restricted-imports": "off",
+    },
+  },
+  {
+    // Prevent UI layer from importing lower-level packages (except in tests)
+    ignores: ["**/__tests__/**"],
+    rules: {
       "no-restricted-imports": [
         "error",
         {

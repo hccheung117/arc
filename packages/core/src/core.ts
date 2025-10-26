@@ -1,6 +1,6 @@
-import type { Platform, IPlatformDatabase, IPlatformHTTP } from "@arc/platform/platform.js";
-import { createPlatform, type PlatformType, type BrowserPlatformOptions, type ElectronPlatformOptions, type CapacitorPlatformOptions } from "@arc/platform/platform.js";
-import type { Provider } from "@arc/ai/provider.type.js";
+import type { Platform, IPlatformDatabase, IPlatformHTTP } from "@arc/platform";
+import { createPlatform, type PlatformType, type BrowserPlatformOptions, type ElectronPlatformOptions, type CapacitorPlatformOptions } from "@arc/platform";
+import type { Provider } from "@arc/ai/provider.js";
 import { Database } from "@arc/db/database.js";
 
 // Repositories

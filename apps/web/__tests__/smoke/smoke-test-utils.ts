@@ -7,7 +7,7 @@
 
 import { vi } from 'vitest';
 import { createCore, type Core } from '@arc/core/core.js';
-import type { Provider } from '@arc/ai/provider.js';
+import type { Provider } from '@arc/ai/provider.type.js';
 
 /**
  * Local definition of RequestCancelledError for test environment
