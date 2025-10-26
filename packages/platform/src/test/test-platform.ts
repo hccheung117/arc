@@ -1,233 +1,18 @@
 /**
  * Test Platform Implementation
  *
- * Provides a lightweight platform for smoke tests that uses sql.js directly
- * in-memory without IndexedDB persistence. Perfect for Node.js test environments.
+ * Provides a lightweight platform for integration tests that uses better-sqlite3
+ * in-memory database. Perfect for Node.js test environments.
  */
 
-import type { Database, SqlJsStatic, SqlValue } from 'sql.js';
-import initSqlJs from 'sql.js-fts5';
+import { BetterSqlite3Database } from '../electron/electron-database.js';
 import type {
   Platform,
-  PlatformDatabase,
   PlatformHTTP,
   PlatformFileSystem,
-  DatabaseQueryResult,
-  DatabaseExecResult,
   HTTPRequest,
   HTTPResponse,
 } from '@arc/platform';
-
-/**
- * In-memory test database using sql.js without IndexedDB
- */
-class InMemoryTestDatabase implements PlatformDatabase {
-  private sql: SqlJsStatic | null = null;
-  private db: Database | null = null;
-  private initialization: Promise<void> | null = null;
-  private transactionDepth = 0;
-
-  async init(): Promise<void> {
-    if (!this.initialization) {
-      this.initialization = this.initialize();
-    }
-    return this.initialization;
-  }
-
-  async close(): Promise<void> {
-    if (this.db) {
-      this.db.close();
-      this.db = null;
-    }
-    this.transactionDepth = 0;
-    this.initialization = null;
-  }
-
-  async query<Row extends Record<string, unknown> = Record<string, unknown>>(
-    sql: string,
-    params: unknown[] = []
-  ): Promise<DatabaseQueryResult<Row>> {
-    await this.ensureInitialized();
-    const db = this.requireDatabase();
-
-    try {
-      const statement = db.prepare(sql);
-      try {
-        if (params.length > 0) {
-          statement.bind(params as SqlValue[]);
-        }
-
-        const rows: Row[] = [];
-        while (statement.step()) {
-          rows.push(statement.getAsObject() as Row);
-        }
-
-        return { rows };
-      } finally {
-        statement.free();
-      }
-    } catch (error) {
-      throw new Error(
-        `Query failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
-    }
-  }
-
-  async exec(sql: string, params: unknown[] = []): Promise<DatabaseExecResult> {
-    await this.ensureInitialized();
-    const db = this.requireDatabase();
-
-    try {
-      if (params.length > 0) {
-        const statement = db.prepare(sql);
-        try {
-          statement.bind(params as SqlValue[]);
-          statement.step();
-          return { rowsAffected: db.getRowsModified() };
-        } finally {
-          statement.free();
-        }
-      } else {
-        db.exec(sql);
-        return { rowsAffected: db.getRowsModified() };
-      }
-    } catch (error) {
-      throw new Error(
-        `Exec failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
-    }
-  }
-
-  async execScript(sql: string): Promise<void> {
-    const script = sql.trim();
-    if (!script) {
-      return;
-    }
-
-    await this.transaction(async () => {
-      const db = this.requireDatabase();
-      try {
-        db.exec(script);
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-
-        // Handle FTS5 not available in standard sql.js build
-        if (errorMessage.includes('no such module: fts5')) {
-          console.warn(
-            '[TestPlatform] FTS5 extension not available in test environment. ' +
-            'Skipping full-text search table creation. Search functionality will not be tested.'
-          );
-
-          // Remove FTS5-related SQL statements and retry
-          const scriptWithoutFts5 = this.removeFts5Statements(script);
-          try {
-            db.exec(scriptWithoutFts5);
-            return;
-          } catch (retryError) {
-            throw new Error(
-              `Script execution failed after removing FTS5: ${retryError instanceof Error ? retryError.message : 'Unknown error'}`
-            );
-          }
-        }
-
-        throw new Error(`Script execution failed: ${errorMessage}`);
-      }
-    });
-  }
-
-  /**
-   * Remove FTS5-related SQL statements from a script
-   * This allows tests to run without FTS5 extension
-   */
-  private removeFts5Statements(sql: string): string {
-    // Remove CREATE VIRTUAL TABLE ... USING fts5
-    let cleaned = sql.replace(
-      /CREATE\s+VIRTUAL\s+TABLE\s+IF\s+NOT\s+EXISTS\s+\w+\s+USING\s+fts5\s*\([^)]*\)\s*;/gi,
-      ''
-    );
-
-    // Remove triggers that reference FTS tables (usually named *_fts_*)
-    // Triggers end with END; so we need to match until END;
-    cleaned = cleaned.replace(
-      /CREATE\s+TRIGGER\s+IF\s+NOT\s+EXISTS\s+\w*fts\w*\s+[^;]+BEGIN[\s\S]*?END;/gi,
-      ''
-    );
-
-    return cleaned;
-  }
-
-  async transaction<T>(callback: () => Promise<T>): Promise<T> {
-    await this.ensureInitialized();
-    const db = this.requireDatabase();
-
-    this.transactionDepth++;
-    const isOutermost = this.transactionDepth === 1;
-
-    try {
-      if (isOutermost) {
-        db.exec('BEGIN TRANSACTION');
-      }
-
-      const result = await callback();
-
-      if (isOutermost) {
-        db.exec('COMMIT');
-      }
-
-      return result;
-    } catch (error) {
-      if (isOutermost) {
-        try {
-          db.exec('ROLLBACK');
-        } catch (rollbackError) {
-          // Ignore rollback errors
-        }
-      }
-      throw error;
-    } finally {
-      this.transactionDepth--;
-    }
-  }
-
-  private async initialize(): Promise<void> {
-    if (this.db) {
-      return;
-    }
-
-    if (!this.sql) {
-      try {
-        // Load sql.js - in Node.js, it will automatically find the WASM file
-        // from its package directory. No locateFile override needed.
-        this.sql = await initSqlJs();
-      } catch (error) {
-        throw new Error(
-          `Failed to load sql.js: ${error instanceof Error ? error.message : 'Unknown error'}`
-        );
-      }
-    }
-
-    if (!this.sql) {
-      throw new Error('SqlJsStatic failed to initialize');
-    }
-
-    // Create a new in-memory database (no IndexedDB)
-    this.db = new this.sql.Database();
-  }
-
-  private async ensureInitialized(): Promise<void> {
-    if (!this.initialization) {
-      this.initialization = this.initialize();
-    }
-    await this.initialization;
-  }
-
-  private requireDatabase(): Database {
-    if (!this.db) {
-      throw new Error('Database not initialized. Call init() first.');
-    }
-    return this.db;
-  }
-}
 
 /**
  * Test HTTP implementation that mocks AI provider responses
@@ -279,7 +64,31 @@ class TestHTTP implements PlatformHTTP {
   ): AsyncGenerator<string, void, undefined> {
     // Mock AI provider streaming responses for testing
     if (this.isAIProviderRequest(url)) {
-      yield* this.mockAIStream(url, options);
+      // Get raw SSE stream and parse it like BrowserFetch does
+      let buffer = '';
+
+      for await (const chunk of this.mockAIStream(url, options)) {
+        // Add chunk to buffer
+        buffer += chunk;
+
+        // Process complete lines
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          // SSE format: "data: {...}"
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6); // Remove "data: " prefix
+
+            // OpenAI sends "[DONE]" to signal end of stream
+            if (data === '[DONE]') {
+              return;
+            }
+
+            yield data;
+          }
+        }
+      }
       return;
     }
 
@@ -323,7 +132,8 @@ class TestHTTP implements PlatformHTTP {
     return (
       url.includes('api.openai.com') ||
       url.includes('api.anthropic.com') ||
-      url.includes('generativelanguage.googleapis.com')
+      url.includes('generativelanguage.googleapis.com') ||
+      url.includes('api.test.com') // Mock test URLs
     );
   }
 
@@ -471,15 +281,15 @@ class TestFileSystem implements PlatformFileSystem {
 }
 
 /**
- * Create a test platform for smoke tests
+ * Create a test platform for integration tests
  *
- * This platform uses sql.js in-memory (no IndexedDB), native fetch for HTTP,
+ * This platform uses better-sqlite3 in-memory database, native fetch for HTTP,
  * and a minimal filesystem stub. Perfect for Node.js test environments.
  */
 export async function createTestPlatform(): Promise<Platform> {
   return {
-    type: 'browser',
-    database: new InMemoryTestDatabase(),
+    type: 'test',
+    database: new BetterSqlite3Database({ filePath: ':memory:' }),
     http: new TestHTTP(),
     filesystem: new TestFileSystem(),
   };

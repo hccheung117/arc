@@ -67,7 +67,10 @@ export class SQLiteMessageRepository implements MessageRepository {
 
   async findById(id: string): Promise<Message | null> {
     const result = await this.db.query<MessageRow & Record<string, unknown>>(
-      `SELECT * FROM messages WHERE id = ?`,
+      `SELECT
+        id, chat_id, role, content, model, provider_connection_id,
+        token_count, parent_message_id, status, created_at, updated_at
+       FROM messages WHERE id = ?`,
       [id]
     );
 
@@ -75,12 +78,20 @@ export class SQLiteMessageRepository implements MessageRepository {
       return null;
     }
 
-    return this.toMessage(result.rows[0]!);
+    const row = result.rows[0];
+    if (!row) {
+      return null;
+    }
+
+    return this.toMessage(row);
   }
 
   async findByChatId(chatId: string): Promise<Message[]> {
     const result = await this.db.query<MessageRow & Record<string, unknown>>(
-      `SELECT * FROM messages WHERE chat_id = ? ORDER BY created_at ASC`,
+      `SELECT
+        id, chat_id, role, content, model, provider_connection_id,
+        token_count, parent_message_id, status, created_at, updated_at
+       FROM messages WHERE chat_id = ? ORDER BY created_at ASC`,
       [chatId]
     );
 
@@ -94,7 +105,10 @@ export class SQLiteMessageRepository implements MessageRepository {
 
   async findAll(): Promise<Message[]> {
     const result = await this.db.query<MessageRow & Record<string, unknown>>(
-      `SELECT * FROM messages ORDER BY created_at DESC`
+      `SELECT
+        id, chat_id, role, content, model, provider_connection_id,
+        token_count, parent_message_id, status, created_at, updated_at
+       FROM messages ORDER BY created_at DESC`
     );
 
     const messages: Message[] = [];
@@ -146,13 +160,16 @@ export class SQLiteMessageRepository implements MessageRepository {
     let sql: string;
     let params: unknown[];
 
+    const columns = `id, chat_id, role, content, model, provider_connection_id,
+                     token_count, parent_message_id, status, created_at, updated_at`;
+
     if (chatId) {
-      sql = `SELECT * FROM messages
+      sql = `SELECT ${columns} FROM messages
              WHERE chat_id = ? AND content LIKE ?
              ORDER BY created_at DESC`;
       params = [chatId, `%${query}%`];
     } else {
-      sql = `SELECT * FROM messages
+      sql = `SELECT ${columns} FROM messages
              WHERE content LIKE ?
              ORDER BY created_at DESC`;
       params = [`%${query}%`];
@@ -174,7 +191,8 @@ export class SQLiteMessageRepository implements MessageRepository {
   private async toMessage(row: MessageRow): Promise<Message> {
     // Fetch attachments for this message
     const attachmentsResult = await this.db.query<MessageAttachment & Record<string, unknown>>(
-      `SELECT * FROM message_attachments WHERE message_id = ?`,
+      `SELECT id, message_id, type, mime_type, data, name, size, created_at
+       FROM message_attachments WHERE message_id = ?`,
       [row.id]
     );
 

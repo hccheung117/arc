@@ -17,6 +17,11 @@ vi.mock('@arc/core/core.js', () => ({
 
 import { createCore } from '@arc/core/core.js';
 
+// Type for window with electron
+interface WindowWithElectron extends Window {
+  electron?: { ipcRenderer: unknown };
+}
+
 describe('CoreProvider', () => {
   let mockCore: Partial<Core>;
 
@@ -65,11 +70,11 @@ describe('CoreProvider', () => {
     vi.mocked(createCore).mockResolvedValue(mockCore as Core);
 
     // Clear window.electron
-    delete (window as any).electron;
+    delete (window as WindowWithElectron).electron;
   });
 
   afterEach(() => {
-    delete (window as any).electron;
+    delete (window as WindowWithElectron).electron;
   });
 
   it('detects browser platform and initializes Core', async () => {
@@ -88,7 +93,7 @@ describe('CoreProvider', () => {
 
   it('detects electron platform and initializes Core', async () => {
     // Mock electron environment
-    (window as any).electron = { ipcRenderer: {} };
+    (window as WindowWithElectron).electron = { ipcRenderer: {} };
 
     render(
       <CoreProvider>
@@ -105,7 +110,7 @@ describe('CoreProvider', () => {
 
   it('shows loading state during initialization', () => {
     // Make createCore never resolve to keep loading state
-    vi.mocked(createCore).mockReturnValue(new Promise(() => {}) as any);
+    vi.mocked(createCore).mockReturnValue(new Promise<Core>(() => {}));
 
     render(
       <CoreProvider>
@@ -190,7 +195,7 @@ describe('CoreProvider', () => {
 
   it('handles core.close errors gracefully', async () => {
     const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    vi.mocked(mockCore.close as any).mockRejectedValue(new Error('Close failed'));
+    (mockCore.close as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Close failed'));
 
     const { unmount } = render(
       <CoreProvider>

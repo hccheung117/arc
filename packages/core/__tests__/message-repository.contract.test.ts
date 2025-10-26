@@ -24,6 +24,9 @@ function createMockDatabase(): PlatformDatabase {
     content: string;
     model: string | null;
     provider_connection_id: string | null;
+    token_count: number | null;
+    parent_message_id: string | null;
+    status: string;
     created_at: number;
     updated_at: number;
   }>();
@@ -34,6 +37,9 @@ function createMockDatabase(): PlatformDatabase {
     type: string;
     mime_type: string;
     data: string;
+    name: string | null;
+    size: number | null;
+    created_at: number;
   }>>();
 
   return {
@@ -41,7 +47,7 @@ function createMockDatabase(): PlatformDatabase {
     async close() {},
     async query(sql: string, params?: unknown[]) {
       // Get attachments for a message
-      if (sql.includes("SELECT * FROM message_attachments WHERE message_id = ?")) {
+      if (sql.includes("FROM message_attachments WHERE message_id = ?")) {
         const messageId = params?.[0] as string;
         const attachments = attachmentsStore.get(messageId) || [];
         return { rows: attachments };
@@ -87,44 +93,44 @@ function createMockDatabase(): PlatformDatabase {
       }
 
       // Get all messages (ORDER BY created_at DESC)
-      if (sql.includes("SELECT * FROM messages") && sql.includes("ORDER BY created_at DESC")) {
+      if (sql.includes("FROM messages") && sql.includes("ORDER BY created_at DESC")) {
         const rows = Array.from(messagesStore.values())
           .sort((a, b) => b.created_at - a.created_at);
         return { rows };
       }
 
       // Get all messages (no ORDER BY)
-      if (sql.includes("SELECT * FROM messages")) {
+      if (sql.includes("FROM messages") && !sql.includes("WHERE") && !sql.includes("ORDER BY")) {
         return { rows: Array.from(messagesStore.values()) };
       }
 
       return { rows: [] };
     },
     async exec(sql: string, params?: unknown[]) {
-      // Insert message - Real SQL has 10 parameters
+      // Insert message - Real SQL has 11 parameters
       if (sql.includes("INSERT INTO messages")) {
-        // Real SQL: id, chat_id, role, content, model, provider_connection_id, token_count, parent_message_id, created_at, updated_at
-        const [id, chat_id, role, content, model, provider_connection_id, token_count, parent_message_id, created_at, updated_at] = params as any[];
-        messagesStore.set(id, { id, chat_id, role, content, model, provider_connection_id, created_at, updated_at });
+        // Real SQL: id, chat_id, role, content, model, provider_connection_id, token_count, parent_message_id, status, created_at, updated_at
+        const [id, chat_id, role, content, model, provider_connection_id, token_count, parent_message_id, status, created_at, updated_at] = params as any[];
+        messagesStore.set(id, { id, chat_id, role, content, model, provider_connection_id, token_count, parent_message_id, status, created_at, updated_at });
         return { rowsAffected: 1 };
       }
 
       // Insert attachment
       if (sql.includes("INSERT INTO message_attachments")) {
-        // Real SQL: id, message_id, type, mime_type, data, created_at
-        const [id, message_id, type, mime_type, data, created_at] = params as any[];
+        // Real SQL: id, message_id, type, mime_type, data, name, size, created_at
+        const [id, message_id, type, mime_type, data, name, size, created_at] = params as any[];
         const existing = attachmentsStore.get(message_id) || [];
-        existing.push({ id, message_id, type, mime_type, data });
+        existing.push({ id, message_id, type, mime_type, data, name, size, created_at });
         attachmentsStore.set(message_id, existing);
         return { rowsAffected: 1 };
       }
 
-      // Update message - Real SQL: content = ?, updated_at = ? WHERE id = ?
+      // Update message - Real SQL: content = ?, status = ?, updated_at = ? WHERE id = ?
       if (sql.includes("UPDATE messages")) {
-        const [content, updated_at, id] = params as any[];
+        const [content, status, updated_at, id] = params as any[];
         const msg = messagesStore.get(id);
         if (msg) {
-          messagesStore.set(id, { ...msg, content, updated_at });
+          messagesStore.set(id, { ...msg, content, status, updated_at });
           return { rowsAffected: 1 };
         }
         return { rowsAffected: 0 };

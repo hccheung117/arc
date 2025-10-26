@@ -15,4 +15,4 @@ afterEach(() => {
 });
 
 // Mock window.electron for electron detection tests
-globalThis.window = globalThis.window || ({} as any);
+globalThis.window = globalThis.window || ({} as Window & typeof globalThis);

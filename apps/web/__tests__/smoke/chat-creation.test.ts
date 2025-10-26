@@ -45,7 +45,7 @@ describe('Smoke Test: Chat Creation', () => {
     });
 
     // Step 3: Consume the stream
-    let finalUpdate: any;
+    let finalUpdate: Awaited<ReturnType<typeof stream.next>>['value'];
     for await (const update of stream) {
       finalUpdate = update;
     }
@@ -143,7 +143,7 @@ describe('Smoke Test: Chat Creation', () => {
       providerConnectionId: providerId,
     });
 
-    const updates: any[] = [];
+    const updates: Awaited<ReturnType<typeof stream.next>>['value'][] = [];
     for await (const update of stream) {
       updates.push(update);
     }

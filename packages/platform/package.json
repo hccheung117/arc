@@ -12,6 +12,11 @@
       "import": "./dist/platform.js",
       "default": "./dist/platform.js"
     },
+    "./platform.js": {
+      "types": "./dist/platform.d.ts",
+      "import": "./dist/platform.js",
+      "default": "./dist/platform.js"
+    },
     "./contracts/*.js": {
       "types": "./dist/contracts/*.d.ts",
       "import": "./dist/contracts/*.js",
