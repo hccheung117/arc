@@ -5,11 +5,11 @@ import { fileURLToPath } from "node:url";
 
 async function locateSqlWasm() {
   try {
-    const resolved = import.meta.resolve("sql.js/dist/sql-wasm.wasm");
+    const resolved = import.meta.resolve("sql.js-fts5/dist/sql-wasm.wasm");
     return fileURLToPath(resolved);
   } catch (error) {
     console.warn(
-      "[copy-sql-wasm] Unable to resolve sql.js/dist/sql-wasm.wasm:",
+      "[copy-sql-wasm] Unable to resolve sql.js-fts5/dist/sql-wasm.wasm:",
       error instanceof Error ? error.message : error
     );
     return null;

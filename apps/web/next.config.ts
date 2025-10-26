@@ -23,6 +23,8 @@ const nextConfig: NextConfig = {
         '@arc/platform-electron/database/BetterSqlite3Database.js': false,
         '@arc/platform-electron/http/ElectronFetch.js': false,
         '@arc/platform-electron/filesystem/ElectronFileSystem.js': false,
+        // Ensure no accidental import of vanilla sql.js in browser bundle
+        'sql.js': false,
       };
     }
 

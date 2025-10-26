@@ -224,8 +224,8 @@ export class SqlJsDatabase implements PlatformDatabase {
 
     if (!this.sql) {
       try {
-        // Dynamically import sql.js to avoid bundling it in SSR
-        const initSqlJs = (await import("sql.js")).default;
+        // Dynamically import sql.js (FTS5-enabled build) to avoid bundling it in SSR
+        const initSqlJs = (await import("sql.js-fts5")).default;
         this.sql = await initSqlJs({
           locateFile: (file) => {
             if (file.endsWith(".wasm")) {

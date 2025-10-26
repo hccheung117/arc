@@ -13,15 +13,20 @@
  * @packageDocumentation
  */
 
-// Export factory functions
+// Export factory functions (value exports to ensure JS emission)
+import {
+  createPlatform,
+  createBrowserPlatform,
+  createElectronPlatform,
+  createCapacitorPlatform,
+} from "./factory.js";
 export {
   createPlatform,
   createBrowserPlatform,
   createElectronPlatform,
   createCapacitorPlatform,
-  type PlatformType,
-  type PlatformOptions,
-} from "./factory.js";
+};
+export type { PlatformType, PlatformOptions } from "./factory.js";
 
 // Export platform-specific options
 export type { BrowserPlatformOptions } from "./browser/browser-platform.js";

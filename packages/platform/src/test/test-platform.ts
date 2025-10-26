@@ -5,7 +5,8 @@
  * in-memory without IndexedDB persistence. Perfect for Node.js test environments.
  */
 
-import initSqlJs, { type Database, type SqlJsStatic, type SqlValue } from 'sql.js';
+import type { Database, SqlJsStatic, SqlValue } from 'sql.js';
+import initSqlJs from 'sql.js-fts5';
 import type {
   Platform,
   PlatformDatabase,

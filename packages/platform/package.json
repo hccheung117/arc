@@ -40,7 +40,7 @@
     "test:run": "vitest run"
   },
   "dependencies": {
-    "sql.js": "^1.11.0",
+    "sql.js-fts5": "^1.4.0",
     "better-sqlite3": "^11.0.0"
   },
   "devDependencies": {

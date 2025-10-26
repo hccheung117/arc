@@ -43,7 +43,7 @@ describe("Browser Database (SqlJsDatabase)", () => {
       new SqlJsDatabase({
         storageKey: `test-${Date.now()}`,
         // Point to the WASM file in node_modules for testing
-        wasmPath: require.resolve("sql.js/dist/sql-wasm.wasm"),
+        wasmPath: require.resolve("sql.js-fts5/dist/sql-wasm.wasm"),
       }),
     [] // No tests skipped - sql.js should pass all tests
   );
