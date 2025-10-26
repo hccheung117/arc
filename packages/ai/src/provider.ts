@@ -236,7 +236,7 @@ export interface Provider {
 /**
  * Provider type identifier
  */
-export type ProviderType = "openai" | "anthropic" | "gemini";
+export type ProviderType = "openai" | "anthropic" | "gemini" | "custom";
 
 /**
  * Configuration for AI provider

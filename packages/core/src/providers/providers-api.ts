@@ -1,6 +1,7 @@
 import type { ProviderConfig } from "./provider-config.js";
 import type { IProviderConfigRepository } from "./provider-repository.type.js";
 import type { ProviderManager } from "./provider-manager.js";
+import type { ModelInfo } from "@arc/ai/provider.js";
 import { generateId } from "../shared/id-generator.js";
 
 /**
@@ -132,5 +133,22 @@ export class ProvidersAPI {
     }
 
     return this.manager.checkConnection(config);
+  }
+
+  /**
+   * Get available models from a provider
+   *
+   * @param id - Provider configuration ID
+   * @returns Array of available models
+   * @throws Provider-specific errors (auth, network, etc.)
+   */
+  async getModels(id: string): Promise<ModelInfo[]> {
+    const config = await this.repository.findById(id);
+    if (!config) {
+      throw new Error(`Provider ${id} not found`);
+    }
+
+    const provider = await this.manager.getProvider(config);
+    return provider.listModels();
   }
 }

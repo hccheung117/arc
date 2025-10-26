@@ -49,6 +49,7 @@ export interface Message {
   provider_connection_id: string | null; // Which provider connection was used
   token_count: number | null; // Tokens consumed (from provider response)
   parent_message_id: string | null; // For branching conversations
+  status: "pending" | "streaming" | "complete" | "error" | "stopped"; // Message generation status
   created_at: number;
   updated_at: number;
 }
@@ -63,6 +64,8 @@ export interface MessageAttachment {
   type: "image";
   mime_type: string;
   data: string; // Base64-encoded or path/URL
+  name: string | null; // Optional filename
+  size: number | null; // File size in bytes
   created_at: number;
 }
 

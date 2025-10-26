@@ -23,8 +23,8 @@ export class SQLiteMessageRepository implements IMessageRepository {
       await this.db.exec(
         `INSERT INTO messages (
           id, chat_id, role, content, model, provider_connection_id,
-          token_count, parent_message_id, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          token_count, parent_message_id, status, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           message.id,
           message.chatId,
@@ -34,6 +34,7 @@ export class SQLiteMessageRepository implements IMessageRepository {
           message.providerConnectionId ?? null,
           null, // token_count - not tracked yet
           null, // parent_message_id - not tracked yet
+          message.status,
           message.createdAt,
           message.updatedAt,
         ]
@@ -44,14 +45,16 @@ export class SQLiteMessageRepository implements IMessageRepository {
         for (const attachment of message.attachments) {
           await this.db.exec(
             `INSERT INTO message_attachments (
-              id, message_id, type, mime_type, data, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?)`,
+              id, message_id, type, mime_type, data, name, size, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               attachment.id,
               message.id,
               "image",
               attachment.mimeType,
               attachment.data,
+              attachment.name ?? null,
+              attachment.size,
               Date.now(),
             ]
           );
@@ -105,9 +108,9 @@ export class SQLiteMessageRepository implements IMessageRepository {
   async update(message: Message): Promise<Message> {
     const result = await this.db.exec(
       `UPDATE messages
-       SET content = ?, updated_at = ?
+       SET content = ?, status = ?, updated_at = ?
        WHERE id = ?`,
-      [message.content, message.updatedAt, message.id]
+      [message.content, message.status, message.updatedAt, message.id]
     );
 
     if (result.rowsAffected === 0) {
@@ -180,9 +183,12 @@ export class SQLiteMessageRepository implements IMessageRepository {
         id: att.id,
         data: att.data,
         mimeType: att.mime_type,
-        size: 0, // Not stored in DB
+        size: att.size ?? 0,
       };
-      // name is not stored in DB, so we omit it (optional property)
+      // Conditionally add name if present
+      if (att.name !== null && att.name !== undefined) {
+        img.name = att.name;
+      }
       return img;
     });
 
@@ -191,7 +197,7 @@ export class SQLiteMessageRepository implements IMessageRepository {
       chatId: row.chat_id,
       role: row.role,
       content: row.content,
-      status: "complete", // We don't store status in DB - only runtime
+      status: row.status as "pending" | "streaming" | "complete" | "error" | "stopped",
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };

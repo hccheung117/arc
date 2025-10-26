@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { ProviderConfig } from "@/lib/chat-store";
+import type { ProviderConfig } from "@arc/core/core.js";
 import { Edit, Trash2 } from "lucide-react";
 
 interface ProviderCardProps {
@@ -13,17 +13,19 @@ interface ProviderCardProps {
   isTesting?: boolean;
 }
 
-const PROVIDER_NAMES: Record<string, string> = {
+const PROVIDER_NAMES: Record<ProviderConfig["type"], string> = {
   openai: "OpenAI",
   anthropic: "Anthropic",
-  google: "Google",
+  gemini: "Google Gemini",
+  custom: "Custom",
 };
 
 // Brand color gradients for each provider
-const PROVIDER_GRADIENTS: Record<string, string> = {
+const PROVIDER_GRADIENTS: Record<ProviderConfig["type"], string> = {
   openai: "linear-gradient(135deg, rgba(16, 163, 127, 0.08) 0%, rgba(16, 163, 127, 0.02) 100%)",
   anthropic: "linear-gradient(135deg, rgba(212, 129, 107, 0.08) 0%, rgba(212, 129, 107, 0.02) 100%)",
-  google: "linear-gradient(135deg, rgba(66, 133, 244, 0.08) 0%, rgba(66, 133, 244, 0.02) 100%)",
+  gemini: "linear-gradient(135deg, rgba(66, 133, 244, 0.08) 0%, rgba(66, 133, 244, 0.02) 100%)",
+  custom: "linear-gradient(135deg, rgba(128, 128, 128, 0.08) 0%, rgba(128, 128, 128, 0.02) 100%)",
 };
 
 export function ProviderCard({
@@ -33,13 +35,13 @@ export function ProviderCard({
   onTest,
   isTesting = false,
 }: ProviderCardProps) {
-  const providerName = PROVIDER_NAMES[config.provider] || config.provider;
+  const providerName = PROVIDER_NAMES[config.type] || config.name;
   const maskedApiKey = config.apiKey
     ? `${config.apiKey.substring(0, 7)}...${config.apiKey.substring(config.apiKey.length - 4)}`
     : "Not set";
 
   // Get brand gradient for this provider
-  const backgroundImage = PROVIDER_GRADIENTS[config.provider];
+  const backgroundImage = PROVIDER_GRADIENTS[config.type];
 
   return (
     <Card style={backgroundImage ? { backgroundImage } : undefined}>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ImageAttachment } from "@/lib/types";
+import type { ImageAttachment } from "@arc/core/core.js";
 import { ImageLightbox } from "./image-lightbox";
 
 interface ImageBubbleProps {
@@ -25,15 +25,15 @@ export function ImageBubble({ attachments }: ImageBubbleProps) {
       <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
         {attachments.map((attachment, index) => (
           <button
-            key={attachment.id}
+            key={index}
             onClick={() => handleImageClick(index)}
             className="relative flex-shrink-0 rounded-lg overflow-hidden bg-secondary hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-ring group"
             aria-label={`View image ${index + 1} of ${attachments.length}`}
           >
             {/* Image thumbnail */}
             <img
-              src={attachment.objectUrl}
-              alt={attachment.file.name}
+              src={attachment.data}
+              alt={`Image ${index + 1}`}
               className="h-48 w-auto max-w-xs object-cover"
             />
 

@@ -6,6 +6,7 @@
  */
 export class MessageStreamer {
   private activeStreams = new Map<string, AbortController>();
+  constructor() {}
 
   /**
    * Create and register an AbortController for a message

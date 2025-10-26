@@ -19,6 +19,7 @@ import { SettingsAPI } from "./settings/settings-api.js";
 import { createDefaultRegistry } from "./providers/provider-registry.js";
 import { ProviderManager } from "./providers/provider-manager.js";
 import { SearchEngine } from "./search/search-engine.js";
+import { MessageStreamer } from "./messages/message-streamer.js";
 
 /**
  * Core facade - the single entry point for all business logic
@@ -110,21 +111,26 @@ export async function createCore(platform: Platform): Promise<Core> {
     return providerManager.getProvider(config);
   };
 
-  // 4. Create feature APIs
+  // 4. Create shared message streamer for coordinating stream cancellation
+  const messageStreamer = new MessageStreamer();
+
+  // 5. Create feature APIs
   const providersAPI = new ProvidersAPI(providerRepo, providerManager);
 
   const chatsAPI = new ChatsAPI(
     chatRepo,
     messageRepo,
     platform.database,
-    getProvider
+    getProvider,
+    messageStreamer
   );
 
   const messagesAPI = new MessagesAPI(
     messageRepo,
     chatRepo,
     platform.database,
-    getProvider
+    getProvider,
+    messageStreamer
   );
 
   const searchEngine = new SearchEngine(messageRepo, chatRepo);
@@ -132,7 +138,7 @@ export async function createCore(platform: Platform): Promise<Core> {
 
   const settingsAPI = new SettingsAPI(settingsRepo);
 
-  // 5. Return the unified facade
+  // 6. Return the unified facade
   return {
     providers: providersAPI,
     chats: chatsAPI,
@@ -146,3 +152,14 @@ export async function createCore(platform: Platform): Promise<Core> {
     },
   };
 }
+
+// ============================================================================
+// Re-export types for UI consumption
+// ============================================================================
+
+export type { Chat } from "./chats/chat.js";
+export type { Message } from "./messages/message.js";
+export type { ImageAttachment } from "./shared/image-attachment.js";
+export type { ProviderConfig } from "./providers/provider-config.js";
+export type { SearchResult } from "./search/search-engine.js";
+export type { Settings } from "./settings/settings.js";

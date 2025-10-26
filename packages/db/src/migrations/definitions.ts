@@ -117,4 +117,23 @@ CREATE TRIGGER IF NOT EXISTS messages_fts_update AFTER UPDATE ON messages BEGIN
 END;
 `.trim(),
   },
+  {
+    name: "0002_add_attachment_metadata",
+    sql: `
+-- Migration 0002: Add attachment metadata columns
+-- Adds name and size columns to message_attachments table
+
+ALTER TABLE message_attachments ADD COLUMN name TEXT;
+ALTER TABLE message_attachments ADD COLUMN size INTEGER;
+`.trim(),
+  },
+  {
+    name: "0003_add_message_status",
+    sql: `
+-- Migration 0003: Add message status column
+-- Adds status column to messages table to track message state
+
+ALTER TABLE messages ADD COLUMN status TEXT NOT NULL DEFAULT 'complete' CHECK(status IN ('pending', 'streaming', 'complete', 'error', 'stopped'));
+`.trim(),
+  },
 ];

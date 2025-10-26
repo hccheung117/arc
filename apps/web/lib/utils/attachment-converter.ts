@@ -1,12 +1,10 @@
 /**
- * Utilities for converting between Web and Core ImageAttachment formats
+ * Utilities for converting Files to Core ImageAttachment format
  *
- * Web format: Uses File objects and object URLs (browser-specific)
  * Core format: Uses base64 data URLs (platform-agnostic)
  */
 
-import type { ImageAttachment as WebImageAttachment } from "../types";
-import type { ImageAttachment as CoreImageAttachment } from "@arc/contracts/ImageAttachment.js";
+import type { ImageAttachment as CoreImageAttachment } from "@arc/core/core.js";
 
 /**
  * Convert a File object to a base64 data URL
@@ -27,29 +25,20 @@ export function fileToBase64(file: File): Promise<string> {
 }
 
 /**
- * Convert web ImageAttachment (with File) to core ImageAttachment (with base64)
+ * Convert File to core ImageAttachment (with base64)
  */
-export async function webAttachmentToCore(
-  webAttachment: WebImageAttachment
+export async function fileToImageAttachment(
+  file: File
 ): Promise<CoreImageAttachment> {
-  const data = await fileToBase64(webAttachment.file);
+  const data = await fileToBase64(file);
 
   return {
-    id: webAttachment.id,
+    id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     data,
-    mimeType: webAttachment.type,
-    size: webAttachment.size,
-    name: webAttachment.file.name,
+    mimeType: file.type,
+    size: file.size,
+    name: file.name,
   };
-}
-
-/**
- * Convert multiple web attachments to core format
- */
-export async function webAttachmentsToCore(
-  webAttachments: WebImageAttachment[]
-): Promise<CoreImageAttachment[]> {
-  return Promise.all(webAttachments.map(webAttachmentToCore));
 }
 
 /**

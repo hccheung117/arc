@@ -6,6 +6,8 @@ import type { ImageAttachment } from "../shared/image-attachment.js";
 import type { Provider } from "@arc/ai/provider.js";
 import type { IPlatformDatabase } from "@arc/platform";
 import { PendingChat } from "./pending-chat.js";
+import { MessageStreamer } from "../messages/message-streamer.js";
+import { RequestCancelledError } from "@arc/ai/errors.js";
 import { generateId } from "../shared/id-generator.js";
 
 /**
@@ -58,17 +60,20 @@ export class ChatsAPI {
   private messageRepo: IMessageRepository;
   private db: IPlatformDatabase;
   private getProvider: (configId: string) => Promise<Provider>;
+  private streamer: MessageStreamer;
 
   constructor(
     chatRepo: IChatRepository,
     messageRepo: IMessageRepository,
     db: IPlatformDatabase,
-    getProvider: (configId: string) => Promise<Provider>
+    getProvider: (configId: string) => Promise<Provider>,
+    streamer?: MessageStreamer
   ) {
     this.chatRepo = chatRepo;
     this.messageRepo = messageRepo;
     this.db = db;
     this.getProvider = getProvider;
+    this.streamer = streamer ?? new MessageStreamer();
   }
 
   /**
@@ -84,7 +89,8 @@ export class ChatsAPI {
       this.chatRepo,
       this.messageRepo,
       this.db,
-      this.getProvider
+      this.getProvider,
+      this.streamer
     );
   }
 
@@ -215,13 +221,21 @@ export class ChatsAPI {
     // 5. Stream AI response
     const provider = await this.getProvider(params.providerConnectionId);
 
+    // Start streaming and get abort signal
+    const signal = this.streamer.startStreaming(assistantMessage!.id);
+
     try {
       const stream = provider.streamChatCompletion(
         conversationHistory,
-        params.model
+        params.model,
+        { signal }
       );
 
       for await (const chunk of stream) {
+        // Proactive cancellation: if provider didn't throw yet, respect aborted signal
+        if (signal.aborted) {
+          throw new RequestCancelledError("Request was cancelled");
+        }
         assistantMessage!.content += chunk.content;
         assistantMessage!.status = "streaming";
         assistantMessage!.updatedAt = Date.now();
@@ -234,10 +248,18 @@ export class ChatsAPI {
         };
       }
 
+      // If aborted during or right after streaming, treat as cancelled
+      if (signal.aborted) {
+        throw new RequestCancelledError("Request was cancelled");
+      }
+
       // Mark as complete
       assistantMessage!.status = "complete";
       assistantMessage!.updatedAt = Date.now();
       await this.messageRepo.update(assistantMessage!);
+
+      // Clean up streamer
+      this.streamer.completeStreaming(assistantMessage!.id);
 
       yield {
         messageId: assistantMessage!.id,
@@ -250,19 +272,40 @@ export class ChatsAPI {
         assistantMessageId: assistantMessage!.id,
       };
     } catch (error) {
-      // Mark as error
-      assistantMessage!.status = "error";
-      assistantMessage!.content = "An error occurred while generating the response.";
-      assistantMessage!.updatedAt = Date.now();
-      await this.messageRepo.update(assistantMessage!);
+      // Handle cancellation vs error
+      if (error instanceof RequestCancelledError || (error as any)?.name === 'RequestCancelledError') {
+        assistantMessage!.status = "stopped";
+        assistantMessage!.updatedAt = Date.now();
+        await this.messageRepo.update(assistantMessage!);
 
-      yield {
-        messageId: assistantMessage!.id,
-        content: assistantMessage!.content,
-        status: "error",
-      };
+        // Clean up streamer
+        this.streamer.completeStreaming(assistantMessage!.id);
 
-      throw error;
+        yield {
+          messageId: assistantMessage!.id,
+          content: assistantMessage!.content,
+          status: "stopped",
+        };
+
+        throw error;
+      } else {
+        // Mark as error
+        assistantMessage!.status = "error";
+        assistantMessage!.content = "An error occurred while generating the response.";
+        assistantMessage!.updatedAt = Date.now();
+        await this.messageRepo.update(assistantMessage!);
+
+        // Clean up streamer
+        this.streamer.completeStreaming(assistantMessage!.id);
+
+        yield {
+          messageId: assistantMessage!.id,
+          content: assistantMessage!.content,
+          status: "error",
+        };
+
+        throw error;
+      }
     }
   }
 }

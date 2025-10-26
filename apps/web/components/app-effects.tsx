@@ -1,18 +1,17 @@
 "use client";
 
 import { useEffect } from "react";
-import { useChatStore } from "@/lib/chat-store";
+import { useUIStore } from "@/lib/ui-store";
 
 /**
  * AppEffects - Handles side effects for app-level settings
  *
  * This component applies theme and font size settings to the DOM.
- * It replaces the functionality previously in AppProvider/AppContext.
  */
 export function AppEffects() {
-  const theme = useChatStore((state) => state.theme);
-  const fontSize = useChatStore((state) => state.fontSize);
-  const isHydrated = useChatStore((state) => state.isHydrated);
+  const theme = useUIStore((state) => state.theme);
+  const fontSize = useUIStore((state) => state.fontSize);
+  const isHydrated = useUIStore((state) => state.isHydrated);
 
   // Apply theme to DOM
   useEffect(() => {

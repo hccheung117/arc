@@ -4,6 +4,7 @@ import type { IChatRepository } from "../chats/chat-repository.type.js";
 import type { Provider } from "@arc/ai/provider.js";
 import type { IPlatformDatabase } from "@arc/platform";
 import { MessageStreamer } from "./message-streamer.js";
+import { RequestCancelledError } from "@arc/ai/errors.js";
 import { generateId } from "../shared/id-generator.js";
 
 /**
@@ -36,13 +37,14 @@ export class MessagesAPI {
     messageRepo: IMessageRepository,
     chatRepo: IChatRepository,
     db: IPlatformDatabase,
-    getProvider: (configId: string) => Promise<Provider>
+    getProvider: (configId: string) => Promise<Provider>,
+    streamer?: MessageStreamer
   ) {
     this.messageRepo = messageRepo;
     this.chatRepo = chatRepo;
     this.db = db;
     this.getProvider = getProvider;
-    this.streamer = new MessageStreamer();
+    this.streamer = streamer ?? new MessageStreamer();
   }
 
   /**
@@ -139,6 +141,9 @@ export class MessagesAPI {
       );
 
       for await (const chunk of stream) {
+        if (signal.aborted) {
+          throw new RequestCancelledError("Request was cancelled");
+        }
         newAssistantMessage.content += chunk.content;
         newAssistantMessage.status = "streaming";
         newAssistantMessage.updatedAt = Date.now();
@@ -149,6 +154,10 @@ export class MessagesAPI {
           content: newAssistantMessage.content,
           status: "streaming",
         };
+      }
+
+      if (signal.aborted) {
+        throw new RequestCancelledError("Request was cancelled");
       }
 
       newAssistantMessage.status = "complete";
@@ -165,20 +174,37 @@ export class MessagesAPI {
 
       return { messageId: newAssistantMessage.id };
     } catch (error) {
-      newAssistantMessage.status = "error";
-      newAssistantMessage.content = "An error occurred while regenerating.";
-      newAssistantMessage.updatedAt = Date.now();
-      await this.messageRepo.update(newAssistantMessage);
+      // Handle cancellation vs error
+      if (error instanceof RequestCancelledError || (error as any)?.name === 'RequestCancelledError') {
+        newAssistantMessage.status = "stopped";
+        newAssistantMessage.updatedAt = Date.now();
+        await this.messageRepo.update(newAssistantMessage);
 
-      this.streamer.completeStreaming(newAssistantMessage.id);
+        this.streamer.completeStreaming(newAssistantMessage.id);
 
-      yield {
-        messageId: newAssistantMessage.id,
-        content: newAssistantMessage.content,
-        status: "error",
-      };
+        yield {
+          messageId: newAssistantMessage.id,
+          content: newAssistantMessage.content,
+          status: "stopped",
+        };
 
-      throw error;
+        throw error;
+      } else {
+        newAssistantMessage.status = "error";
+        newAssistantMessage.content = "An error occurred while regenerating.";
+        newAssistantMessage.updatedAt = Date.now();
+        await this.messageRepo.update(newAssistantMessage);
+
+        this.streamer.completeStreaming(newAssistantMessage.id);
+
+        yield {
+          messageId: newAssistantMessage.id,
+          content: newAssistantMessage.content,
+          status: "error",
+        };
+
+        throw error;
+      }
     }
   }
 
@@ -245,9 +271,11 @@ export class MessagesAPI {
   }
 
   /**
-   * Stop any in-progress response generation
+   * Stop a specific in-progress response generation
+   *
+   * @param messageId - ID of the message to stop streaming
    */
-  async stop(): Promise<void> {
-    this.streamer.stopAll();
+  async stop(messageId: string): Promise<void> {
+    this.streamer.stopStreaming(messageId);
   }
 }

@@ -64,20 +64,20 @@ export function createDefaultRegistry(http: IPlatformHTTP): ProviderRegistry {
 
   registry.register("openai", (config) => {
     // Lazy import of OpenAI provider
-    const { OpenAI } = require("@arc/ai/providers/openai.js");
-    return new OpenAI(config, http);
+    const { OpenAIProvider } = require("@arc/ai/providers/openai.js");
+    return new OpenAIProvider(http, config);
   });
 
   registry.register("anthropic", (config) => {
     // Lazy import of Anthropic provider
-    const { Anthropic } = require("@arc/ai/providers/anthropic.js");
-    return new Anthropic(config, http);
+    const { AnthropicProvider } = require("@arc/ai/providers/anthropic.js");
+    return new AnthropicProvider(http, config);
   });
 
   registry.register("gemini", (config) => {
     // Lazy import of Gemini provider
-    const { Gemini } = require("@arc/ai/providers/gemini.js");
-    return new Gemini(config, http);
+    const { GeminiProvider } = require("@arc/ai/providers/gemini.js");
+    return new GeminiProvider(http, config);
   });
 
   return registry;

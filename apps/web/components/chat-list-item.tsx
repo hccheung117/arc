@@ -1,24 +1,28 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import type { Chat } from "@/lib/types";
-import { useChatStore } from "@/lib/chat-store";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
+
+interface Chat {
+  id: string;
+  title: string;
+  lastMessageAt: number;
+}
 
 interface ChatListItemProps {
   chat: Chat;
   isActive: boolean;
   onClick: () => void;
+  onRename?: (id: string, title: string) => void;
+  onDelete?: (id: string) => void;
 }
 
-export function ChatListItem({ chat, isActive, onClick }: ChatListItemProps) {
+export function ChatListItem({ chat, isActive, onClick, onRename, onDelete }: ChatListItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedTitle, setEditedTitle] = useState(chat.title);
   const [isHovered, setIsHovered] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const { renameChat, deleteChat } = useChatStore();
 
   // Format timestamp for display
   const formatTimestamp = (timestamp: number): string => {
@@ -52,8 +56,8 @@ export function ChatListItem({ chat, isActive, onClick }: ChatListItemProps) {
 
   const handleSave = () => {
     const trimmedTitle = editedTitle.trim();
-    if (trimmedTitle && trimmedTitle !== chat.title) {
-      renameChat(chat.id, trimmedTitle);
+    if (trimmedTitle && trimmedTitle !== chat.title && onRename) {
+      onRename(chat.id, trimmedTitle);
     } else {
       setEditedTitle(chat.title);
     }
@@ -75,8 +79,8 @@ export function ChatListItem({ chat, isActive, onClick }: ChatListItemProps) {
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (confirm(`Delete "${chat.title}"?`)) {
-      deleteChat(chat.id);
+    if (onDelete && confirm(`Delete "${chat.title}"?`)) {
+      onDelete(chat.id);
     }
   };
 

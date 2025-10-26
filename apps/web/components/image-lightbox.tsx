@@ -3,7 +3,7 @@
 import Lightbox from "yet-another-react-lightbox";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
 import "yet-another-react-lightbox/styles.css";
-import type { ImageAttachment } from "@/lib/types";
+import type { ImageAttachment } from "@arc/core/core.js";
 
 interface ImageLightboxProps {
   images: ImageAttachment[];
@@ -21,9 +21,9 @@ export function ImageLightbox({
   onIndexChange,
 }: ImageLightboxProps) {
   // Convert ImageAttachment[] to lightbox slides format
-  const slides = images.map((attachment) => ({
-    src: attachment.objectUrl,
-    alt: attachment.file.name,
+  const slides = images.map((attachment, idx) => ({
+    src: attachment.data,
+    alt: `Image ${idx + 1}`,
   }));
 
   return (

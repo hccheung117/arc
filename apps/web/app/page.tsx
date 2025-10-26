@@ -13,51 +13,49 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { MenuIcon, SettingsIcon, SendIcon, SearchIcon, Sparkles, ImageIcon, X, AlertCircle } from "lucide-react";
-import { ConnectProviderModal } from "@/components/connect-provider-modal";
 import { ModelSelector } from "@/components/model-selector";
-import { useChatStore } from "@/lib/chat-store";
 import { ChatListItem } from "@/components/chat-list-item";
 import { Message } from "@/components/message";
 import { ImageAttachmentChip } from "@/components/image-attachment-chip";
-import { ErrorBanner } from "@/components/error-banner";
 import { SearchBar } from "@/components/search-bar";
-import type { ImageAttachment } from "@/lib/types";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useChatAPI } from "@/lib/api/chat-api-provider";
+import { useCore } from "@/lib/core-provider";
+import { useUIStore } from "@/lib/ui-store";
+import type { Chat, Message as CoreMessage, ImageAttachment, ProviderConfig, SearchResult } from "@arc/core/core.js";
 
 export default function Home() {
-  const providerConfigs = useChatStore((state) => state.providerConfigs);
-  const setAPI = useChatStore((state) => state.setAPI);
-  const { api } = useChatAPI();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const core = useCore();
+
+  // UI state from Zustand
+  const sidebarOpen = useUIStore((state) => state.sidebarOpen);
+  const setSidebarOpen = useUIStore((state) => state.setSidebarOpen);
+
+  // Data state from Core
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [messages, setMessages] = useState<CoreMessage[]>([]);
+  const [providers, setProviders] = useState<ProviderConfig[]>([]);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [streamingChatId, setStreamingChatId] = useState<string | null>(null);
+
+  // UI state
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
-  const [providerModalOpen, setProviderModalOpen] = useState(false);
   const [messageInput, setMessageInput] = useState("");
-  const [selectedModel, setSelectedModel] = useState("gpt-4-turbo-preview"); // Default model
+  const [selectedModel, setSelectedModel] = useState("gpt-4-turbo-preview");
   const [attachedImages, setAttachedImages] = useState<ImageAttachment[]>([]);
   const [attachmentError, setAttachmentError] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Check if any provider is configured
-  const hasProvider = providerConfigs.length > 0;
-
-  // Per-chat search state
+  // Search state
   const [searchActive, setSearchActive] = useState(false);
   const [searchMatches, setSearchMatches] = useState<string[]>([]);
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
-
-  // Global search state (command palette)
   const [globalSearchQuery, setGlobalSearchQuery] = useState("");
-  const [globalSearchResults, setGlobalSearchResults] = useState<Array<{ message: { id: string; chatId: string; content: string; role: string; createdAt: number }; chatTitle: string }>>([]);
-
-  // Sidebar search state
+  const [globalSearchResults, setGlobalSearchResults] = useState<SearchResult[]>([]);
   const [sidebarSearchQuery, setSidebarSearchQuery] = useState("");
 
-  // Chat store
-  const chats = useChatStore((state) => state.chats);
-  const isHydrated = useChatStore((state) => state.isHydrated);
-  const transientChat = useChatStore((state) => state.transientChat);
+  // Check if any provider is configured
+  const hasProvider = providers.length > 0;
 
   // Filter chats based on sidebar search
   const filteredChats = sidebarSearchQuery.trim()
@@ -65,14 +63,7 @@ export default function Home() {
         chat.title.toLowerCase().includes(sidebarSearchQuery.toLowerCase())
       )
     : chats;
-  const activeChatId = useChatStore((state) => state.activeChatId);
-  const streamingChatId = useChatStore((state) => state.streamingChatId);
-  const createChat = useChatStore((state) => state.createChat);
-  const selectChat = useChatStore((state) => state.selectChat);
-  const sendMessage = useChatStore((state) => state.sendMessage);
-  const getActiveChatMessages = useChatStore((state) => state.getActiveChatMessages);
 
-  const messages = getActiveChatMessages();
   const isStreaming = streamingChatId === activeChatId;
 
   // Virtualization setup
@@ -80,32 +71,63 @@ export default function Home() {
   const virtualizer = useVirtualizer({
     count: messages.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 200, // Estimate average message height
-    overscan: 5, // Render 5 extra items above/below viewport
+    estimateSize: () => 200,
+    overscan: 5,
   });
 
-  // Auto-scroll to bottom when new messages arrive or during streaming
+  // Load initial data
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [chatList, providerList] = await Promise.all([
+          core.chats.list(),
+          core.providers.list(),
+        ]);
+
+        setChats(chatList);
+        setProviders(providerList);
+
+        // Auto-select first chat if available
+        if (chatList.length > 0 && !activeChatId) {
+          setActiveChatId(chatList[0]!.id);
+        }
+      } catch (error) {
+        console.error("Failed to load data:", error);
+      }
+    };
+
+    void loadData();
+  }, [core]);
+
+  // Load messages when active chat changes
+  useEffect(() => {
+    if (!activeChatId) {
+      setMessages([]);
+      return;
+    }
+
+    const loadMessages = async () => {
+      try {
+        const chatData = await core.chats.get(activeChatId);
+        if (chatData) {
+          setMessages(chatData.messages);
+        }
+      } catch (error) {
+        console.error("Failed to load messages:", error);
+      }
+    };
+
+    void loadMessages();
+  }, [activeChatId, core]);
+
+  // Auto-scroll to bottom when streaming
   useEffect(() => {
     if (messages.length > 0 && isStreaming) {
       virtualizer.scrollToIndex(messages.length - 1, { align: "end", behavior: "smooth" });
     }
   }, [messages.length, isStreaming, virtualizer]);
 
-  // Set API instance in store when it becomes available
-  useEffect(() => {
-    if (api) {
-      setAPI(api);
-    }
-  }, [api, setAPI]);
-
-  // Auto-create transient chat when there's no active chat
-  useEffect(() => {
-    if (isHydrated && !activeChatId && !transientChat) {
-      createChat("", true); // Create transient chat with empty title
-    }
-  }, [isHydrated, activeChatId, transientChat, createChat]);
-
-  // Keyboard shortcuts: Cmd/Ctrl+K for command palette, Cmd/Ctrl+F for search
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -115,7 +137,6 @@ export default function Home() {
       if ((e.metaKey || e.ctrlKey) && e.key === "f") {
         e.preventDefault();
         setSearchActive((prev) => !prev);
-        // Clear search when closing
         if (searchActive) {
           setSearchMatches([]);
           setCurrentMatchIndex(0);
@@ -127,105 +148,115 @@ export default function Home() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [searchActive]);
 
-  // Image attachment handlers
-  const validateImage = (file: File): string | null => {
-    // Check file type
-    const validTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
-    if (!validTypes.includes(file.type)) {
-      return `Invalid file type. Only PNG, JPEG, and WebP images are supported.`;
-    }
-
-    // Check file size (10MB max)
-    const maxSize = 10 * 1024 * 1024; // 10MB in bytes
-    if (file.size > maxSize) {
-      return `File size exceeds 10MB limit. "${file.name}" is ${(file.size / (1024 * 1024)).toFixed(1)}MB.`;
-    }
-
-    return null;
-  };
-
-  const addImageAttachment = (file: File) => {
-    const error = validateImage(file);
-    if (error) {
-      setAttachmentError(error);
+  // Global search
+  useEffect(() => {
+    if (!globalSearchQuery.trim()) {
+      setGlobalSearchResults([]);
       return;
     }
 
-    // Clear any previous errors
-    setAttachmentError("");
-
-    // Create object URL for preview
-    const objectUrl = URL.createObjectURL(file);
-    const attachment: ImageAttachment = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      file,
-      objectUrl,
-      size: file.size,
-      type: file.type,
-    };
-
-    setAttachedImages((prev) => [...prev, attachment]);
-  };
-
-  const removeImageAttachment = (id: string) => {
-    setAttachedImages((prev) => {
-      const removed = prev.find((img) => img.id === id);
-      if (removed) {
-        // Revoke object URL to prevent memory leak
-        URL.revokeObjectURL(removed.objectUrl);
+    const timer = setTimeout(async () => {
+      try {
+        const results = await core.search.messages(globalSearchQuery);
+        setGlobalSearchResults(results);
+      } catch (error) {
+        console.error("Global search error:", error);
+        setGlobalSearchResults([]);
       }
-      return prev.filter((img) => img.id !== id);
-    });
-  };
+    }, 300);
 
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
+    return () => clearTimeout(timer);
+  }, [globalSearchQuery, core]);
 
-    Array.from(files).forEach(addImageAttachment);
+  // Handlers
+  const handleCreateChat = async () => {
+    try {
+      // Create pending chat (will be persisted on first message)
+      core.chats.create({ title: "New Chat" });
 
-    // Reset input so same file can be selected again
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+      // For now, we'll just refresh the chat list
+      // The actual chat will be created when the first message is sent
+      const chatList = await core.chats.list();
+      setChats(chatList);
+
+      setSidebarOpen(false);
+    } catch (error) {
+      console.error("Failed to create chat:", error);
     }
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleSelectChat = async (chatId: string) => {
+    try {
+      // Stop any ongoing streaming
+      if (streamingChatId) {
+        await core.messages.stop();
+        setStreamingChatId(null);
+      }
 
-    const files = Array.from(e.dataTransfer.files);
-    files.filter((file) => file.type.startsWith("image/")).forEach(addImageAttachment);
+      setActiveChatId(chatId);
+      setSidebarOpen(false);
+    } catch (error) {
+      console.error("Failed to select chat:", error);
+    }
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-  };
+  const handleSendMessage = async () => {
+    const trimmedMessage = messageInput.trim();
+    if ((!trimmedMessage && attachedImages.length === 0) || !hasProvider || isStreaming) {
+      return;
+    }
 
-  const handlePaste = (e: React.ClipboardEvent) => {
-    const items = e.clipboardData.items;
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      if (item && item.type.startsWith("image/")) {
-        const file = item.getAsFile();
-        if (file) {
-          addImageAttachment(file);
+    if (!activeChatId) {
+      console.error("No active chat");
+      return;
+    }
+
+    // Get first enabled provider
+    const enabledProvider = providers.find(p => p.enabled);
+    if (!enabledProvider) {
+      console.error("No enabled provider");
+      return;
+    }
+
+    try {
+      setStreamingChatId(activeChatId);
+
+      const params = {
+        content: trimmedMessage || " ",
+        model: selectedModel,
+        providerConnectionId: enabledProvider.id,
+        ...(attachedImages.length > 0 && { images: attachedImages }),
+      };
+      const stream = core.chats.sendMessage(activeChatId, params);
+
+      // Clear input immediately
+      setMessageInput("");
+      setAttachedImages([]);
+      setAttachmentError("");
+
+      // Consume the stream
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      for await (const _update of stream) {
+        // Reload messages to show updates
+        const chatData = await core.chats.get(activeChatId);
+        if (chatData) {
+          setMessages(chatData.messages);
         }
       }
+
+      // Stream complete - reload chats to update lastMessageAt
+      const chatList = await core.chats.list();
+      setChats(chatList);
+
+      setStreamingChatId(null);
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      setStreamingChatId(null);
     }
   };
 
-  // Cleanup object URLs on unmount
-  useEffect(() => {
-    return () => {
-      attachedImages.forEach((img) => {
-        URL.revokeObjectURL(img.objectUrl);
-      });
-    };
-  }, [attachedImages]);
+  // Stopping is handled by Message component's onStop callback
 
-  // Search handlers
   const handleSearch = async (query: string) => {
     if (!query.trim() || !activeChatId) {
       setSearchMatches([]);
@@ -234,12 +265,11 @@ export default function Home() {
     }
 
     try {
-      const results = await api.search(query, activeChatId);
+      const results = await core.search.messagesInChat(activeChatId, query);
       const messageIds = results.map((result) => result.message.id);
       setSearchMatches(messageIds);
       setCurrentMatchIndex(messageIds.length > 0 ? 1 : 0);
 
-      // Scroll to first match
       if (messageIds.length > 0) {
         const firstMatchIndex = messages.findIndex((msg) => msg.id === messageIds[0]);
         if (firstMatchIndex !== -1) {
@@ -290,59 +320,102 @@ export default function Home() {
     setCurrentMatchIndex(0);
   };
 
-  // Global search handler (for command palette)
-  useEffect(() => {
-    if (!globalSearchQuery.trim()) {
-      setGlobalSearchResults([]);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      try {
-        const results = await api.search(globalSearchQuery); // No chatId = global search
-        setGlobalSearchResults(results);
-      } catch (error) {
-        console.error("Global search error:", error);
-        setGlobalSearchResults([]);
-      }
-    }, 300); // Debounce 300ms
-
-    return () => clearTimeout(timer);
-  }, [globalSearchQuery, api]);
-
-  const handleGlobalSearchResultClick = async (result: typeof globalSearchResults[0]) => {
-    // Close command palette
+  const handleGlobalSearchResultClick = async (result: SearchResult) => {
     setCommandPaletteOpen(false);
     setGlobalSearchQuery("");
     setGlobalSearchResults([]);
 
-    // Switch to the chat containing this message
     if (result.message.chatId !== activeChatId) {
-      selectChat(result.message.chatId);
-      // Wait for chat to load
+      await handleSelectChat(result.message.chatId);
       await new Promise(resolve => setTimeout(resolve, 100));
     }
 
-    // Scroll to the message
     const messageIndex = messages.findIndex(msg => msg.id === result.message.id);
     if (messageIndex !== -1) {
       virtualizer.scrollToIndex(messageIndex, { align: "center", behavior: "smooth" });
     }
   };
 
-  const handleSendMessage = () => {
-    const trimmedMessage = messageInput.trim();
-    if ((!trimmedMessage && attachedImages.length === 0) || !hasProvider || isStreaming) {
+  // Image attachment handlers
+  const validateImage = (file: File): string | null => {
+    const validTypes = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
+    if (!validTypes.includes(file.type)) {
+      return `Invalid file type. Only PNG, JPEG, and WebP images are supported.`;
+    }
+
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      return `File size exceeds 10MB limit. "${file.name}" is ${(file.size / (1024 * 1024)).toFixed(1)}MB.`;
+    }
+
+    return null;
+  };
+
+  const addImageAttachment = async (file: File) => {
+    const error = validateImage(file);
+    if (error) {
+      setAttachmentError(error);
       return;
     }
 
-    // Send message with attachments (if any)
-    sendMessage(trimmedMessage || " ", attachedImages, selectedModel);
-
-    // Clear input and attachments
-    setMessageInput("");
-    setAttachedImages([]);
     setAttachmentError("");
+
+    // Convert file to base64
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result as string;
+      const attachment: ImageAttachment = {
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        data: base64,
+        mimeType: file.type,
+        size: file.size,
+        name: file.name,
+      };
+
+      setAttachedImages((prev) => [...prev, attachment]);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeImageAttachment = (index: number) => {
+    setAttachedImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    Array.from(files).forEach(addImageAttachment);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const files = Array.from(e.dataTransfer.files);
+    files.filter((file) => file.type.startsWith("image/")).forEach(addImageAttachment);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item && item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) {
+          addImageAttachment(file);
+        }
+      }
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -352,30 +425,25 @@ export default function Home() {
     }
   };
 
-  // Auto-resize textarea based on content
+  // Auto-resize textarea
   useEffect(() => {
     const textarea = textareaRef.current;
     if (!textarea) return;
 
-    // Reset height to get accurate scrollHeight
     textarea.style.height = "auto";
-    
-    // Calculate new height (max 10 lines)
-    const lineHeight = 20; // approximate line height in pixels
+    const lineHeight = 20;
     const maxHeight = lineHeight * 10;
     const newHeight = Math.min(textarea.scrollHeight, maxHeight);
-    
     textarea.style.height = `${newHeight}px`;
   }, [messageInput]);
 
-  // Find the last assistant message for regenerate detection
   const lastAssistantMessage = messages
     .filter((msg) => msg.role === "assistant")
     .pop();
 
   return (
     <div className="flex h-screen">
-      {/* Mobile menu button - visible only on <md */}
+      {/* Mobile menu button */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
         className="md:hidden fixed top-3 left-3 z-50 p-2 rounded-md bg-background border hover:bg-accent"
@@ -395,9 +463,7 @@ export default function Home() {
         `}
       >
         <div className="flex flex-col h-full">
-          {/* Sidebar header */}
           <div className="p-4 border-b border-sidebar-border space-y-3">
-            {/* Search input */}
             <div className="relative">
               <SearchIcon className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
               <Input
@@ -408,22 +474,18 @@ export default function Home() {
                 className="pl-8 h-9"
               />
             </div>
-            
+
             <Button
               variant="outline"
               className="w-full"
               size="sm"
-              onClick={() => {
-                createChat("", true); // Create transient chat
-                setSidebarOpen(false);
-              }}
+              onClick={handleCreateChat}
             >
               <Sparkles className="size-4 mr-2" />
               New Chat
             </Button>
           </div>
 
-          {/* Chat list */}
           <ScrollArea className="flex-1">
             <div className="p-2">
               {filteredChats.map((chat) => (
@@ -431,10 +493,7 @@ export default function Home() {
                   key={chat.id}
                   chat={chat}
                   isActive={chat.id === activeChatId}
-                  onClick={() => {
-                    selectChat(chat.id);
-                    setSidebarOpen(false);
-                  }}
+                  onClick={() => handleSelectChat(chat.id)}
                 />
               ))}
             </div>
@@ -442,7 +501,7 @@ export default function Home() {
         </div>
       </aside>
 
-      {/* Main content area */}
+      {/* Main content */}
       <div className="flex flex-1 flex-col min-w-0">
         {/* Header */}
         <header className="border-b h-14 flex items-center justify-between px-4 md:px-6">
@@ -480,7 +539,6 @@ export default function Home() {
           style={{ position: 'relative' }}
         >
           {messages.length > 0 ? (
-            // Virtualized message list
             <div
               style={{
                 height: `${virtualizer.getTotalSize()}px`,
@@ -488,9 +546,6 @@ export default function Home() {
                 position: 'relative',
               }}
             >
-              <div className="max-w-3xl mx-auto p-4 md:p-6">
-                <ErrorBanner />
-              </div>
               {virtualizer.getVirtualItems().map((virtualItem) => {
                 const message = messages[virtualItem.index];
                 if (!message) return null;
@@ -520,7 +575,6 @@ export default function Home() {
               })}
             </div>
           ) : !hasProvider ? (
-            // Empty state when no provider is configured
             <div className="flex h-full items-center justify-center p-8">
               <div className="max-w-md text-center space-y-4">
                 <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
@@ -528,7 +582,7 @@ export default function Home() {
                 </div>
                 <h2 className="text-2xl font-semibold">Welcome to Arc</h2>
                 <p className="text-muted-foreground">
-                  To get started, configure an AI provider in settings. Your API key is stored locally and never leaves your device.
+                  To get started, configure an AI provider in settings.
                 </p>
                 <Link href="/settings">
                   <Button>Open Settings</Button>
@@ -536,7 +590,6 @@ export default function Home() {
               </div>
             </div>
           ) : (
-            // Empty state when chat has no messages but provider is configured
             <div className="flex h-full items-center justify-center p-8">
               <div className="max-w-md text-center space-y-2">
                 <p className="text-muted-foreground">No messages yet</p>
@@ -555,7 +608,6 @@ export default function Home() {
           onDragOver={handleDragOver}
         >
           <div className="space-y-3 px-2 md:px-4">
-            {/* Error banner */}
             {attachmentError && (
               <div className="flex items-center gap-2 px-3 py-2 bg-destructive/10 border border-destructive/20 rounded-lg text-sm">
                 <AlertCircle className="size-4 text-destructive flex-shrink-0" />
@@ -572,21 +624,18 @@ export default function Home() {
               </div>
             )}
 
-            {/* Preview chips */}
             {attachedImages.length > 0 && (
               <div className="flex gap-2 flex-wrap">
-                {attachedImages.map((attachment) => (
+                {attachedImages.map((attachment, index) => (
                   <ImageAttachmentChip
-                    key={attachment.id}
+                    key={index}
                     attachment={attachment}
-                    onRemove={() => removeImageAttachment(attachment.id)}
+                    onRemove={() => removeImageAttachment(index)}
                   />
                 ))}
               </div>
             )}
 
-            {/* Input area */}
-            {/* Hidden file input */}
             <input
               ref={fileInputRef}
               type="file"
@@ -597,62 +646,57 @@ export default function Home() {
               aria-hidden="true"
             />
 
-            {/* Unified input container - vertically stacked */}
             <div className="border rounded-lg bg-background focus-within:ring-2 focus-within:ring-ring transition-shadow">
-                {/* Textarea section (top) */}
-                <div className="px-4 pt-3 pb-2">
-                  <textarea
-                    ref={textareaRef}
-                    rows={1}
-                    placeholder={
-                      !hasProvider
-                        ? "Configure a provider in settings first..."
-                        : isStreaming
-                          ? "Waiting for response..."
-                          : "Ask anything"
-                    }
-                    className="w-full bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 resize-none overflow-y-auto"
-                    aria-label="Message input"
-                    value={messageInput}
-                    onChange={(e) => setMessageInput(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    onPaste={handlePaste}
-                    disabled={!hasProvider || isStreaming}
-                  />
-                </div>
+              <div className="px-4 pt-3 pb-2">
+                <textarea
+                  ref={textareaRef}
+                  rows={1}
+                  placeholder={
+                    !hasProvider
+                      ? "Configure a provider in settings first..."
+                      : isStreaming
+                        ? "Waiting for response..."
+                        : "Ask anything"
+                  }
+                  className="w-full bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 resize-none overflow-y-auto"
+                  aria-label="Message input"
+                  value={messageInput}
+                  onChange={(e) => setMessageInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onPaste={handlePaste}
+                  disabled={!hasProvider || isStreaming}
+                />
+              </div>
 
-                {/* Controls bar (bottom) */}
-                <div className="px-3 pb-2 flex items-center gap-1">
-                  {/* Attachment button */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 shrink-0 hover:bg-accent"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={!hasProvider || isStreaming}
-                    aria-label="Attach image"
-                  >
-                    <ImageIcon className="size-4" />
-                  </Button>
+              <div className="px-3 pb-2 flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 hover:bg-accent"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={!hasProvider || isStreaming}
+                  aria-label="Attach image"
+                >
+                  <ImageIcon className="size-4" />
+                </Button>
 
-                  <div className="flex-1" />
+                <div className="flex-1" />
 
-                  {/* Send button */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 shrink-0 hover:bg-accent disabled:opacity-30"
-                    aria-label="Send message"
-                    onClick={handleSendMessage}
-                    disabled={
-                      !hasProvider ||
-                      isStreaming ||
-                      (!messageInput.trim() && attachedImages.length === 0)
-                    }
-                  >
-                    <SendIcon className="size-4" />
-                  </Button>
-                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 hover:bg-accent disabled:opacity-30"
+                  aria-label="Send message"
+                  onClick={handleSendMessage}
+                  disabled={
+                    !hasProvider ||
+                    isStreaming ||
+                    (!messageInput.trim() && attachedImages.length === 0)
+                  }
+                >
+                  <SendIcon className="size-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -687,7 +731,6 @@ export default function Home() {
             />
           </div>
 
-          {/* Search Results */}
           {globalSearchResults.length > 0 && (
             <ScrollArea className="max-h-96">
               <div className="space-y-2 pr-4">
@@ -719,7 +762,6 @@ export default function Home() {
             </ScrollArea>
           )}
 
-          {/* Empty state */}
           {globalSearchQuery && globalSearchResults.length === 0 && (
             <div className="text-center py-8 text-sm text-muted-foreground">
               No messages found matching &quot;{globalSearchQuery}&quot;
@@ -738,11 +780,6 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
-      {/* Connect Provider Modal */}
-      <ConnectProviderModal
-        open={providerModalOpen}
-        onOpenChange={setProviderModalOpen}
-      />
     </div>
   );
 }

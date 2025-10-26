@@ -1,37 +1,58 @@
 "use client";
 
 import { useState } from "react";
-import type { Message as MessageType } from "@/lib/types";
-import { useChatStore } from "@/lib/chat-store";
 import { Button } from "@/components/ui/button";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { ImageBubble } from "@/components/image-bubble";
 import { StopCircle, RotateCcw, Trash2 } from "lucide-react";
 
+interface MessageType {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  status: "pending" | "streaming" | "complete" | "stopped" | "error";
+  attachments?: Array<{ data: string; mimeType: string; id: string; size: number; name?: string }>;
+}
+
 interface MessageProps {
   message: MessageType;
   isLatestAssistant: boolean;
   isHighlighted?: boolean;
+  onStop?: () => void;
+  onRegenerate?: (messageId: string) => void;
+  onDelete?: (messageId: string) => void;
 }
 
-export function Message({ message, isLatestAssistant, isHighlighted = false }: MessageProps) {
+export function Message({
+  message,
+  isLatestAssistant,
+  isHighlighted = false,
+  onStop,
+  onRegenerate,
+  onDelete
+}: MessageProps) {
   const [isHovered, setIsHovered] = useState(false);
-  const { stopStreaming, regenerateMessage, deleteMessage } = useChatStore();
 
   const isUser = message.role === "user";
   const isStreaming = message.status === "streaming";
   const isStopped = message.status === "stopped";
 
   const handleStop = () => {
-    stopStreaming();
+    if (onStop) {
+      onStop();
+    }
   };
 
   const handleRegenerate = () => {
-    regenerateMessage(message.id);
+    if (onRegenerate) {
+      onRegenerate(message.id);
+    }
   };
 
   const handleDelete = () => {
-    deleteMessage(message.id);
+    if (onDelete) {
+      onDelete(message.id);
+    }
   };
 
   // Determine which actions to show

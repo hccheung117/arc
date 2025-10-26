@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -11,33 +11,33 @@ import { Slider } from "@/components/ui/slider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { SettingsSidebar } from "@/components/settings-sidebar";
-import { useChatStore, type ProviderConfig } from "@/lib/chat-store";
+import { useUIStore } from "@/lib/ui-store";
 import { ArrowLeft, Moon, Sun, Monitor, Plus, AlertCircle } from "lucide-react";
 import { ProviderCard } from "@/components/provider-card";
 import { ProviderFormDialog } from "@/components/provider-form-dialog";
-import { OpenAIProvider } from "@arc/ai/openai/OpenAIProvider.js";
-import { AnthropicProvider } from "@arc/ai/anthropic/AnthropicProvider.js";
-import { GeminiProvider } from "@arc/ai/gemini/GeminiProvider.js";
-import { BrowserFetch } from "@arc/platform-browser/http/BrowserFetch.js";
+import { useCore } from "@/lib/core-provider";
+import type { ProviderConfig } from "@arc/core/core.js";
 
-const PROVIDER_NAMES: Record<ProviderConfig["provider"], string> = {
+const PROVIDER_NAMES: Record<ProviderConfig["type"], string> = {
   openai: "OpenAI",
   anthropic: "Anthropic",
-  google: "Google",
+  gemini: "Google Gemini",
+  custom: "Custom",
 };
 
 export default function SettingsPage() {
+  const core = useCore();
   const searchParams = useSearchParams();
   const activeTab = searchParams?.get("tab") || "appearance";
 
-  const theme = useChatStore((state) => state.theme);
-  const setTheme = useChatStore((state) => state.setTheme);
-  const fontSize = useChatStore((state) => state.fontSize);
-  const setFontSize = useChatStore((state) => state.setFontSize);
-  const providerConfigs = useChatStore((state) => state.providerConfigs);
-  const addProvider = useChatStore((state) => state.addProvider);
-  const updateProvider = useChatStore((state) => state.updateProvider);
-  const deleteProvider = useChatStore((state) => state.deleteProvider);
+  // UI state from Zustand
+  const theme = useUIStore((state) => state.theme);
+  const setTheme = useUIStore((state) => state.setTheme);
+  const fontSize = useUIStore((state) => state.fontSize);
+  const setFontSize = useUIStore((state) => state.setFontSize);
+
+  // Provider state
+  const [providerConfigs, setProviderConfigs] = useState<ProviderConfig[]>([]);
 
   // Dialog state
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -48,6 +48,20 @@ export default function SettingsPage() {
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Load providers on mount
+  useEffect(() => {
+    const loadProviders = async () => {
+      try {
+        const providers = await core.providers.list();
+        setProviderConfigs(providers);
+      } catch (error) {
+        console.error("Failed to load providers:", error);
+      }
+    };
+
+    void loadProviders();
+  }, [core]);
 
   const handleAddProvider = () => {
     setDialogMode("add");
@@ -62,65 +76,80 @@ export default function SettingsPage() {
     setIsDialogOpen(true);
   };
 
-  const handleSaveProvider = (config: Partial<ProviderConfig>, originalBaseUrl?: string) => {
-    if (dialogMode === "add") {
-      // Check if provider already exists
-      const exists = providerConfigs.some((p) => p.provider === config.provider);
-      if (exists) {
-        setTestError(`Provider ${config.provider} is already configured`);
-        return;
-      }
-      addProvider(config as Omit<ProviderConfig, "id">);
+  const handleSaveProvider = async (
+    configData: Partial<ProviderConfig>
+  ) => {
+    try {
+      if (dialogMode === "add") {
+        // Check if provider type already exists
+        const exists = providerConfigs.some((p) => p.type === configData.type);
+        if (exists) {
+          setTestError(`Provider ${configData.type} is already configured`);
+          return;
+        }
 
-      // Check if URL was normalized and show success message
-      const normalizedUrl = config.baseUrl;
-      const wasNormalized = originalBaseUrl && normalizedUrl && originalBaseUrl !== normalizedUrl;
+        // Create provider
+        await core.providers.create({
+          name: configData.name || `${configData.type} Provider`,
+          type: configData.type as ProviderConfig["type"],
+          apiKey: configData.apiKey || "",
+          baseUrl: configData.baseUrl || "",
+          enabled: configData.enabled ?? true,
+          ...(configData.customHeaders && { customHeaders: configData.customHeaders }),
+          ...(configData.defaultModel && { defaultModel: configData.defaultModel }),
+        });
 
-      if (wasNormalized) {
-        setSuccessMessage(`Provider added successfully. Base URL normalized to: ${normalizedUrl}`);
-        // Auto-dismiss after 5 seconds
+        setSuccessMessage(`Provider added successfully`);
         setTimeout(() => setSuccessMessage(null), 5000);
+      } else if (editingProvider) {
+        // Update provider
+        await core.providers.update(editingProvider.id, {
+          ...(configData.name !== undefined && { name: configData.name }),
+          ...(configData.apiKey !== undefined && { apiKey: configData.apiKey }),
+          ...(configData.baseUrl !== undefined && { baseUrl: configData.baseUrl }),
+          ...(configData.customHeaders !== undefined && { customHeaders: configData.customHeaders }),
+          ...(configData.defaultModel !== undefined && { defaultModel: configData.defaultModel }),
+          ...(configData.enabled !== undefined && { enabled: configData.enabled }),
+        });
       }
-    } else if (editingProvider) {
-      updateProvider(editingProvider.id, config);
+
+      setTestError(null);
+      setIsDialogOpen(false);
+
+      // Reload providers
+      const providers = await core.providers.list();
+      setProviderConfigs(providers);
+    } catch (error) {
+      console.error("Failed to save provider:", error);
+      setTestError(error instanceof Error ? error.message : "Failed to save provider");
     }
-    setTestError(null);
   };
 
-  const handleDeleteProvider = (id: string, providerName: string) => {
+  const handleDeleteProvider = async (id: string, providerName: string) => {
     if (confirm(`Are you sure you want to delete ${providerName}? This action cannot be undone.`)) {
-      deleteProvider(id);
+      try {
+        await core.providers.delete(id);
+
+        // Reload providers
+        const providers = await core.providers.list();
+        setProviderConfigs(providers);
+      } catch (error) {
+        console.error("Failed to delete provider:", error);
+        setTestError(error instanceof Error ? error.message : "Failed to delete provider");
+      }
     }
   };
 
   const handleTestProvider = async (config: ProviderConfig) => {
-    setTestingProvider(config.provider);
+    setTestingProvider(config.id);
     setTestError(null);
 
     try {
-      const http = new BrowserFetch();
-
-      let provider;
-      if (config.provider === "openai") {
-        provider = new OpenAIProvider(http, config.apiKey || "", config.baseUrl || undefined);
-      } else if (config.provider === "anthropic") {
-        provider = new AnthropicProvider(http, config.apiKey || "", {
-          ...(config.baseUrl ? { baseUrl: config.baseUrl } : {}),
-          defaultMaxTokens: 4096,
-        });
-      } else if (config.provider === "google") {
-        provider = new GeminiProvider(http, config.apiKey || "", {
-          ...(config.baseUrl ? { baseUrl: config.baseUrl } : {}),
-        });
-      } else {
-        throw new Error(`Provider ${config.provider} is not supported`);
-      }
-
-      await provider.healthCheck();
-      alert(`Connection to ${config.provider} successful!`);
+      await core.providers.checkConnection(config.id);
+      alert(`Connection to ${config.name} successful!`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Connection failed";
-      setTestError(`${config.provider}: ${message}`);
+      setTestError(`${config.name}: ${message}`);
     } finally {
       setTestingProvider(null);
     }
@@ -245,7 +274,7 @@ export default function SettingsPage() {
               <div>
                 <h2 className="text-xl font-semibold">AI Providers</h2>
                 <p className="text-sm text-muted-foreground">
-                  Configure multiple AI providers. We&apos;ll automatically detect which provider works with your credentials.
+                  Configure multiple AI providers.
                 </p>
               </div>
               <Button onClick={handleAddProvider}>
@@ -287,9 +316,9 @@ export default function SettingsPage() {
                     key={config.id}
                     config={config}
                     onEdit={() => handleEditProvider(config)}
-                    onDelete={() => handleDeleteProvider(config.id, PROVIDER_NAMES[config.provider])}
+                    onDelete={() => handleDeleteProvider(config.id, PROVIDER_NAMES[config.type] || config.name)}
                     onTest={() => handleTestProvider(config)}
-                    isTesting={testingProvider === config.provider}
+                    isTesting={testingProvider === config.id}
                   />
                 ))}
               </div>
@@ -300,13 +329,15 @@ export default function SettingsPage() {
       </main>
 
       {/* Provider Form Dialog */}
-      <ProviderFormDialog
-        open={isDialogOpen}
-        onOpenChange={setIsDialogOpen}
-        onSave={handleSaveProvider}
-        initialConfig={editingProvider}
-        mode={dialogMode}
-      />
+      {isDialogOpen && (
+        <ProviderFormDialog
+          open={isDialogOpen}
+          onOpenChange={setIsDialogOpen}
+          onSave={handleSaveProvider}
+          initialConfig={editingProvider}
+          mode={dialogMode}
+        />
+      )}
     </div>
       </SidebarInset>
     </SidebarProvider>
