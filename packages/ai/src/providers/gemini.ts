@@ -8,7 +8,7 @@ import type {
   ProviderCapabilities,
   ImageAttachment,
   AIConfig,
-} from "../provider.js";
+} from "../provider.type.js";
 import {
   AIError,
   ProviderAuthError,

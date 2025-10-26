@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "turbo run build",
+    "build": "pnpm lint && turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "typecheck": "turbo run check-types",
@@ -16,6 +16,7 @@
     "@vitest/ui": "^3.2.4",
     "eslint": "^9.34.0",
     "eslint-config-prettier": "^10.1.1",
+    "eslint-plugin-dirnames": "^1.0.3",
     "eslint-plugin-only-warn": "^1.1.0",
     "eslint-plugin-turbo": "^2.5.0",
     "eslint-plugin-unicorn": "^62.0.0",

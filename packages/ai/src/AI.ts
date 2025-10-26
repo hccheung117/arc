@@ -8,7 +8,7 @@ import type {
   ModelInfo,
   ProviderCapabilities,
   ImageAttachment,
-} from "./provider.js";
+} from "./provider.type.js";
 import type { PlatformHTTP } from "@arc/platform/contracts/http.js";
 import { OpenAIProvider } from "./providers/openai.js";
 import { AnthropicProvider } from "./providers/anthropic.js";

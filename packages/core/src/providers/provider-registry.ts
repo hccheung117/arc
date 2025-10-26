@@ -1,4 +1,4 @@
-import type { Provider, AIConfig, ProviderType } from "@arc/ai/provider.js";
+import type { Provider, AIConfig, ProviderType } from "@arc/ai/provider.type.js";
 import type { PlatformHTTP } from "@arc/platform";
 
 /**

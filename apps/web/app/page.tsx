@@ -36,6 +36,7 @@ export default function Home() {
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [streamingChatId, setStreamingChatId] = useState<string | null>(null);
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
 
   // UI state
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -188,9 +189,10 @@ export default function Home() {
   const handleSelectChat = async (chatId: string) => {
     try {
       // Stop any ongoing streaming
-      if (streamingChatId) {
-        await core.messages.stop();
+      if (streamingChatId && streamingMessageId) {
+        await core.messages.stop(streamingMessageId);
         setStreamingChatId(null);
+        setStreamingMessageId(null);
       }
 
       setActiveChatId(chatId);
@@ -235,8 +237,10 @@ export default function Home() {
       setAttachmentError("");
 
       // Consume the stream
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      for await (const _update of stream) {
+      for await (const update of stream) {
+        // Track the streaming message ID
+        setStreamingMessageId(update.messageId);
+        
         // Reload messages to show updates
         const chatData = await core.chats.get(activeChatId);
         if (chatData) {
@@ -249,9 +253,11 @@ export default function Home() {
       setChats(chatList);
 
       setStreamingChatId(null);
+      setStreamingMessageId(null);
     } catch (error) {
       console.error("Failed to send message:", error);
       setStreamingChatId(null);
+      setStreamingMessageId(null);
     }
   };
 

@@ -13,9 +13,9 @@
       "default": "./src/ai.ts"
     },
     "./provider.js": {
-      "types": "./src/provider.ts",
-      "import": "./src/provider.ts",
-      "default": "./src/provider.ts"
+      "types": "./src/provider.type.ts",
+      "import": "./src/provider.type.ts",
+      "default": "./src/provider.type.ts"
     },
     "./provider.type.js": {
       "types": "./src/provider.type.ts",

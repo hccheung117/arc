@@ -145,16 +145,16 @@ if (caps.supportsVision) {
 ### Error Handling
 
 ```ts
-import { ProviderError } from '@arc/core/domain/ProviderError.js';
+import { AIError, ProviderAuthError, ProviderRateLimitError } from '@arc/ai/errors.js';
 
 try {
   const out = await ai.chat.model('model-id').userSays('Hi').generate();
   console.log(out.content);
 } catch (err) {
-  if (err instanceof ProviderError) {
-    console.error(err.code, err.getUserMessage());
+  if (err instanceof AIError) {
+    console.error(err.name, err.message);
     if (err.isRetryable && err.retryAfter) {
-      // retry after err.retryAfter seconds
+      // Retry after err.retryAfter seconds
     }
   }
 }

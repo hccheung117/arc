@@ -5,6 +5,7 @@ import tseslint from "typescript-eslint";
 import onlyWarn from "eslint-plugin-only-warn";
 import vitest from "eslint-plugin-vitest";
 import unicorn from "eslint-plugin-unicorn";
+import dirnames from "eslint-plugin-dirnames";
 
 /**
  * Shared ESLint configuration for the Arc monorepo.
@@ -27,12 +28,6 @@ export default [
     },
   },
 
-  // Convert all errors to warnings
-  {
-    plugins: {
-      onlyWarn,
-    },
-  },
 
   // Vitest rules for test files
   {
@@ -54,6 +49,7 @@ export default [
   {
     plugins: {
       unicorn,
+      dirnames,
     },
     rules: {
       // VIOLATION 5: Enforce kebab-case filenames
@@ -92,6 +88,83 @@ export default [
               message:
                 "Barrel imports are forbidden. Import directly from source files (e.g., './module.js' not './index.js').",
             },
+          ],
+        },
+      ],
+
+      // Ban export-all re-exports (barrel pattern)
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "ExportAllDeclaration",
+          message: "Barrel or re-export-all is forbidden. Import directly from source files.",
+        },
+      ],
+
+      // Enforce kebab-case directory names
+      "dirnames/match-kebab-case": "error",
+    },
+  },
+
+  // Layer boundary enforcement: Platform (lowest layer)
+  {
+    files: ["packages/platform/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            { group: ["@arc/core", "@arc/core/*"], message: "Platform must not import from @arc/core." },
+            { group: ["@arc/ai", "@arc/ai/*"], message: "Platform must not import from @arc/ai." },
+            { group: ["@arc/db", "@arc/db/*"], message: "Platform must not import from @arc/db." },
+            { group: ["apps/*"], message: "Platform must not import from apps/*." },
+          ],
+        },
+      ],
+    },
+  },
+
+  // Layer boundary enforcement: AI (module layer)
+  {
+    files: ["packages/ai/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            { group: ["@arc/core", "@arc/core/*"], message: "AI must not import from @arc/core." },
+            { group: ["apps/*"], message: "AI must not import from apps/*." },
+          ],
+        },
+      ],
+    },
+  },
+
+  // Layer boundary enforcement: DB (module layer)
+  {
+    files: ["packages/db/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            { group: ["@arc/core", "@arc/core/*"], message: "DB must not import from @arc/core." },
+            { group: ["apps/*"], message: "DB must not import from apps/*." },
+          ],
+        },
+      ],
+    },
+  },
+
+  // Layer boundary enforcement: Core (middle layer)
+  {
+    files: ["packages/core/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            { group: ["apps/*"], message: "Core must not import from apps/*." },
           ],
         },
       ],

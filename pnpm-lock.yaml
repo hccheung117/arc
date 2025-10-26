@@ -20,6 +20,9 @@ importers:
       eslint-config-prettier:
         specifier: ^10.1.1
         version: 10.1.1(eslint@9.34.0(jiti@2.6.1))
+      eslint-plugin-dirnames:
+        specifier: ^1.0.3
+        version: 1.0.3(kebab-case@1.0.0)
       eslint-plugin-only-warn:
         specifier: ^1.1.0
         version: 1.1.0
@@ -2815,6 +2818,11 @@ packages:
       eslint-import-resolver-webpack:
         optional: true
 
+  eslint-plugin-dirnames@1.0.3:
+    resolution: {integrity: sha512-6qsQbrrDlBz600QxOHcxtjiOjV5HD9YgTzHWDa5u/WlaocVywqyy2bSWpm/+3GyOigP7NUtrP1TgnpI7g8YQoQ==}
+    peerDependencies:
+      kebab-case: 1.0.0
+
   eslint-plugin-import@2.32.0:
     resolution: {integrity: sha512-whOE1HFo/qJDyX4SnXzP4N6zOWn79WhnCUY/iDR0mPfQZO8wcYE4JClzI2oZrhBnnMUCBCHZhO6VQyoBU95mZA==}
     engines: {node: '>=4'}
@@ -3474,6 +3482,9 @@ packages:
   katex@0.16.25:
     resolution: {integrity: sha512-woHRUZ/iF23GBP1dkDQMh1QBad9dmr8/PAwNA54VrSOVYgI12MAcE14TqnDdQOdzyEonGzMepYnqBMYdsoAr8Q==}
     hasBin: true
+
+  kebab-case@1.0.0:
+    resolution: {integrity: sha512-6WwghqxMyJC1D6OSfGKz4KcH/YdtzIrucmkY+DV0oLVCKsYJ+KFar4tYyX81ZjqOV2WXIZe81WmgUZ6wVYyOAQ==}
 
   keyv@4.5.4:
     resolution: {integrity: sha512-oxVHkHR/EJf2CNXnWxRLW6mg7JyCCUcG0DtEGmL2ctUo1PNTin1PUil+r/+4r5MpVgC/fn1kjsx7mjSujKqIpw==}
@@ -7538,6 +7549,10 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  eslint-plugin-dirnames@1.0.3(kebab-case@1.0.0):
+    dependencies:
+      kebab-case: 1.0.0
+
   eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.40.0(eslint@9.34.0(jiti@2.6.1))(typescript@5.9.2))(eslint-import-resolver-typescript@3.10.1)(eslint@9.34.0(jiti@2.6.1)):
     dependencies:
       '@rtsao/scc': 1.1.0
@@ -8388,6 +8403,8 @@ snapshots:
   katex@0.16.25:
     dependencies:
       commander: 8.3.0
+
+  kebab-case@1.0.0: {}
 
   keyv@4.5.4:
     dependencies:
