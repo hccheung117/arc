@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import type { IPlatformHTTP, HTTPResponse } from "@arc/platform/contracts/http.js";
+import type { PlatformHTTP, HTTPResponse } from "@arc/platform/contracts/http.js";
 import { OpenAIProvider } from "../src/providers/openai.js";
 import type { ChatMessage, ImageAttachment } from "../src/provider.type.js";
 import { ProviderAuthError, ProviderRateLimitError } from "../src/errors.js";
@@ -10,7 +10,7 @@ import { ProviderAuthError, ProviderRateLimitError } from "../src/errors.js";
  * Tests OpenAI-specific implementation details beyond the basic contract.
  */
 describe("OpenAIProvider", () => {
-  let http: IPlatformHTTP;
+  let http: PlatformHTTP;
   let provider: OpenAIProvider;
 
   beforeEach(() => {

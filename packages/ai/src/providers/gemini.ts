@@ -48,6 +48,9 @@ interface GenerateContentRequest {
     role: "user";
     parts: GeminiTextPart[];
   };
+  generationConfig?: {
+    temperature?: number;
+  };
 }
 
 interface GenerateContentResponse {
@@ -360,7 +363,7 @@ export class GeminiProvider implements Provider {
   async *streamChatCompletion(
     messages: ChatMessage[],
     model: string,
-    options?: { signal?: AbortSignal }
+    options?: { signal?: AbortSignal; temperature?: number; systemPrompt?: string }
   ): AsyncGenerator<ChatChunk, void, undefined> {
     const { systemInstruction, contents } = this.convertMessages(messages);
 
@@ -371,6 +374,12 @@ export class GeminiProvider implements Provider {
     if (systemInstruction) {
       request.systemInstruction = systemInstruction;
     }
+
+    // Add generation config with temperature
+    const temperature = options?.temperature ?? 1.0;
+    request.generationConfig = {
+      temperature,
+    };
 
     try {
       // Ensure model has the correct format
@@ -465,7 +474,7 @@ export class GeminiProvider implements Provider {
   async generateChatCompletion(
     messages: ChatMessage[],
     model: string,
-    options?: { signal?: AbortSignal }
+    options?: { signal?: AbortSignal; temperature?: number; systemPrompt?: string }
   ): Promise<ChatResult> {
     const { systemInstruction, contents } = this.convertMessages(messages);
 
@@ -476,6 +485,12 @@ export class GeminiProvider implements Provider {
     if (systemInstruction) {
       request.systemInstruction = systemInstruction;
     }
+
+    // Add generation config with temperature
+    const temperature = options?.temperature ?? 1.0;
+    request.generationConfig = {
+      temperature,
+    };
 
     try {
       // Ensure model has the correct format

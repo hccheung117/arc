@@ -200,6 +200,20 @@ export interface Provider {
        * AbortSignal for request cancellation
        */
       signal?: AbortSignal;
+      /**
+       * Temperature for response generation (0.0 to 2.0)
+       * Controls randomness: lower is more focused, higher is more creative
+       * Default varies by provider (typically 0.7-1.0)
+       */
+      temperature?: number;
+      /**
+       * System prompt to override default behavior
+       * Note: Not all providers support system prompts in the same way
+       *
+       * @experimental Phase 8 - Interface defined early to reduce churn.
+       *               Providers will implement this in Phase 8.
+       */
+      systemPrompt?: string;
     }
   ): AsyncGenerator<ChatChunk, void, undefined>;
 
@@ -229,6 +243,20 @@ export interface Provider {
        * AbortSignal for request cancellation
        */
       signal?: AbortSignal;
+      /**
+       * Temperature for response generation (0.0 to 2.0)
+       * Controls randomness: lower is more focused, higher is more creative
+       * Default varies by provider (typically 0.7-1.0)
+       */
+      temperature?: number;
+      /**
+       * System prompt to override default behavior
+       * Note: Not all providers support system prompts in the same way
+       *
+       * @experimental Phase 8 - Interface defined early to reduce churn.
+       *               Providers will implement this in Phase 8.
+       */
+      systemPrompt?: string;
     }
   ): Promise<ChatResult>;
 }

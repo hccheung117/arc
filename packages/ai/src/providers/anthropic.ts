@@ -410,7 +410,7 @@ export class AnthropicProvider implements Provider {
   async *streamChatCompletion(
     messages: ChatMessage[],
     model: string,
-    options?: { signal?: AbortSignal }
+    options?: { signal?: AbortSignal; temperature?: number; systemPrompt?: string }
   ): AsyncGenerator<ChatChunk, void, undefined> {
     const { system, messages: anthropicMessages } = this.convertMessages(messages);
 
@@ -419,7 +419,7 @@ export class AnthropicProvider implements Provider {
       max_tokens: this.defaultMaxTokens,
       messages: anthropicMessages,
       stream: true,
-      temperature: 0.7,
+      temperature: options?.temperature ?? 1.0,
     };
 
     if (system) {
@@ -520,7 +520,7 @@ export class AnthropicProvider implements Provider {
   async generateChatCompletion(
     messages: ChatMessage[],
     model: string,
-    options?: { signal?: AbortSignal }
+    options?: { signal?: AbortSignal; temperature?: number; systemPrompt?: string }
   ): Promise<ChatResult> {
     const { system, messages: anthropicMessages } = this.convertMessages(messages);
 
@@ -529,7 +529,7 @@ export class AnthropicProvider implements Provider {
       max_tokens: this.defaultMaxTokens,
       messages: anthropicMessages,
       stream: false,
-      temperature: 0.7,
+      temperature: options?.temperature ?? 1.0,
     };
 
     if (system) {

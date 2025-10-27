@@ -217,3 +217,24 @@ export class RequestCancelledError extends AIError {
     this.name = "RequestCancelledError";
   }
 }
+
+/**
+ * Provider detection error - unable to automatically identify provider type
+ *
+ * **Non-retryable**: The user must specify the provider type explicitly
+ * or provide valid credentials for auto-detection.
+ */
+export class ProviderDetectionError extends AIError {
+  constructor(
+    message: string,
+    options?: {
+      cause?: Error;
+    }
+  ) {
+    super(message, {
+      ...options,
+      isRetryable: false,
+    });
+    this.name = "ProviderDetectionError";
+  }
+}

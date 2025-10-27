@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import type { IPlatformHTTP, HTTPResponse } from "@arc/platform/contracts/http.js";
+import type { PlatformHTTP, HTTPResponse } from "@arc/platform/contracts/http.js";
 import { AI } from "../src/ai.js";
 import type { Provider } from "../src/provider.type.js";
 import { OpenAIProvider } from "../src/providers/openai.js";
@@ -12,7 +12,7 @@ import { GeminiProvider } from "../src/providers/gemini.js";
  * Tests the AI class and ChatBuilder fluent API implementation.
  */
 describe("AI Fluent API", () => {
-  let http: IPlatformHTTP;
+  let http: PlatformHTTP;
 
   beforeEach(() => {
     http = {

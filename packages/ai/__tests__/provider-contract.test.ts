@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import type { IPlatformHTTP, HTTPResponse } from "@arc/platform/contracts/http.js";
+import type { PlatformHTTP, HTTPResponse } from "@arc/platform/contracts/http.js";
 import type { Provider, ModelInfo, ChatMessage } from "../src/provider.type.js";
 import { OpenAIProvider } from "../src/providers/openai.js";
 import { AnthropicProvider } from "../src/providers/anthropic.js";
@@ -21,12 +21,12 @@ import {
  * All providers must pass these tests.
  */
 
-type ProviderFactory = (http: IPlatformHTTP) => Provider;
+type ProviderFactory = (http: PlatformHTTP) => Provider;
 
 /**
  * Create a mock HTTP client for testing
  */
-function createMockHTTP(): IPlatformHTTP {
+function createMockHTTP(): PlatformHTTP {
   return {
     request: vi.fn(),
     stream: vi.fn(),
@@ -210,7 +210,7 @@ export function testProviderContract(
   expectedProvider: string
 ) {
   describe(`${providerName} Provider Contract`, () => {
-    let http: IPlatformHTTP;
+    let http: PlatformHTTP;
     let provider: Provider;
 
     beforeEach(() => {
@@ -478,6 +478,148 @@ export function testProviderContract(
             // Should throw before completion
           }
         }).rejects.toThrow();
+      });
+    });
+
+    describe("Temperature Support", () => {
+      it("should pass custom temperature to streamChatCompletion", async () => {
+        const mockStream = getMockStreamChunks(providerName);
+        vi.mocked(http.stream).mockReturnValue(mockStream);
+
+        const messages: ChatMessage[] = [{ role: "user", content: "Hello" }];
+
+        // Call with custom temperature
+        const generator = provider.streamChatCompletion(messages, "test-model", {
+          temperature: 0.5,
+        });
+
+        // Consume the generator to trigger the request
+        for await (const chunk of generator) {
+          // We don't care about the chunks, just that the request was made
+        }
+
+        // Verify that stream was called
+        expect(http.stream).toHaveBeenCalled();
+
+        // Get the request body from the stream call
+        const streamCall = vi.mocked(http.stream).mock.calls[0];
+        if (streamCall && streamCall[1]?.body) {
+          const requestBody = JSON.parse(streamCall[1].body);
+
+          // For OpenAI and Anthropic, temperature is a top-level field
+          if (providerName === "OpenAI" || providerName === "Anthropic") {
+            expect(requestBody).toHaveProperty("temperature", 0.5);
+          }
+
+          // For Gemini, temperature is in generationConfig
+          if (providerName === "Gemini") {
+            expect(requestBody).toHaveProperty("generationConfig");
+            expect(requestBody.generationConfig).toHaveProperty("temperature", 0.5);
+          }
+        }
+      });
+
+      it("should use default temperature when not specified in streamChatCompletion", async () => {
+        const mockStream = getMockStreamChunks(providerName);
+        vi.mocked(http.stream).mockReturnValue(mockStream);
+
+        const messages: ChatMessage[] = [{ role: "user", content: "Hello" }];
+
+        // Call without temperature option
+        const generator = provider.streamChatCompletion(messages, "test-model");
+
+        // Consume the generator to trigger the request
+        for await (const chunk of generator) {
+          // We don't care about the chunks, just that the request was made
+        }
+
+        // Verify that stream was called with default temperature
+        expect(http.stream).toHaveBeenCalled();
+
+        const streamCall = vi.mocked(http.stream).mock.calls[0];
+        if (streamCall && streamCall[1]?.body) {
+          const requestBody = JSON.parse(streamCall[1].body);
+
+          // OpenAI defaults to 0.7
+          if (providerName === "OpenAI") {
+            expect(requestBody).toHaveProperty("temperature", 0.7);
+          }
+
+          // Anthropic and Gemini default to 1.0
+          if (providerName === "Anthropic") {
+            expect(requestBody).toHaveProperty("temperature", 1.0);
+          }
+
+          if (providerName === "Gemini") {
+            expect(requestBody).toHaveProperty("generationConfig");
+            expect(requestBody.generationConfig).toHaveProperty("temperature", 1.0);
+          }
+        }
+      });
+
+      it("should pass custom temperature to generateChatCompletion", async () => {
+        const mockResponse = getMockChatResponse(providerName);
+        vi.mocked(http.request).mockResolvedValue(mockResponse);
+
+        const messages: ChatMessage[] = [{ role: "user", content: "Hello" }];
+
+        // Call with custom temperature
+        await provider.generateChatCompletion(messages, "test-model", {
+          temperature: 0.3,
+        });
+
+        // Verify that request was called
+        expect(http.request).toHaveBeenCalled();
+
+        // Get the request body
+        const requestCall = vi.mocked(http.request).mock.calls[0];
+        if (requestCall && requestCall[1]?.body) {
+          const requestBody = JSON.parse(requestCall[1].body);
+
+          // For OpenAI and Anthropic, temperature is a top-level field
+          if (providerName === "OpenAI" || providerName === "Anthropic") {
+            expect(requestBody).toHaveProperty("temperature", 0.3);
+          }
+
+          // For Gemini, temperature is in generationConfig
+          if (providerName === "Gemini") {
+            expect(requestBody).toHaveProperty("generationConfig");
+            expect(requestBody.generationConfig).toHaveProperty("temperature", 0.3);
+          }
+        }
+      });
+
+      it("should use default temperature when not specified in generateChatCompletion", async () => {
+        const mockResponse = getMockChatResponse(providerName);
+        vi.mocked(http.request).mockResolvedValue(mockResponse);
+
+        const messages: ChatMessage[] = [{ role: "user", content: "Hello" }];
+
+        // Call without temperature option
+        await provider.generateChatCompletion(messages, "test-model");
+
+        // Verify that request was called with default temperature
+        expect(http.request).toHaveBeenCalled();
+
+        const requestCall = vi.mocked(http.request).mock.calls[0];
+        if (requestCall && requestCall[1]?.body) {
+          const requestBody = JSON.parse(requestCall[1].body);
+
+          // OpenAI defaults to 0.7
+          if (providerName === "OpenAI") {
+            expect(requestBody).toHaveProperty("temperature", 0.7);
+          }
+
+          // Anthropic and Gemini default to 1.0
+          if (providerName === "Anthropic") {
+            expect(requestBody).toHaveProperty("temperature", 1.0);
+          }
+
+          if (providerName === "Gemini") {
+            expect(requestBody).toHaveProperty("generationConfig");
+            expect(requestBody.generationConfig).toHaveProperty("temperature", 1.0);
+          }
+        }
       });
     });
   });

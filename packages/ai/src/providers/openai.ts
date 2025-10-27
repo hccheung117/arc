@@ -317,7 +317,7 @@ export class OpenAIProvider implements Provider {
   async *streamChatCompletion(
     messages: ChatMessage[],
     model: string,
-    options?: { signal?: AbortSignal }
+    options?: { signal?: AbortSignal; temperature?: number; systemPrompt?: string }
   ): AsyncGenerator<ChatChunk, void, undefined> {
     const openAIMessages = this.convertMessages(messages);
 
@@ -325,7 +325,7 @@ export class OpenAIProvider implements Provider {
       model,
       messages: openAIMessages,
       stream: true,
-      temperature: 0.7,
+      temperature: options?.temperature ?? 0.7,
     };
 
     try {
@@ -398,7 +398,7 @@ export class OpenAIProvider implements Provider {
   async generateChatCompletion(
     messages: ChatMessage[],
     model: string,
-    options?: { signal?: AbortSignal }
+    options?: { signal?: AbortSignal; temperature?: number; systemPrompt?: string }
   ): Promise<ChatResult> {
     const openAIMessages = this.convertMessages(messages);
 
@@ -406,7 +406,7 @@ export class OpenAIProvider implements Provider {
       model,
       messages: openAIMessages,
       stream: false,
-      temperature: 0.7,
+      temperature: options?.temperature ?? 0.7,
     };
 
     try {

@@ -22,6 +22,11 @@
       "import": "./dist/provider.type.js",
       "default": "./dist/provider.type.js"
     },
+    "./provider-detector.js": {
+      "types": "./dist/provider-detector.d.ts",
+      "import": "./dist/provider-detector.js",
+      "default": "./dist/provider-detector.js"
+    },
     "./errors.js": {
       "types": "./dist/errors.d.ts",
       "import": "./dist/errors.js",
