@@ -49,8 +49,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_provider_connections_name ON provider_conn
 CREATE TABLE IF NOT EXISTS chats (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
+  parent_chat_id TEXT,
+  parent_message_id TEXT,
   created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL
+  updated_at INTEGER NOT NULL,
+  FOREIGN KEY (parent_chat_id) REFERENCES chats(id) ON DELETE SET NULL
 );
 
 -- Messages table (individual messages within chats)
@@ -65,6 +68,10 @@ CREATE TABLE IF NOT EXISTS messages (
   token_count INTEGER,
   parent_message_id TEXT,
   status TEXT NOT NULL DEFAULT 'complete' CHECK(status IN ('pending', 'streaming', 'complete', 'error', 'stopped')),
+  is_pinned INTEGER NOT NULL DEFAULT 0 CHECK(is_pinned IN (0, 1)),
+  pinned_at INTEGER,
+  temperature REAL,
+  system_prompt TEXT,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
   FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE,

@@ -30,6 +30,8 @@ export interface ProviderConnection {
 export interface Chat {
   id: string;
   title: string;
+  parent_chat_id: string | null;
+  parent_message_id: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -50,6 +52,10 @@ export interface Message {
   token_count: number | null; // Tokens consumed (from provider response)
   parent_message_id: string | null; // For branching conversations
   status: "pending" | "streaming" | "complete" | "error" | "stopped"; // Message generation status
+  is_pinned: 0 | 1; // SQLite boolean - whether message is pinned
+  pinned_at: number | null; // Timestamp when message was pinned
+  temperature: number | null; // Temperature parameter used for this message
+  system_prompt: string | null; // System prompt used for this message
   created_at: number;
   updated_at: number;
 }
