@@ -2,7 +2,22 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuShortcut,
+} from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Trash2, Edit2, Copy, MoreVertical } from "lucide-react";
+import { toast } from "sonner";
+import { keyboardShortcuts } from "@/lib/keyboard-shortcuts";
 
 interface Chat {
   id: string;
@@ -77,11 +92,23 @@ export function ChatListItem({ chat, isActive, onClick, onRename, onDelete }: Ch
     }
   };
 
-  const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDelete = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     if (onDelete && confirm(`Delete "${chat.title}"?`)) {
       onDelete(chat.id);
     }
+  };
+
+  const handleRenameClick = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setIsEditing(true);
+  };
+
+  const handleDuplicate = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    toast.info("Coming Soon", {
+      description: "Duplicate chat feature is not yet available",
+    });
   };
 
   return (
@@ -120,17 +147,49 @@ export function ChatListItem({ chat, isActive, onClick, onRename, onDelete }: Ch
         {formatTimestamp(chat.lastMessageAt)}
       </div>
 
-      {/* Delete button - show on hover */}
+      {/* Context Menu - show on hover */}
       {isHovered && !isEditing && (
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={handleDelete}
-          className="absolute top-2 right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-          aria-label="Delete chat"
-        >
-          <Trash2 className="size-3" />
-        </Button>
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="absolute top-2 right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                  aria-label="Chat options"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreVertical className="size-3" />
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Chat options (Right-click)</p>
+            </TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenuItem onClick={handleRenameClick}>
+              <Edit2 className="mr-2 size-4" />
+              Rename
+              <DropdownMenuShortcut>{keyboardShortcuts.renameChat.label}</DropdownMenuShortcut>
+            </DropdownMenuItem>
+
+            <DropdownMenuItem disabled onClick={handleDuplicate}>
+              <Copy className="mr-2 size-4" />
+              Duplicate
+              <DropdownMenuShortcut>Soon</DropdownMenuShortcut>
+            </DropdownMenuItem>
+
+            <DropdownMenuSeparator />
+
+            <DropdownMenuItem onClick={handleDelete} variant="destructive">
+              <Trash2 className="mr-2 size-4" />
+              Delete
+              <DropdownMenuShortcut>{keyboardShortcuts.deleteChat.label}</DropdownMenuShortcut>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
     </div>
   );

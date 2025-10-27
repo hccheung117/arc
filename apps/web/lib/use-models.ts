@@ -39,7 +39,7 @@ function isProviderError(error: unknown): error is {
     "code" in error &&
     "isRetryable" in error &&
     "getUserMessage" in error &&
-    typeof (error as any).getUserMessage === "function"
+    typeof (error as { getUserMessage?: unknown }).getUserMessage === "function"
   );
 }
 

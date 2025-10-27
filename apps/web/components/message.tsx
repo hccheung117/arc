@@ -2,10 +2,34 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuShortcut,
+} from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { ImageBubble } from "@/components/image-bubble";
 import { ModelBadge } from "@/components/model-badge";
-import { StopCircle, RotateCcw, Trash2, AlertCircle } from "lucide-react";
+import {
+  StopCircle,
+  RotateCcw,
+  Trash2,
+  AlertCircle,
+  Copy,
+  Edit3,
+  GitBranch,
+  MoreVertical,
+} from "lucide-react";
+import { toast } from "sonner";
+import { keyboardShortcuts } from "@/lib/keyboard-shortcuts";
 import type { ProviderConfig } from "@arc/core/core.js";
 
 interface MessageType {
@@ -26,6 +50,7 @@ interface MessageProps {
   onStop?: () => void;
   onRegenerate?: (messageId: string) => void;
   onDelete?: (messageId: string) => void;
+  onEdit?: (messageId: string, content: string) => void;
   onRetry?: () => void;
   errorMetadata?: {
     isRetryable: boolean;
@@ -40,10 +65,13 @@ export function Message({
   onStop,
   onRegenerate,
   onDelete,
+  onEdit,
   onRetry,
   errorMetadata
 }: MessageProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(message.content);
 
   const isUser = message.role === "user";
   const isStreaming = message.status === "streaming";
@@ -72,6 +100,49 @@ export function Message({
     if (onRetry) {
       onRetry();
     }
+  };
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(message.content);
+      toast.success("Copied to clipboard");
+    } catch {
+      toast.error("Failed to copy to clipboard");
+    }
+  };
+
+  const handleEdit = () => {
+    if (!isUser) return;
+    setIsEditing(true);
+  };
+
+  const handleSaveEdit = () => {
+    const trimmed = editContent.trim();
+    if (trimmed && trimmed !== message.content && onEdit) {
+      onEdit(message.id, trimmed);
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancelEdit = () => {
+    setEditContent(message.content);
+    setIsEditing(false);
+  };
+
+  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      handleSaveEdit();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      handleCancelEdit();
+    }
+  };
+
+  const handleBranchOff = () => {
+    toast.info("Coming Soon", {
+      description: "Branch Off feature is not yet available",
+    });
   };
 
   // Determine which actions to show
@@ -115,7 +186,29 @@ export function Message({
 
         {/* Message content */}
         <div className="text-sm break-words">
-          {isUser ? (
+          {isEditing ? (
+            // Edit mode for user messages
+            <div className="space-y-2">
+              <textarea
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                onKeyDown={handleEditKeyDown}
+                className="w-full min-h-[80px] p-2 border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-y"
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <Button size="sm" onClick={handleSaveEdit}>
+                  Save
+                </Button>
+                <Button size="sm" variant="outline" onClick={handleCancelEdit}>
+                  Cancel
+                </Button>
+                <span className="text-xs text-muted-foreground self-center ml-2">
+                  {keyboardShortcuts.sendMessage.label} to save, Esc to cancel
+                </span>
+              </div>
+            </div>
+          ) : isUser ? (
             // User messages: plain text with whitespace preserved
             <div className="whitespace-pre-wrap">{message.content}</div>
           ) : (
@@ -140,55 +233,143 @@ export function Message({
           )}
         </div>
 
+        {/* Context Menu - always available */}
+        {!isStreaming && !isEditing && (
+          <DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-label="Message options"
+                  >
+                    <MoreVertical className="size-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Message options (Right-click)</p>
+              </TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={handleCopy}>
+                <Copy className="mr-2 size-4" />
+                Copy
+                <DropdownMenuShortcut>{keyboardShortcuts.copyMessage.label}</DropdownMenuShortcut>
+              </DropdownMenuItem>
+
+              {isUser && onEdit && (
+                <DropdownMenuItem onClick={handleEdit}>
+                  <Edit3 className="mr-2 size-4" />
+                  Edit
+                </DropdownMenuItem>
+              )}
+
+              {!isUser && isLatestAssistant && onRegenerate && (
+                <DropdownMenuItem onClick={handleRegenerate}>
+                  <RotateCcw className="mr-2 size-4" />
+                  Regenerate
+                </DropdownMenuItem>
+              )}
+
+              <DropdownMenuSeparator />
+
+              <DropdownMenuItem onClick={handleDelete} variant="destructive">
+                <Trash2 className="mr-2 size-4" />
+                Delete
+                <DropdownMenuShortcut>{keyboardShortcuts.deleteMessage.label}</DropdownMenuShortcut>
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
+
+              <DropdownMenuItem disabled onClick={handleBranchOff}>
+                <GitBranch className="mr-2 size-4" />
+                Branch Off
+                <DropdownMenuShortcut>Soon</DropdownMenuShortcut>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+
         {/* Action buttons - show on hover or always show for error retry */}
         {(isHovered || showRetryButton) && (showStopButton || showRegenerateButton || showDeleteButton || showRetryButton) && (
           <div className="absolute -bottom-8 left-0 flex gap-1 mt-1">
             {showStopButton && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleStop}
-                className="h-7 px-2 text-xs"
-              >
-                <StopCircle className="size-3 mr-1" />
-                Stop
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleStop}
+                    className="h-7 px-2 text-xs"
+                  >
+                    <StopCircle className="size-3 mr-1" />
+                    Stop
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Stop generation (Esc)</p>
+                </TooltipContent>
+              </Tooltip>
             )}
 
             {showRegenerateButton && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleRegenerate}
-                className="h-7 px-2 text-xs"
-              >
-                <RotateCcw className="size-3 mr-1" />
-                Regenerate
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleRegenerate}
+                    className="h-7 px-2 text-xs"
+                  >
+                    <RotateCcw className="size-3 mr-1" />
+                    Regenerate
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Regenerate response</p>
+                </TooltipContent>
+              </Tooltip>
             )}
 
             {showDeleteButton && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleDelete}
-                className="h-7 px-2 text-xs"
-              >
-                <Trash2 className="size-3 mr-1" />
-                Delete
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleDelete}
+                    className="h-7 px-2 text-xs"
+                  >
+                    <Trash2 className="size-3 mr-1" />
+                    Delete
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Delete message ({keyboardShortcuts.deleteMessage.label})</p>
+                </TooltipContent>
+              </Tooltip>
             )}
 
             {showRetryButton && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleRetry}
-                className="h-7 px-2 text-xs border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
-              >
-                <RotateCcw className="size-3 mr-1" />
-                Retry
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleRetry}
+                    className="h-7 px-2 text-xs border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                  >
+                    <RotateCcw className="size-3 mr-1" />
+                    Retry
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Retry failed operation</p>
+                </TooltipContent>
+              </Tooltip>
             )}
           </div>
         )}

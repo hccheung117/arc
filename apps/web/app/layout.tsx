@@ -3,6 +3,7 @@ import "./globals.css";
 import { CoreProvider } from "@/lib/core-provider";
 import { ElectronIntegration } from "@/components/ElectronIntegration";
 import { AppEffects } from "@/components/app-effects";
+import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
   title: "Arc",
@@ -21,6 +22,7 @@ export default function RootLayout({
         <CoreProvider>
           {children}
           <ElectronIntegration />
+          <Toaster />
         </CoreProvider>
       </body>
     </html>

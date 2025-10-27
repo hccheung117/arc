@@ -1,10 +1,16 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +29,9 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCore } from "@/lib/core-provider";
 import { useUIStore } from "@/lib/ui-store";
 import { useModels } from "@/lib/use-models";
+import { toast } from "sonner";
+import { keyboardShortcuts } from "@/lib/keyboard-shortcuts";
+import { classifyError } from "@/lib/error-handler";
 import type { Chat, Message as CoreMessage, ImageAttachment, ProviderConfig, SearchResult } from "@arc/core/core.js";
 
 export default function Home() {
@@ -92,6 +101,23 @@ export default function Home() {
 
   // Combine real messages with error messages (errors at the end)
   const allMessages = [...messages, ...modelErrorMessages];
+
+  // Handlers - defined early to avoid dependency issues
+  const handleCreateChat = useCallback(async () => {
+    try {
+      // Create pending chat (will be persisted on first message)
+      core.chats.create({ title: "New Chat" });
+
+      // For now, we'll just refresh the chat list
+      // The actual chat will be created when the first message is sent
+      const chatList = await core.chats.list();
+      setChats(chatList);
+
+      setSidebarOpen(false);
+    } catch (error) {
+      console.error("Failed to create chat:", error);
+    }
+  }, [core]);
 
   // Build enhanced display list with model switch dividers
   type DisplayItem =
@@ -200,6 +226,11 @@ export default function Home() {
         if (chatData) {
           setMessages(chatData.messages);
         }
+
+        // Auto-focus message input for better keyboard navigation
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+        }
       } catch (error) {
         console.error("Failed to load messages:", error);
       }
@@ -218,10 +249,13 @@ export default function Home() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Command Palette (Cmd+K)
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         setCommandPaletteOpen(true);
       }
+
+      // In-chat Search (Cmd+F)
       if ((e.metaKey || e.ctrlKey) && e.key === "f") {
         e.preventDefault();
         setSearchActive((prev) => !prev);
@@ -230,11 +264,31 @@ export default function Home() {
           setCurrentMatchIndex(0);
         }
       }
+
+      // New Chat (Cmd+N)
+      if ((e.metaKey || e.ctrlKey) && e.key === "n") {
+        e.preventDefault();
+        void handleCreateChat();
+      }
+
+      // Settings (Cmd+,)
+      if ((e.metaKey || e.ctrlKey) && e.key === ",") {
+        e.preventDefault();
+        window.location.href = "/settings";
+      }
+
+      // Attach Image (Cmd+U)
+      if ((e.metaKey || e.ctrlKey) && e.key === "u") {
+        e.preventDefault();
+        if (hasProvider && !isStreaming && fileInputRef.current) {
+          fileInputRef.current.click();
+        }
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [searchActive]);
+  }, [searchActive, hasProvider, isStreaming, handleCreateChat]);
 
   // Global search
   useEffect(() => {
@@ -256,23 +310,7 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [globalSearchQuery, core]);
 
-  // Handlers
-  const handleCreateChat = async () => {
-    try {
-      // Create pending chat (will be persisted on first message)
-      core.chats.create({ title: "New Chat" });
-
-      // For now, we'll just refresh the chat list
-      // The actual chat will be created when the first message is sent
-      const chatList = await core.chats.list();
-      setChats(chatList);
-
-      setSidebarOpen(false);
-    } catch (error) {
-      console.error("Failed to create chat:", error);
-    }
-  };
-
+  // More handlers
   const handleSelectChat = async (chatId: string) => {
     try {
       // Stop any ongoing streaming
@@ -286,6 +324,219 @@ export default function Home() {
       setSidebarOpen(false);
     } catch (error) {
       console.error("Failed to select chat:", error);
+    }
+  };
+
+  const handleRenameChat = async (chatId: string, newTitle: string) => {
+    // Optimistic update: Update UI immediately
+    const previousChats = [...chats];
+    const updatedChats = chats.map(chat =>
+      chat.id === chatId ? { ...chat, title: newTitle } : chat
+    );
+    setChats(updatedChats);
+
+    try {
+      await core.chats.rename(chatId, newTitle);
+      // Sync with server to get accurate data
+      const chatList = await core.chats.list();
+      setChats(chatList);
+      toast.success("Chat renamed successfully");
+    } catch (error) {
+      // Rollback optimistic update
+      setChats(previousChats);
+      console.error("Failed to rename chat:", error);
+
+      const errorDetails = classifyError(error);
+      if (errorDetails.isRetryable) {
+        toast.error("Failed to rename chat", {
+          description: errorDetails.message,
+          action: {
+            label: "Retry",
+            onClick: () => handleRenameChat(chatId, newTitle),
+          },
+        });
+      } else {
+        toast.error("Failed to rename chat", {
+          description: errorDetails.message,
+        });
+      }
+    }
+  };
+
+  const handleDeleteChat = async (chatId: string) => {
+    // Optimistic update: Remove from UI immediately
+    const previousChats = [...chats];
+    const updatedChats = chats.filter(chat => chat.id !== chatId);
+    setChats(updatedChats);
+
+    // Clear active chat if it was deleted
+    const wasActive = activeChatId === chatId;
+    if (wasActive) {
+      setActiveChatId(null);
+      setMessages([]);
+    }
+
+    try {
+      await core.chats.delete(chatId);
+      // Sync with server
+      const chatList = await core.chats.list();
+      setChats(chatList);
+      toast.success("Chat deleted successfully");
+    } catch (error) {
+      // Rollback optimistic update
+      setChats(previousChats);
+      if (wasActive) {
+        setActiveChatId(chatId);
+        // Reload messages
+        const chatData = await core.chats.get(chatId);
+        if (chatData) {
+          setMessages(chatData.messages);
+        }
+      }
+      console.error("Failed to delete chat:", error);
+
+      const errorDetails = classifyError(error);
+      if (errorDetails.isRetryable) {
+        toast.error("Failed to delete chat", {
+          description: errorDetails.message,
+          action: {
+            label: "Retry",
+            onClick: () => handleDeleteChat(chatId),
+          },
+        });
+      } else {
+        toast.error("Failed to delete chat", {
+          description: errorDetails.message,
+        });
+      }
+    }
+  };
+
+  const handleEditMessage = async (messageId: string, newContent: string) => {
+    // Optimistic update: Update UI immediately
+    const previousMessages = [...messages];
+    const updatedMessages = messages.map(msg =>
+      msg.id === messageId ? { ...msg, content: newContent } : msg
+    );
+    setMessages(updatedMessages);
+
+    try {
+      await core.messages.edit(messageId, newContent);
+
+      // Reload messages to sync with server
+      if (activeChatId) {
+        const chatData = await core.chats.get(activeChatId);
+        if (chatData) {
+          setMessages(chatData.messages);
+        }
+      }
+
+      toast.success("Message edited successfully");
+    } catch (error) {
+      // Rollback optimistic update
+      setMessages(previousMessages);
+      console.error("Failed to edit message:", error);
+
+      const errorDetails = classifyError(error);
+      if (errorDetails.isRetryable) {
+        toast.error("Failed to edit message", {
+          description: errorDetails.message,
+          action: {
+            label: "Retry",
+            onClick: () => handleEditMessage(messageId, newContent),
+          },
+        });
+      } else {
+        toast.error("Failed to edit message", {
+          description: errorDetails.message,
+        });
+      }
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    // Optimistic update: Remove from UI immediately
+    const previousMessages = [...messages];
+    const updatedMessages = messages.filter(msg => msg.id !== messageId);
+    setMessages(updatedMessages);
+
+    try {
+      await core.messages.delete(messageId);
+
+      // Reload messages to sync with server
+      if (activeChatId) {
+        const chatData = await core.chats.get(activeChatId);
+        if (chatData) {
+          setMessages(chatData.messages);
+        }
+      }
+
+      toast.success("Message deleted successfully");
+    } catch (error) {
+      // Rollback optimistic update
+      setMessages(previousMessages);
+      console.error("Failed to delete message:", error);
+
+      const errorDetails = classifyError(error);
+      if (errorDetails.isRetryable) {
+        toast.error("Failed to delete message", {
+          description: errorDetails.message,
+          action: {
+            label: "Retry",
+            onClick: () => handleDeleteMessage(messageId),
+          },
+        });
+      } else {
+        toast.error("Failed to delete message", {
+          description: errorDetails.message,
+        });
+      }
+    }
+  };
+
+  const handleRegenerateMessage = async () => {
+    if (!activeChatId) return;
+
+    try {
+      setStreamingChatId(activeChatId);
+
+      const stream = core.messages.regenerate(activeChatId);
+
+      // Consume the stream
+      for await (const update of stream) {
+        setStreamingMessageId(update.messageId);
+
+        // Reload messages to show updates
+        const chatData = await core.chats.get(activeChatId);
+        if (chatData) {
+          setMessages(chatData.messages);
+        }
+      }
+
+      // Stream complete - reload chats to update lastMessageAt
+      const chatList = await core.chats.list();
+      setChats(chatList);
+
+      setStreamingChatId(null);
+      setStreamingMessageId(null);
+    } catch (error) {
+      console.error("Failed to regenerate message:", error);
+      toast.error("Failed to regenerate message");
+      setStreamingChatId(null);
+      setStreamingMessageId(null);
+    }
+  };
+
+  const handleStopMessage = async () => {
+    if (streamingMessageId) {
+      try {
+        await core.messages.stop(streamingMessageId);
+        setStreamingChatId(null);
+        setStreamingMessageId(null);
+        toast.info("Response stopped");
+      } catch (error) {
+        console.error("Failed to stop message:", error);
+      }
     }
   };
 
@@ -534,15 +785,16 @@ export default function Home() {
     .pop();
 
   return (
-    <div className="flex h-screen">
-      {/* Mobile menu button */}
-      <button
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="md:hidden fixed top-3 left-3 z-50 p-2 rounded-md bg-background border hover:bg-accent"
-        aria-label="Toggle sidebar"
-      >
-        <MenuIcon className="size-5" />
-      </button>
+    <TooltipProvider>
+      <div className="flex h-screen">
+        {/* Mobile menu button */}
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="md:hidden fixed top-3 left-3 z-50 p-2 rounded-md bg-background border hover:bg-accent"
+          aria-label="Toggle sidebar"
+        >
+          <MenuIcon className="size-5" />
+        </button>
 
       {/* Sidebar */}
       <aside
@@ -564,28 +816,38 @@ export default function Home() {
                 value={sidebarSearchQuery}
                 onChange={(e) => setSidebarSearchQuery(e.target.value)}
                 className="pl-8 h-9"
+                aria-label="Search chats"
               />
             </div>
 
-            <Button
-              variant="outline"
-              className="w-full"
-              size="sm"
-              onClick={handleCreateChat}
-            >
-              <Sparkles className="size-4 mr-2" />
-              New Chat
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  size="sm"
+                  onClick={handleCreateChat}
+                >
+                  <Sparkles className="size-4 mr-2" />
+                  New Chat
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{keyboardShortcuts.newChat.description} ({keyboardShortcuts.newChat.label})</p>
+              </TooltipContent>
+            </Tooltip>
           </div>
 
           <ScrollArea className="flex-1">
-            <div className="p-2">
+            <div className="p-2" role="list" aria-label="Chat history">
               {filteredChats.map((chat) => (
                 <ChatListItem
                   key={chat.id}
                   chat={chat}
                   isActive={chat.id === activeChatId}
                   onClick={() => handleSelectChat(chat.id)}
+                  onRename={handleRenameChat}
+                  onDelete={handleDeleteChat}
                 />
               ))}
             </div>
@@ -599,21 +861,30 @@ export default function Home() {
         <header className="border-b h-14 flex items-center justify-between px-4 md:px-6">
           <div className="flex items-center gap-3 ml-10 md:ml-0">
             <h1 className="text-lg font-semibold">Arc</h1>
-            <ModelSelector
-              value={selectedModel?.modelId || ""}
-              onValueChange={(modelId, providerId) => {
-                setSelectedModel({ modelId, providerId });
-              }}
-              disabled={!hasProvider || isStreaming}
-              groupedModels={groupedModels}
-              isLoading={modelsLoading}
-            />
+            <div aria-label="Model selector">
+              <ModelSelector
+                value={selectedModel?.modelId || ""}
+                onValueChange={(modelId, providerId) => {
+                  setSelectedModel({ modelId, providerId });
+                }}
+                disabled={!hasProvider || isStreaming}
+                groupedModels={groupedModels}
+                isLoading={modelsLoading}
+              />
+            </div>
           </div>
-          <Link href="/settings">
-            <Button variant="ghost" size="icon" title="Settings">
-              <SettingsIcon className="h-5 w-5" />
-            </Button>
-          </Link>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link href="/settings">
+                <Button variant="ghost" size="icon">
+                  <SettingsIcon className="h-5 w-5" />
+                </Button>
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{keyboardShortcuts.openSettings.description} ({keyboardShortcuts.openSettings.label})</p>
+            </TooltipContent>
+          </Tooltip>
         </header>
 
         {/* Search Bar */}
@@ -633,6 +904,10 @@ export default function Home() {
           ref={parentRef}
           className="flex-1 overflow-auto"
           style={{ position: 'relative' }}
+          tabIndex={-1}
+          role="log"
+          aria-label="Message history"
+          aria-live="polite"
         >
           {displayMessages.length > 0 ? (
             <div
@@ -699,6 +974,10 @@ export default function Home() {
                         isLatestAssistant={message.id === lastAssistantMessage?.id}
                         isHighlighted={searchMatches.includes(message.id)}
                         providers={providers}
+                        onStop={handleStopMessage}
+                        onRegenerate={handleRegenerateMessage}
+                        onDelete={handleDeleteMessage}
+                        onEdit={handleEditMessage}
                         {...(isModelError ? { onRetry: refetchModels } : {})}
                         {...(errorDetails ? { errorMetadata: { isRetryable: errorDetails.isRetryable } } : {})}
                       />
@@ -793,6 +1072,7 @@ export default function Home() {
                   }
                   className="w-full bg-transparent border-0 outline-none text-sm placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 resize-none overflow-y-auto"
                   aria-label="Message input"
+                  tabIndex={0}
                   value={messageInput}
                   onChange={(e) => setMessageInput(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -802,33 +1082,47 @@ export default function Home() {
               </div>
 
               <div className="px-3 pb-2 flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0 hover:bg-accent"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={!hasProvider || isStreaming}
-                  aria-label="Attach image"
-                >
-                  <ImageIcon className="size-4" />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0 hover:bg-accent"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={!hasProvider || isStreaming}
+                      aria-label="Attach image"
+                    >
+                      <ImageIcon className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{keyboardShortcuts.attachImage.description} ({keyboardShortcuts.attachImage.label})</p>
+                  </TooltipContent>
+                </Tooltip>
 
                 <div className="flex-1" />
 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0 hover:bg-accent disabled:opacity-30"
-                  aria-label="Send message"
-                  onClick={handleSendMessage}
-                  disabled={
-                    !hasProvider ||
-                    isStreaming ||
-                    (!messageInput.trim() && attachedImages.length === 0)
-                  }
-                >
-                  <SendIcon className="size-4" />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0 hover:bg-accent disabled:opacity-30"
+                      aria-label="Send message"
+                      onClick={handleSendMessage}
+                      disabled={
+                        !hasProvider ||
+                        isStreaming ||
+                        (!messageInput.trim() && attachedImages.length === 0)
+                      }
+                    >
+                      <SendIcon className="size-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{keyboardShortcuts.sendMessage.description} ({keyboardShortcuts.sendMessage.label})</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
             </div>
           </div>
@@ -846,7 +1140,19 @@ export default function Home() {
 
       {/* Command Palette */}
       <Dialog open={commandPaletteOpen} onOpenChange={setCommandPaletteOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent
+          className="max-w-2xl"
+          onOpenAutoFocus={(e) => {
+            // Ensure search input gets focus when dialog opens
+            if (e.currentTarget instanceof HTMLElement) {
+              const input = e.currentTarget.querySelector('input');
+              if (input) {
+                e.preventDefault();
+                setTimeout(() => input.focus(), 0);
+              }
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle>Search Across All Chats</DialogTitle>
             <DialogDescription>
@@ -861,6 +1167,7 @@ export default function Home() {
               value={globalSearchQuery}
               onChange={(e) => setGlobalSearchQuery(e.target.value)}
               autoFocus
+              aria-label="Search messages across all chats"
             />
           </div>
 
@@ -913,6 +1220,7 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }
