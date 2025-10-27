@@ -52,6 +52,16 @@ export default [
       dirnames,
     },
     rules: {
+      // Enforce maximum file length for maintainability
+      "max-lines": [
+        "error",
+        {
+          max: 1000,
+          skipBlankLines: true,
+          skipComments: true,
+        },
+      ],
+
       // VIOLATION 5: Enforce kebab-case filenames
       "unicorn/filename-case": [
         "error",

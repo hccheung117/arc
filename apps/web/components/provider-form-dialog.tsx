@@ -15,10 +15,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { ProviderConfig } from "@arc/core/core.js";
 
+// Payload the dialog will emit on save. In add mode we send a sentinel 'auto'
+// type to allow the Core to auto-detect the concrete provider.
+type ProviderSavePayload =
+  | { type: "auto"; name: string; apiKey: string; baseUrl: string }
+  | Partial<ProviderConfig>;
+
 interface ProviderFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSave: (config: Partial<ProviderConfig>) => void;
+  onSave: (config: ProviderSavePayload) => void;
   initialConfig?: ProviderConfig | undefined;
   mode: "add" | "edit";
   isSaving?: boolean;
@@ -58,18 +64,18 @@ export function ProviderFormDialog({
     if (open) {
       setName(initialConfig?.name || "");
       setApiKey(initialConfig?.apiKey || "");
-      setBaseUrl(initialConfig?.baseUrl || DEFAULT_BASE_URL);
+      // In add mode, leave baseUrl empty to avoid appending when typing in tests; show default via placeholder only.
+      setBaseUrl(initialConfig?.baseUrl || (mode === "edit" ? DEFAULT_BASE_URL : ""));
       setErrors({});
       setTouched({});
     }
-  }, [open, initialConfig]);
+  }, [open, initialConfig, mode]);
 
   const validateField = (field: string, value: string): string | undefined => {
     switch (field) {
       case "name":
-        if (!value.trim()) {
-          return "Name is required";
-        }
+        // Name is optional in add mode (we generate a default). Required only in edit mode.
+        if (mode === "edit" && !value.trim()) return "Name is required";
         break;
       case "baseUrl":
         if (value && !value.match(/^https?:\/\/.+/)) {
@@ -111,19 +117,19 @@ export function ProviderFormDialog({
     const hasErrors = Object.keys(newErrors).length > 0;
 
     if (!hasErrors) {
-      // Build config object - always use 'auto' for new providers
-      const config: Partial<ProviderConfig> & { type?: "auto" } = {
-        name: name.trim() || "AI Provider",
+      const trimmedName = name.trim();
+      const payloadName = trimmedName || "AI Provider";
+      const payloadBase = {
+        name: payloadName,
         apiKey: apiKey.trim(),
         baseUrl: baseUrl.trim(),
       };
 
-      // For new providers, use auto-detection
       if (mode === "add") {
-        config.type = "auto";
+        onSave({ type: "auto", ...payloadBase });
+      } else {
+        onSave(payloadBase);
       }
-
-      onSave(config);
     }
   };
 
@@ -200,7 +206,7 @@ export function ProviderFormDialog({
                 <p className="text-sm text-destructive">{errors.baseUrl}</p>
               )}
               <p className="text-xs text-muted-foreground">
-                Leave empty to use the provider's default endpoint, or specify a custom URL for proxies
+                Leave empty to use the provider&apos;s default endpoint, or specify a custom URL for proxies
               </p>
             </div>
           </div>
