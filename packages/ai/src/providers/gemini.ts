@@ -371,7 +371,13 @@ export class GeminiProvider implements Provider {
       contents,
     };
 
-    if (systemInstruction) {
+    // Use systemPrompt from options if provided, otherwise use extracted system instruction
+    if (options?.systemPrompt) {
+      request.systemInstruction = {
+        role: "user",
+        parts: [{ text: options.systemPrompt }],
+      };
+    } else if (systemInstruction) {
       request.systemInstruction = systemInstruction;
     }
 
@@ -482,7 +488,13 @@ export class GeminiProvider implements Provider {
       contents,
     };
 
-    if (systemInstruction) {
+    // Use systemPrompt from options if provided, otherwise use extracted system instruction
+    if (options?.systemPrompt) {
+      request.systemInstruction = {
+        role: "user",
+        parts: [{ text: options.systemPrompt }],
+      };
+    } else if (systemInstruction) {
       request.systemInstruction = systemInstruction;
     }
 

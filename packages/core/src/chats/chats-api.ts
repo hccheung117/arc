@@ -5,6 +5,7 @@ import type { Message } from "../messages/message.js";
 import type { ImageAttachment } from "../shared/image-attachment.js";
 import type { Provider } from "@arc/ai/provider.type.js";
 import type { PlatformDatabase } from "@arc/platform";
+import type { SettingsAPI } from "../settings/settings-api.js";
 import { PendingChat } from "./pending-chat.js";
 import { MessageStreamer } from "../messages/message-streamer.js";
 import { RequestCancelledError } from "@arc/ai/errors.js";
@@ -25,6 +26,10 @@ export interface SendMessageParams {
   model: string;
   providerConnectionId: string;
   images?: ImageAttachment[];
+  options?: {
+    temperature?: number;
+    systemPrompt?: string;
+  };
 }
 
 /**
@@ -61,19 +66,25 @@ export class ChatsAPI {
   private db: PlatformDatabase;
   private getProvider: (configId: string) => Promise<Provider>;
   private streamer: MessageStreamer;
+  private settingsAPI?: SettingsAPI;
 
   constructor(
     chatRepo: ChatRepository,
     messageRepo: MessageRepository,
     db: PlatformDatabase,
     getProvider: (configId: string) => Promise<Provider>,
-    streamer?: MessageStreamer
+    streamer?: MessageStreamer,
+    settingsAPI?: SettingsAPI
   ) {
     this.chatRepo = chatRepo;
     this.messageRepo = messageRepo;
     this.db = db;
     this.getProvider = getProvider;
     this.streamer = streamer ?? new MessageStreamer();
+    // Conditionally assign to satisfy exactOptionalPropertyTypes
+    if (settingsAPI !== undefined) {
+      this.settingsAPI = settingsAPI;
+    }
   }
 
   /**
@@ -147,6 +158,71 @@ export class ChatsAPI {
   }
 
   /**
+   * Create a new chat by branching from an existing message
+   *
+   * Atomically creates a new chat and copies all messages up to
+   * and including the branch point.
+   *
+   * @param chatId - Source chat ID
+   * @param messageId - Branch point message ID
+   * @returns The newly created chat
+   */
+  async branch(chatId: string, messageId: string): Promise<Chat> {
+    const sourceChat = await this.chatRepo.findById(chatId);
+    if (!sourceChat) {
+      throw new Error(`Chat ${chatId} not found`);
+    }
+
+    const branchMessage = await this.messageRepo.findById(messageId);
+    if (!branchMessage || branchMessage.chatId !== chatId) {
+      throw new Error(`Message ${messageId} not found in chat ${chatId}`);
+    }
+
+    const now = Date.now();
+    const newChatId = generateId();
+
+    // Get all messages up to and including branch point
+    const allMessages = await this.messageRepo.findByChatId(chatId);
+    const messagesToCopy = allMessages
+      .filter((msg) => msg.createdAt <= branchMessage.createdAt)
+      .sort((a, b) => a.createdAt - b.createdAt);
+
+    await this.db.transaction(async () => {
+      // 1. Create new chat with lineage
+      const newChat: Chat = {
+        id: newChatId,
+        title: `${sourceChat.title} (Branch)`,
+        parentChatId: chatId,
+        parentMessageId: messageId,
+        createdAt: now,
+        updatedAt: now,
+        lastMessageAt:
+          messagesToCopy[messagesToCopy.length - 1]?.createdAt ?? now,
+      };
+      await this.chatRepo.create(newChat);
+
+      // 2. Copy messages
+      for (const msg of messagesToCopy) {
+        const newMessage: Message = {
+          ...msg,
+          id: generateId(),
+          chatId: newChatId,
+          createdAt: now,
+          updatedAt: now,
+        };
+        await this.messageRepo.create(newMessage);
+      }
+    });
+
+    const createdChat = await this.chatRepo.findById(newChatId);
+    if (!createdChat) {
+      throw new Error("Failed to create branched chat");
+    }
+
+    return createdChat;
+  }
+
+  /**
    * Send a message to an existing chat
    *
    * @returns AsyncGenerator that yields stream updates
@@ -194,6 +270,13 @@ export class ChatsAPI {
         createdAt: now,
         updatedAt: now,
       };
+      // Conditionally add optional parameters to satisfy exactOptionalPropertyTypes
+      if (params.options?.temperature !== undefined) {
+        assistantMessage.temperature = params.options.temperature;
+      }
+      if (params.options?.systemPrompt !== undefined) {
+        assistantMessage.systemPrompt = params.options.systemPrompt;
+      }
       await this.messageRepo.create(assistantMessage);
 
       // 3. Update chat timestamps
@@ -225,10 +308,23 @@ export class ChatsAPI {
     const signal = this.streamer.startStreaming(assistantMessage!.id);
 
     try {
+      // Build options object conditionally to satisfy exactOptionalPropertyTypes
+      const streamOptions: {
+        signal: AbortSignal;
+        temperature?: number;
+        systemPrompt?: string;
+      } = { signal };
+      if (params.options?.temperature !== undefined) {
+        streamOptions.temperature = params.options.temperature;
+      }
+      if (params.options?.systemPrompt !== undefined) {
+        streamOptions.systemPrompt = params.options.systemPrompt;
+      }
+
       const stream = provider.streamChatCompletion(
         conversationHistory,
         params.model,
-        { signal }
+        streamOptions
       );
 
       for await (const chunk of stream) {
@@ -266,6 +362,11 @@ export class ChatsAPI {
         content: assistantMessage!.content,
         status: "complete",
       };
+
+      // Trigger auto-titling in the background (fire-and-forget)
+      this.autoGenerateTitle(id).catch(() => {
+        // Silently ignore errors
+      });
 
       return {
         userMessageId: userMessage!.id,
@@ -306,6 +407,74 @@ export class ChatsAPI {
 
         throw error;
       }
+    }
+  }
+
+  /**
+   * Automatically generate a title for a chat based on its conversation
+   *
+   * This is a background operation that silently fails if it encounters errors.
+   * Only generates title if:
+   * - Auto-titling is enabled in settings
+   * - Chat title is still "New Chat"
+   * - Chat has at least 2 messages (one exchange)
+   *
+   * @param chatId - ID of the chat to title
+   */
+  private async autoGenerateTitle(chatId: string): Promise<void> {
+    try {
+      // Check if auto-titling is enabled
+      if (this.settingsAPI) {
+        const settings = await this.settingsAPI.get();
+        if (!settings.autoTitleChats) return;
+      }
+
+      const chat = await this.chatRepo.findById(chatId);
+      if (!chat || chat.title !== "New Chat") return;
+
+      const messages = await this.messageRepo.findByChatId(chatId);
+      if (messages.length < 2) return; // Need at least one exchange
+
+      // Get first few messages for context
+      const conversationStart = messages
+        .slice(0, 4)
+        .map((m) => `${m.role}: ${m.content.slice(0, 200)}`)
+        .join("\n");
+
+      const titlePrompt: { role: "user" | "assistant" | "system"; content: string }[] = [
+        {
+          role: "user",
+          content: `Generate a concise 2-5 word title for this conversation:\n\n${conversationStart}\n\nTitle:`,
+        },
+      ];
+
+      // Use the same provider as the last message
+      const lastAssistant = messages
+        .reverse()
+        .find((m) => m.role === "assistant");
+      if (!lastAssistant?.providerConnectionId || !lastAssistant?.model)
+        return;
+
+      const provider = await this.getProvider(
+        lastAssistant.providerConnectionId
+      );
+      const result = await provider.generateChatCompletion(
+        titlePrompt,
+        lastAssistant.model
+      );
+
+      // Clean up title (remove quotes, trim, limit length)
+      const title = result.content
+        .trim()
+        .replace(/^["']|["']$/g, "")
+        .slice(0, 60);
+
+      chat.title = title;
+      chat.updatedAt = Date.now();
+      await this.chatRepo.update(chat);
+    } catch (error) {
+      // Silent failure - title generation is a nice-to-have
+      // console.warn("Auto-title generation failed:", error);
     }
   }
 }

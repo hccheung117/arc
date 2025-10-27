@@ -135,4 +135,142 @@ describe("SettingsAPI", () => {
       expect(result).toEqual(defaultSettings);
     });
   });
+
+  describe("new settings fields (Phase 8)", () => {
+    describe("favoriteModels and whitelistedModels", () => {
+      it("should return empty arrays by default", async () => {
+        vi.mocked(mockRepository.get).mockResolvedValue(null);
+
+        const result = await api.get();
+
+        expect(result.favoriteModels).toEqual([]);
+        expect(result.whitelistedModels).toEqual([]);
+      });
+
+      it("should correctly persist favoriteModels array", async () => {
+        vi.mocked(mockRepository.get).mockResolvedValue(null);
+        vi.mocked(mockRepository.set).mockResolvedValue();
+
+        const favorites = ["openai:gpt-4", "anthropic:claude-3-5-sonnet"];
+        await api.update({ favoriteModels: favorites });
+
+        expect(mockRepository.set).toHaveBeenCalledWith(
+          "app:settings",
+          expect.objectContaining({ favoriteModels: favorites })
+        );
+      });
+
+      it("should correctly persist whitelistedModels array", async () => {
+        vi.mocked(mockRepository.get).mockResolvedValue(null);
+        vi.mocked(mockRepository.set).mockResolvedValue();
+
+        const whitelist = ["openai:gpt-4", "openai:gpt-3.5-turbo"];
+        await api.update({ whitelistedModels: whitelist });
+
+        expect(mockRepository.set).toHaveBeenCalledWith(
+          "app:settings",
+          expect.objectContaining({ whitelistedModels: whitelist })
+        );
+      });
+    });
+
+    describe("typography settings", () => {
+      it("should return correct defaults for lineHeight and fontFamily", async () => {
+        vi.mocked(mockRepository.get).mockResolvedValue(null);
+
+        const result = await api.get();
+
+        expect(result.lineHeight).toBe("normal");
+        expect(result.fontFamily).toBe("sans");
+      });
+
+      it("should correctly persist lineHeight enum", async () => {
+        vi.mocked(mockRepository.get).mockResolvedValue(null);
+        vi.mocked(mockRepository.set).mockResolvedValue();
+
+        await api.update({ lineHeight: "relaxed" });
+
+        expect(mockRepository.set).toHaveBeenCalledWith(
+          "app:settings",
+          expect.objectContaining({ lineHeight: "relaxed" })
+        );
+      });
+
+      it("should correctly persist fontFamily enum", async () => {
+        vi.mocked(mockRepository.get).mockResolvedValue(null);
+        vi.mocked(mockRepository.set).mockResolvedValue();
+
+        await api.update({ fontFamily: "mono" });
+
+        expect(mockRepository.set).toHaveBeenCalledWith(
+          "app:settings",
+          expect.objectContaining({ fontFamily: "mono" })
+        );
+      });
+    });
+
+    describe("defaultSystemPrompt", () => {
+      it("should return undefined by default", async () => {
+        vi.mocked(mockRepository.get).mockResolvedValue(null);
+
+        const result = await api.get();
+
+        expect(result.defaultSystemPrompt).toBeUndefined();
+      });
+
+      it("should correctly persist defaultSystemPrompt string", async () => {
+        vi.mocked(mockRepository.get).mockResolvedValue(null);
+        vi.mocked(mockRepository.set).mockResolvedValue();
+
+        const systemPrompt = "You are a helpful coding assistant.";
+        await api.update({ defaultSystemPrompt: systemPrompt });
+
+        expect(mockRepository.set).toHaveBeenCalledWith(
+          "app:settings",
+          expect.objectContaining({ defaultSystemPrompt: systemPrompt })
+        );
+      });
+    });
+
+    describe("autoTitleChats", () => {
+      it("should return true by default", async () => {
+        vi.mocked(mockRepository.get).mockResolvedValue(null);
+
+        const result = await api.get();
+
+        expect(result.autoTitleChats).toBe(true);
+      });
+
+      it("should correctly persist autoTitleChats boolean", async () => {
+        vi.mocked(mockRepository.get).mockResolvedValue(null);
+        vi.mocked(mockRepository.set).mockResolvedValue();
+
+        await api.update({ autoTitleChats: false });
+
+        expect(mockRepository.set).toHaveBeenCalledWith(
+          "app:settings",
+          expect.objectContaining({ autoTitleChats: false })
+        );
+      });
+    });
+
+    describe("merging behavior", () => {
+      it("should merge new settings without losing existing ones", async () => {
+        const existingSettings: Settings = {
+          ...defaultSettings,
+          favoriteModels: ["openai:gpt-4"],
+          theme: "dark",
+        };
+
+        vi.mocked(mockRepository.get).mockResolvedValue(existingSettings);
+        vi.mocked(mockRepository.set).mockResolvedValue();
+
+        const result = await api.update({ lineHeight: "compact" });
+
+        expect(result.favoriteModels).toEqual(["openai:gpt-4"]);
+        expect(result.theme).toBe("dark");
+        expect(result.lineHeight).toBe("compact");
+      });
+    });
+  });
 });

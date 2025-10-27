@@ -422,8 +422,10 @@ export class AnthropicProvider implements Provider {
       temperature: options?.temperature ?? 1.0,
     };
 
-    if (system) {
-      request.system = system;
+    // Use systemPrompt from options if provided, otherwise use extracted system message
+    const systemMessage = options?.systemPrompt ?? system;
+    if (systemMessage) {
+      request.system = systemMessage;
     }
 
     try {
@@ -532,8 +534,10 @@ export class AnthropicProvider implements Provider {
       temperature: options?.temperature ?? 1.0,
     };
 
-    if (system) {
-      request.system = system;
+    // Use systemPrompt from options if provided, otherwise use extracted system message
+    const systemMessage = options?.systemPrompt ?? system;
+    if (systemMessage) {
+      request.system = systemMessage;
     }
 
     try {

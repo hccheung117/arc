@@ -3,13 +3,15 @@ import type { ProviderConfigRepository } from "./provider-repository.type.js";
 import type { ProviderManager } from "./provider-manager.js";
 import type { ModelInfo } from "@arc/ai/provider.type.js";
 import { generateId } from "../shared/id-generator.js";
+import { detectProviderType } from "@arc/ai/provider-detector.js";
+import { ProviderDetectionError } from "@arc/ai/errors.js";
 
 /**
  * Input for creating a new provider
  */
 export interface CreateProviderInput {
   name: string;
-  type: "openai" | "anthropic" | "gemini" | "custom";
+  type: "openai" | "anthropic" | "gemini" | "custom" | "auto";
   apiKey: string;
   baseUrl: string;
   customHeaders?: Record<string, string>;
@@ -55,11 +57,33 @@ export class ProvidersAPI {
    * Add a new provider connection
    */
   async create(input: CreateProviderInput): Promise<ProviderConfig> {
+    // Detect provider type if "auto" is specified
+    let providerType: "openai" | "anthropic" | "gemini" | "custom";
+
+    if (input.type === "auto") {
+      try {
+        providerType = detectProviderType({
+          apiKey: input.apiKey,
+          baseUrl: input.baseUrl,
+        });
+      } catch (error) {
+        if (error instanceof ProviderDetectionError) {
+          throw new Error(
+            `Unable to automatically detect provider type. ${error.message}. ` +
+            "Please specify the provider type explicitly."
+          );
+        }
+        throw error;
+      }
+    } else {
+      providerType = input.type;
+    }
+
     const now = Date.now();
     const config: ProviderConfig = {
       id: generateId(),
       name: input.name,
-      type: input.type,
+      type: providerType,
       apiKey: input.apiKey,
       baseUrl: input.baseUrl,
       enabled: input.enabled ?? true,

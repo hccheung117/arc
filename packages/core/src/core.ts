@@ -142,12 +142,16 @@ export async function createCore(options: CoreOptions): Promise<Core> {
   // 6. Create feature APIs
   const providersAPI = new ProvidersAPI(providerRepo, providerManager);
 
+  // Create settingsAPI first so it can be injected into chatsAPI
+  const settingsAPI = new SettingsAPI(settingsRepo);
+
   const chatsAPI = new ChatsAPI(
     chatRepo,
     messageRepo,
     platform.database,
     getProvider,
-    messageStreamer
+    messageStreamer,
+    settingsAPI
   );
 
   const messagesAPI = new MessagesAPI(
@@ -160,8 +164,6 @@ export async function createCore(options: CoreOptions): Promise<Core> {
 
   const searchEngine = new SearchEngine(messageRepo, chatRepo);
   const searchAPI = new SearchAPI(searchEngine, chatRepo);
-
-  const settingsAPI = new SettingsAPI(settingsRepo);
 
   // 7. Return the unified facade
   return {

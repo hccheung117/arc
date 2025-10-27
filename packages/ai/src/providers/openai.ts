@@ -319,7 +319,15 @@ export class OpenAIProvider implements Provider {
     model: string,
     options?: { signal?: AbortSignal; temperature?: number; systemPrompt?: string }
   ): AsyncGenerator<ChatChunk, void, undefined> {
-    const openAIMessages = this.convertMessages(messages);
+    let openAIMessages = this.convertMessages(messages);
+
+    // Inject systemPrompt as a system message at the beginning
+    if (options?.systemPrompt) {
+      openAIMessages = [
+        { role: "system", content: options.systemPrompt },
+        ...openAIMessages,
+      ];
+    }
 
     const request: ChatCompletionRequest = {
       model,
@@ -400,7 +408,15 @@ export class OpenAIProvider implements Provider {
     model: string,
     options?: { signal?: AbortSignal; temperature?: number; systemPrompt?: string }
   ): Promise<ChatResult> {
-    const openAIMessages = this.convertMessages(messages);
+    let openAIMessages = this.convertMessages(messages);
+
+    // Inject systemPrompt as a system message at the beginning
+    if (options?.systemPrompt) {
+      openAIMessages = [
+        { role: "system", content: options.systemPrompt },
+        ...openAIMessages,
+      ];
+    }
 
     const request: ChatCompletionRequest = {
       model,

@@ -389,4 +389,197 @@ describe("MessagesAPI", () => {
       expect(true).toBe(true);
     });
   });
+
+  describe("message pinning (Phase 8)", () => {
+    describe("pin", () => {
+      it("should set isPinned to true and set pinnedAt timestamp", async () => {
+        const message: Message = {
+          id: "msg-1",
+          chatId: "chat-1",
+          role: "user",
+          content: "Important message",
+          status: "complete",
+          createdAt: Date.now() - 1000,
+          updatedAt: Date.now() - 1000,
+        };
+
+        vi.mocked(mockMessageRepo.findById).mockResolvedValue(message);
+        vi.mocked(mockMessageRepo.update).mockImplementation(async (msg) => msg);
+
+        const before = Date.now();
+        await api.pin("msg-1");
+        const after = Date.now();
+
+        expect(mockMessageRepo.update).toHaveBeenCalledOnce();
+        const updatedMessage = vi.mocked(mockMessageRepo.update).mock.calls[0][0];
+        expect(updatedMessage.isPinned).toBe(true);
+        expect(updatedMessage.pinnedAt).toBeGreaterThanOrEqual(before);
+        expect(updatedMessage.pinnedAt).toBeLessThanOrEqual(after);
+        expect(updatedMessage.updatedAt).toBeGreaterThanOrEqual(before);
+        expect(updatedMessage.updatedAt).toBeLessThanOrEqual(after);
+      });
+
+      it("should throw for non-existent message", async () => {
+        vi.mocked(mockMessageRepo.findById).mockResolvedValue(null);
+
+        await expect(api.pin("nonexistent")).rejects.toThrow("Message nonexistent not found");
+      });
+    });
+
+    describe("unpin", () => {
+      it("should set isPinned to false and clear pinnedAt", async () => {
+        const message: Message = {
+          id: "msg-1",
+          chatId: "chat-1",
+          role: "user",
+          content: "Pinned message",
+          status: "complete",
+          isPinned: true,
+          pinnedAt: Date.now() - 5000,
+          createdAt: Date.now() - 10000,
+          updatedAt: Date.now() - 5000,
+        };
+
+        vi.mocked(mockMessageRepo.findById).mockResolvedValue(message);
+        vi.mocked(mockMessageRepo.update).mockImplementation(async (msg) => msg);
+
+        await api.unpin("msg-1");
+
+        expect(mockMessageRepo.update).toHaveBeenCalledOnce();
+        const updatedMessage = vi.mocked(mockMessageRepo.update).mock.calls[0][0];
+        expect(updatedMessage.isPinned).toBe(false);
+        expect(updatedMessage.pinnedAt).toBeUndefined();
+      });
+
+      it("should throw for non-existent message", async () => {
+        vi.mocked(mockMessageRepo.findById).mockResolvedValue(null);
+
+        await expect(api.unpin("nonexistent")).rejects.toThrow("Message nonexistent not found");
+      });
+    });
+
+    describe("getPinnedMessages", () => {
+      it("should return only pinned messages for the chat", async () => {
+        const now = Date.now();
+        const messages: Message[] = [
+          {
+            id: "msg-1",
+            chatId: "chat-1",
+            role: "user",
+            content: "Regular message",
+            status: "complete",
+            createdAt: now - 4000,
+            updatedAt: now - 4000,
+          },
+          {
+            id: "msg-2",
+            chatId: "chat-1",
+            role: "assistant",
+            content: "Pinned message 1",
+            status: "complete",
+            isPinned: true,
+            pinnedAt: now - 3000,
+            createdAt: now - 3000,
+            updatedAt: now - 3000,
+          },
+          {
+            id: "msg-3",
+            chatId: "chat-1",
+            role: "user",
+            content: "Another regular message",
+            status: "complete",
+            createdAt: now - 2000,
+            updatedAt: now - 2000,
+          },
+          {
+            id: "msg-4",
+            chatId: "chat-1",
+            role: "assistant",
+            content: "Pinned message 2",
+            status: "complete",
+            isPinned: true,
+            pinnedAt: now - 1000,
+            createdAt: now - 1000,
+            updatedAt: now - 1000,
+          },
+        ];
+
+        vi.mocked(mockMessageRepo.findByChatId).mockResolvedValue(messages);
+
+        const result = await api.getPinnedMessages("chat-1");
+
+        expect(result).toHaveLength(2);
+        expect(result[0].id).toBe("msg-2");
+        expect(result[1].id).toBe("msg-4");
+      });
+
+      it("should order messages by pinnedAt (ascending)", async () => {
+        const now = Date.now();
+        const messages: Message[] = [
+          {
+            id: "msg-1",
+            chatId: "chat-1",
+            role: "user",
+            content: "Pinned last",
+            status: "complete",
+            isPinned: true,
+            pinnedAt: now - 1000,
+            createdAt: now - 5000,
+            updatedAt: now - 1000,
+          },
+          {
+            id: "msg-2",
+            chatId: "chat-1",
+            role: "user",
+            content: "Pinned first",
+            status: "complete",
+            isPinned: true,
+            pinnedAt: now - 3000,
+            createdAt: now - 4000,
+            updatedAt: now - 3000,
+          },
+          {
+            id: "msg-3",
+            chatId: "chat-1",
+            role: "user",
+            content: "Pinned second",
+            status: "complete",
+            isPinned: true,
+            pinnedAt: now - 2000,
+            createdAt: now - 3000,
+            updatedAt: now - 2000,
+          },
+        ];
+
+        vi.mocked(mockMessageRepo.findByChatId).mockResolvedValue(messages);
+
+        const result = await api.getPinnedMessages("chat-1");
+
+        expect(result).toHaveLength(3);
+        expect(result[0].id).toBe("msg-2"); // Pinned first (oldest pinnedAt)
+        expect(result[1].id).toBe("msg-3"); // Pinned second
+        expect(result[2].id).toBe("msg-1"); // Pinned last (newest pinnedAt)
+      });
+
+      it("should return empty array when no pins exist", async () => {
+        const messages: Message[] = [
+          {
+            id: "msg-1",
+            chatId: "chat-1",
+            role: "user",
+            content: "Regular message",
+            status: "complete",
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          },
+        ];
+
+        vi.mocked(mockMessageRepo.findByChatId).mockResolvedValue(messages);
+
+        const result = await api.getPinnedMessages("chat-1");
+
+        expect(result).toHaveLength(0);
+      });
+    });
+  });
 });

@@ -27,6 +27,10 @@ export interface Message {
   providerConnectionId?: string; // Which provider connection was used
   attachments?: ImageAttachment[];
   status: MessageStatus;
+  isPinned?: boolean; // Whether this message is pinned
+  pinnedAt?: number; // Unix timestamp when pinned
+  temperature?: number; // Temperature used for generation (0.0 - 2.0)
+  systemPrompt?: string; // System prompt used for generation
   createdAt: number; // Unix timestamp in milliseconds
   updatedAt: number; // Unix timestamp in milliseconds
 }

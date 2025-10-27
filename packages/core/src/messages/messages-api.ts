@@ -278,4 +278,58 @@ export class MessagesAPI {
   async stop(messageId: string): Promise<void> {
     this.streamer.stopStreaming(messageId);
   }
+
+  /**
+   * Pin a message
+   *
+   * Marks a message as pinned and records the pin timestamp.
+   *
+   * @param messageId - ID of the message to pin
+   */
+  async pin(messageId: string): Promise<void> {
+    const message = await this.messageRepo.findById(messageId);
+    if (!message) {
+      throw new Error(`Message ${messageId} not found`);
+    }
+
+    message.isPinned = true;
+    message.pinnedAt = Date.now();
+    message.updatedAt = Date.now();
+    await this.messageRepo.update(message);
+  }
+
+  /**
+   * Unpin a message
+   *
+   * Removes the pin from a message and clears the pin timestamp.
+   *
+   * @param messageId - ID of the message to unpin
+   */
+  async unpin(messageId: string): Promise<void> {
+    const message = await this.messageRepo.findById(messageId);
+    if (!message) {
+      throw new Error(`Message ${messageId} not found`);
+    }
+
+    message.isPinned = false;
+    // Use delete to properly remove the optional property
+    delete message.pinnedAt;
+    message.updatedAt = Date.now();
+    await this.messageRepo.update(message);
+  }
+
+  /**
+   * Get all pinned messages for a chat
+   *
+   * Returns messages ordered by pin time (oldest first).
+   *
+   * @param chatId - ID of the chat
+   * @returns Array of pinned messages
+   */
+  async getPinnedMessages(chatId: string): Promise<Message[]> {
+    const allMessages = await this.messageRepo.findByChatId(chatId);
+    return allMessages
+      .filter((msg) => msg.isPinned)
+      .sort((a, b) => (a.pinnedAt ?? 0) - (b.pinnedAt ?? 0));
+  }
 }

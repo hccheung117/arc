@@ -4,6 +4,8 @@
 export interface Chat {
   id: string;
   title: string;
+  parentChatId?: string; // ID of parent chat (for branched conversations)
+  parentMessageId?: string; // ID of message where branch occurred
   createdAt: number; // Unix timestamp in milliseconds
   updatedAt: number; // Unix timestamp in milliseconds
   lastMessageAt: number; // Unix timestamp for sorting chats

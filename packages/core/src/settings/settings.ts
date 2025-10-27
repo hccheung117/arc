@@ -38,6 +38,39 @@ export interface Settings {
    * Whether to enable code syntax highlighting
    */
   enableSyntaxHighlighting: boolean;
+
+  /**
+   * Favorite models for quick access
+   * Format: "providerId:modelId"
+   */
+  favoriteModels: string[];
+
+  /**
+   * Whitelisted models to show in model selector
+   * Format: "providerId:modelId"
+   * Empty array means show all models
+   */
+  whitelistedModels: string[];
+
+  /**
+   * Line height for chat messages
+   */
+  lineHeight: "compact" | "normal" | "relaxed";
+
+  /**
+   * Font family for chat messages
+   */
+  fontFamily: "sans" | "serif" | "mono";
+
+  /**
+   * Default system prompt for new chats
+   */
+  defaultSystemPrompt?: string;
+
+  /**
+   * Whether to automatically generate chat titles
+   */
+  autoTitleChats: boolean;
 }
 
 /**
@@ -49,4 +82,9 @@ export const defaultSettings: Settings = {
   showTokenCounts: false,
   enableMarkdown: true,
   enableSyntaxHighlighting: true,
+  favoriteModels: [],
+  whitelistedModels: [],
+  lineHeight: "normal",
+  fontFamily: "sans",
+  autoTitleChats: true,
 };

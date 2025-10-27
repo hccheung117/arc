@@ -4,6 +4,24 @@ import type { ProviderConfigRepository } from "../src/providers/provider-reposit
 import type { ProviderConfig } from "../src/providers/provider-config.js";
 import type { ProviderManager } from "../src/providers/provider-manager.js";
 
+// Mock the provider detector module
+vi.mock("@arc/ai/provider-detector.js", () => ({
+  detectProviderType: vi.fn(),
+}));
+
+// Mock the errors module
+vi.mock("@arc/ai/errors.js", () => ({
+  ProviderDetectionError: class ProviderDetectionError extends Error {
+    constructor(message: string) {
+      super(message);
+      this.name = "ProviderDetectionError";
+    }
+  },
+}));
+
+import { detectProviderType } from "@arc/ai/provider-detector.js";
+import { ProviderDetectionError } from "@arc/ai/errors.js";
+
 /**
  * ProvidersAPI Tests
  *
@@ -282,6 +300,127 @@ describe("ProvidersAPI", () => {
       vi.mocked(mockManager.checkConnection).mockRejectedValue(new Error("Invalid API key"));
 
       await expect(api.checkConnection("provider-1")).rejects.toThrow("Invalid API key");
+    });
+  });
+
+  describe("auto-detection (Phase 8)", () => {
+    beforeEach(() => {
+      // Reset the mock before each test
+      vi.mocked(detectProviderType).mockReset();
+    });
+
+    it("should call detectProviderType when type is 'auto'", async () => {
+      const input: CreateProviderInput = {
+        name: "Auto Provider",
+        type: "auto",
+        apiKey: "sk-ant-test",
+        baseUrl: "https://api.anthropic.com/v1",
+      };
+
+      vi.mocked(detectProviderType).mockReturnValue("anthropic");
+      vi.mocked(mockRepository.create).mockImplementation(async (config) => config);
+
+      await api.create(input);
+
+      expect(detectProviderType).toHaveBeenCalledWith({
+        apiKey: input.apiKey,
+        baseUrl: input.baseUrl,
+      });
+    });
+
+    it("should use detected type to create provider", async () => {
+      const input: CreateProviderInput = {
+        name: "Auto Provider",
+        type: "auto",
+        apiKey: "sk-test",
+        baseUrl: "https://api.openai.com/v1",
+      };
+
+      vi.mocked(detectProviderType).mockReturnValue("openai");
+      vi.mocked(mockRepository.create).mockImplementation(async (config) => config);
+
+      const result = await api.create(input);
+
+      expect(result.type).toBe("openai");
+      expect(mockRepository.create).toHaveBeenCalledOnce();
+      const createdConfig = vi.mocked(mockRepository.create).mock.calls[0][0];
+      expect(createdConfig.type).toBe("openai");
+    });
+
+    it("should bypass detection when type is explicit", async () => {
+      const input: CreateProviderInput = {
+        name: "Explicit Provider",
+        type: "openai",
+        apiKey: "sk-test",
+        baseUrl: "https://api.openai.com/v1",
+      };
+
+      vi.mocked(mockRepository.create).mockImplementation(async (config) => config);
+
+      const result = await api.create(input);
+
+      expect(detectProviderType).not.toHaveBeenCalled();
+      expect(result.type).toBe("openai");
+    });
+
+    it("should throw clear error when detection fails", async () => {
+      const input: CreateProviderInput = {
+        name: "Auto Provider",
+        type: "auto",
+        apiKey: "unknown-key-format",
+        baseUrl: "https://custom.api.com",
+      };
+
+      vi.mocked(detectProviderType).mockImplementation(() => {
+        throw new ProviderDetectionError("Unable to detect provider type");
+      });
+
+      await expect(api.create(input)).rejects.toThrow(
+        "Unable to automatically detect provider type"
+      );
+      await expect(api.create(input)).rejects.toThrow(
+        "Please specify the provider type explicitly"
+      );
+    });
+
+    it("should wrap ProviderDetectionError in user-friendly message", async () => {
+      const input: CreateProviderInput = {
+        name: "Auto Provider",
+        type: "auto",
+        apiKey: "unknown",
+        baseUrl: "https://custom.api.com",
+      };
+
+      const originalError = new ProviderDetectionError("Detection failed: no match found");
+      vi.mocked(detectProviderType).mockImplementation(() => {
+        throw originalError;
+      });
+
+      try {
+        await api.create(input);
+        expect.fail("Should have thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(Error);
+        expect((error as Error).message).toContain("Unable to automatically detect provider type");
+        expect((error as Error).message).toContain("Detection failed: no match found");
+        expect((error as Error).message).toContain("Please specify the provider type explicitly");
+      }
+    });
+
+    it("should rethrow non-ProviderDetectionError errors", async () => {
+      const input: CreateProviderInput = {
+        name: "Auto Provider",
+        type: "auto",
+        apiKey: "sk-test",
+        baseUrl: "https://api.openai.com/v1",
+      };
+
+      const unexpectedError = new Error("Unexpected system error");
+      vi.mocked(detectProviderType).mockImplementation(() => {
+        throw unexpectedError;
+      });
+
+      await expect(api.create(input)).rejects.toThrow("Unexpected system error");
     });
   });
 });
