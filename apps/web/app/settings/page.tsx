@@ -15,6 +15,7 @@ import { useUIStore } from "@/lib/ui-store";
 import { ArrowLeft, Moon, Sun, Monitor, Plus, AlertCircle } from "lucide-react";
 import { ProviderCard } from "@/components/provider-card";
 import { ProviderFormDialog } from "@/components/provider-form-dialog";
+import { About } from "@/components/about";
 import { useCore } from "@/lib/core-provider";
 import type { ProviderConfig } from "@arc/core/core.js";
 
@@ -325,6 +326,9 @@ export default function SettingsPage() {
             )}
           </div>
           )}
+
+          {/* About Section */}
+          {activeTab === "about" && <About />}
         </div>
       </main>
 

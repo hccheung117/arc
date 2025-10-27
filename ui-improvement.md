@@ -251,14 +251,16 @@ What Can Actually Be Done (UI-Only with Current Core API)
 **Objective:** Complete settings panel
 
 1.  Add "About" tab to `SettingsSidebar`
-2.  Create `About` page component
-3.  Read version from `package.json` (import or fetch)
-4.  Display app name, version, build date
-5.  Add "Check for Updates" button (disabled/placeholder for now)
+2.  Create `About` component (`components/about.tsx`)
+3.  Create workspace-root `version.json` as single source of truth
+4.  Import version data from `version.json`
+5.  Display app name, version, build date
+6.  Add "Check for Updates" button (disabled/placeholder for now)
 
 **Error Handling:**
--   Display a fallback for version info (e.g., "Version unavailable") if `package.json` cannot be read, ensuring the page never crashes.
--   For the future "Check for Updates" feature, show a non-blocking "Unable to check for updates" message with a retry option.
+-   Display fallback "Version unavailable" if `version.json` cannot be imported
+-   Component never crashes on import failure
+-   "Check for Updates" button is disabled with "Coming soon" tooltip
 
 **Why third:** Quick win, independent feature.
 

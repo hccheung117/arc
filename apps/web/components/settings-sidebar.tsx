@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Palette, Bot } from "lucide-react";
+import { Palette, Bot, Info } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -29,6 +29,12 @@ export function SettingsSidebar({ activeTab }: SettingsSidebarProps) {
       label: "AI Providers",
       icon: Bot,
       href: "/settings?tab=providers",
+    },
+    {
+      id: "about",
+      label: "About",
+      icon: Info,
+      href: "/settings?tab=about",
     },
   ];
 
