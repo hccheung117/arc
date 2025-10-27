@@ -40,13 +40,22 @@ const CoreContext = createContext<CoreContextValue | undefined>(undefined);
 // Provider Component
 // ============================================================================
 
-export function CoreProvider({ children }: { children: React.ReactNode }) {
-  const [core, setCore] = useState<Core | null>(null);
-  const [isReady, setIsReady] = useState(false);
+export function CoreProvider({ children, value }: { children: React.ReactNode; value?: Core }) {
+  const [core, setCore] = useState<Core | null>(value ?? null);
+  const [isReady, setIsReady] = useState(!!value);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     let mounted = true;
+
+    // If a Core instance is provided (e.g., in tests), use it and skip initialization
+    if (value) {
+      setCore(value);
+      setIsReady(true);
+      return () => {
+        mounted = false;
+      };
+    }
 
     const initCore = async () => {
       try {
@@ -75,14 +84,14 @@ export function CoreProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       mounted = false;
-      // Cleanup core on unmount
-      if (core) {
+      // Cleanup core on unmount only for internally created cores
+      if (!value && core) {
         core.close().catch((error) => {
           console.error("Failed to close core:", error);
         });
       }
     };
-  }, []);
+  }, [value]);
 
   // Error state
   if (error) {
@@ -110,13 +119,13 @@ export function CoreProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const value: CoreContextValue = {
+  const contextValue: CoreContextValue = {
     core,
     isReady,
   };
 
   return (
-    <CoreContext.Provider value={value}>
+    <CoreContext.Provider value={contextValue}>
       {children}
     </CoreContext.Provider>
   );

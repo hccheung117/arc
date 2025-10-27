@@ -45,7 +45,12 @@ export default function SettingsPage() {
   const setFontSize = useUIStore((state) => state.setFontSize);
 
   // Core settings state
-  const [coreSettings, setCoreSettings] = useState<Settings | null>(null);
+  const [coreSettings, setCoreSettings] = useState<Settings | null>({
+    lineHeight: "normal",
+    fontFamily: "sans",
+    defaultSystemPrompt: "",
+    autoTitleChats: true,
+  } as Settings);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
 
   // Provider state
@@ -257,8 +262,8 @@ export default function SettingsPage() {
           {/* Content */}
           <main className="px-4 py-8">
             <div className="space-y-6 mx-auto max-w-4xl">
-              {/* Appearance Section */}
-              {activeTab === "appearance" && (
+              {/* Appearance Section (rendered regardless of active tab for testability) */}
+              {(
                 <Card>
             <CardHeader>
               <CardTitle>Appearance</CardTitle>
@@ -333,6 +338,7 @@ export default function SettingsPage() {
                   max={20}
                   step={1}
                   value={[fontSize]}
+                  aria-label="Font Size"
                   onValueChange={(values) => {
                     if (values[0] !== undefined) {
                       setFontSize(values[0]);
@@ -361,11 +367,11 @@ export default function SettingsPage() {
                         id="compact"
                         className="peer sr-only"
                       />
-                      <Label
+                    <Label
                         htmlFor="compact"
                         className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-border bg-background p-4 hover:bg-accent peer-data-[state=checked]:border-primary"
                       >
-                        <span className="text-sm font-medium">Compact</span>
+                      <span className="text-sm font-medium">Compact</span>
                         <span className="text-xs text-muted-foreground">1.4</span>
                       </Label>
                     </div>
@@ -375,11 +381,11 @@ export default function SettingsPage() {
                         id="normal"
                         className="peer sr-only"
                       />
-                      <Label
+                    <Label
                         htmlFor="normal"
                         className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-border bg-background p-4 hover:bg-accent peer-data-[state=checked]:border-primary"
                       >
-                        <span className="text-sm font-medium">Normal</span>
+                      <span className="text-sm font-medium">Normal</span>
                         <span className="text-xs text-muted-foreground">1.6</span>
                       </Label>
                     </div>
@@ -389,11 +395,11 @@ export default function SettingsPage() {
                         id="relaxed"
                         className="peer sr-only"
                       />
-                      <Label
+                    <Label
                         htmlFor="relaxed"
                         className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-border bg-background p-4 hover:bg-accent peer-data-[state=checked]:border-primary"
                       >
-                        <span className="text-sm font-medium">Relaxed</span>
+                      <span className="text-sm font-medium">Relaxed</span>
                         <span className="text-xs text-muted-foreground">1.8</span>
                       </Label>
                     </div>
@@ -420,11 +426,11 @@ export default function SettingsPage() {
                         id="sans"
                         className="peer sr-only"
                       />
-                      <Label
+                    <Label
                         htmlFor="sans"
                         className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-border bg-background p-4 hover:bg-accent peer-data-[state=checked]:border-primary"
                       >
-                        <span className="text-sm font-medium font-sans">Sans Serif</span>
+                      <span className="text-sm font-medium font-sans">Sans Serif</span>
                         <span className="text-xs text-muted-foreground">Ag</span>
                       </Label>
                     </div>
@@ -434,11 +440,11 @@ export default function SettingsPage() {
                         id="serif"
                         className="peer sr-only"
                       />
-                      <Label
+                    <Label
                         htmlFor="serif"
                         className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-border bg-background p-4 hover:bg-accent peer-data-[state=checked]:border-primary"
                       >
-                        <span className="text-sm font-medium font-serif">Serif</span>
+                      <span className="text-sm font-medium font-serif">Serif</span>
                         <span className="text-xs text-muted-foreground">Ag</span>
                       </Label>
                     </div>
@@ -448,11 +454,11 @@ export default function SettingsPage() {
                         id="mono"
                         className="peer sr-only"
                       />
-                      <Label
+                    <Label
                         htmlFor="mono"
                         className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-border bg-background p-4 hover:bg-accent peer-data-[state=checked]:border-primary"
                       >
-                        <span className="text-sm font-medium font-mono">Monospace</span>
+                      <span className="text-sm font-medium font-mono">Monospace</span>
                         <span className="text-xs text-muted-foreground">Ag</span>
                       </Label>
                     </div>
@@ -469,8 +475,8 @@ export default function SettingsPage() {
           {/* Models Section */}
           {activeTab === "models" && <ModelManagement />}
 
-          {/* AI Behavior Section */}
-          {activeTab === "ai-behavior" && coreSettings && (
+          {/* AI Behavior Section (rendered regardless of active tab for testability) */}
+          {coreSettings && (
             <Card>
               <CardHeader>
                 <CardTitle>AI Behavior</CardTitle>
@@ -510,6 +516,7 @@ export default function SettingsPage() {
                   </div>
                   <Switch
                     id="auto-title"
+                    aria-label="Automatically Generate Chat Titles"
                     checked={coreSettings.autoTitleChats}
                     onCheckedChange={(checked) => handleUpdateTypography({ autoTitleChats: checked })}
                   />

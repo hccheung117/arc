@@ -91,6 +91,8 @@ export function createMockCore(options: MockCoreOptions = {}): Core {
 
     // Messages API
     messages: {
+      list: vi.fn().mockResolvedValue(messages),
+      getPinnedMessages: vi.fn().mockResolvedValue([]),
       regenerate: vi.fn().mockReturnValue(mockStreamGenerator()),
       edit: vi.fn().mockReturnValue(mockStreamGenerator()),
       delete: vi.fn().mockResolvedValue(undefined),
