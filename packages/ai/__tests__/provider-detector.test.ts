@@ -637,4 +637,214 @@ describe("Provider Detection", () => {
       });
     });
   });
+
+  describe("Retry Logic", () => {
+    beforeEach(() => {
+      vi.resetAllMocks();
+    });
+
+    it("should retry once on network timeout and succeed on second attempt", async () => {
+      let callCount = 0;
+      globalThis.fetch = vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          // First OpenAI attempt: timeout
+          return Promise.reject(new DOMException("Request timed out", "AbortError"));
+        }
+        // Second OpenAI attempt OR other probes: success
+        return Promise.resolve({
+          status: 200,
+          json: () =>
+            Promise.resolve({
+              object: "list",
+              data: [{ id: "gpt-4", object: "model" }],
+            }),
+        } as Response);
+      });
+
+      const result = await detectProviderTypeFromProbe({
+        apiKey: "test-key",
+        baseUrl: "https://custom.com",
+      });
+
+      expect(result).toBe("openai");
+      // All 3 probes run in parallel: OpenAI (2 attempts), Anthropic (1), Gemini (1) = 4 total
+      expect(callCount).toBeGreaterThanOrEqual(2); // At least 2 (the retry happened)
+    });
+
+    it("should not retry more than once (max 2 total attempts)", async () => {
+      let callCount = 0;
+      globalThis.fetch = vi.fn().mockImplementation(() => {
+        callCount++;
+        // Always timeout
+        return Promise.reject(new DOMException("Request timed out", "AbortError"));
+      });
+
+      await expect(
+        detectProviderTypeFromProbe({
+          apiKey: "test-key",
+          baseUrl: "https://custom.com",
+        })
+      ).rejects.toThrow(ProviderDetectionError);
+
+      // Should call 3 probes (OpenAI, Anthropic, Gemini) * 2 attempts each = 6 total
+      expect(callCount).toBe(6);
+    });
+
+    it("should not retry on HTTP 4xx errors", async () => {
+      let callCount = 0;
+      globalThis.fetch = vi.fn().mockImplementation(() => {
+        callCount++;
+        // Always return 401 with OpenAI error schema
+        return Promise.resolve({
+          status: 401,
+          json: () =>
+            Promise.resolve({
+              error: {
+                message: "Invalid API key",
+                type: "invalid_request_error",
+              },
+            }),
+        } as Response);
+      });
+
+      const result = await detectProviderTypeFromProbe({
+        apiKey: "test-key",
+        baseUrl: "https://custom.com",
+      });
+
+      expect(result).toBe("openai");
+      // All 3 probes run in parallel, no retries on HTTP errors
+      // Could be 1 (if OpenAI finishes first and wins) or 3 (if all probes start before first finishes)
+      expect(callCount).toBeGreaterThanOrEqual(1);
+      expect(callCount).toBeLessThanOrEqual(3);
+    });
+
+    it("should not retry on HTTP 5xx errors", async () => {
+      let callCount = 0;
+      globalThis.fetch = vi.fn().mockImplementation(() => {
+        callCount++;
+        // Always return 500
+        return Promise.resolve({
+          status: 500,
+          json: () => Promise.resolve({ error: "Internal server error" }),
+        } as Response);
+      });
+
+      await expect(
+        detectProviderTypeFromProbe({
+          apiKey: "test-key",
+          baseUrl: "https://custom.com",
+        })
+      ).rejects.toThrow(ProviderDetectionError);
+
+      // Should only call once per probe (no retries on HTTP errors) = 3 total
+      expect(callCount).toBe(3);
+    });
+
+    it("should succeed on first attempt if no timeout occurs", async () => {
+      let callCount = 0;
+      globalThis.fetch = vi.fn().mockImplementation(() => {
+        callCount++;
+        return Promise.resolve({
+          status: 200,
+          json: () =>
+            Promise.resolve({
+              object: "list",
+              data: [{ id: "gpt-4", object: "model" }],
+            }),
+        } as Response);
+      });
+
+      const result = await detectProviderTypeFromProbe({
+        apiKey: "test-key",
+        baseUrl: "https://custom.com",
+      });
+
+      expect(result).toBe("openai");
+      // All 3 probes run in parallel, each makes 1 attempt
+      // Could be 1-3 depending on timing (race condition)
+      expect(callCount).toBeGreaterThanOrEqual(1);
+      expect(callCount).toBeLessThanOrEqual(3);
+    });
+
+    it("should retry only timeout errors, not other errors", async () => {
+      let callCount = 0;
+      globalThis.fetch = vi.fn().mockImplementation(() => {
+        callCount++;
+        // Non-timeout error (e.g., network error)
+        return Promise.reject(new Error("ECONNREFUSED"));
+      });
+
+      await expect(
+        detectProviderTypeFromProbe({
+          apiKey: "test-key",
+          baseUrl: "https://custom.com",
+        })
+      ).rejects.toThrow(ProviderDetectionError);
+
+      // Should not retry non-timeout errors: 3 probes * 1 attempt each = 3 total
+      expect(callCount).toBe(3);
+    });
+
+    it("should detect timeout error by error name AbortError", async () => {
+      let callCount = 0;
+      globalThis.fetch = vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          // First OpenAI call times out
+          const error = new Error("Operation timed out");
+          error.name = "AbortError";
+          return Promise.reject(error);
+        }
+        // Retry and other probes succeed
+        return Promise.resolve({
+          status: 200,
+          json: () =>
+            Promise.resolve({
+              object: "list",
+              data: [{ id: "gpt-4", object: "model" }],
+            }),
+        } as Response);
+      });
+
+      const result = await detectProviderTypeFromProbe({
+        apiKey: "test-key",
+        baseUrl: "https://custom.com",
+      });
+
+      expect(result).toBe("openai");
+      // OpenAI retries (2 attempts) + other probes run (1 each) = at least 2, up to 4
+      expect(callCount).toBeGreaterThanOrEqual(2);
+    });
+
+    it("should detect timeout error by message containing 'timeout'", async () => {
+      let callCount = 0;
+      globalThis.fetch = vi.fn().mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          // First OpenAI call times out
+          return Promise.reject(new Error("Network request timeout exceeded"));
+        }
+        // Retry and other probes succeed
+        return Promise.resolve({
+          status: 200,
+          json: () =>
+            Promise.resolve({
+              object: "list",
+              data: [{ id: "gpt-4", object: "model" }],
+            }),
+        } as Response);
+      });
+
+      const result = await detectProviderTypeFromProbe({
+        apiKey: "test-key",
+        baseUrl: "https://custom.com",
+      });
+
+      expect(result).toBe("openai");
+      // OpenAI retries (2 attempts) + other probes run (1 each) = at least 2, up to 4
+      expect(callCount).toBeGreaterThanOrEqual(2);
+    });
+  });
 });

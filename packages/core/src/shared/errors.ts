@@ -28,6 +28,9 @@ export enum ProviderErrorCode {
   // Other
   UNKNOWN_ERROR = "unknown_error",
   CANCELLED = "cancelled",
+
+  // Detection
+  DETECTION_FAILED = "detection_failed",
 }
 
 /**
@@ -101,8 +104,83 @@ export class ProviderError extends Error {
         return "Service is temporarily unavailable. Please try again later.";
       case ProviderErrorCode.CANCELLED:
         return "Request was cancelled.";
+      case ProviderErrorCode.DETECTION_FAILED:
+        return "Unable to automatically detect provider type. Please specify the provider type manually.";
       default:
         return "An unexpected error occurred. Please try again.";
+    }
+  }
+}
+
+/**
+ * Error for provider auto-detection failures
+ *
+ * Wraps ProviderDetectionError from @arc/ai with user-friendly messaging
+ * and actionable guidance for the UI layer.
+ */
+export class CoreProviderDetectionError extends ProviderError {
+  /**
+   * Evidence from detection attempts (sanitized, no sensitive data)
+   */
+  public readonly detectionAttempts: Array<{
+    vendor: string;
+    method: string;
+    path: string;
+    statusCode: number | null;
+    evidence: string;
+  }>;
+
+  /**
+   * Suggested action for the user
+   */
+  public readonly suggestedAction: "retry" | "manual_selection" | "check_connection";
+
+  constructor(
+    message: string,
+    options: {
+      isRetryable: boolean;
+      detectionAttempts: Array<{
+        vendor: string;
+        method: string;
+        path: string;
+        statusCode: number | null;
+        evidence: string;
+      }>;
+      cause?: Error;
+    }
+  ) {
+    super(ProviderErrorCode.DETECTION_FAILED, message, {
+      isRetryable: options.isRetryable,
+      cause: options.cause,
+    });
+    this.name = "CoreProviderDetectionError";
+    this.detectionAttempts = options.detectionAttempts;
+
+    // Determine suggested action based on error characteristics
+    if (options.isRetryable) {
+      this.suggestedAction = "retry";
+    } else if (options.detectionAttempts.length === 0) {
+      // Heuristics failed, no probes attempted
+      this.suggestedAction = "manual_selection";
+    } else {
+      // Probes ran but couldn't identify provider
+      this.suggestedAction = "manual_selection";
+    }
+  }
+
+  /**
+   * Get detailed user message with actionable guidance
+   */
+  override getUserMessage(): string {
+    switch (this.suggestedAction) {
+      case "retry":
+        return "Unable to detect provider type due to network issues. Please check your connection and try again.";
+      case "manual_selection":
+        return "Unable to automatically detect provider type. Please select your provider from the dropdown menu.";
+      case "check_connection":
+        return "Unable to detect provider type. Please check your API key and base URL, or select your provider manually.";
+      default:
+        return "Unable to automatically detect provider type. Please specify the provider type manually.";
     }
   }
 }

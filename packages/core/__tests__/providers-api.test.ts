@@ -3,6 +3,7 @@ import { ProvidersAPI, type CreateProviderInput, type UpdateProviderInput } from
 import type { ProviderConfigRepository } from "../src/providers/provider-repository.type.js";
 import type { ProviderConfig } from "../src/providers/provider-config.js";
 import type { ProviderManager } from "../src/providers/provider-manager.js";
+import { CoreProviderDetectionError } from "../src/shared/errors.js";
 
 // Mock the provider detector module
 vi.mock("@arc/ai/provider-detector.js", () => ({
@@ -387,7 +388,7 @@ describe("ProvidersAPI", () => {
       expect(result.type).toBe("openai");
     });
 
-    it("should throw clear error when detection fails", async () => {
+    it("should throw CoreProviderDetectionError when detection fails", async () => {
       const input: CreateProviderInput = {
         name: "Auto Provider",
         type: "auto",
@@ -421,15 +422,10 @@ describe("ProvidersAPI", () => {
         );
       });
 
-      await expect(api.create(input)).rejects.toThrow(
-        "Unable to automatically detect provider type"
-      );
-      await expect(api.create(input)).rejects.toThrow(
-        "Please specify the provider type explicitly"
-      );
+      await expect(api.create(input)).rejects.toThrow(CoreProviderDetectionError);
     });
 
-    it("should wrap ProviderDetectionError in user-friendly message", async () => {
+    it("should wrap ProviderDetectionError in CoreProviderDetectionError with user-friendly message", async () => {
       const input: CreateProviderInput = {
         name: "Auto Provider",
         type: "auto",
@@ -466,9 +462,73 @@ describe("ProvidersAPI", () => {
         await api.create(input);
         expect.fail("Should have thrown");
       } catch (error) {
-        expect(error).toBeInstanceOf(Error);
-        expect((error as Error).message).toContain("Unable to automatically detect provider type");
-        expect((error as Error).message).toContain("Please specify the provider type explicitly");
+        expect(error).toBeInstanceOf(CoreProviderDetectionError);
+
+        const coreError = error as CoreProviderDetectionError;
+        expect(coreError.isRetryable).toBe(false);
+        expect(coreError.detectionAttempts).toHaveLength(1);
+        expect(coreError.suggestedAction).toBe("manual_selection");
+        expect(coreError.getUserMessage()).toContain("Unable to automatically detect provider type");
+      }
+    });
+
+    it("should set isRetryable=true for network timeout errors", async () => {
+      const input: CreateProviderInput = {
+        name: "Auto Provider",
+        type: "auto",
+        apiKey: "unknown",
+        baseUrl: "https://custom.api.com",
+      };
+
+      // Phase 1 fails
+      vi.mocked(detectProviderType).mockImplementation(() => {
+        throw new ProviderDetectionError("Heuristic detection failed", {
+          attempts: [],
+          isRetryable: false,
+        });
+      });
+
+      // Phase 2 fails with timeout
+      const timeoutError = new ProviderDetectionError("Network timeout", {
+        attempts: [
+          {
+            vendor: "openai",
+            method: "GET",
+            path: "/v1/models",
+            statusCode: null, // null indicates timeout
+            evidence: "Network timeout",
+          },
+          {
+            vendor: "anthropic",
+            method: "GET",
+            path: "/v1/models",
+            statusCode: null,
+            evidence: "Network timeout",
+          },
+          {
+            vendor: "gemini",
+            method: "GET",
+            path: "/v1beta/models",
+            statusCode: null,
+            evidence: "Network timeout",
+          },
+        ],
+        isRetryable: true,
+      });
+      vi.mocked(detectProviderTypeFromProbe).mockImplementation(() => {
+        return Promise.reject(timeoutError);
+      });
+
+      try {
+        await api.create(input);
+        expect.fail("Should have thrown");
+      } catch (error) {
+        expect(error).toBeInstanceOf(CoreProviderDetectionError);
+
+        const coreError = error as CoreProviderDetectionError;
+        expect(coreError.isRetryable).toBe(true);
+        expect(coreError.suggestedAction).toBe("retry");
+        expect(coreError.getUserMessage()).toContain("network issues");
       }
     });
 
@@ -486,6 +546,206 @@ describe("ProvidersAPI", () => {
       });
 
       await expect(api.create(input)).rejects.toThrow("Unexpected system error");
+    });
+  });
+
+  describe("caching", () => {
+    beforeEach(() => {
+      vi.mocked(detectProviderType).mockReset();
+      vi.mocked(detectProviderTypeFromProbe).mockReset();
+    });
+
+    it("should cache detection results and skip detection on second call", async () => {
+      const input: CreateProviderInput = {
+        name: "Auto Provider",
+        type: "auto",
+        apiKey: "sk-test123",
+        baseUrl: "https://custom.api.com",
+      };
+
+      // Phase 1 fails, Phase 2 succeeds
+      vi.mocked(detectProviderType).mockImplementation(() => {
+        throw new ProviderDetectionError("Heuristic failed", {
+          attempts: [],
+          isRetryable: false,
+        });
+      });
+      vi.mocked(detectProviderTypeFromProbe).mockResolvedValue("openai");
+      vi.mocked(mockRepository.create).mockImplementation(async (config) => config);
+
+      // First call - should perform detection
+      await api.create(input);
+      expect(detectProviderTypeFromProbe).toHaveBeenCalledTimes(1);
+
+      // Second call with same credentials - should use cache
+      await api.create(input);
+      expect(detectProviderTypeFromProbe).toHaveBeenCalledTimes(1); // Still 1, not called again
+    });
+
+    it("should not cache heuristic-based detections", async () => {
+      const input: CreateProviderInput = {
+        name: "Auto Provider",
+        type: "auto",
+        apiKey: "sk-ant-test",
+        baseUrl: "https://api.anthropic.com/v1",
+      };
+
+      vi.mocked(detectProviderType).mockReturnValue("anthropic");
+      vi.mocked(mockRepository.create).mockImplementation(async (config) => config);
+
+      // First call - heuristics succeed
+      await api.create(input);
+      expect(detectProviderType).toHaveBeenCalledTimes(1);
+
+      // Second call - heuristics run again (not cached)
+      await api.create(input);
+      expect(detectProviderType).toHaveBeenCalledTimes(2);
+    });
+
+    it("should use different cache keys for different credentials", async () => {
+      vi.mocked(detectProviderType).mockImplementation(() => {
+        throw new ProviderDetectionError("Heuristic failed", {
+          attempts: [],
+          isRetryable: false,
+        });
+      });
+      vi.mocked(detectProviderTypeFromProbe).mockResolvedValue("openai");
+      vi.mocked(mockRepository.create).mockImplementation(async (config) => config);
+
+      const input1: CreateProviderInput = {
+        name: "Provider 1",
+        type: "auto",
+        apiKey: "key1",
+        baseUrl: "https://api1.com",
+      };
+
+      const input2: CreateProviderInput = {
+        name: "Provider 2",
+        type: "auto",
+        apiKey: "key2",
+        baseUrl: "https://api2.com",
+      };
+
+      await api.create(input1);
+      await api.create(input2);
+
+      // Both should trigger detection (different cache keys)
+      expect(detectProviderTypeFromProbe).toHaveBeenCalledTimes(2);
+    });
+
+    it("should invalidate cache when provider is updated with new apiKey", async () => {
+      const existingConfig: ProviderConfig = {
+        id: "provider-1",
+        name: "Test Provider",
+        type: "openai",
+        apiKey: "old-key",
+        baseUrl: "https://custom.api.com",
+        enabled: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+
+      vi.mocked(mockRepository.findById).mockResolvedValue(existingConfig);
+      vi.mocked(mockRepository.update).mockImplementation(async (config) => config);
+
+      // First, populate cache
+      vi.mocked(detectProviderType).mockImplementation(() => {
+        throw new ProviderDetectionError("Heuristic failed", {
+          attempts: [],
+          isRetryable: false,
+        });
+      });
+      vi.mocked(detectProviderTypeFromProbe).mockResolvedValue("openai");
+      vi.mocked(mockRepository.create).mockImplementation(async (config) => config);
+
+      const createInput: CreateProviderInput = {
+        name: "Test",
+        type: "auto",
+        apiKey: "old-key",
+        baseUrl: "https://custom.api.com",
+      };
+      await api.create(createInput);
+
+      // Update the provider with new API key
+      const updateInput: UpdateProviderInput = {
+        apiKey: "new-key",
+      };
+      await api.update("provider-1", updateInput);
+
+      // Create again with old credentials - should not use cache (was invalidated)
+      await api.create(createInput);
+      expect(detectProviderTypeFromProbe).toHaveBeenCalledTimes(2);
+    });
+
+    it("should invalidate cache when provider is deleted", async () => {
+      const existingConfig: ProviderConfig = {
+        id: "provider-1",
+        name: "Test Provider",
+        type: "openai",
+        apiKey: "test-key",
+        baseUrl: "https://custom.api.com",
+        enabled: true,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      };
+
+      vi.mocked(mockRepository.findById).mockResolvedValue(existingConfig);
+      vi.mocked(mockRepository.delete).mockResolvedValue(true);
+
+      // First, populate cache
+      vi.mocked(detectProviderType).mockImplementation(() => {
+        throw new ProviderDetectionError("Heuristic failed", {
+          attempts: [],
+          isRetryable: false,
+        });
+      });
+      vi.mocked(detectProviderTypeFromProbe).mockResolvedValue("openai");
+      vi.mocked(mockRepository.create).mockImplementation(async (config) => config);
+
+      const createInput: CreateProviderInput = {
+        name: "Test",
+        type: "auto",
+        apiKey: "test-key",
+        baseUrl: "https://custom.api.com",
+      };
+      await api.create(createInput);
+      expect(detectProviderTypeFromProbe).toHaveBeenCalledTimes(1);
+
+      // Delete the provider
+      await api.delete("provider-1");
+
+      // Create again - should not use cache (was invalidated)
+      await api.create(createInput);
+      expect(detectProviderTypeFromProbe).toHaveBeenCalledTimes(2);
+    });
+
+    it("should allow manual cache clearing", async () => {
+      const input: CreateProviderInput = {
+        name: "Auto Provider",
+        type: "auto",
+        apiKey: "sk-test123",
+        baseUrl: "https://custom.api.com",
+      };
+
+      vi.mocked(detectProviderType).mockImplementation(() => {
+        throw new ProviderDetectionError("Heuristic failed", {
+          attempts: [],
+          isRetryable: false,
+        });
+      });
+      vi.mocked(detectProviderTypeFromProbe).mockResolvedValue("openai");
+      vi.mocked(mockRepository.create).mockImplementation(async (config) => config);
+
+      // First call - populate cache
+      await api.create(input);
+      expect(detectProviderTypeFromProbe).toHaveBeenCalledTimes(1);
+
+      // Clear cache manually
+      api.clearDetectionCache();
+
+      // Second call - should perform detection again
+      await api.create(input);
+      expect(detectProviderTypeFromProbe).toHaveBeenCalledTimes(2);
     });
   });
 });

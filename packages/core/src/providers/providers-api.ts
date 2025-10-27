@@ -5,6 +5,7 @@ import type { ModelInfo } from "@arc/ai/provider.type.js";
 import { generateId } from "../shared/id-generator.js";
 import { detectProviderType, detectProviderTypeFromProbe } from "@arc/ai/provider-detector.js";
 import { ProviderDetectionError } from "@arc/ai/errors.js";
+import { CoreProviderDetectionError } from "../shared/errors.js";
 
 /**
  * Input for creating a new provider
@@ -41,9 +42,43 @@ export class ProvidersAPI {
   private repository: ProviderConfigRepository;
   private manager: ProviderManager;
 
+  /**
+   * Cache for provider type detection results
+   * Key: hash of (baseUrl, apiKey), Value: detected provider type
+   *
+   * This cache prevents redundant network probes when the same
+   * credentials are tested multiple times.
+   */
+  private detectionCache: Map<string, "openai" | "anthropic" | "gemini" | "custom">;
+
   constructor(repository: ProviderConfigRepository, manager: ProviderManager) {
     this.repository = repository;
     this.manager = manager;
+    this.detectionCache = new Map();
+  }
+
+  /**
+   * Generate a cache key from API credentials
+   * Uses a simple hash function for cache key generation
+   */
+  private generateCacheKey(apiKey: string, baseUrl: string): string {
+    // Simple hash function - not cryptographic, just for cache key
+    const input = `${baseUrl}::${apiKey}`;
+    let hash = 0;
+    for (let i = 0; i < input.length; i++) {
+      const char = input.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return hash.toString(36);
+  }
+
+  /**
+   * Clear the detection cache
+   * Useful for testing or when credentials change
+   */
+  clearDetectionCache(): void {
+    this.detectionCache.clear();
   }
 
   /**
@@ -61,33 +96,53 @@ export class ProvidersAPI {
     let providerType: "openai" | "anthropic" | "gemini" | "custom";
 
     if (input.type === "auto") {
-      try {
-        // Phase 1: Try fast heuristics first
-        providerType = detectProviderType({
-          apiKey: input.apiKey,
-          baseUrl: input.baseUrl,
-        });
-      } catch (heuristicError) {
-        if (heuristicError instanceof ProviderDetectionError) {
-          try {
-            // Phase 2: Fall back to network probing
-            providerType = await detectProviderTypeFromProbe({
-              apiKey: input.apiKey,
-              baseUrl: input.baseUrl,
-            });
-          } catch (probeError) {
-            if (probeError instanceof ProviderDetectionError) {
-              // Both phases failed - provide user-friendly error
-              const errorMessage = probeError.isRetryable
-                ? "Unable to detect provider type due to network issues. Please check your connection and try again."
-                : "Unable to automatically detect provider type. The API key and base URL do not match any known provider. Please specify the provider type explicitly.";
+      // Check cache first
+      const cacheKey = this.generateCacheKey(input.apiKey, input.baseUrl);
+      const cachedType = this.detectionCache.get(cacheKey);
 
-              throw new Error(errorMessage);
+      if (cachedType) {
+        providerType = cachedType;
+      } else {
+        // Cache miss - perform detection
+        let usedNetworkProbe = false;
+        try {
+          // Phase 1: Try fast heuristics first
+          providerType = detectProviderType({
+            apiKey: input.apiKey,
+            baseUrl: input.baseUrl,
+          });
+        } catch (heuristicError) {
+          if (heuristicError instanceof ProviderDetectionError) {
+            try {
+              // Phase 2: Fall back to network probing
+              usedNetworkProbe = true;
+              providerType = await detectProviderTypeFromProbe({
+                apiKey: input.apiKey,
+                baseUrl: input.baseUrl,
+              });
+            } catch (probeError) {
+              if (probeError instanceof ProviderDetectionError) {
+                // Both phases failed - wrap in CoreError with user-friendly message
+                throw new CoreProviderDetectionError(
+                  probeError.message,
+                  {
+                    isRetryable: probeError.isRetryable,
+                    detectionAttempts: probeError.attempts,
+                    cause: probeError,
+                  }
+                );
+              }
+              throw probeError;
             }
-            throw probeError;
+          } else {
+            throw heuristicError;
           }
-        } else {
-          throw heuristicError;
+        }
+
+        // Only cache network probe results (not heuristic results)
+        // Heuristics are fast enough to run every time
+        if (usedNetworkProbe) {
+          this.detectionCache.set(cacheKey, providerType);
         }
       }
     } else {
@@ -127,6 +182,12 @@ export class ProvidersAPI {
       throw new Error(`Provider ${id} not found`);
     }
 
+    // Invalidate detection cache if credentials changed
+    if (input.apiKey !== undefined || input.baseUrl !== undefined) {
+      const cacheKey = this.generateCacheKey(existing.apiKey, existing.baseUrl);
+      this.detectionCache.delete(cacheKey);
+    }
+
     const updated: ProviderConfig = {
       ...existing,
       ...(input.name !== undefined && { name: input.name }),
@@ -150,6 +211,13 @@ export class ProvidersAPI {
    * Remove a provider connection
    */
   async delete(id: string): Promise<void> {
+    // Get existing config to invalidate detection cache
+    const existing = await this.repository.findById(id);
+    if (existing) {
+      const cacheKey = this.generateCacheKey(existing.apiKey, existing.baseUrl);
+      this.detectionCache.delete(cacheKey);
+    }
+
     const deleted = await this.repository.delete(id);
     if (!deleted) {
       throw new Error(`Provider ${id} not found`);

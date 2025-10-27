@@ -217,7 +217,15 @@ function normalizeProbeConfig(config: {
 }
 
 /**
+ * Check if an error is a network timeout error
+ */
+function isTimeoutError(error: unknown): boolean {
+  return error instanceof Error && (error.name === "AbortError" || error.message.includes("timeout"));
+}
+
+/**
  * Probe OpenAI endpoint
+ * Retries once on network timeout errors
  */
 async function probeOpenAI(config: {
   apiKey: string;
@@ -225,55 +233,77 @@ async function probeOpenAI(config: {
 }): Promise<{ detected: ProviderType | null; attempt: ProbeAttempt }> {
   const path = "/v1/models";
   const url = `${config.baseUrl}${path}`;
+  const maxAttempts = 2; // 1 initial + 1 retry
 
-  try {
-    const response = await fetchWithTimeout(url, {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        "User-Agent": "Arc/1.0",
-      },
-      timeout: 3000,
-    });
+  for (let attemptNum = 1; attemptNum <= maxAttempts; attemptNum++) {
+    try {
+      const response = await fetchWithTimeout(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${config.apiKey}`,
+          "User-Agent": "Arc/1.0",
+        },
+        timeout: 3000,
+      });
 
-    const data = await response.json();
-    const evidence = redactApiKey(JSON.stringify(data).slice(0, 200), config.apiKey);
+      const data = await response.json();
+      const evidence = redactApiKey(JSON.stringify(data).slice(0, 200), config.apiKey);
 
-    const attempt: ProbeAttempt = {
-      vendor: "openai",
-      method: "GET",
-      path,
-      statusCode: response.status,
-      evidence,
-    };
-
-    // Check for OpenAI success schema
-    if (response.status === 200 && matchesOpenAISchema(data)) {
-      return { detected: "openai", attempt };
-    }
-
-    // Check for OpenAI error schema
-    if (response.status >= 400 && matchesOpenAIErrorSchema(data)) {
-      return { detected: "openai", attempt };
-    }
-
-    return { detected: null, attempt };
-  } catch (error) {
-    return {
-      detected: null,
-      attempt: {
+      const attempt: ProbeAttempt = {
         vendor: "openai",
         method: "GET",
         path,
-        statusCode: null,
-        evidence: error instanceof Error ? error.message : "Network timeout",
-      },
-    };
+        statusCode: response.status,
+        evidence,
+      };
+
+      // Check for OpenAI success schema
+      if (response.status === 200 && matchesOpenAISchema(data)) {
+        return { detected: "openai", attempt };
+      }
+
+      // Check for OpenAI error schema
+      if (response.status >= 400 && matchesOpenAIErrorSchema(data)) {
+        return { detected: "openai", attempt };
+      }
+
+      return { detected: null, attempt };
+    } catch (error) {
+      // Only retry on timeout errors, and only if we haven't exhausted attempts
+      if (isTimeoutError(error) && attemptNum < maxAttempts) {
+        continue; // Retry
+      }
+
+      // Return failure (either non-timeout error or exhausted retries)
+      return {
+        detected: null,
+        attempt: {
+          vendor: "openai",
+          method: "GET",
+          path,
+          statusCode: null,
+          evidence: error instanceof Error ? error.message : "Network timeout",
+        },
+      };
+    }
   }
+
+  // Shouldn't reach here, but TypeScript needs this
+  return {
+    detected: null,
+    attempt: {
+      vendor: "openai",
+      method: "GET",
+      path,
+      statusCode: null,
+      evidence: "Max retry attempts exceeded",
+    },
+  };
 }
 
 /**
  * Probe Anthropic endpoint
+ * Retries once on network timeout errors
  */
 async function probeAnthropic(config: {
   apiKey: string;
@@ -281,56 +311,78 @@ async function probeAnthropic(config: {
 }): Promise<{ detected: ProviderType | null; attempt: ProbeAttempt }> {
   const path = "/v1/models";
   const url = `${config.baseUrl}${path}`;
+  const maxAttempts = 2; // 1 initial + 1 retry
 
-  try {
-    const response = await fetchWithTimeout(url, {
-      method: "GET",
-      headers: {
-        "x-api-key": config.apiKey,
-        "anthropic-version": "2023-06-01",
-        "User-Agent": "Arc/1.0",
-      },
-      timeout: 3000,
-    });
+  for (let attemptNum = 1; attemptNum <= maxAttempts; attemptNum++) {
+    try {
+      const response = await fetchWithTimeout(url, {
+        method: "GET",
+        headers: {
+          "x-api-key": config.apiKey,
+          "anthropic-version": "2023-06-01",
+          "User-Agent": "Arc/1.0",
+        },
+        timeout: 3000,
+      });
 
-    const data = await response.json();
-    const evidence = redactApiKey(JSON.stringify(data).slice(0, 200), config.apiKey);
+      const data = await response.json();
+      const evidence = redactApiKey(JSON.stringify(data).slice(0, 200), config.apiKey);
 
-    const attempt: ProbeAttempt = {
-      vendor: "anthropic",
-      method: "GET",
-      path,
-      statusCode: response.status,
-      evidence,
-    };
-
-    // Check for Anthropic success schema
-    if (response.status === 200 && matchesAnthropicSchema(data)) {
-      return { detected: "anthropic", attempt };
-    }
-
-    // Check for Anthropic error schema
-    if (response.status >= 400 && matchesAnthropicErrorSchema(data)) {
-      return { detected: "anthropic", attempt };
-    }
-
-    return { detected: null, attempt };
-  } catch (error) {
-    return {
-      detected: null,
-      attempt: {
+      const attempt: ProbeAttempt = {
         vendor: "anthropic",
         method: "GET",
         path,
-        statusCode: null,
-        evidence: error instanceof Error ? error.message : "Network timeout",
-      },
-    };
+        statusCode: response.status,
+        evidence,
+      };
+
+      // Check for Anthropic success schema
+      if (response.status === 200 && matchesAnthropicSchema(data)) {
+        return { detected: "anthropic", attempt };
+      }
+
+      // Check for Anthropic error schema
+      if (response.status >= 400 && matchesAnthropicErrorSchema(data)) {
+        return { detected: "anthropic", attempt };
+      }
+
+      return { detected: null, attempt };
+    } catch (error) {
+      // Only retry on timeout errors, and only if we haven't exhausted attempts
+      if (isTimeoutError(error) && attemptNum < maxAttempts) {
+        continue; // Retry
+      }
+
+      // Return failure (either non-timeout error or exhausted retries)
+      return {
+        detected: null,
+        attempt: {
+          vendor: "anthropic",
+          method: "GET",
+          path,
+          statusCode: null,
+          evidence: error instanceof Error ? error.message : "Network timeout",
+        },
+      };
+    }
   }
+
+  // Shouldn't reach here, but TypeScript needs this
+  return {
+    detected: null,
+    attempt: {
+      vendor: "anthropic",
+      method: "GET",
+      path,
+      statusCode: null,
+      evidence: "Max retry attempts exceeded",
+    },
+  };
 }
 
 /**
  * Probe Gemini endpoint
+ * Retries once on network timeout errors
  */
 async function probeGemini(config: {
   apiKey: string;
@@ -338,50 +390,71 @@ async function probeGemini(config: {
 }): Promise<{ detected: ProviderType | null; attempt: ProbeAttempt }> {
   const path = `/v1beta/models?key=${config.apiKey}`;
   const url = `${config.baseUrl}${path}`;
+  const maxAttempts = 2; // 1 initial + 1 retry
 
-  try {
-    const response = await fetchWithTimeout(url, {
-      method: "GET",
-      headers: {
-        "User-Agent": "Arc/1.0",
-      },
-      timeout: 3000,
-    });
+  for (let attemptNum = 1; attemptNum <= maxAttempts; attemptNum++) {
+    try {
+      const response = await fetchWithTimeout(url, {
+        method: "GET",
+        headers: {
+          "User-Agent": "Arc/1.0",
+        },
+        timeout: 3000,
+      });
 
-    const data = await response.json();
-    const evidence = redactApiKey(JSON.stringify(data).slice(0, 200), config.apiKey);
+      const data = await response.json();
+      const evidence = redactApiKey(JSON.stringify(data).slice(0, 200), config.apiKey);
 
-    const attempt: ProbeAttempt = {
-      vendor: "gemini",
-      method: "GET",
-      path: "/v1beta/models",
-      statusCode: response.status,
-      evidence,
-    };
-
-    // Check for Gemini success schema
-    if (response.status === 200 && matchesGeminiSchema(data)) {
-      return { detected: "gemini", attempt };
-    }
-
-    // Check for Gemini error schema
-    if (response.status >= 400 && matchesGeminiErrorSchema(data)) {
-      return { detected: "gemini", attempt };
-    }
-
-    return { detected: null, attempt };
-  } catch (error) {
-    return {
-      detected: null,
-      attempt: {
+      const attempt: ProbeAttempt = {
         vendor: "gemini",
         method: "GET",
         path: "/v1beta/models",
-        statusCode: null,
-        evidence: error instanceof Error ? error.message : "Network timeout",
-      },
-    };
+        statusCode: response.status,
+        evidence,
+      };
+
+      // Check for Gemini success schema
+      if (response.status === 200 && matchesGeminiSchema(data)) {
+        return { detected: "gemini", attempt };
+      }
+
+      // Check for Gemini error schema
+      if (response.status >= 400 && matchesGeminiErrorSchema(data)) {
+        return { detected: "gemini", attempt };
+      }
+
+      return { detected: null, attempt };
+    } catch (error) {
+      // Only retry on timeout errors, and only if we haven't exhausted attempts
+      if (isTimeoutError(error) && attemptNum < maxAttempts) {
+        continue; // Retry
+      }
+
+      // Return failure (either non-timeout error or exhausted retries)
+      return {
+        detected: null,
+        attempt: {
+          vendor: "gemini",
+          method: "GET",
+          path: "/v1beta/models",
+          statusCode: null,
+          evidence: error instanceof Error ? error.message : "Network timeout",
+        },
+      };
+    }
   }
+
+  // Shouldn't reach here, but TypeScript needs this
+  return {
+    detected: null,
+    attempt: {
+      vendor: "gemini",
+      method: "GET",
+      path: "/v1beta/models",
+      statusCode: null,
+      evidence: "Max retry attempts exceeded",
+    },
+  };
 }
 
 /**
