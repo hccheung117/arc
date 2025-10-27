@@ -9,6 +9,8 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Slider } from "@/components/ui/slider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { SettingsSidebar } from "@/components/settings-sidebar";
 import { useUIStore } from "@/lib/ui-store";
@@ -16,12 +18,13 @@ import { ArrowLeft, Moon, Sun, Monitor, Plus, AlertCircle } from "lucide-react";
 import { ProviderCard } from "@/components/provider-card";
 import { ProviderFormDialog } from "@/components/provider-form-dialog";
 import { About } from "@/components/about";
+import { ModelManagement } from "@/components/model-management";
 import { ProviderListSkeleton } from "@/components/skeletons";
 import { EmptyProviderListState } from "@/components/empty-states";
 import { useCore } from "@/lib/core-provider";
 import { toast } from "sonner";
 import { TOAST_DURATION } from "@/lib/error-handler";
-import type { ProviderConfig } from "@arc/core/core.js";
+import type { ProviderConfig, Settings } from "@arc/core/core.js";
 
 const PROVIDER_NAMES: Record<ProviderConfig["type"], string> = {
   openai: "OpenAI",
@@ -41,6 +44,10 @@ export default function SettingsPage() {
   const fontSize = useUIStore((state) => state.fontSize);
   const setFontSize = useUIStore((state) => state.setFontSize);
 
+  // Core settings state
+  const [coreSettings, setCoreSettings] = useState<Settings | null>(null);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
+
   // Provider state
   const [providerConfigs, setProviderConfigs] = useState<ProviderConfig[]>([]);
   const [isLoadingProviders, setIsLoadingProviders] = useState(true);
@@ -54,6 +61,23 @@ export default function SettingsPage() {
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Load settings on mount
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        setIsLoadingSettings(true);
+        const settings = await core.settings.get();
+        setCoreSettings(settings);
+      } catch (error) {
+        console.error("Failed to load settings:", error);
+      } finally {
+        setIsLoadingSettings(false);
+      }
+    };
+
+    void loadSettings();
+  }, [core]);
 
   // Load providers on mount
   useEffect(() => {
@@ -190,6 +214,28 @@ export default function SettingsPage() {
     }
   };
 
+  const handleUpdateTypography = async (updates: Partial<Settings>) => {
+    if (!coreSettings) return;
+
+    // Optimistic update
+    const previousSettings = coreSettings;
+    setCoreSettings({ ...coreSettings, ...updates });
+
+    try {
+      await core.settings.update(updates);
+      toast.success("Typography updated", {
+        duration: TOAST_DURATION.short,
+      });
+    } catch (error) {
+      // Rollback on error
+      setCoreSettings(previousSettings);
+      console.error("Failed to update typography:", error);
+      toast.error("Failed to update typography", {
+        duration: TOAST_DURATION.short,
+      });
+    }
+  };
+
   return (
     <SidebarProvider defaultOpen={true}>
       <SettingsSidebar activeTab={activeTab} />
@@ -298,9 +344,179 @@ export default function SettingsPage() {
                   Adjust the base font size for better readability
                 </p>
               </div>
+
+              {/* Line Height */}
+              {coreSettings && (
+                <div className="space-y-3">
+                  <Label htmlFor="line-height">Line Height</Label>
+                  <RadioGroup
+                    id="line-height"
+                    value={coreSettings.lineHeight}
+                    onValueChange={(value) => handleUpdateTypography({ lineHeight: value as "compact" | "normal" | "relaxed" })}
+                    className="grid grid-cols-3 gap-4"
+                  >
+                    <div>
+                      <RadioGroupItem
+                        value="compact"
+                        id="compact"
+                        className="peer sr-only"
+                      />
+                      <Label
+                        htmlFor="compact"
+                        className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-border bg-background p-4 hover:bg-accent peer-data-[state=checked]:border-primary"
+                      >
+                        <span className="text-sm font-medium">Compact</span>
+                        <span className="text-xs text-muted-foreground">1.4</span>
+                      </Label>
+                    </div>
+                    <div>
+                      <RadioGroupItem
+                        value="normal"
+                        id="normal"
+                        className="peer sr-only"
+                      />
+                      <Label
+                        htmlFor="normal"
+                        className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-border bg-background p-4 hover:bg-accent peer-data-[state=checked]:border-primary"
+                      >
+                        <span className="text-sm font-medium">Normal</span>
+                        <span className="text-xs text-muted-foreground">1.6</span>
+                      </Label>
+                    </div>
+                    <div>
+                      <RadioGroupItem
+                        value="relaxed"
+                        id="relaxed"
+                        className="peer sr-only"
+                      />
+                      <Label
+                        htmlFor="relaxed"
+                        className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-border bg-background p-4 hover:bg-accent peer-data-[state=checked]:border-primary"
+                      >
+                        <span className="text-sm font-medium">Relaxed</span>
+                        <span className="text-xs text-muted-foreground">1.8</span>
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                  <p className="text-sm text-muted-foreground">
+                    Adjust spacing between lines for better readability
+                  </p>
+                </div>
+              )}
+
+              {/* Font Family */}
+              {coreSettings && (
+                <div className="space-y-3">
+                  <Label htmlFor="font-family">Font Family</Label>
+                  <RadioGroup
+                    id="font-family"
+                    value={coreSettings.fontFamily}
+                    onValueChange={(value) => handleUpdateTypography({ fontFamily: value as "sans" | "serif" | "mono" })}
+                    className="grid grid-cols-3 gap-4"
+                  >
+                    <div>
+                      <RadioGroupItem
+                        value="sans"
+                        id="sans"
+                        className="peer sr-only"
+                      />
+                      <Label
+                        htmlFor="sans"
+                        className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-border bg-background p-4 hover:bg-accent peer-data-[state=checked]:border-primary"
+                      >
+                        <span className="text-sm font-medium font-sans">Sans Serif</span>
+                        <span className="text-xs text-muted-foreground">Ag</span>
+                      </Label>
+                    </div>
+                    <div>
+                      <RadioGroupItem
+                        value="serif"
+                        id="serif"
+                        className="peer sr-only"
+                      />
+                      <Label
+                        htmlFor="serif"
+                        className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-border bg-background p-4 hover:bg-accent peer-data-[state=checked]:border-primary"
+                      >
+                        <span className="text-sm font-medium font-serif">Serif</span>
+                        <span className="text-xs text-muted-foreground">Ag</span>
+                      </Label>
+                    </div>
+                    <div>
+                      <RadioGroupItem
+                        value="mono"
+                        id="mono"
+                        className="peer sr-only"
+                      />
+                      <Label
+                        htmlFor="mono"
+                        className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-border bg-background p-4 hover:bg-accent peer-data-[state=checked]:border-primary"
+                      >
+                        <span className="text-sm font-medium font-mono">Monospace</span>
+                        <span className="text-xs text-muted-foreground">Ag</span>
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                  <p className="text-sm text-muted-foreground">
+                    Choose the font style for message content
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
               )}
+
+          {/* Models Section */}
+          {activeTab === "models" && <ModelManagement />}
+
+          {/* AI Behavior Section */}
+          {activeTab === "ai-behavior" && coreSettings && (
+            <Card>
+              <CardHeader>
+                <CardTitle>AI Behavior</CardTitle>
+                <CardDescription>
+                  Configure default AI behavior and settings
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Default System Prompt */}
+                <div className="space-y-3">
+                  <Label htmlFor="default-system-prompt">Default System Prompt</Label>
+                  <Textarea
+                    id="default-system-prompt"
+                    placeholder="You are a helpful assistant. (Leave empty to use model defaults)"
+                    value={coreSettings.defaultSystemPrompt || ""}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      handleUpdateTypography(
+                        value ? { defaultSystemPrompt: value } : { defaultSystemPrompt: "" }
+                      );
+                    }}
+                    rows={4}
+                    className="resize-y"
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Set a default system prompt that will be used for new conversations. You can override this per-message using advanced controls.
+                  </p>
+                </div>
+
+                {/* Auto-title Chats Toggle */}
+                <div className="flex items-center justify-between space-x-4">
+                  <div className="flex-1 space-y-1">
+                    <Label htmlFor="auto-title">Automatically Generate Chat Titles</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Automatically generate descriptive titles for chats after the first exchange
+                    </p>
+                  </div>
+                  <Switch
+                    id="auto-title"
+                    checked={coreSettings.autoTitleChats}
+                    onCheckedChange={(checked) => handleUpdateTypography({ autoTitleChats: checked })}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* AI Providers Section */}
           {activeTab === "providers" && (

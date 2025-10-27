@@ -7,19 +7,43 @@ import type { ProviderManager } from "../src/providers/provider-manager.js";
 // Mock the provider detector module
 vi.mock("@arc/ai/provider-detector.js", () => ({
   detectProviderType: vi.fn(),
+  detectProviderTypeFromProbe: vi.fn(),
 }));
 
 // Mock the errors module
 vi.mock("@arc/ai/errors.js", () => ({
   ProviderDetectionError: class ProviderDetectionError extends Error {
-    constructor(message: string) {
+    public readonly attempts: Array<{
+      vendor: string;
+      method: string;
+      path: string;
+      statusCode: number | null;
+      evidence: string;
+    }>;
+    public readonly isRetryable: boolean;
+
+    constructor(
+      message: string,
+      options: {
+        attempts: Array<{
+          vendor: string;
+          method: string;
+          path: string;
+          statusCode: number | null;
+          evidence: string;
+        }>;
+        isRetryable: boolean;
+      }
+    ) {
       super(message);
       this.name = "ProviderDetectionError";
+      this.attempts = options.attempts;
+      this.isRetryable = options.isRetryable;
     }
   },
 }));
 
-import { detectProviderType } from "@arc/ai/provider-detector.js";
+import { detectProviderType, detectProviderTypeFromProbe } from "@arc/ai/provider-detector.js";
 import { ProviderDetectionError } from "@arc/ai/errors.js";
 
 /**
@@ -371,8 +395,30 @@ describe("ProvidersAPI", () => {
         baseUrl: "https://custom.api.com",
       };
 
+      // Phase 1 fails
       vi.mocked(detectProviderType).mockImplementation(() => {
-        throw new ProviderDetectionError("Unable to detect provider type");
+        throw new ProviderDetectionError("Heuristic detection failed", {
+          attempts: [],
+          isRetryable: false,
+        });
+      });
+
+      // Phase 2 also fails
+      vi.mocked(detectProviderTypeFromProbe).mockImplementation(() => {
+        return Promise.reject(
+          new ProviderDetectionError("Network probe failed", {
+            attempts: [
+              {
+                vendor: "openai",
+                method: "GET",
+                path: "/v1/models",
+                statusCode: 404,
+                evidence: "{}",
+              },
+            ],
+            isRetryable: false,
+          })
+        );
       });
 
       await expect(api.create(input)).rejects.toThrow(
@@ -391,9 +437,29 @@ describe("ProvidersAPI", () => {
         baseUrl: "https://custom.api.com",
       };
 
-      const originalError = new ProviderDetectionError("Detection failed: no match found");
+      // Phase 1 fails
       vi.mocked(detectProviderType).mockImplementation(() => {
-        throw originalError;
+        throw new ProviderDetectionError("Heuristic detection failed", {
+          attempts: [],
+          isRetryable: false,
+        });
+      });
+
+      // Phase 2 also fails
+      const originalError = new ProviderDetectionError("Detection failed: no match found", {
+        attempts: [
+          {
+            vendor: "openai",
+            method: "GET",
+            path: "/v1/models",
+            statusCode: 404,
+            evidence: "{}",
+          },
+        ],
+        isRetryable: false,
+      });
+      vi.mocked(detectProviderTypeFromProbe).mockImplementation(() => {
+        return Promise.reject(originalError);
       });
 
       try {
@@ -402,7 +468,6 @@ describe("ProvidersAPI", () => {
       } catch (error) {
         expect(error).toBeInstanceOf(Error);
         expect((error as Error).message).toContain("Unable to automatically detect provider type");
-        expect((error as Error).message).toContain("Detection failed: no match found");
         expect((error as Error).message).toContain("Please specify the provider type explicitly");
       }
     });

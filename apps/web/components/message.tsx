@@ -27,6 +27,8 @@ import {
   Edit3,
   GitBranch,
   MoreVertical,
+  Pin,
+  PinOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import { keyboardShortcuts } from "@/lib/keyboard-shortcuts";
@@ -40,6 +42,7 @@ interface MessageType {
   attachments?: Array<{ data: string; mimeType: string; id: string; size: number; name?: string }>;
   model?: string;
   providerConnectionId?: string;
+  isPinned?: boolean;
 }
 
 interface MessageProps {
@@ -52,6 +55,8 @@ interface MessageProps {
   onDelete?: (messageId: string) => void;
   onEdit?: (messageId: string, content: string) => void;
   onRetry?: () => void;
+  onPin?: (messageId: string, isPinned: boolean) => void;
+  onBranchOff?: (messageId: string) => void;
   errorMetadata?: {
     isRetryable: boolean;
   };
@@ -67,6 +72,8 @@ export function Message({
   onDelete,
   onEdit,
   onRetry,
+  onPin,
+  onBranchOff,
   errorMetadata
 }: MessageProps) {
   const [isHovered, setIsHovered] = useState(false);
@@ -140,9 +147,9 @@ export function Message({
   };
 
   const handleBranchOff = () => {
-    toast.info("Coming Soon", {
-      description: "Branch Off feature is not yet available",
-    });
+    if (onBranchOff) {
+      onBranchOff(message.id);
+    }
   };
 
   // Determine which actions to show
@@ -173,16 +180,24 @@ export function Message({
           </div>
         )}
 
-        {/* Model badge for assistant messages */}
-        {!isUser && (message.model || message.providerConnectionId) && (
-          <div className="mb-2">
-            <ModelBadge
-              model={message.model}
-              providerConnectionId={message.providerConnectionId}
-              providers={providers}
-            />
+        {/* Pin indicator and Model badge */}
+        {(!isUser && (message.model || message.providerConnectionId)) || message.isPinned ? (
+          <div className="mb-2 flex items-center gap-2">
+            {message.isPinned && (
+              <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-yellow-100 dark:bg-yellow-900/30 text-yellow-900 dark:text-yellow-100 text-xs font-medium">
+                <Pin className="size-3" />
+                Pinned
+              </div>
+            )}
+            {!isUser && (message.model || message.providerConnectionId) && (
+              <ModelBadge
+                model={message.model}
+                providerConnectionId={message.providerConnectionId}
+                providers={providers}
+              />
+            )}
           </div>
-        )}
+        ) : null}
 
         {/* Message content */}
         <div className="text-sm break-words">
@@ -243,7 +258,7 @@ export function Message({
                     variant="ghost"
                     size="icon"
                     className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-interactive"
-                    aria-label="Message options"
+                    aria-label="More options"
                   >
                     <MoreVertical className="size-4" />
                   </Button>
@@ -274,6 +289,26 @@ export function Message({
                 </DropdownMenuItem>
               )}
 
+              {onPin && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    onPin(message.id, !message.isPinned);
+                  }}
+                >
+                  {message.isPinned ? (
+                    <>
+                      <PinOff className="mr-2 size-4" />
+                      Unpin Message
+                    </>
+                  ) : (
+                    <>
+                      <Pin className="mr-2 size-4" />
+                      Pin Message
+                    </>
+                  )}
+                </DropdownMenuItem>
+              )}
+
               <DropdownMenuSeparator />
 
               <DropdownMenuItem onClick={handleDelete} variant="destructive">
@@ -284,11 +319,12 @@ export function Message({
 
               <DropdownMenuSeparator />
 
-              <DropdownMenuItem disabled onClick={handleBranchOff}>
-                <GitBranch className="mr-2 size-4" />
-                Branch Off
-                <DropdownMenuShortcut>Soon</DropdownMenuShortcut>
-              </DropdownMenuItem>
+              {onBranchOff && (
+                <DropdownMenuItem onClick={handleBranchOff}>
+                  <GitBranch className="mr-2 size-4" />
+                  Branch Off
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         )}

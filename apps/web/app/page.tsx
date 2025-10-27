@@ -25,6 +25,8 @@ import { Message } from "@/components/message";
 import { ModelSwitchDivider } from "@/components/model-switch-divider";
 import { ImageAttachmentChip } from "@/components/image-attachment-chip";
 import { SearchBar } from "@/components/search-bar";
+import { PinnedMessagesBar } from "@/components/pinned-messages-bar";
+import { AdvancedComposerControls } from "@/components/advanced-composer-controls";
 import {
   NoProvidersState,
   NoMessagesState,
@@ -73,6 +75,15 @@ export default function Home() {
   const [globalSearchQuery, setGlobalSearchQuery] = useState("");
   const [globalSearchResults, setGlobalSearchResults] = useState<SearchResult[]>([]);
   const [sidebarSearchQuery, setSidebarSearchQuery] = useState("");
+
+  // Pinned messages state
+  const [pinnedMessages, setPinnedMessages] = useState<CoreMessage[]>([]);
+  const [savedScrollPosition, setSavedScrollPosition] = useState<number | null>(null);
+
+  // Advanced composer controls state
+  const [temperature, setTemperature] = useState(1.0);
+  const [maxTokens, setMaxTokens] = useState(2048);
+  const [systemPromptOverride, setSystemPromptOverride] = useState("");
 
   // Check if any provider is configured
   const hasProvider = providers.length > 0;
@@ -202,6 +213,28 @@ export default function Home() {
     void loadData();
   }, [core]);
 
+  // Subscribe to title-updated events for reactive auto-titling
+  useEffect(() => {
+    const handleTitleUpdated = (event: { chatId: string; title: string }) => {
+      // Update the chat title in the UI state
+      setChats(prevChats =>
+        prevChats.map(chat =>
+          chat.id === event.chatId
+            ? { ...chat, title: event.title }
+            : chat
+        )
+      );
+    };
+
+    // Subscribe to the event
+    core.chats.on("title-updated", handleTitleUpdated);
+
+    // Cleanup: unsubscribe when component unmounts
+    return () => {
+      core.chats.off("title-updated", handleTitleUpdated);
+    };
+  }, [core]);
+
   // Set default model when models load
   useEffect(() => {
     if (!selectedModel && groupedModels.length > 0) {
@@ -222,6 +255,7 @@ export default function Home() {
   useEffect(() => {
     if (!activeChatId) {
       setMessages([]);
+      setPinnedMessages([]);
       return;
     }
 
@@ -231,6 +265,10 @@ export default function Home() {
         if (chatData) {
           setMessages(chatData.messages);
         }
+
+        // Load pinned messages
+        const pinned = await core.messages.getPinnedMessages(activeChatId);
+        setPinnedMessages(pinned);
 
         // Auto-focus message input for better keyboard navigation
         if (textareaRef.current) {
@@ -507,6 +545,124 @@ export default function Home() {
     }
   };
 
+  const handlePinMessage = async (messageId: string, shouldPin: boolean) => {
+    // Optimistic update: Update UI immediately
+    const previousMessages = [...messages];
+    const updatedMessages = messages.map(msg => {
+      if (msg.id === messageId) {
+        if (shouldPin) {
+          return { ...msg, isPinned: true, pinnedAt: Date.now() };
+        } else {
+          const { pinnedAt, ...rest } = msg;
+          return { ...rest, isPinned: false };
+        }
+      }
+      return msg;
+    });
+    setMessages(updatedMessages);
+
+    try {
+      if (shouldPin) {
+        await core.messages.pin(messageId);
+      } else {
+        await core.messages.unpin(messageId);
+      }
+
+      // Reload messages to sync with server
+      if (activeChatId) {
+        const chatData = await core.chats.get(activeChatId);
+        if (chatData) {
+          setMessages(chatData.messages);
+        }
+        // Reload pinned messages
+        const pinned = await core.messages.getPinnedMessages(activeChatId);
+        setPinnedMessages(pinned);
+      }
+
+      toast.success(shouldPin ? "Message pinned" : "Message unpinned", {
+        duration: TOAST_DURATION.short,
+      });
+    } catch (error) {
+      // Rollback optimistic update
+      setMessages(previousMessages);
+      console.error("Failed to pin/unpin message:", error);
+
+      const errorDetails = classifyError(error);
+      if (errorDetails.isRetryable) {
+        toast.error(shouldPin ? "Failed to pin message" : "Failed to unpin message", {
+          description: errorDetails.message,
+          action: {
+            label: "Retry",
+            onClick: () => handlePinMessage(messageId, shouldPin),
+          },
+        });
+      } else {
+        toast.error(shouldPin ? "Failed to pin message" : "Failed to unpin message", {
+          description: errorDetails.message,
+        });
+      }
+    }
+  };
+
+  const handlePinClick = (messageId: string) => {
+    // Save current scroll position
+    setSavedScrollPosition(virtualizer.scrollOffset);
+
+    // Find message index in the display messages array
+    const messageIndex = displayMessages.findIndex(item =>
+      item.type === "message" && item.message.id === messageId
+    );
+
+    if (messageIndex !== -1) {
+      virtualizer.scrollToIndex(messageIndex, { align: "center", behavior: "smooth" });
+    }
+  };
+
+  const handleReturnToPosition = () => {
+    if (savedScrollPosition !== null) {
+      virtualizer.scrollToOffset(savedScrollPosition, { behavior: "smooth" });
+      setSavedScrollPosition(null);
+    }
+  };
+
+  const handleBranchOff = async (messageId: string) => {
+    if (!activeChatId) return;
+
+    try {
+      // Create a branched chat
+      const newChat = await core.chats.branch(activeChatId, messageId);
+
+      // Reload chat list to include the new branched chat
+      const chatList = await core.chats.list();
+      setChats(chatList);
+
+      // Switch to the new branched chat
+      setActiveChatId(newChat.id);
+
+      toast.success("Conversation branched successfully", {
+        description: `Created "${newChat.title}"`,
+        duration: TOAST_DURATION.short,
+      });
+    } catch (error) {
+      console.error("Failed to branch conversation:", error);
+
+      const errorDetails = classifyError(error);
+      if (errorDetails.isRetryable) {
+        toast.error("Failed to branch conversation", {
+          description: errorDetails.message,
+          action: {
+            label: "Retry",
+            onClick: () => handleBranchOff(messageId),
+          },
+        });
+      } else {
+        toast.error("Failed to branch conversation", {
+          description: errorDetails.message,
+        });
+      }
+    }
+  };
+
   const handleRegenerateMessage = async () => {
     if (!activeChatId) return;
 
@@ -592,6 +748,9 @@ export default function Home() {
         model: selectedModel.modelId,
         providerConnectionId: selectedModel.providerId,
         ...(attachedImages.length > 0 && { images: attachedImages }),
+        temperature,
+        maxTokens,
+        ...(systemPromptOverride.trim() && { systemPrompt: systemPromptOverride.trim() }),
       };
       const stream = core.chats.sendMessage(activeChatId, params);
 
@@ -926,6 +1085,13 @@ export default function Home() {
           />
         )}
 
+        {/* Pinned Messages Bar */}
+        <PinnedMessagesBar
+          pinnedMessages={pinnedMessages}
+          onPinClick={handlePinClick}
+          {...(savedScrollPosition !== null && { onReturnToPosition: handleReturnToPosition })}
+        />
+
         {/* Message panel */}
         <div
           ref={parentRef}
@@ -1005,6 +1171,8 @@ export default function Home() {
                         onRegenerate={handleRegenerateMessage}
                         onDelete={handleDeleteMessage}
                         onEdit={handleEditMessage}
+                        onPin={handlePinMessage}
+                        onBranchOff={handleBranchOff}
                         {...(isModelError ? { onRetry: refetchModels } : {})}
                         {...(errorDetails ? { errorMetadata: { isRetryable: errorDetails.isRetryable } } : {})}
                       />
@@ -1024,6 +1192,16 @@ export default function Home() {
             <NoMessagesState />
           )}
         </div>
+
+        {/* Advanced Composer Controls */}
+        <AdvancedComposerControls
+          temperature={temperature}
+          maxTokens={maxTokens}
+          systemPrompt={systemPromptOverride}
+          onTemperatureChange={setTemperature}
+          onMaxTokensChange={setMaxTokens}
+          onSystemPromptChange={setSystemPromptOverride}
+        />
 
         {/* Composer bar */}
         <div

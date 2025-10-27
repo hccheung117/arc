@@ -626,4 +626,135 @@ describe('Message', () => {
       expect(screen.getByText('gpt-4')).toBeInTheDocument();
     });
   });
+
+  describe('Branch Off Feature', () => {
+    it('shows Branch Off option in dropdown menu when onBranchOff is provided', async () => {
+      const user = userEvent.setup();
+      const handleBranchOff = vi.fn();
+      const message = {
+        id: 'msg-1',
+        role: 'assistant' as const,
+        content: 'Hello',
+        status: 'complete' as const,
+      };
+
+      render(
+        <Message
+          message={message}
+          isLatestAssistant={false}
+          onBranchOff={handleBranchOff}
+        />
+      );
+
+      // Click on the dropdown trigger (three dots)
+      const menuTrigger = screen.getByRole('button', { name: /more options/i });
+      await user.click(menuTrigger);
+
+      // Branch Off option should be visible
+      expect(await screen.findByText('Branch Off')).toBeInTheDocument();
+    });
+
+    it('does not show Branch Off option when onBranchOff is not provided', async () => {
+      const user = userEvent.setup();
+      const message = {
+        id: 'msg-1',
+        role: 'assistant' as const,
+        content: 'Hello',
+        status: 'complete' as const,
+      };
+
+      render(
+        <Message
+          message={message}
+          isLatestAssistant={false}
+        />
+      );
+
+      // Click on the dropdown trigger
+      const menuTrigger = screen.getByRole('button', { name: /more options/i });
+      await user.click(menuTrigger);
+
+      // Branch Off option should not be visible
+      expect(screen.queryByText('Branch Off')).not.toBeInTheDocument();
+    });
+
+    it('calls onBranchOff with correct message ID when clicked', async () => {
+      const user = userEvent.setup();
+      const handleBranchOff = vi.fn();
+      const message = {
+        id: 'msg-123',
+        role: 'assistant' as const,
+        content: 'Test message',
+        status: 'complete' as const,
+      };
+
+      render(
+        <Message
+          message={message}
+          isLatestAssistant={false}
+          onBranchOff={handleBranchOff}
+        />
+      );
+
+      // Open dropdown
+      const menuTrigger = screen.getByRole('button', { name: /more options/i });
+      await user.click(menuTrigger);
+
+      // Click Branch Off
+      const branchOffOption = await screen.findByText('Branch Off');
+      await user.click(branchOffOption);
+
+      // Verify callback was called with correct message ID
+      expect(handleBranchOff).toHaveBeenCalledWith('msg-123');
+      expect(handleBranchOff).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows Branch Off option for both user and assistant messages', async () => {
+      const user = userEvent.setup();
+      const handleBranchOff = vi.fn();
+
+      // Test with user message
+      const userMessage = {
+        id: 'user-msg',
+        role: 'user' as const,
+        content: 'User message',
+        status: 'complete' as const,
+      };
+
+      const { rerender, unmount } = render(
+        <Message
+          message={userMessage}
+          isLatestAssistant={false}
+          onBranchOff={handleBranchOff}
+        />
+      );
+
+      let menuTrigger = screen.getByRole('button', { name: /more options/i });
+      await user.click(menuTrigger);
+      expect(await screen.findByText('Branch Off')).toBeInTheDocument();
+
+      // Close dropdown by pressing Escape
+      await user.keyboard('{Escape}');
+
+      // Test with assistant message
+      const assistantMessage = {
+        id: 'assistant-msg',
+        role: 'assistant' as const,
+        content: 'Assistant message',
+        status: 'complete' as const,
+      };
+
+      rerender(
+        <Message
+          message={assistantMessage}
+          isLatestAssistant={false}
+          onBranchOff={handleBranchOff}
+        />
+      );
+
+      menuTrigger = screen.getByRole('button', { name: /more options/i });
+      await user.click(menuTrigger);
+      expect(await screen.findByText('Branch Off')).toBeInTheDocument();
+    });
+  });
 });

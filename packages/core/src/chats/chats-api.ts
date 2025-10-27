@@ -10,6 +10,7 @@ import { PendingChat } from "./pending-chat.js";
 import { MessageStreamer } from "../messages/message-streamer.js";
 import { RequestCancelledError } from "@arc/ai/errors.js";
 import { generateId } from "../shared/id-generator.js";
+import { EventEmitter, type EventHandler } from "../shared/event-emitter.js";
 
 /**
  * Options for creating a new chat
@@ -58,6 +59,14 @@ export interface ChatWithMessages {
 }
 
 /**
+ * Event data for title-updated event
+ */
+export interface TitleUpdatedEvent {
+  chatId: string;
+  title: string;
+}
+
+/**
  * Public API for managing chat sessions
  */
 export class ChatsAPI {
@@ -67,6 +76,7 @@ export class ChatsAPI {
   private getProvider: (configId: string) => Promise<Provider>;
   private streamer: MessageStreamer;
   private settingsAPI?: SettingsAPI;
+  private eventEmitter: EventEmitter;
 
   constructor(
     chatRepo: ChatRepository,
@@ -81,10 +91,31 @@ export class ChatsAPI {
     this.db = db;
     this.getProvider = getProvider;
     this.streamer = streamer ?? new MessageStreamer();
+    this.eventEmitter = new EventEmitter();
     // Conditionally assign to satisfy exactOptionalPropertyTypes
     if (settingsAPI !== undefined) {
       this.settingsAPI = settingsAPI;
     }
+  }
+
+  /**
+   * Subscribe to chat events
+   *
+   * @param event - Event name to listen for
+   * @param handler - Callback function to invoke when event fires
+   */
+  on(event: "title-updated", handler: EventHandler<TitleUpdatedEvent>): void {
+    this.eventEmitter.on(event, handler);
+  }
+
+  /**
+   * Unsubscribe from chat events
+   *
+   * @param event - Event name to stop listening to
+   * @param handler - Specific handler function to remove
+   */
+  off(event: "title-updated", handler: EventHandler<TitleUpdatedEvent>): void {
+    this.eventEmitter.off(event, handler);
   }
 
   /**
@@ -472,6 +503,12 @@ export class ChatsAPI {
       chat.title = title;
       chat.updatedAt = Date.now();
       await this.chatRepo.update(chat);
+
+      // Emit title-updated event for reactive UI updates
+      this.eventEmitter.emit("title-updated", {
+        chatId: chat.id,
+        title,
+      });
     } catch (error) {
       // Silent failure - title generation is a nice-to-have
       // console.warn("Auto-title generation failed:", error);

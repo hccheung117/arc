@@ -13,13 +13,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import type { ProviderConfig } from "@arc/core/core.js";
 
 interface ProviderFormDialogProps {
@@ -32,7 +25,6 @@ interface ProviderFormDialogProps {
 }
 
 interface FormErrors {
-  type?: string;
   name?: string;
   apiKey?: string;
   baseUrl?: string;
@@ -45,12 +37,7 @@ const PROVIDER_NAMES: Record<ProviderConfig["type"], string> = {
   custom: "Custom",
 };
 
-const DEFAULT_BASE_URLS: Record<ProviderConfig["type"], string> = {
-  openai: "https://api.openai.com/v1",
-  anthropic: "https://api.anthropic.com/v1",
-  gemini: "https://generativelanguage.googleapis.com/v1beta",
-  custom: "",
-};
+const DEFAULT_BASE_URL = "https://api.openai.com/v1";
 
 export function ProviderFormDialog({
   open,
@@ -60,7 +47,6 @@ export function ProviderFormDialog({
   mode,
   isSaving = false,
 }: ProviderFormDialogProps) {
-  const [type, setType] = useState<ProviderConfig["type"]>(initialConfig?.type || "openai");
   const [name, setName] = useState(initialConfig?.name || "");
   const [apiKey, setApiKey] = useState(initialConfig?.apiKey || "");
   const [baseUrl, setBaseUrl] = useState(initialConfig?.baseUrl || "");
@@ -70,21 +56,13 @@ export function ProviderFormDialog({
   // Reset form when dialog opens or initial config changes
   useEffect(() => {
     if (open) {
-      setType(initialConfig?.type || "openai");
       setName(initialConfig?.name || "");
       setApiKey(initialConfig?.apiKey || "");
-      setBaseUrl(initialConfig?.baseUrl || DEFAULT_BASE_URLS[initialConfig?.type || "openai"]);
+      setBaseUrl(initialConfig?.baseUrl || DEFAULT_BASE_URL);
       setErrors({});
       setTouched({});
     }
   }, [open, initialConfig]);
-
-  // Update base URL when provider type changes (only for new providers)
-  useEffect(() => {
-    if (mode === "add" && !touched.baseUrl) {
-      setBaseUrl(DEFAULT_BASE_URLS[type]);
-    }
-  }, [type, mode, touched.baseUrl]);
 
   const validateField = (field: string, value: string): string | undefined => {
     switch (field) {
@@ -121,7 +99,6 @@ export function ProviderFormDialog({
 
     // Mark all fields as touched
     setTouched({
-      type: true,
       name: true,
       apiKey: true,
       baseUrl: true,
@@ -134,16 +111,19 @@ export function ProviderFormDialog({
     const hasErrors = Object.keys(newErrors).length > 0;
 
     if (!hasErrors) {
-      // Build config object
-      const config: Partial<ProviderConfig> = {
-        type,
-        name: name.trim() || PROVIDER_NAMES[type],
+      // Build config object - always use 'auto' for new providers
+      const config: Partial<ProviderConfig> & { type?: "auto" } = {
+        name: name.trim() || "AI Provider",
         apiKey: apiKey.trim(),
         baseUrl: baseUrl.trim(),
       };
 
+      // For new providers, use auto-detection
+      if (mode === "add") {
+        config.type = "auto";
+      }
+
       onSave(config);
-      onOpenChange(false);
     }
   };
 
@@ -157,39 +137,21 @@ export function ProviderFormDialog({
         <DialogHeader>
           <DialogTitle>{mode === "add" ? "Add AI Provider" : "Edit Provider"}</DialogTitle>
           <DialogDescription>
-            Configure your AI provider credentials. API keys are stored locally.
+            {mode === "add"
+              ? "Enter your API credentials. The provider type will be detected automatically."
+              : "Update your provider credentials. API keys are stored locally."}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
-            {/* Provider Type Selection */}
-            <div className="space-y-2">
-              <Label htmlFor="type">Provider Type</Label>
-              <Select
-                value={type}
-                onValueChange={(value) => setType(value as ProviderConfig["type"])}
-                disabled={mode === "edit"}
-              >
-                <SelectTrigger id="type">
-                  <SelectValue placeholder="Select a provider" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="openai">OpenAI</SelectItem>
-                  <SelectItem value="anthropic">Anthropic</SelectItem>
-                  <SelectItem value="gemini">Google Gemini</SelectItem>
-                  <SelectItem value="custom">Custom</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
             {/* Provider Name */}
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">Name (optional)</Label>
               <Input
                 id="name"
                 type="text"
-                placeholder={PROVIDER_NAMES[type]}
+                placeholder={mode === "edit" && initialConfig ? PROVIDER_NAMES[initialConfig.type] : "My AI Provider"}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 onBlur={(e) => handleBlur("name", e.target.value)}
@@ -197,6 +159,11 @@ export function ProviderFormDialog({
               />
               {touched.name && errors.name && (
                 <p className="text-sm text-destructive">{errors.name}</p>
+              )}
+              {mode === "add" && (
+                <p className="text-xs text-muted-foreground">
+                  A name will be generated based on the detected provider type
+                </p>
               )}
             </div>
 
@@ -219,11 +186,11 @@ export function ProviderFormDialog({
 
             {/* Base URL */}
             <div className="space-y-2">
-              <Label htmlFor="baseUrl">Base URL</Label>
+              <Label htmlFor="baseUrl">Base URL (optional)</Label>
               <Input
                 id="baseUrl"
                 type="url"
-                placeholder={DEFAULT_BASE_URLS[type]}
+                placeholder={DEFAULT_BASE_URL}
                 value={baseUrl}
                 onChange={(e) => setBaseUrl(e.target.value)}
                 onBlur={(e) => handleBlur("baseUrl", e.target.value)}
@@ -233,7 +200,7 @@ export function ProviderFormDialog({
                 <p className="text-sm text-destructive">{errors.baseUrl}</p>
               )}
               <p className="text-xs text-muted-foreground">
-                For proxies or custom endpoints
+                Leave empty to use the provider's default endpoint, or specify a custom URL for proxies
               </p>
             </div>
           </div>

@@ -219,22 +219,38 @@ export class RequestCancelledError extends AIError {
 }
 
 /**
+ * Probe attempt details for provider detection
+ */
+export interface ProbeAttempt {
+  vendor: string;
+  method: 'GET' | 'POST';
+  path: string;
+  statusCode: number | null;
+  evidence: string;
+}
+
+/**
  * Provider detection error - unable to automatically identify provider type
  *
- * **Non-retryable**: The user must specify the provider type explicitly
- * or provide valid credentials for auto-detection.
+ * Includes detailed evidence from probe attempts to help diagnose the issue.
+ * `isRetryable` is true only if all failures were network timeouts.
  */
 export class ProviderDetectionError extends AIError {
+  public readonly attempts: ProbeAttempt[];
+
   constructor(
     message: string,
-    options?: {
+    options: {
+      attempts: ProbeAttempt[];
+      isRetryable: boolean;
       cause?: Error;
     }
   ) {
     super(message, {
       ...options,
-      isRetryable: false,
+      isRetryable: options.isRetryable,
     });
     this.name = "ProviderDetectionError";
+    this.attempts = options.attempts;
   }
 }

@@ -75,7 +75,7 @@ export function NoProvidersState({ action }: EmptyStateWithActionProps) {
       icon={<DatabaseZap className="size-8 text-muted-foreground" />}
       title="No providers configured"
       description="Add an AI provider to start chatting with AI models. You can configure multiple providers like OpenAI, Anthropic, or Google Gemini."
-      action={action}
+      {...(action && { action })}
     />
   );
 }

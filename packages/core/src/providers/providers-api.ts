@@ -3,7 +3,7 @@ import type { ProviderConfigRepository } from "./provider-repository.type.js";
 import type { ProviderManager } from "./provider-manager.js";
 import type { ModelInfo } from "@arc/ai/provider.type.js";
 import { generateId } from "../shared/id-generator.js";
-import { detectProviderType } from "@arc/ai/provider-detector.js";
+import { detectProviderType, detectProviderTypeFromProbe } from "@arc/ai/provider-detector.js";
 import { ProviderDetectionError } from "@arc/ai/errors.js";
 
 /**
@@ -62,18 +62,33 @@ export class ProvidersAPI {
 
     if (input.type === "auto") {
       try {
+        // Phase 1: Try fast heuristics first
         providerType = detectProviderType({
           apiKey: input.apiKey,
           baseUrl: input.baseUrl,
         });
-      } catch (error) {
-        if (error instanceof ProviderDetectionError) {
-          throw new Error(
-            `Unable to automatically detect provider type. ${error.message}. ` +
-            "Please specify the provider type explicitly."
-          );
+      } catch (heuristicError) {
+        if (heuristicError instanceof ProviderDetectionError) {
+          try {
+            // Phase 2: Fall back to network probing
+            providerType = await detectProviderTypeFromProbe({
+              apiKey: input.apiKey,
+              baseUrl: input.baseUrl,
+            });
+          } catch (probeError) {
+            if (probeError instanceof ProviderDetectionError) {
+              // Both phases failed - provide user-friendly error
+              const errorMessage = probeError.isRetryable
+                ? "Unable to detect provider type due to network issues. Please check your connection and try again."
+                : "Unable to automatically detect provider type. The API key and base URL do not match any known provider. Please specify the provider type explicitly.";
+
+              throw new Error(errorMessage);
+            }
+            throw probeError;
+          }
+        } else {
+          throw heuristicError;
         }
-        throw error;
       }
     } else {
       providerType = input.type;
