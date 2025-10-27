@@ -7,7 +7,10 @@
 
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
-import { afterEach } from 'vitest';
+import { afterEach, vi } from 'vitest';
+
+// Mock CSS imports to avoid PostCSS/Tailwind CSS 4 compatibility issues
+vi.mock('yet-another-react-lightbox/styles.css', () => ({}));
 
 // Cleanup after each test
 afterEach(() => {

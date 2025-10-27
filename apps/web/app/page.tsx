@@ -21,6 +21,7 @@ import { SearchBar } from "@/components/search-bar";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCore } from "@/lib/core-provider";
 import { useUIStore } from "@/lib/ui-store";
+import { useModels } from "@/lib/use-models";
 import type { Chat, Message as CoreMessage, ImageAttachment, ProviderConfig, SearchResult } from "@arc/core/core.js";
 
 export default function Home() {
@@ -38,10 +39,13 @@ export default function Home() {
   const [streamingChatId, setStreamingChatId] = useState<string | null>(null);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
 
+  // Model loading
+  const { groupedModels, isLoading: modelsLoading, errors: modelErrors, getErrorDetails, refetch: refetchModels } = useModels();
+
   // UI state
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [messageInput, setMessageInput] = useState("");
-  const [selectedModel, setSelectedModel] = useState("gpt-4-turbo-preview");
+  const [selectedModel, setSelectedModel] = useState<{ modelId: string; providerId: string } | null>(null);
   const [attachedImages, setAttachedImages] = useState<ImageAttachment[]>([]);
   const [attachmentError, setAttachmentError] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -67,10 +71,31 @@ export default function Home() {
 
   const isStreaming = streamingChatId === activeChatId;
 
+  // Create synthetic error messages for model loading failures
+  const modelErrorMessages: CoreMessage[] = Array.from(modelErrors.keys()).map((providerId) => {
+    const errorDetails = getErrorDetails(providerId);
+    const content = errorDetails
+      ? `**Failed to load models from ${errorDetails.providerName}**\n\n${errorDetails.userMessage}`
+      : `**Failed to load models**\n\nAn unexpected error occurred.`;
+
+    return {
+      id: `error-models-${providerId}`,
+      chatId: activeChatId || "",
+      role: "assistant" as const,
+      content,
+      status: "error" as const,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+  });
+
+  // Combine real messages with error messages (errors at the end)
+  const displayMessages = [...messages, ...modelErrorMessages];
+
   // Virtualization setup
   const parentRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
-    count: messages.length,
+    count: displayMessages.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => 200,
     overscan: 5,
@@ -100,6 +125,22 @@ export default function Home() {
     void loadData();
   }, [core]);
 
+  // Set default model when models load
+  useEffect(() => {
+    if (!selectedModel && groupedModels.length > 0) {
+      const firstGroup = groupedModels[0];
+      if (firstGroup && firstGroup.models.length > 0) {
+        const firstModel = firstGroup.models[0];
+        if (firstModel) {
+          setSelectedModel({
+            modelId: firstModel.id,
+            providerId: firstGroup.providerId,
+          });
+        }
+      }
+    }
+  }, [groupedModels, selectedModel]);
+
   // Load messages when active chat changes
   useEffect(() => {
     if (!activeChatId) {
@@ -123,10 +164,10 @@ export default function Home() {
 
   // Auto-scroll to bottom when streaming
   useEffect(() => {
-    if (messages.length > 0 && isStreaming) {
-      virtualizer.scrollToIndex(messages.length - 1, { align: "end", behavior: "smooth" });
+    if (displayMessages.length > 0 && isStreaming) {
+      virtualizer.scrollToIndex(displayMessages.length - 1, { align: "end", behavior: "smooth" });
     }
-  }, [messages.length, isStreaming, virtualizer]);
+  }, [displayMessages.length, isStreaming, virtualizer]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -213,10 +254,9 @@ export default function Home() {
       return;
     }
 
-    // Get first enabled provider
-    const enabledProvider = providers.find(p => p.enabled);
-    if (!enabledProvider) {
-      console.error("No enabled provider");
+    // Ensure a model is selected
+    if (!selectedModel) {
+      console.error("No model selected");
       return;
     }
 
@@ -225,8 +265,8 @@ export default function Home() {
 
       const params = {
         content: trimmedMessage || " ",
-        model: selectedModel,
-        providerConnectionId: enabledProvider.id,
+        model: selectedModel.modelId,
+        providerConnectionId: selectedModel.providerId,
         ...(attachedImages.length > 0 && { images: attachedImages }),
       };
       const stream = core.chats.sendMessage(activeChatId, params);
@@ -514,9 +554,13 @@ export default function Home() {
           <div className="flex items-center gap-3 ml-10 md:ml-0">
             <h1 className="text-lg font-semibold">Arc</h1>
             <ModelSelector
-              value={selectedModel}
-              onValueChange={setSelectedModel}
+              value={selectedModel?.modelId || ""}
+              onValueChange={(modelId, providerId) => {
+                setSelectedModel({ modelId, providerId });
+              }}
               disabled={!hasProvider || isStreaming}
+              groupedModels={groupedModels}
+              isLoading={modelsLoading}
             />
           </div>
           <Link href="/settings">
@@ -544,7 +588,7 @@ export default function Home() {
           className="flex-1 overflow-auto"
           style={{ position: 'relative' }}
         >
-          {messages.length > 0 ? (
+          {displayMessages.length > 0 ? (
             <div
               style={{
                 height: `${virtualizer.getTotalSize()}px`,
@@ -553,8 +597,13 @@ export default function Home() {
               }}
             >
               {virtualizer.getVirtualItems().map((virtualItem) => {
-                const message = messages[virtualItem.index];
+                const message = displayMessages[virtualItem.index];
                 if (!message) return null;
+
+                // Check if this is a model loading error message
+                const isModelError = message.id.startsWith('error-models-');
+                const providerId = isModelError ? message.id.replace('error-models-', '') : null;
+                const errorDetails = providerId ? getErrorDetails(providerId) : null;
 
                 return (
                   <div
@@ -574,6 +623,8 @@ export default function Home() {
                         message={message}
                         isLatestAssistant={message.id === lastAssistantMessage?.id}
                         isHighlighted={searchMatches.includes(message.id)}
+                        {...(isModelError ? { onRetry: refetchModels } : {})}
+                        {...(errorDetails ? { errorMetadata: { isRetryable: errorDetails.isRetryable } } : {})}
                       />
                     </div>
                   </div>

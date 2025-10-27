@@ -218,6 +218,12 @@ What Can Actually Be Done (UI-Only with Current Core API)
 4.  Handle loading states and errors
 5.  Update chat creation to use selected model
 
+**Error Handling:**
+-   Distinguish between retry-able (network failure) and non-retryable (invalid API key) errors when fetching models.
+-   Show errors as a chat message (as AI message in failure style) with provider context.
+-   For retry-able errors, display a "Retry" button that calls the refetch mechanism.
+-   Use loading skeletons while models are being fetched to prevent layout shifts.
+
 **Why first:** Biggest current UX gap. Core API already supports this.
 
 ---
@@ -230,6 +236,11 @@ What Can Actually Be Done (UI-Only with Current Core API)
 2.  Add divider when model changes mid-conversation
 3.  Show provider name via `message.providerConnectionId`
 4.  Handle missing model info gracefully
+
+**Error Handling:**
+-   Gracefully handle missing model or provider metadata in messages without crashing the UI.
+-   Display a fallback state (e.g., "Unknown Model") if data is inconsistent.
+-   Use tooltips to inform the user if a provider referenced in an old message has since been deleted.
 
 **Why second:** Small polish that adds transparency. Data already exists.
 
@@ -245,6 +256,10 @@ What Can Actually Be Done (UI-Only with Current Core API)
 4.  Display app name, version, build date
 5.  Add "Check for Updates" button (disabled/placeholder for now)
 
+**Error Handling:**
+-   Display a fallback for version info (e.g., "Version unavailable") if `package.json` cannot be read, ensuring the page never crashes.
+-   For the future "Check for Updates" feature, show a non-blocking "Unable to check for updates" message with a retry option.
+
 **Why third:** Quick win, independent feature.
 
 ---
@@ -259,19 +274,27 @@ What Can Actually Be Done (UI-Only with Current Core API)
 4.  Audit and fix tab order across all interactive elements
 5.  Add placeholder UI for deferred features (Branch Off shows "Coming Soon")
 
+**Error Handling:**
+-   Implement a toast notification system to provide clear feedback for context menu actions (e.g., "Chat renamed successfully," "Failed to delete chat").
+-   Support retry-able actions within toasts for transient network errors.
+-   Provide clear, non-retryable error messages for validation failures (e.g., "Chat name cannot be empty").
+-   Use optimistic UI updates for mutations (e.g., rename) with proper rollback on failure.
+
 **Why fourth:** Foundation polish before final refinements.
 
 ---
 
-#### Phase 5: Error Handling & Final Polish
+#### Phase 5: Comprehensive Error Handling & Final Polish
 
-**Objective:** Better error UX and micro-interactions
+**Objective:** Build a robust, application-wide error handling system and polish all user-facing interactions.
 
-1.  Improve error message display (more helpful text)
-2.  Add loading skeletons where missing
-3.  Polish animations and transitions
-4.  Add success toasts for operations
-5.  Improve empty states
+1.  **Global Error Boundary:** Implement a global React Error Boundary to prevent application crashes and display a user-friendly fallback screen.
+2.  **Enhanced Toasts:** Enhance the toast notification system to support different error severities, durations, and retry actions.
+3.  **Error Classification:** Implement a centralized `handleCoreError` utility to classify errors from `@arc/core` (`retry-able` vs. `non-retryable`) and generate user-actionable messages.
+4.  **Standardized Async Hook:** Create a standardized `useAsyncAction` hook to manage loading, error, and data states for all asynchronous operations, ensuring consistent UI feedback.
+5.  **Audit Loading & Error States:** Audit all data-fetching components to ensure they have appropriate loading skeletons and clear, contextual error states.
+6.  **Improve Empty States:** Improve all empty states to be more informative and guide the user on next steps.
+7.  **Final Polish:** Polish all UI animations, transitions, and micro-interactions for a fluid user experience.
 
 **Why last:** Touches everything, needs all features in place.
 

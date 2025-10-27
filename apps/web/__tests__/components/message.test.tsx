@@ -5,7 +5,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Message } from '@/components/message';
 
@@ -87,7 +87,6 @@ describe('Message', () => {
   });
 
   it('calls onStop when stop button clicked', async () => {
-    const user = userEvent.setup();
     const handleStop = vi.fn();
     const message = {
       id: 'msg-1',
@@ -107,17 +106,17 @@ describe('Message', () => {
     // Hover to show buttons
     const messageContainer = screen.getByText('Hello').closest('.group');
     if (messageContainer) {
-      await user.hover(messageContainer);
+      fireEvent.mouseEnter(messageContainer);
     }
 
-    const stopButton = screen.getByText(/stop/i);
-    await user.click(stopButton);
+    // Wait for button to appear after hover
+    const stopButton = await screen.findByText(/stop/i);
+    fireEvent.click(stopButton);
 
     expect(handleStop).toHaveBeenCalledTimes(1);
   });
 
   it('calls onRegenerate with message ID when regenerate clicked', async () => {
-    const user = userEvent.setup();
     const handleRegenerate = vi.fn();
     const message = {
       id: 'msg-1',
@@ -137,17 +136,17 @@ describe('Message', () => {
     // Hover to show buttons
     const messageContainer = screen.getByText('Hello world').closest('.group');
     if (messageContainer) {
-      await user.hover(messageContainer);
+      fireEvent.mouseEnter(messageContainer);
     }
 
-    const regenerateButton = screen.getByText(/regenerate/i);
-    await user.click(regenerateButton);
+    // Wait for button to appear after hover
+    const regenerateButton = await screen.findByText(/regenerate/i);
+    fireEvent.click(regenerateButton);
 
     expect(handleRegenerate).toHaveBeenCalledWith('msg-1');
   });
 
   it('calls onDelete with message ID when delete clicked', async () => {
-    const user = userEvent.setup();
     const handleDelete = vi.fn();
     const message = {
       id: 'msg-1',
@@ -167,16 +166,18 @@ describe('Message', () => {
     // Hover to show buttons
     const messageContainer = screen.getByText('Hello world').closest('.group');
     if (messageContainer) {
-      await user.hover(messageContainer);
+      fireEvent.mouseEnter(messageContainer);
     }
 
-    const deleteButton = screen.getByText(/delete/i);
-    await user.click(deleteButton);
+    // Wait for button to appear after hover
+    const deleteButton = await screen.findByText(/delete/i);
+    fireEvent.click(deleteButton);
 
     expect(handleDelete).toHaveBeenCalledWith('msg-1');
   });
 
-  it('shows regenerate button only for latest assistant message', () => {
+  it('shows regenerate button only for latest assistant message', async () => {
+    const user = userEvent.setup();
     const message = {
       id: 'msg-1',
       role: 'assistant' as const,
@@ -192,7 +193,14 @@ describe('Message', () => {
       />
     );
 
-    expect(screen.getByText(/regenerate/i)).toBeInTheDocument();
+    // Hover to show buttons
+    const messageContainer = screen.getByText('Hello').closest('.group');
+    if (messageContainer) {
+      await user.hover(messageContainer);
+    }
+
+    // Wait for button to appear after hover
+    expect(await screen.findByText(/regenerate/i)).toBeInTheDocument();
 
     rerender(
       <Message
@@ -202,10 +210,12 @@ describe('Message', () => {
       />
     );
 
+    // Button should not be present for non-latest messages even when hovering
     expect(screen.queryByText(/regenerate/i)).not.toBeInTheDocument();
   });
 
-  it('does not show action buttons for streaming messages except stop', () => {
+  it('does not show action buttons for streaming messages except stop', async () => {
+    const user = userEvent.setup();
     const message = {
       id: 'msg-1',
       role: 'assistant' as const,
@@ -223,7 +233,14 @@ describe('Message', () => {
       />
     );
 
-    expect(screen.getByText(/stop/i)).toBeInTheDocument();
+    // Hover to show buttons
+    const messageContainer = screen.getByText('Hello').closest('.group');
+    if (messageContainer) {
+      await user.hover(messageContainer);
+    }
+
+    // Wait for stop button to appear after hover
+    expect(await screen.findByText(/stop/i)).toBeInTheDocument();
     expect(screen.queryByText(/regenerate/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/delete/i)).not.toBeInTheDocument();
   });
@@ -275,5 +292,143 @@ describe('Message', () => {
 
     const messageDiv = container.querySelector('.ring-2.ring-yellow-400');
     expect(messageDiv).toBeInTheDocument();
+  });
+
+  describe('Error States', () => {
+    it('renders error message with destructive styling', () => {
+      const message = {
+        id: 'msg-error',
+        role: 'assistant' as const,
+        content: '**Failed to load models**\n\nInvalid API key.',
+        status: 'error' as const,
+      };
+
+      const { container } = render(
+        <Message
+          message={message}
+          isLatestAssistant={false}
+        />
+      );
+
+      // Check for error styling (border-destructive class with opacity modifier)
+      const messageContainer = container.querySelector('[class*="border-destructive"]');
+      expect(messageContainer).toBeInTheDocument();
+    });
+
+    it('shows AlertCircle icon for error messages', () => {
+      const message = {
+        id: 'msg-error',
+        role: 'assistant' as const,
+        content: 'Error occurred',
+        status: 'error' as const,
+      };
+
+      const { container } = render(
+        <Message
+          message={message}
+          isLatestAssistant={false}
+        />
+      );
+
+      // Check for AlertCircle icon (lucide-react renders as svg)
+      const icon = container.querySelector('svg');
+      expect(icon).toBeInTheDocument();
+    });
+
+    it('shows retry button for retryable error messages', async () => {
+      const handleRetry = vi.fn();
+      const message = {
+        id: 'msg-error',
+        role: 'assistant' as const,
+        content: 'Network error',
+        status: 'error' as const,
+      };
+
+      render(
+        <Message
+          message={message}
+          isLatestAssistant={false}
+          onRetry={handleRetry}
+          errorMetadata={{ isRetryable: true }}
+        />
+      );
+
+      // Retry button should be visible for retryable errors
+      const retryButton = screen.getByRole('button', { name: /retry/i });
+      expect(retryButton).toBeInTheDocument();
+    });
+
+    it('does not show retry button for non-retryable errors', () => {
+      const handleRetry = vi.fn();
+      const message = {
+        id: 'msg-error',
+        role: 'assistant' as const,
+        content: 'Invalid API key',
+        status: 'error' as const,
+      };
+
+      render(
+        <Message
+          message={message}
+          isLatestAssistant={false}
+          onRetry={handleRetry}
+          errorMetadata={{ isRetryable: false }}
+        />
+      );
+
+      // Retry button should NOT be visible for non-retryable errors
+      const retryButton = screen.queryByRole('button', { name: /retry/i });
+      expect(retryButton).not.toBeInTheDocument();
+    });
+
+    it('calls onRetry when retry button is clicked', async () => {
+      const user = userEvent.setup();
+      const handleRetry = vi.fn();
+      const message = {
+        id: 'msg-error',
+        role: 'assistant' as const,
+        content: 'Network error',
+        status: 'error' as const,
+      };
+
+      render(
+        <Message
+          message={message}
+          isLatestAssistant={false}
+          onRetry={handleRetry}
+          errorMetadata={{ isRetryable: true }}
+        />
+      );
+
+      const retryButton = screen.getByRole('button', { name: /retry/i });
+      await user.click(retryButton);
+
+      expect(handleRetry).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not show regenerate or delete buttons for error messages', () => {
+      const message = {
+        id: 'msg-error',
+        role: 'assistant' as const,
+        content: 'Error occurred',
+        status: 'error' as const,
+      };
+
+      render(
+        <Message
+          message={message}
+          isLatestAssistant={true}
+          onRegenerate={vi.fn()}
+          onDelete={vi.fn()}
+        />
+      );
+
+      // Regenerate and delete should not be shown for error messages
+      const regenerateButton = screen.queryByRole('button', { name: /regenerate/i });
+      const deleteButton = screen.queryByRole('button', { name: /delete/i });
+
+      expect(regenerateButton).not.toBeInTheDocument();
+      expect(deleteButton).not.toBeInTheDocument();
+    });
   });
 });
