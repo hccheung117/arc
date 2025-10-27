@@ -5,7 +5,7 @@
  * Supports both streaming and non-streaming responses, and error simulation.
  */
 
-import type { Provider, ChatMessage, ChatCompletionResult, ChatCompletionStreamChunk } from "@arc/ai/provider.type.js";
+import type { Provider, ChatMessage, ChatResult, ChatChunk, ModelInfo } from "@arc/ai/provider.type.js";
 import {
   ProviderAuthError,
   ProviderRateLimitError,
@@ -46,7 +46,7 @@ export function createMockProvider(options: MockProviderOptions = {}): Provider 
       _messages: ChatMessage[],
       _model: string,
       _options?: { signal?: AbortSignal }
-    ): Promise<ChatCompletionResult> {
+    ): Promise<ChatResult> {
       if (delay > 0) {
         await new Promise(resolve => setTimeout(resolve, delay));
       }
@@ -57,11 +57,16 @@ export function createMockProvider(options: MockProviderOptions = {}): Provider 
 
       return {
         content: response,
-        usage: {
-          inputTokens: 10,
-          outputTokens: 5,
+        metadata: {
+          model: _model || "mock-model",
+          provider: "mock",
+          usage: {
+            promptTokens: 10,
+            completionTokens: 5,
+            totalTokens: 15,
+          },
+          finishReason: "stop",
         },
-        finishReason: "stop",
       };
     },
 
@@ -69,7 +74,7 @@ export function createMockProvider(options: MockProviderOptions = {}): Provider 
       _messages: ChatMessage[],
       _model: string,
       options?: { signal?: AbortSignal }
-    ): AsyncGenerator<ChatCompletionStreamChunk> {
+    ): AsyncGenerator<ChatChunk> {
       if (shouldError) {
         throw error;
       }
@@ -88,20 +93,31 @@ export function createMockProvider(options: MockProviderOptions = {}): Provider 
         }
 
         const content = i === 0 ? words[i] : ` ${words[i]}`;
-        const isLast = i === words.length - 1;
 
-        yield {
-          content,
-          usage: isLast ? { inputTokens: 10, outputTokens: words.length } : null,
-          finishReason: isLast ? "stop" : null,
-        };
+        yield { content };
       }
+
+      // Yield final metadata chunk
+      yield {
+        content: "",
+        metadata: {
+          model: _model || "mock-model",
+          provider: "mock",
+          usage: {
+            promptTokens: 10,
+            completionTokens: words.length,
+            totalTokens: 10 + words.length,
+          },
+          finishReason: "stop",
+        },
+      };
     },
 
-    async listModels(): Promise<Array<{ id: string; name: string }>> {
+    async listModels(): Promise<ModelInfo[]> {
+      const now = Math.floor(Date.now() / 1000);
       return [
-        { id: "mock-model-1", name: "Mock Model 1" },
-        { id: "mock-model-2", name: "Mock Model 2" },
+        { id: "mock-model-1", object: "model", created: now, owned_by: "mock" },
+        { id: "mock-model-2", object: "model", created: now, owned_by: "mock" },
       ];
     },
 
@@ -114,9 +130,10 @@ export function createMockProvider(options: MockProviderOptions = {}): Provider 
 
     getCapabilities() {
       return {
-        supportsStreaming: true,
         supportsVision: true,
-        supportsFunctionCalling: false,
+        supportsStreaming: true,
+        requiresMaxTokens: false,
+        supportedMessageRoles: ["user", "assistant", "system"],
       };
     },
   };
@@ -130,11 +147,19 @@ export function createStreamingMockProvider(chunks: string[]): Provider {
     async generateChatCompletion(
       _messages: ChatMessage[],
       _model: string
-    ): Promise<ChatCompletionResult> {
+    ): Promise<ChatResult> {
       return {
         content: chunks.join(""),
-        usage: { inputTokens: 10, outputTokens: chunks.length },
-        finishReason: "stop",
+        metadata: {
+          model: _model || "mock-streaming",
+          provider: "mock",
+          usage: {
+            promptTokens: 10,
+            completionTokens: chunks.length,
+            totalTokens: 10 + chunks.length,
+          },
+          finishReason: "stop",
+        },
       };
     },
 
@@ -142,7 +167,7 @@ export function createStreamingMockProvider(chunks: string[]): Provider {
       _messages: ChatMessage[],
       _model: string,
       options?: { signal?: AbortSignal }
-    ): AsyncGenerator<ChatCompletionStreamChunk> {
+    ): AsyncGenerator<ChatChunk> {
       for (let i = 0; i < chunks.length; i++) {
         await new Promise(resolve => setTimeout(resolve, 10));
 
@@ -150,18 +175,30 @@ export function createStreamingMockProvider(chunks: string[]): Provider {
           throw new Error("Request was cancelled");
         }
 
-        const isLast = i === chunks.length - 1;
-
         yield {
           content: chunks[i],
-          usage: isLast ? { inputTokens: 10, outputTokens: chunks.length } : null,
-          finishReason: isLast ? "stop" : null,
         };
       }
+
+      // Yield final metadata chunk
+      yield {
+        content: "",
+        metadata: {
+          model: _model || "mock-streaming",
+          provider: "mock",
+          usage: {
+            promptTokens: 10,
+            completionTokens: chunks.length,
+            totalTokens: 10 + chunks.length,
+          },
+          finishReason: "stop",
+        },
+      };
     },
 
     async listModels() {
-      return [{ id: "mock-streaming", name: "Mock Streaming Model" }];
+      const now = Math.floor(Date.now() / 1000);
+      return [{ id: "mock-streaming", object: "model", created: now, owned_by: "mock" }];
     },
 
     async healthCheck() {
@@ -170,9 +207,10 @@ export function createStreamingMockProvider(chunks: string[]): Provider {
 
     getCapabilities() {
       return {
-        supportsStreaming: true,
         supportsVision: false,
-        supportsFunctionCalling: false,
+        supportsStreaming: true,
+        requiresMaxTokens: false,
+        supportedMessageRoles: ["user", "assistant", "system"],
       };
     },
   };

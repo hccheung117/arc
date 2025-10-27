@@ -11,6 +11,11 @@ export default defineConfig({
       reporter: ["text", "json", "html"],
     },
     // Exclude test utilities from test collection
-    exclude: ["**/node_modules/**", "**/dist/**", "**/*.d.ts"],
+    exclude: [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/*.d.ts",
+      "**/contract-compliance.test.ts", // Helper functions, not actual tests
+    ],
   },
 });

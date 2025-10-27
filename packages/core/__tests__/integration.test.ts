@@ -12,7 +12,7 @@ import { ProviderManager } from "../src/providers/provider-manager.js";
 import { createDefaultRegistry } from "../src/providers/provider-registry.js";
 import { SearchEngine } from "../src/search/search-engine.js";
 import type { Provider } from "@arc/ai/provider.type.js";
-import type { PlatformDatabase, IPlatformHTTP } from "@arc/platform";
+import type { PlatformDatabase, PlatformHTTP } from "@arc/platform";
 
 /**
  * Core Integration Tests
@@ -36,7 +36,7 @@ describe("Core Integration", () => {
   let settingsRepo: InMemorySettingsRepository;
 
   let mockDb: PlatformDatabase;
-  let mockHTTP: IPlatformHTTP;
+  let mockHTTP: PlatformHTTP;
   let mockProvider: Provider;
   let providerManager: ProviderManager;
 

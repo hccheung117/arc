@@ -105,10 +105,10 @@ describe("Integration: Provider Management", () => {
     expect(Array.isArray(models)).toBe(true);
     expect(models.length).toBeGreaterThan(0);
 
-    // Verify model structure
+    // Verify model structure (ModelInfo)
     const firstModel = models[0];
     expect(firstModel).toHaveProperty("id");
-    expect(firstModel).toHaveProperty("name");
+    expect(firstModel).toHaveProperty("object");
   });
 
   it("should update provider settings", async () => {

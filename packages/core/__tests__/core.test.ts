@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { createCore } from "../src/core.js";
-import type { Platform, PlatformDatabase, IPlatformHTTP } from "@arc/platform";
+import type { Platform, PlatformDatabase, PlatformHTTP } from "@arc/platform";
 import { Database } from "@arc/db/database.js";
 
 /**
@@ -26,7 +26,7 @@ import { createPlatform } from "@arc/platform/platform.js";
 describe("createCore", () => {
   let mockPlatform: Platform;
   let mockDatabase: PlatformDatabase;
-  let mockHTTP: IPlatformHTTP;
+  let mockHTTP: PlatformHTTP;
   let mockDbInstance: any;
 
   beforeEach(() => {

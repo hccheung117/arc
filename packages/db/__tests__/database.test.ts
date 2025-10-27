@@ -7,7 +7,7 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import type {
-  IPlatformDatabase,
+  PlatformDatabase,
   DatabaseQueryResult,
   DatabaseExecResult,
 } from "@arc/platform/contracts/database.js";
@@ -18,7 +18,7 @@ import {
 } from "../src/db-errors.js";
 
 // Helper to create a mock platform database
-function createMockDb(): IPlatformDatabase {
+function createMockDb(): PlatformDatabase {
   return {
     init: vi.fn().mockResolvedValue(undefined),
     close: vi.fn().mockResolvedValue(undefined),
@@ -51,7 +51,7 @@ describe("Database Wrapper", () => {
 
   describe("Query Operations", () => {
     let db: Database;
-    let mockDb: IPlatformDatabase;
+    let mockDb: PlatformDatabase;
 
     beforeEach(async () => {
       mockDb = createMockDb();
@@ -79,7 +79,7 @@ describe("Database Wrapper", () => {
 
   describe("Execute Operations", () => {
     let db: Database;
-    let mockDb: IPlatformDatabase;
+    let mockDb: PlatformDatabase;
 
     beforeEach(async () => {
       mockDb = createMockDb();
@@ -110,7 +110,7 @@ describe("Database Wrapper", () => {
 
   describe("Script Operations", () => {
     let db: Database;
-    let mockDb: IPlatformDatabase;
+    let mockDb: PlatformDatabase;
 
     beforeEach(async () => {
       mockDb = createMockDb();
@@ -134,7 +134,7 @@ describe("Database Wrapper", () => {
 
   describe("Transaction Operations", () => {
     let db: Database;
-    let mockDb: IPlatformDatabase;
+    let mockDb: PlatformDatabase;
 
     beforeEach(async () => {
       mockDb = createMockDb();
@@ -210,7 +210,7 @@ describe("Database Wrapper", () => {
 
   describe("Error Metadata", () => {
     let db: Database;
-    let mockDb: IPlatformDatabase;
+    let mockDb: PlatformDatabase;
 
     beforeEach(async () => {
       mockDb = createMockDb();

@@ -149,10 +149,18 @@ export class CoreProviderDetectionError extends ProviderError {
       cause?: Error;
     }
   ) {
-    super(ProviderErrorCode.DETECTION_FAILED, message, {
+    // Build options object conditionally to satisfy exactOptionalPropertyTypes
+    const superOptions: {
+      isRetryable: boolean;
+      cause?: Error;
+    } = {
       isRetryable: options.isRetryable,
-      cause: options.cause,
-    });
+    };
+    if (options.cause !== undefined) {
+      superOptions.cause = options.cause;
+    }
+
+    super(ProviderErrorCode.DETECTION_FAILED, message, superOptions);
     this.name = "CoreProviderDetectionError";
     this.detectionAttempts = options.detectionAttempts;
 

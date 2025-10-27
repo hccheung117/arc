@@ -7,8 +7,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import type { IPlatformDatabase } from "../contracts/database.js";
-import type { IPlatformHTTP } from "../contracts/http.js";
+import type { PlatformDatabase } from "../contracts/database.js";
+import type { PlatformHTTP } from "../contracts/http.js";
 
 /**
  * Database contract compliance tests
@@ -16,11 +16,11 @@ import type { IPlatformHTTP } from "../contracts/http.js";
  * These tests must pass for every platform implementation
  */
 export function testDatabaseContract(
-  createDatabase: () => Promise<IPlatformDatabase>,
+  createDatabase: () => Promise<PlatformDatabase>,
   skipTests: string[] = []
 ) {
-  describe("IPlatformDatabase Contract", () => {
-    let db: IPlatformDatabase;
+  describe("PlatformDatabase Contract", () => {
+    let db: PlatformDatabase;
 
     beforeEach(async () => {
       db = await createDatabase();
@@ -203,14 +203,21 @@ export function testDatabaseContract(
  * Note: These tests require a test server or mocking
  */
 export function testHTTPContract(
-  createHTTP: () => IPlatformHTTP,
+  createHTTP: () => PlatformHTTP,
   skipTests: string[] = []
 ) {
-  describe("IPlatformHTTP Contract", () => {
-    let http: IPlatformHTTP;
+  describe("PlatformHTTP Contract", () => {
+    let http: PlatformHTTP;
 
     beforeEach(() => {
       http = createHTTP();
+    });
+
+    // Always run basic sanity check
+    it("should create http instance with required methods", () => {
+      expect(http).toBeDefined();
+      expect(http.request).toBeInstanceOf(Function);
+      expect(http.stream).toBeInstanceOf(Function);
     });
 
     if (!skipTests.includes("request")) {

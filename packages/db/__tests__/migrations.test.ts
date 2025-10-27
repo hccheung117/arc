@@ -7,12 +7,12 @@
 
 import { describe, it, expect, beforeEach } from "vitest";
 import { createPlatform } from "@arc/platform";
-import type { IPlatformDatabase } from "@arc/platform/contracts/database.js";
+import type { PlatformDatabase } from "@arc/platform/contracts/database.js";
 import { runMigrations, getSchemaVersion } from "../src/migrations/runner.js";
 import { MigrationError } from "../src/db-errors.js";
 
 describe("Migration Runner", () => {
-  let db: IPlatformDatabase;
+  let db: PlatformDatabase;
 
   beforeEach(async () => {
     // Create a fresh in-memory database for each test
