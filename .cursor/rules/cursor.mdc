@@ -15,11 +15,14 @@ Our architecture is founded on two principles that dictate how we design, build,
 
 We build our APIs from the outside in. When designing `@arc/core`, we think like UI developers. When designing `@arc/ai`, we think like `@arc/core` developers. This principle ensures our APIs are elegant and intuitive, prioritizing usability over implementation convenience. **Usage guides implementation, not the other way around.**
 
-This philosophy extends directly to our user experience. Our design goal is to create an application that **"Feels like ChatGPT, works like a power tool."** The UI prioritizes simplicity for new users while making advanced features accessible through progressive disclosure:
+This philosophy extends directly to our user experience. For a detailed breakdown of our user experience philosophy, user flows, and personas, see the [UX document](./docs/ux.md). Our design goal is to create an application that **"Feels like ChatGPT, works like a power tool."** The UI prioritizes simplicity for new users while making advanced features accessible through progressive disclosure. To achieve this, we follow several core design principles:
 
--   **Level 1 (Beginner):** A simple, familiar chat interface.
--   **Level 2 (Intermediate):** Contextual actions (copy, regenerate) and basic settings.
--   **Level 3 (Power User):** Advanced features like multi-provider setup and model tuning are in dedicated settings.
+-   **Clean UI First, Keyboard-Driven Power:** The interface is clean and beginner-friendly, but backed by comprehensive keyboard shortcuts for advanced users to enable a fast, fluid workflow.
+-   **Respect the Desktop:** The application embraces native desktop patterns to feel integrated and familiar on each platform.
+-   **Three-Layer UX:** Interaction is structured in three layers of progressive disclosure:
+    -   **Always Visible:** Core functionality that everyone needs is always visible and accessible.
+    -   **Visible on Hover:** Intermediate actions are revealed on hover, keeping the interface clean but discoverable.
+    -   **Context Menu:** Advanced, power-user actions are available in context menus.
 
 ### 1.2. A Strictly Layered Architecture
 
