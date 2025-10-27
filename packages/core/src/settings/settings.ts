@@ -71,6 +71,12 @@ export interface Settings {
    * Whether to automatically generate chat titles
    */
   autoTitleChats: boolean;
+
+  /**
+   * Default temperature for new chats
+   * Range: 0-2 (0 = deterministic, 2 = very creative)
+   */
+  defaultTemperature?: number;
 }
 
 /**
@@ -87,4 +93,5 @@ export const defaultSettings: Settings = {
   lineHeight: "normal",
   fontFamily: "sans",
   autoTitleChats: true,
+  defaultTemperature: 1.0,
 };

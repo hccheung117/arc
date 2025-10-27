@@ -21,6 +21,7 @@ import { About } from "@/components/about";
 import { ModelManagement } from "@/components/model-management";
 import { ProviderListSkeleton } from "@/components/skeletons";
 import { EmptyProviderListState } from "@/components/empty-states";
+import { TemperatureSelector } from "@/components/temperature-selector";
 import { useCore } from "@/lib/core-provider";
 import { toast } from "sonner";
 import { TOAST_DURATION } from "@/lib/error-handler";
@@ -505,6 +506,15 @@ export default function SettingsPage() {
                     Set a default system prompt that will be used for new conversations. You can override this per-message using advanced controls.
                   </p>
                 </div>
+
+                {/* Default Temperature */}
+                <TemperatureSelector
+                  value={coreSettings.defaultTemperature ?? 1.0}
+                  onChange={(value) => handleUpdateTypography({ defaultTemperature: value })}
+                  id="default-temperature"
+                  showLabel={true}
+                  showDescription={true}
+                />
 
                 {/* Auto-title Chats Toggle */}
                 <div className="flex items-center justify-between space-x-4">

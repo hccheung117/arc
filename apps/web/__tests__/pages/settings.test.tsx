@@ -38,6 +38,7 @@ describe('Settings Page', () => {
       fontFamily: 'sans',
       defaultSystemPrompt: '',
       autoTitleChats: true,
+      defaultTemperature: 1.0,
     });
   });
 
@@ -210,6 +211,58 @@ describe('Settings Page', () => {
 
       await waitFor(() => {
         expect(mockCore.settings.update).toHaveBeenCalled();
+      });
+    });
+
+    it('renders default temperature selector', async () => {
+      renderSettings();
+
+      await waitFor(() => {
+        expect(screen.getByRole('radio', { name: /Balanced/ })).toBeInTheDocument();
+      });
+    });
+
+    it('shows Balanced preset selected by default', async () => {
+      renderSettings();
+
+      await waitFor(() => {
+        const balancedOption = screen.getByRole('radio', { name: /Balanced/ });
+        expect(balancedOption).toBeChecked();
+      });
+    });
+
+    it('updates temperature when preset is changed', async () => {
+      const user = userEvent.setup();
+      renderSettings();
+
+      await waitFor(() => {
+        expect(screen.getByRole('radio', { name: /Creative/ })).toBeInTheDocument();
+      });
+
+      const creativeOption = screen.getByRole('radio', { name: /Creative/ });
+      await user.click(creativeOption);
+
+      await waitFor(() => {
+        expect(mockCore.settings.update).toHaveBeenCalledWith({
+          defaultTemperature: 1.7,
+        });
+      });
+    });
+
+    it('handles missing defaultTemperature gracefully', async () => {
+      mockCore.settings.get.mockResolvedValue({
+        lineHeight: 'normal',
+        fontFamily: 'sans',
+        defaultSystemPrompt: '',
+        autoTitleChats: true,
+        // defaultTemperature is undefined
+      });
+
+      renderSettings();
+
+      // Should still render and use default value of 1.0
+      await waitFor(() => {
+        expect(screen.getByRole('radio', { name: /Balanced/ })).toBeInTheDocument();
       });
     });
   });
