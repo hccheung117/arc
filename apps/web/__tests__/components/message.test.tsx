@@ -8,6 +8,30 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Message } from '@/components/message';
+import type { ProviderConfig } from '@arc/core/core.js';
+
+const mockProviders: ProviderConfig[] = [
+  {
+    id: 'provider-1',
+    type: 'openai',
+    name: 'OpenAI GPT-4',
+    apiKey: 'test-key',
+    baseUrl: 'https://api.openai.com/v1',
+    enabled: true,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  },
+  {
+    id: 'provider-2',
+    type: 'anthropic',
+    name: 'Anthropic Claude',
+    apiKey: 'test-key-2',
+    baseUrl: 'https://api.anthropic.com',
+    enabled: true,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  },
+];
 
 describe('Message', () => {
   it('renders user message correctly', () => {
@@ -429,6 +453,177 @@ describe('Message', () => {
 
       expect(regenerateButton).not.toBeInTheDocument();
       expect(deleteButton).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Model Badges', () => {
+    it('displays model badge for assistant messages with model info', () => {
+      const message = {
+        id: 'msg-1',
+        role: 'assistant' as const,
+        content: 'Hello from GPT-4',
+        status: 'complete' as const,
+        model: 'gpt-4',
+        providerConnectionId: 'provider-1',
+      };
+
+      render(
+        <Message
+          message={message}
+          isLatestAssistant={false}
+          providers={mockProviders}
+        />
+      );
+
+      expect(screen.getByText('gpt-4')).toBeInTheDocument();
+    });
+
+    it('does not display model badge for user messages', () => {
+      const message = {
+        id: 'msg-1',
+        role: 'user' as const,
+        content: 'Hello',
+        status: 'complete' as const,
+        model: 'gpt-4',
+        providerConnectionId: 'provider-1',
+      };
+
+      render(
+        <Message
+          message={message}
+          isLatestAssistant={false}
+          providers={mockProviders}
+        />
+      );
+
+      // Model badge should not be present
+      expect(screen.queryByText('gpt-4')).not.toBeInTheDocument();
+    });
+
+    it('displays model badge when only model is present', () => {
+      const message = {
+        id: 'msg-1',
+        role: 'assistant' as const,
+        content: 'Hello',
+        status: 'complete' as const,
+        model: 'gpt-4-turbo',
+      };
+
+      render(
+        <Message
+          message={message}
+          isLatestAssistant={false}
+          providers={mockProviders}
+        />
+      );
+
+      expect(screen.getByText('gpt-4-turbo')).toBeInTheDocument();
+    });
+
+    it('displays model badge when only providerConnectionId is present', () => {
+      const message = {
+        id: 'msg-1',
+        role: 'assistant' as const,
+        content: 'Hello',
+        status: 'complete' as const,
+        providerConnectionId: 'provider-1',
+      };
+
+      render(
+        <Message
+          message={message}
+          isLatestAssistant={false}
+          providers={mockProviders}
+        />
+      );
+
+      // Badge should show "Unknown Model"
+      expect(screen.getByText('Unknown Model')).toBeInTheDocument();
+    });
+
+    it('does not display badge when neither model nor providerConnectionId is present', () => {
+      const message = {
+        id: 'msg-1',
+        role: 'assistant' as const,
+        content: 'Hello',
+        status: 'complete' as const,
+      };
+
+      render(
+        <Message
+          message={message}
+          isLatestAssistant={false}
+          providers={mockProviders}
+        />
+      );
+
+      // No badge should be displayed
+      expect(screen.queryByText(/gpt/i)).not.toBeInTheDocument();
+      expect(screen.queryByText('Unknown Model')).not.toBeInTheDocument();
+    });
+
+    it('works correctly when providers list is empty', () => {
+      const message = {
+        id: 'msg-1',
+        role: 'assistant' as const,
+        content: 'Hello',
+        status: 'complete' as const,
+        model: 'gpt-4',
+        providerConnectionId: 'provider-1',
+      };
+
+      render(
+        <Message
+          message={message}
+          isLatestAssistant={false}
+          providers={[]}
+        />
+      );
+
+      // Badge should still display model name
+      expect(screen.getByText('gpt-4')).toBeInTheDocument();
+    });
+
+    it('displays model badge for streaming assistant messages', () => {
+      const message = {
+        id: 'msg-1',
+        role: 'assistant' as const,
+        content: 'Hello',
+        status: 'streaming' as const,
+        model: 'claude-3-opus',
+        providerConnectionId: 'provider-2',
+      };
+
+      render(
+        <Message
+          message={message}
+          isLatestAssistant={true}
+          providers={mockProviders}
+        />
+      );
+
+      expect(screen.getByText('claude-3-opus')).toBeInTheDocument();
+    });
+
+    it('displays model badge for error messages', () => {
+      const message = {
+        id: 'msg-1',
+        role: 'assistant' as const,
+        content: 'Error occurred',
+        status: 'error' as const,
+        model: 'gpt-4',
+        providerConnectionId: 'provider-1',
+      };
+
+      render(
+        <Message
+          message={message}
+          isLatestAssistant={false}
+          providers={mockProviders}
+        />
+      );
+
+      expect(screen.getByText('gpt-4')).toBeInTheDocument();
     });
   });
 });

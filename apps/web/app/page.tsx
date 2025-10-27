@@ -16,6 +16,7 @@ import { MenuIcon, SettingsIcon, SendIcon, SearchIcon, Sparkles, ImageIcon, X, A
 import { ModelSelector } from "@/components/model-selector";
 import { ChatListItem } from "@/components/chat-list-item";
 import { Message } from "@/components/message";
+import { ModelSwitchDivider } from "@/components/model-switch-divider";
 import { ImageAttachmentChip } from "@/components/image-attachment-chip";
 import { SearchBar } from "@/components/search-bar";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -90,7 +91,52 @@ export default function Home() {
   });
 
   // Combine real messages with error messages (errors at the end)
-  const displayMessages = [...messages, ...modelErrorMessages];
+  const allMessages = [...messages, ...modelErrorMessages];
+
+  // Build enhanced display list with model switch dividers
+  type DisplayItem =
+    | { type: "message"; message: CoreMessage; index: number }
+    | { type: "divider"; model: string | undefined; providerConnectionId: string | undefined; index: number };
+
+  const displayItems: DisplayItem[] = [];
+  let lastModel: string | undefined;
+  let lastProviderId: string | undefined;
+
+  allMessages.forEach((message, index) => {
+    // Check if model changed (only for assistant messages)
+    const currentModel = message.model;
+    const currentProviderId = message.providerConnectionId;
+    const isModelChange =
+      message.role === "assistant" &&
+      index > 0 && // Not the first message
+      (currentModel !== lastModel || currentProviderId !== lastProviderId) &&
+      (currentModel || currentProviderId); // Has model info
+
+    // Insert divider if model changed
+    if (isModelChange) {
+      displayItems.push({
+        type: "divider",
+        model: currentModel,
+        providerConnectionId: currentProviderId,
+        index: displayItems.length,
+      });
+    }
+
+    // Add the message
+    displayItems.push({
+      type: "message",
+      message,
+      index: displayItems.length,
+    });
+
+    // Update last model tracking (only for assistant messages with model info)
+    if (message.role === "assistant" && (currentModel || currentProviderId)) {
+      lastModel = currentModel;
+      lastProviderId = currentProviderId;
+    }
+  });
+
+  const displayMessages = displayItems;
 
   // Virtualization setup
   const parentRef = useRef<HTMLDivElement>(null);
@@ -597,8 +643,37 @@ export default function Home() {
               }}
             >
               {virtualizer.getVirtualItems().map((virtualItem) => {
-                const message = displayMessages[virtualItem.index];
-                if (!message) return null;
+                const item = displayMessages[virtualItem.index];
+                if (!item) return null;
+
+                // Handle divider items
+                if (item.type === "divider") {
+                  return (
+                    <div
+                      key={`divider-${virtualItem.key}`}
+                      data-index={virtualItem.index}
+                      ref={virtualizer.measureElement}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        transform: `translateY(${virtualItem.start}px)`,
+                      }}
+                    >
+                      <div className="max-w-3xl mx-auto px-4 md:px-6">
+                        <ModelSwitchDivider
+                          model={item.model}
+                          providerConnectionId={item.providerConnectionId}
+                          providers={providers}
+                        />
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Handle message items
+                const message = item.message;
 
                 // Check if this is a model loading error message
                 const isModelError = message.id.startsWith('error-models-');
@@ -623,6 +698,7 @@ export default function Home() {
                         message={message}
                         isLatestAssistant={message.id === lastAssistantMessage?.id}
                         isHighlighted={searchMatches.includes(message.id)}
+                        providers={providers}
                         {...(isModelError ? { onRetry: refetchModels } : {})}
                         {...(errorDetails ? { errorMetadata: { isRetryable: errorDetails.isRetryable } } : {})}
                       />

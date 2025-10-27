@@ -4,7 +4,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { MarkdownRenderer } from "@/components/markdown-renderer";
 import { ImageBubble } from "@/components/image-bubble";
+import { ModelBadge } from "@/components/model-badge";
 import { StopCircle, RotateCcw, Trash2, AlertCircle } from "lucide-react";
+import type { ProviderConfig } from "@arc/core/core.js";
 
 interface MessageType {
   id: string;
@@ -12,12 +14,15 @@ interface MessageType {
   content: string;
   status: "pending" | "streaming" | "complete" | "stopped" | "error";
   attachments?: Array<{ data: string; mimeType: string; id: string; size: number; name?: string }>;
+  model?: string;
+  providerConnectionId?: string;
 }
 
 interface MessageProps {
   message: MessageType;
   isLatestAssistant: boolean;
   isHighlighted?: boolean;
+  providers?: ProviderConfig[];
   onStop?: () => void;
   onRegenerate?: (messageId: string) => void;
   onDelete?: (messageId: string) => void;
@@ -31,6 +36,7 @@ export function Message({
   message,
   isLatestAssistant,
   isHighlighted = false,
+  providers = [],
   onStop,
   onRegenerate,
   onDelete,
@@ -93,6 +99,17 @@ export function Message({
         {message.attachments && message.attachments.length > 0 && (
           <div className="mb-3">
             <ImageBubble attachments={message.attachments} />
+          </div>
+        )}
+
+        {/* Model badge for assistant messages */}
+        {!isUser && (message.model || message.providerConnectionId) && (
+          <div className="mb-2">
+            <ModelBadge
+              model={message.model}
+              providerConnectionId={message.providerConnectionId}
+              providers={providers}
+            />
           </div>
         )}
 
