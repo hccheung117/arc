@@ -280,7 +280,9 @@
 
   /* Hover lift effect */
   .hover-lift {
-    @apply transition-interactive;
+    transition-property: background-color, border-color, color, transform, box-shadow, opacity;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .hover-lift:hover {
@@ -290,7 +292,9 @@
 
   /* Focus ring with smooth transition */
   .focus-ring {
-    @apply transition-fast;
+    transition-property: all;
+    transition-duration: 100ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
     outline: 2px solid transparent;
     outline-offset: 2px;
   }
@@ -349,7 +353,9 @@ button:active {
 
 /* Hover state for interactive elements (respecting <200ms guideline) */
 .interactive-hover {
-  @apply transition-interactive;
+  transition-property: background-color, border-color, color, transform, box-shadow, opacity;
+  transition-duration: 150ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .interactive-hover:hover {
