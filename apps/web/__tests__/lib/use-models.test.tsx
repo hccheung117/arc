@@ -4,7 +4,7 @@
  * Tests the model loading hook with session caching, error handling, and state management
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useModels } from '@/lib/use-models';
 import { useCore } from '@/lib/core-provider';
@@ -19,6 +19,8 @@ describe('useModels', () => {
   let mockCore: Partial<Core>;
   let mockProvidersList: ProviderConfig[];
   let mockModels: ModelInfo[];
+  let mockGetModels: Mock<(id: string) => Promise<ModelInfo[]>>;
+  let mockList: Mock<() => Promise<ProviderConfig[]>>;
 
   beforeEach(() => {
     // Setup mock data
@@ -60,15 +62,19 @@ describe('useModels', () => {
       { id: 'gpt-3.5-turbo', object: 'model', created: 123456, owned_by: 'openai' },
     ];
 
+    // Setup mock functions
+    mockList = vi.fn().mockResolvedValue(mockProvidersList);
+    mockGetModels = vi.fn().mockResolvedValue(mockModels);
+
     // Setup mock Core instance
     mockCore = {
       providers: {
-        list: vi.fn().mockResolvedValue(mockProvidersList),
-        getModels: vi.fn().mockResolvedValue(mockModels),
-      } as any,
+        list: mockList,
+        getModels: mockGetModels,
+      },
     };
 
-    (useCore as any).mockReturnValue(mockCore);
+    vi.mocked(useCore).mockReturnValue(mockCore as Core);
   });
 
   afterEach(() => {
@@ -135,7 +141,7 @@ describe('useModels', () => {
       const testError = new Error('Failed to fetch models');
 
       // Mock getModels to fail for provider-1 but succeed for provider-2
-      (mockCore.providers!.getModels as any).mockImplementation((id: string) => {
+      mockGetModels.mockImplementation((id: string) => {
         if (id === 'provider-1') {
           return Promise.reject(testError);
         }
@@ -159,7 +165,7 @@ describe('useModels', () => {
 
     it('continues fetching other providers when one fails', async () => {
       // Mock getModels to fail for provider-1
-      (mockCore.providers!.getModels as any).mockImplementation((id: string) => {
+      mockGetModels.mockImplementation((id: string) => {
         if (id === 'provider-1') {
           return Promise.reject(new Error('Provider 1 error'));
         }
@@ -179,7 +185,7 @@ describe('useModels', () => {
     });
 
     it('handles all providers failing gracefully', async () => {
-      (mockCore.providers!.getModels as any).mockRejectedValue(new Error('All failed'));
+      mockGetModels.mockRejectedValue(new Error('All failed'));
 
       const { result } = renderHook(() => useModels());
 
@@ -245,7 +251,7 @@ describe('useModels', () => {
 
   describe('Empty Provider List', () => {
     it('handles empty provider list gracefully', async () => {
-      (mockCore.providers!.list as any).mockResolvedValue([]);
+      mockList.mockResolvedValue([]);
 
       const { result } = renderHook(() => useModels());
 
@@ -258,7 +264,7 @@ describe('useModels', () => {
     });
 
     it('does not call getModels when no providers exist', async () => {
-      (mockCore.providers!.list as any).mockResolvedValue([]);
+      mockList.mockResolvedValue([]);
 
       const { result } = renderHook(() => useModels());
 
@@ -272,7 +278,7 @@ describe('useModels', () => {
 
   describe('Provider with No Models', () => {
     it('handles providers returning empty model arrays', async () => {
-      (mockCore.providers!.getModels as any).mockResolvedValue([]);
+      mockGetModels.mockResolvedValue([]);
 
       const { result } = renderHook(() => useModels());
 
@@ -294,7 +300,7 @@ describe('useModels', () => {
         getUserMessage: () => 'Invalid API key. Please check your settings.',
       };
 
-      (mockCore.providers!.getModels as any).mockImplementation((id: string) => {
+      mockGetModels.mockImplementation((id: string) => {
         if (id === 'provider-1') {
           return Promise.reject(providerError);
         }
@@ -328,7 +334,7 @@ describe('useModels', () => {
     it('treats generic errors as retryable', async () => {
       const genericError = new Error('Network timeout');
 
-      (mockCore.providers!.getModels as any).mockImplementation((id: string) => {
+      mockGetModels.mockImplementation((id: string) => {
         if (id === 'provider-1') {
           return Promise.reject(genericError);
         }
@@ -354,7 +360,7 @@ describe('useModels', () => {
         getUserMessage: () => 'Rate limit exceeded. Please wait and try again.',
       };
 
-      (mockCore.providers!.getModels as any).mockImplementation((id: string) => {
+      mockGetModels.mockImplementation((id: string) => {
         if (id === 'provider-1') {
           return Promise.reject(retryableError);
         }

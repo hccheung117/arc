@@ -27,6 +27,11 @@ import { toast } from "sonner";
 import { TOAST_DURATION } from "@/lib/error-handler";
 import type { ProviderConfig, Settings } from "@arc/core/core.js";
 
+// Payload type for provider save operations
+type ProviderSavePayload =
+  | { type: "auto"; name: string; apiKey: string; baseUrl: string }
+  | Partial<ProviderConfig>;
+
 const PROVIDER_NAMES: Record<ProviderConfig["type"], string> = {
   openai: "OpenAI",
   anthropic: "Anthropic",
@@ -116,44 +121,63 @@ export default function SettingsPage() {
   };
 
   const handleSaveProvider = async (
-    configData: Partial<ProviderConfig>
+    configData: ProviderSavePayload
   ) => {
     try {
       setIsSaving(true);
       setTestError(null);
 
       if (dialogMode === "add") {
-        // Check if provider type already exists
-        const exists = providerConfigs.some((p) => p.type === configData.type);
-        if (exists) {
-          setTestError(`Provider ${configData.type} is already configured`);
-          setIsSaving(false);
-          return;
+        // For "auto" type, let core auto-detect the provider type
+        const isAutoType = "type" in configData && configData.type === "auto";
+
+        if (!isAutoType) {
+          // Check if provider type already exists (only for explicit types)
+          const exists = providerConfigs.some((p) => p.type === configData.type);
+          if (exists) {
+            setTestError(`Provider ${configData.type} is already configured`);
+            setIsSaving(false);
+            return;
+          }
         }
 
         // Create provider
-        await core.providers.create({
-          name: configData.name || `${configData.type} Provider`,
-          type: configData.type as ProviderConfig["type"],
-          apiKey: configData.apiKey || "",
-          baseUrl: configData.baseUrl || "",
-          enabled: configData.enabled ?? true,
-          ...(configData.customHeaders && { customHeaders: configData.customHeaders }),
-          ...(configData.defaultModel && { defaultModel: configData.defaultModel }),
-        });
+        if (isAutoType) {
+          // Auto-detect provider type
+          await core.providers.create({
+            name: configData.name,
+            type: "openai", // Core will auto-detect actual type based on baseUrl
+            apiKey: configData.apiKey,
+            baseUrl: configData.baseUrl,
+            enabled: true,
+          });
+        } else {
+          // Explicit provider type
+          await core.providers.create({
+            name: configData.name || `${configData.type} Provider`,
+            type: configData.type as ProviderConfig["type"],
+            apiKey: configData.apiKey || "",
+            baseUrl: configData.baseUrl || "",
+            enabled: configData.enabled ?? true,
+            ...(configData.customHeaders && { customHeaders: configData.customHeaders }),
+            ...(configData.defaultModel && { defaultModel: configData.defaultModel }),
+          });
+        }
 
         toast.success("Provider added successfully", {
           duration: TOAST_DURATION.short,
         });
       } else if (editingProvider) {
-        // Update provider
+        // Update provider - in edit mode, configData is always Partial<ProviderConfig>
+        // (never the auto type variant)
+        const updateData = configData as Partial<ProviderConfig>;
         await core.providers.update(editingProvider.id, {
-          ...(configData.name !== undefined && { name: configData.name }),
-          ...(configData.apiKey !== undefined && { apiKey: configData.apiKey }),
-          ...(configData.baseUrl !== undefined && { baseUrl: configData.baseUrl }),
-          ...(configData.customHeaders !== undefined && { customHeaders: configData.customHeaders }),
-          ...(configData.defaultModel !== undefined && { defaultModel: configData.defaultModel }),
-          ...(configData.enabled !== undefined && { enabled: configData.enabled }),
+          ...(updateData.name !== undefined && { name: updateData.name }),
+          ...(updateData.apiKey !== undefined && { apiKey: updateData.apiKey }),
+          ...(updateData.baseUrl !== undefined && { baseUrl: updateData.baseUrl }),
+          ...(updateData.customHeaders !== undefined && { customHeaders: updateData.customHeaders }),
+          ...(updateData.defaultModel !== undefined && { defaultModel: updateData.defaultModel }),
+          ...(updateData.enabled !== undefined && { enabled: updateData.enabled }),
         });
 
         toast.success("Provider updated successfully", {
