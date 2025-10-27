@@ -25,7 +25,7 @@ describe("Message - Pin/Unpin Feature", () => {
     providerConnectionId: "provider-1",
   };
 
-  it("should show 'Pin Message' option when message is not pinned", () => {
+  it("should show 'Pin Message' option when message is not pinned", async () => {
     const onPin = vi.fn();
 
     render(
@@ -40,14 +40,14 @@ describe("Message - Pin/Unpin Feature", () => {
     );
 
     // Open context menu
-    const menuButton = screen.getByLabelText("Message options");
+    const menuButton = screen.getByLabelText("More options");
     fireEvent.click(menuButton);
 
     // Check that "Pin Message" option is visible
-    expect(screen.getByText("Pin Message")).toBeInTheDocument();
+    expect(await screen.findByText("Pin Message")).toBeInTheDocument();
   });
 
-  it("should show 'Unpin Message' option when message is pinned", () => {
+  it("should show 'Unpin Message' option when message is pinned", async () => {
     const onPin = vi.fn();
 
     render(
@@ -62,14 +62,14 @@ describe("Message - Pin/Unpin Feature", () => {
     );
 
     // Open context menu
-    const menuButton = screen.getByLabelText("Message options");
+    const menuButton = screen.getByLabelText("More options");
     fireEvent.click(menuButton);
 
     // Check that "Unpin Message" option is visible
-    expect(screen.getByText("Unpin Message")).toBeInTheDocument();
+    expect(await screen.findByText("Unpin Message")).toBeInTheDocument();
   });
 
-  it("should call onPin with correct arguments when pinning", () => {
+  it("should call onPin with correct arguments when pinning", async () => {
     const onPin = vi.fn();
 
     render(
@@ -84,17 +84,17 @@ describe("Message - Pin/Unpin Feature", () => {
     );
 
     // Open context menu and click "Pin Message"
-    const menuButton = screen.getByLabelText("Message options");
+    const menuButton = screen.getByLabelText("More options");
     fireEvent.click(menuButton);
 
-    const pinOption = screen.getByText("Pin Message");
+    const pinOption = await screen.findByText("Pin Message");
     fireEvent.click(pinOption);
 
     // Verify onPin was called with correct arguments
     expect(onPin).toHaveBeenCalledWith("msg-1", true);
   });
 
-  it("should call onPin with correct arguments when unpinning", () => {
+  it("should call onPin with correct arguments when unpinning", async () => {
     const onPin = vi.fn();
 
     render(
@@ -109,10 +109,10 @@ describe("Message - Pin/Unpin Feature", () => {
     );
 
     // Open context menu and click "Unpin Message"
-    const menuButton = screen.getByLabelText("Message options");
+    const menuButton = screen.getByLabelText("More options");
     fireEvent.click(menuButton);
 
-    const unpinOption = screen.getByText("Unpin Message");
+    const unpinOption = await screen.findByText("Unpin Message");
     fireEvent.click(unpinOption);
 
     // Verify onPin was called with correct arguments
