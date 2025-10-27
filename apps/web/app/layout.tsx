@@ -4,6 +4,7 @@ import { CoreProvider } from "@/lib/core-provider";
 import { ElectronIntegration } from "@/components/ElectronIntegration";
 import { AppEffects } from "@/components/app-effects";
 import { Toaster } from "@/components/ui/sonner";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 export const metadata: Metadata = {
   title: "Arc",
@@ -19,11 +20,13 @@ export default function RootLayout({
     <html lang="en">
       <body className="antialiased">
         <AppEffects />
-        <CoreProvider>
-          {children}
-          <ElectronIntegration />
-          <Toaster />
-        </CoreProvider>
+        <ErrorBoundary>
+          <CoreProvider>
+            {children}
+            <ElectronIntegration />
+            <Toaster />
+          </CoreProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

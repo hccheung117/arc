@@ -3,10 +3,30 @@
  * Adheres to Arc's error handling strategy: retry-able vs non-retryable classification
  */
 
+/**
+ * Toast severity levels for consistent UX
+ */
+export type ToastSeverity = "info" | "success" | "warning" | "error";
+
+/**
+ * Toast duration constants (in milliseconds)
+ */
+export const TOAST_DURATION = {
+  /** Quick notifications (3 seconds) */
+  short: 3000,
+  /** Standard notifications (5 seconds) */
+  standard: 5000,
+  /** Important messages (8 seconds) */
+  long: 8000,
+  /** Indefinite - requires user action */
+  indefinite: Infinity,
+} as const;
+
 export interface ErrorDetails {
   message: string;
   isRetryable: boolean;
   originalError?: unknown;
+  severity: ToastSeverity;
 }
 
 /**
@@ -35,6 +55,7 @@ export function classifyError(error: unknown): ErrorDetails {
         message: error.message,
         isRetryable: true,
         originalError: error,
+        severity: 'warning',
       };
     }
 
@@ -53,6 +74,7 @@ export function classifyError(error: unknown): ErrorDetails {
         message: error.message,
         isRetryable: false,
         originalError: error,
+        severity: 'error',
       };
     }
 
@@ -61,6 +83,7 @@ export function classifyError(error: unknown): ErrorDetails {
       message: error.message,
       isRetryable: false,
       originalError: error,
+      severity: 'error',
     };
   }
 
@@ -70,6 +93,7 @@ export function classifyError(error: unknown): ErrorDetails {
       message: error,
       isRetryable: false,
       originalError: error,
+      severity: 'error',
     };
   }
 
@@ -78,6 +102,7 @@ export function classifyError(error: unknown): ErrorDetails {
     message: 'An unexpected error occurred',
     isRetryable: false,
     originalError: error,
+    severity: 'error',
   };
 }
 
@@ -96,6 +121,7 @@ export function createErrorToastMessage(error: unknown): {
   title: string;
   description: string;
   isRetryable: boolean;
+  severity: ToastSeverity;
 } {
   const details = classifyError(error);
 
@@ -104,6 +130,7 @@ export function createErrorToastMessage(error: unknown): {
       title: 'Temporary Error',
       description: details.message,
       isRetryable: true,
+      severity: details.severity,
     };
   }
 
@@ -111,5 +138,29 @@ export function createErrorToastMessage(error: unknown): {
     title: 'Error',
     description: details.message,
     isRetryable: false,
+    severity: details.severity,
   };
+}
+
+/**
+ * Get appropriate toast duration based on severity and retry-ability
+ */
+export function getToastDuration(severity: ToastSeverity, hasAction: boolean): number {
+  // Toasts with actions (e.g., retry buttons) should stay longer or indefinitely
+  if (hasAction) {
+    return TOAST_DURATION.indefinite;
+  }
+
+  // Map severity to duration
+  switch (severity) {
+    case 'info':
+    case 'success':
+      return TOAST_DURATION.short; // 3 seconds
+    case 'warning':
+      return TOAST_DURATION.standard; // 5 seconds
+    case 'error':
+      return TOAST_DURATION.long; // 8 seconds
+    default:
+      return TOAST_DURATION.standard;
+  }
 }

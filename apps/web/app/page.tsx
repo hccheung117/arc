@@ -25,13 +25,18 @@ import { Message } from "@/components/message";
 import { ModelSwitchDivider } from "@/components/model-switch-divider";
 import { ImageAttachmentChip } from "@/components/image-attachment-chip";
 import { SearchBar } from "@/components/search-bar";
+import {
+  NoProvidersState,
+  NoMessagesState,
+  NoGlobalSearchResultsState,
+} from "@/components/empty-states";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useCore } from "@/lib/core-provider";
 import { useUIStore } from "@/lib/ui-store";
 import { useModels } from "@/lib/use-models";
 import { toast } from "sonner";
 import { keyboardShortcuts } from "@/lib/keyboard-shortcuts";
-import { classifyError } from "@/lib/error-handler";
+import { classifyError, TOAST_DURATION } from "@/lib/error-handler";
 import type { Chat, Message as CoreMessage, ImageAttachment, ProviderConfig, SearchResult } from "@arc/core/core.js";
 
 export default function Home() {
@@ -340,7 +345,9 @@ export default function Home() {
       // Sync with server to get accurate data
       const chatList = await core.chats.list();
       setChats(chatList);
-      toast.success("Chat renamed successfully");
+      toast.success("Chat renamed successfully", {
+        duration: TOAST_DURATION.short,
+      });
     } catch (error) {
       // Rollback optimistic update
       setChats(previousChats);
@@ -381,7 +388,9 @@ export default function Home() {
       // Sync with server
       const chatList = await core.chats.list();
       setChats(chatList);
-      toast.success("Chat deleted successfully");
+      toast.success("Chat deleted successfully", {
+        duration: TOAST_DURATION.short,
+      });
     } catch (error) {
       // Rollback optimistic update
       setChats(previousChats);
@@ -431,7 +440,9 @@ export default function Home() {
         }
       }
 
-      toast.success("Message edited successfully");
+      toast.success("Message edited successfully", {
+        duration: TOAST_DURATION.short,
+      });
     } catch (error) {
       // Rollback optimistic update
       setMessages(previousMessages);
@@ -471,7 +482,9 @@ export default function Home() {
         }
       }
 
-      toast.success("Message deleted successfully");
+      toast.success("Message deleted successfully", {
+        duration: TOAST_DURATION.short,
+      });
     } catch (error) {
       // Rollback optimistic update
       setMessages(previousMessages);
@@ -521,7 +534,19 @@ export default function Home() {
       setStreamingMessageId(null);
     } catch (error) {
       console.error("Failed to regenerate message:", error);
-      toast.error("Failed to regenerate message");
+
+      const errorDetails = classifyError(error);
+      toast.error("Failed to regenerate message", {
+        description: errorDetails.message,
+        duration: errorDetails.isRetryable ? TOAST_DURATION.indefinite : TOAST_DURATION.long,
+        ...(errorDetails.isRetryable && {
+          action: {
+            label: "Retry",
+            onClick: () => handleRegenerateMessage(),
+          },
+        }),
+      });
+
       setStreamingChatId(null);
       setStreamingMessageId(null);
     }
@@ -533,7 +558,9 @@ export default function Home() {
         await core.messages.stop(streamingMessageId);
         setStreamingChatId(null);
         setStreamingMessageId(null);
-        toast.info("Response stopped");
+        toast.info("Response stopped", {
+          duration: TOAST_DURATION.short,
+        });
       } catch (error) {
         console.error("Failed to stop message:", error);
       }
@@ -987,29 +1014,14 @@ export default function Home() {
               })}
             </div>
           ) : !hasProvider ? (
-            <div className="flex h-full items-center justify-center p-8">
-              <div className="max-w-md text-center space-y-4">
-                <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Sparkles className="size-8 text-primary" />
-                </div>
-                <h2 className="text-2xl font-semibold">Welcome to Arc</h2>
-                <p className="text-muted-foreground">
-                  To get started, configure an AI provider in settings.
-                </p>
-                <Link href="/settings">
-                  <Button>Open Settings</Button>
-                </Link>
-              </div>
-            </div>
+            <NoProvidersState
+              action={{
+                label: "Open Settings",
+                onClick: () => (window.location.href = "/settings"),
+              }}
+            />
           ) : (
-            <div className="flex h-full items-center justify-center p-8">
-              <div className="max-w-md text-center space-y-2">
-                <p className="text-muted-foreground">No messages yet</p>
-                <p className="text-sm text-muted-foreground">
-                  Start a conversation below
-                </p>
-              </div>
-            </div>
+            <NoMessagesState />
           )}
         </div>
 
@@ -1203,9 +1215,7 @@ export default function Home() {
           )}
 
           {globalSearchQuery && globalSearchResults.length === 0 && (
-            <div className="text-center py-8 text-sm text-muted-foreground">
-              No messages found matching &quot;{globalSearchQuery}&quot;
-            </div>
+            <NoGlobalSearchResultsState query={globalSearchQuery} />
           )}
 
           {!globalSearchQuery && (

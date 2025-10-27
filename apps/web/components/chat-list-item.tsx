@@ -113,7 +113,7 @@ export function ChatListItem({ chat, isActive, onClick, onRename, onDelete }: Ch
 
   return (
     <div
-      className={`group relative w-full text-left p-3 rounded-md transition-colors mb-1 ${
+      className={`group relative w-full text-left p-3 rounded-md transition-interactive mb-1 ${
         isActive
           ? "bg-accent"
           : "hover:bg-accent/50"
@@ -156,7 +156,7 @@ export function ChatListItem({ chat, isActive, onClick, onRename, onDelete }: Ch
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="absolute top-2 right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-2 right-2 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-interactive"
                   aria-label="Chat options"
                   onClick={(e) => e.stopPropagation()}
                 >

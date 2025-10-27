@@ -158,7 +158,7 @@ export function Message({
       onMouseLeave={() => setIsHovered(false)}
     >
       <div
-        className={`group relative max-w-[80%] rounded-lg p-4 ${
+        className={`group relative max-w-[80%] rounded-lg p-4 transition-interactive ${
           isUser
             ? "bg-primary text-primary-foreground"
             : isError
@@ -242,7 +242,7 @@ export function Message({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-interactive"
                     aria-label="Message options"
                   >
                     <MoreVertical className="size-4" />
@@ -295,7 +295,7 @@ export function Message({
 
         {/* Action buttons - show on hover or always show for error retry */}
         {(isHovered || showRetryButton) && (showStopButton || showRegenerateButton || showDeleteButton || showRetryButton) && (
-          <div className="absolute -bottom-8 left-0 flex gap-1 mt-1">
+          <div className="absolute -bottom-8 left-0 flex gap-1 mt-1 animate-fade-in-up">
             {showStopButton && (
               <Tooltip>
                 <TooltipTrigger asChild>

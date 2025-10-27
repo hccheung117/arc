@@ -116,3 +116,242 @@
     font-size: var(--font-size-base);
   }
 }
+
+/* ============================================================================
+ * Animation & Transition Utilities
+ * ============================================================================
+ * Design guideline: <200ms for interactive feedback
+ */
+
+@layer utilities {
+  /* Smooth transition for interactive elements (hover, focus, active states) */
+  .transition-interactive {
+    transition-property: background-color, border-color, color, transform, box-shadow, opacity;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Fast transition for micro-interactions (buttons, links) */
+  .transition-fast {
+    transition-property: all;
+    transition-duration: 100ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Standard transition for general UI changes */
+  .transition-smooth {
+    transition-property: all;
+    transition-duration: 200ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Slow transition for content changes (modals, panels) */
+  .transition-slow {
+    transition-property: all;
+    transition-duration: 300ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Fade in animation */
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 200ms ease-out;
+  }
+
+  /* Fade in with slight upward movement */
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in-up {
+    animation: fade-in-up 250ms ease-out;
+  }
+
+  /* Fade in with slight downward movement */
+  @keyframes fade-in-down {
+    from {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in-down {
+    animation: fade-in-down 250ms ease-out;
+  }
+
+  /* Scale in animation (for dialogs, modals) */
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .animate-scale-in {
+    animation: scale-in 200ms ease-out;
+  }
+
+  /* Slide in from right (for sidebars, panels) */
+  @keyframes slide-in-right {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  .animate-slide-in-right {
+    animation: slide-in-right 300ms ease-out;
+  }
+
+  /* Slide in from left */
+  @keyframes slide-in-left {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  .animate-slide-in-left {
+    animation: slide-in-left 300ms ease-out;
+  }
+
+  /* Shimmer effect for skeletons */
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+
+  .animate-shimmer {
+    animation: shimmer 2s ease-in-out infinite;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.05) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+  }
+
+  /* Pulse glow (for active/streaming indicators) */
+  @keyframes pulse-glow {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.6;
+    }
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 1.5s ease-in-out infinite;
+  }
+
+  /* Hover lift effect */
+  .hover-lift {
+    @apply transition-interactive;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  }
+
+  /* Focus ring with smooth transition */
+  .focus-ring {
+    @apply transition-fast;
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+  }
+
+  .focus-ring:focus-visible {
+    outline-color: var(--ring);
+  }
+}
+
+/* ============================================================================
+ * Component-specific animations
+ * ============================================================================ */
+
+/* Skeleton shimmer effect for loading states */
+.skeleton-shimmer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.05),
+    transparent
+  );
+  animation: shimmer 2s infinite;
+}
+
+.dark .skeleton-shimmer::before {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
+}
+
+/* Smooth height transitions for expanding/collapsing elements */
+.collapse-transition {
+  transition: height 200ms ease-out;
+  overflow: hidden;
+}
+
+/* Smooth opacity transitions for show/hide elements */
+.fade-transition {
+  transition: opacity 150ms ease-in-out;
+}
+
+/* Button press feedback */
+button:active {
+  transform: scale(0.98);
+  transition: transform 50ms ease-out;
+}
+
+/* Hover state for interactive elements (respecting <200ms guideline) */
+.interactive-hover {
+  @apply transition-interactive;
+}
+
+.interactive-hover:hover {
+  opacity: 0.9;
+}

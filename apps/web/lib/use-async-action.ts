@@ -5,7 +5,7 @@
 
 import { useState, useCallback } from 'react';
 import { toast } from 'sonner';
-import { classifyError } from './error-handler';
+import { classifyError, getToastDuration, TOAST_DURATION } from './error-handler';
 
 export interface AsyncActionState<T> {
   data: T | null;
@@ -51,7 +51,9 @@ export function useAsyncAction<TArgs extends unknown[], TResult>(
 
         // Show success toast if configured
         if (options.showSuccessToast !== false && options.successMessage) {
-          toast.success(options.successMessage);
+          toast.success(options.successMessage, {
+            duration: TOAST_DURATION.short,
+          });
         }
 
         // Call success callback
@@ -74,6 +76,7 @@ export function useAsyncAction<TArgs extends unknown[], TResult>(
           if (errorDetails.isRetryable) {
             toast.error('Temporary Error', {
               description: message,
+              duration: getToastDuration(errorDetails.severity, true),
               action: {
                 label: 'Retry',
                 onClick: () => execute(...args),
@@ -82,6 +85,7 @@ export function useAsyncAction<TArgs extends unknown[], TResult>(
           } else {
             toast.error('Error', {
               description: message,
+              duration: getToastDuration(errorDetails.severity, false),
             });
           }
         }
@@ -142,7 +146,9 @@ export function useOptimisticAction<TArgs extends unknown[], TResult>(
 
         // Show success toast if configured
         if (options.showSuccessToast !== false && options.successMessage) {
-          toast.success(options.successMessage);
+          toast.success(options.successMessage, {
+            duration: TOAST_DURATION.short,
+          });
         }
 
         // Call success callback
@@ -166,6 +172,7 @@ export function useOptimisticAction<TArgs extends unknown[], TResult>(
           if (errorDetails.isRetryable) {
             toast.error('Temporary Error', {
               description: message,
+              duration: getToastDuration(errorDetails.severity, true),
               action: {
                 label: 'Retry',
                 onClick: () => execute(...args),
@@ -174,6 +181,7 @@ export function useOptimisticAction<TArgs extends unknown[], TResult>(
           } else {
             toast.error('Error', {
               description: message,
+              duration: getToastDuration(errorDetails.severity, false),
             });
           }
         }

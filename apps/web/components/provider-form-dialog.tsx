@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,6 +28,7 @@ interface ProviderFormDialogProps {
   onSave: (config: Partial<ProviderConfig>) => void;
   initialConfig?: ProviderConfig | undefined;
   mode: "add" | "edit";
+  isSaving?: boolean;
 }
 
 interface FormErrors {
@@ -56,6 +58,7 @@ export function ProviderFormDialog({
   onSave,
   initialConfig,
   mode,
+  isSaving = false,
 }: ProviderFormDialogProps) {
   const [type, setType] = useState<ProviderConfig["type"]>(initialConfig?.type || "openai");
   const [name, setName] = useState(initialConfig?.name || "");
@@ -236,10 +239,13 @@ export function ProviderFormDialog({
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={handleCancel}>
+            <Button type="button" variant="outline" onClick={handleCancel} disabled={isSaving}>
               Cancel
             </Button>
-            <Button type="submit">{mode === "add" ? "Add Provider" : "Save Changes"}</Button>
+            <Button type="submit" disabled={isSaving}>
+              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {mode === "add" ? "Add Provider" : "Save Changes"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

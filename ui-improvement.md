@@ -292,7 +292,7 @@ What Can Actually Be Done (UI-Only with Current Core API)
 
 1.  **Global Error Boundary:** Implement a global React Error Boundary to prevent application crashes and display a user-friendly fallback screen.
 2.  **Enhanced Toasts:** Enhance the toast notification system to support different error severities, durations, and retry actions.
-3.  **Error Classification:** Implement a centralized `handleCoreError` utility to classify errors from `@arc/core` (`retry-able` vs. `non-retryable`) and generate user-actionable messages.
+3.  **Error Classification:** Implement a centralized `classifyError` utility to classify errors from `@arc/core` (`retry-able` vs. `non-retryable`) and generate user-actionable messages.
 4.  **Standardized Async Hook:** Create a standardized `useAsyncAction` hook to manage loading, error, and data states for all asynchronous operations, ensuring consistent UI feedback.
 5.  **Audit Loading & Error States:** Audit all data-fetching components to ensure they have appropriate loading skeletons and clear, contextual error states.
 6.  **Improve Empty States:** Improve all empty states to be more informative and guide the user on next steps.

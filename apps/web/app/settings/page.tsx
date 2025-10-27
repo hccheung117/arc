@@ -16,7 +16,11 @@ import { ArrowLeft, Moon, Sun, Monitor, Plus, AlertCircle } from "lucide-react";
 import { ProviderCard } from "@/components/provider-card";
 import { ProviderFormDialog } from "@/components/provider-form-dialog";
 import { About } from "@/components/about";
+import { ProviderListSkeleton } from "@/components/skeletons";
+import { EmptyProviderListState } from "@/components/empty-states";
 import { useCore } from "@/lib/core-provider";
+import { toast } from "sonner";
+import { TOAST_DURATION } from "@/lib/error-handler";
 import type { ProviderConfig } from "@arc/core/core.js";
 
 const PROVIDER_NAMES: Record<ProviderConfig["type"], string> = {
@@ -39,6 +43,7 @@ export default function SettingsPage() {
 
   // Provider state
   const [providerConfigs, setProviderConfigs] = useState<ProviderConfig[]>([]);
+  const [isLoadingProviders, setIsLoadingProviders] = useState(true);
 
   // Dialog state
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -48,16 +53,19 @@ export default function SettingsPage() {
   // Test connection state
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Load providers on mount
   useEffect(() => {
     const loadProviders = async () => {
       try {
+        setIsLoadingProviders(true);
         const providers = await core.providers.list();
         setProviderConfigs(providers);
       } catch (error) {
         console.error("Failed to load providers:", error);
+      } finally {
+        setIsLoadingProviders(false);
       }
     };
 
@@ -67,7 +75,7 @@ export default function SettingsPage() {
   const handleAddProvider = () => {
     setDialogMode("add");
     setEditingProvider(undefined);
-    setSuccessMessage(null);
+    setTestError(null);
     setIsDialogOpen(true);
   };
 
@@ -81,11 +89,15 @@ export default function SettingsPage() {
     configData: Partial<ProviderConfig>
   ) => {
     try {
+      setIsSaving(true);
+      setTestError(null);
+
       if (dialogMode === "add") {
         // Check if provider type already exists
         const exists = providerConfigs.some((p) => p.type === configData.type);
         if (exists) {
           setTestError(`Provider ${configData.type} is already configured`);
+          setIsSaving(false);
           return;
         }
 
@@ -100,8 +112,9 @@ export default function SettingsPage() {
           ...(configData.defaultModel && { defaultModel: configData.defaultModel }),
         });
 
-        setSuccessMessage(`Provider added successfully`);
-        setTimeout(() => setSuccessMessage(null), 5000);
+        toast.success("Provider added successfully", {
+          duration: TOAST_DURATION.short,
+        });
       } else if (editingProvider) {
         // Update provider
         await core.providers.update(editingProvider.id, {
@@ -112,9 +125,12 @@ export default function SettingsPage() {
           ...(configData.defaultModel !== undefined && { defaultModel: configData.defaultModel }),
           ...(configData.enabled !== undefined && { enabled: configData.enabled }),
         });
+
+        toast.success("Provider updated successfully", {
+          duration: TOAST_DURATION.short,
+        });
       }
 
-      setTestError(null);
       setIsDialogOpen(false);
 
       // Reload providers
@@ -122,7 +138,14 @@ export default function SettingsPage() {
       setProviderConfigs(providers);
     } catch (error) {
       console.error("Failed to save provider:", error);
-      setTestError(error instanceof Error ? error.message : "Failed to save provider");
+      const errorMessage = error instanceof Error ? error.message : "Failed to save provider";
+      setTestError(errorMessage);
+      toast.error("Failed to save provider", {
+        description: errorMessage,
+        duration: TOAST_DURATION.long,
+      });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -147,10 +170,21 @@ export default function SettingsPage() {
 
     try {
       await core.providers.checkConnection(config.id);
-      alert(`Connection to ${config.name} successful!`);
+      toast.success(`Connection to ${config.name} successful!`, {
+        duration: TOAST_DURATION.short,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Connection failed";
-      setTestError(`${config.name}: ${message}`);
+      const errorMsg = `${config.name}: ${message}`;
+      setTestError(errorMsg);
+
+      // Auto-dismiss error after 8 seconds
+      setTimeout(() => setTestError(null), TOAST_DURATION.long);
+
+      toast.error("Connection failed", {
+        description: message,
+        duration: TOAST_DURATION.long,
+      });
     } finally {
       setTestingProvider(null);
     }
@@ -291,25 +325,10 @@ export default function SettingsPage() {
               </Alert>
             )}
 
-            {successMessage && (
-              <Alert className="border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-800 dark:bg-blue-950 dark:text-blue-100">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{successMessage}</AlertDescription>
-              </Alert>
-            )}
-
-            {providerConfigs.length === 0 ? (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                  <p className="text-muted-foreground mb-4">
-                    No providers configured yet. Add your first provider to get started.
-                  </p>
-                  <Button onClick={handleAddProvider}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Provider
-                  </Button>
-                </CardContent>
-              </Card>
+            {isLoadingProviders ? (
+              <ProviderListSkeleton />
+            ) : providerConfigs.length === 0 ? (
+              <EmptyProviderListState onAddProvider={handleAddProvider} />
             ) : (
               <div className="grid gap-4">
                 {providerConfigs.map((config) => (
@@ -340,6 +359,7 @@ export default function SettingsPage() {
           onSave={handleSaveProvider}
           initialConfig={editingProvider}
           mode={dialogMode}
+          isSaving={isSaving}
         />
       )}
     </div>
