@@ -7,6 +7,8 @@ import {
 } from "@/components/ui/tooltip";
 import { SendIcon, ImageIcon, X, AlertCircle } from "lucide-react";
 import { ImageAttachmentChip } from "@/components/image-attachment-chip";
+import { TemperaturePopover } from "@/components/temperature-popover";
+import { SystemPromptPopover } from "@/components/system-prompt-popover";
 import { keyboardShortcuts } from "@/lib/keyboard-shortcuts";
 import type { ImageAttachment } from "@arc/core/core.js";
 
@@ -19,6 +21,11 @@ interface MessageComposerProps {
   removeImageAttachment: (index: number) => void;
   hasProvider: boolean;
   isStreaming: boolean;
+  temperature: number;
+  defaultTemperature: number;
+  onTemperatureChange: (value: number) => void;
+  systemPrompt: string;
+  onSystemPromptChange: (value: string) => void;
   onSendMessage: () => void;
   onDrop: (e: React.DragEvent) => void;
   onDragOver: (e: React.DragEvent) => void;
@@ -36,6 +43,11 @@ export function MessageComposer({
   removeImageAttachment,
   hasProvider,
   isStreaming,
+  temperature,
+  defaultTemperature,
+  onTemperatureChange,
+  systemPrompt,
+  onSystemPromptChange,
   onSendMessage,
   onDrop,
   onDragOver,
@@ -150,6 +162,19 @@ export function MessageComposer({
                 <p>{keyboardShortcuts.attachImage.description} ({keyboardShortcuts.attachImage.label})</p>
               </TooltipContent>
             </Tooltip>
+
+            <TemperaturePopover
+              value={temperature}
+              onChange={onTemperatureChange}
+              defaultValue={defaultTemperature}
+              disabled={!hasProvider || isStreaming}
+            />
+
+            <SystemPromptPopover
+              value={systemPrompt}
+              onChange={onSystemPromptChange}
+              disabled={!hasProvider || isStreaming}
+            />
 
             <div className="flex-1" />
 

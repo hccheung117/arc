@@ -8,9 +8,10 @@ interface SendMessageParams {
   model: string;
   providerConnectionId: string;
   images?: ImageAttachment[];
-  temperature?: number;
-  maxTokens?: number;
-  systemPrompt?: string;
+  options?: {
+    temperature?: number;
+    systemPrompt?: string;
+  };
 }
 
 interface UseMessageOperationsOptions {

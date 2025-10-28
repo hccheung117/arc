@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { AdvancedComposerControls } from "@/components/advanced-composer-controls";
 import { ChatSidebar } from "@/components/chat-sidebar";
 import { ChatHeader } from "@/components/chat-header";
 import { MessageList } from "@/components/message-list";
@@ -30,10 +29,12 @@ export default function Home() {
   // Model loading
   const { groupedModels, isLoading: modelsLoading, errors: modelErrors, getErrorDetails, refetch: refetchModels } = useModels();
 
-  // Advanced composer controls state
-  const [temperature, setTemperature] = useState(1.0);
-  const [maxTokens, setMaxTokens] = useState(2048);
-  const [systemPromptOverride, setSystemPromptOverride] = useState("");
+  // Default temperature from settings
+  const [defaultTemperature, setDefaultTemperature] = useState(1.0);
+
+  // Per-chat temperature and system prompt overrides
+  const [chatTemperatures, setChatTemperatures] = useState<Map<string, number>>(new Map());
+  const [chatSystemPrompts, setChatSystemPrompts] = useState<Map<string, string>>(new Map());
 
   // Command palette state
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
@@ -83,7 +84,7 @@ export default function Home() {
   // Message input state
   const [messageInput, setMessageInput] = useState("");
 
-  // Load providers
+  // Load providers and default temperature
   useEffect(() => {
     const loadProviders = async () => {
       try {
@@ -94,7 +95,17 @@ export default function Home() {
       }
     };
 
+    const loadDefaultTemperature = async () => {
+      try {
+        const settings = await core.settings.get();
+        setDefaultTemperature(settings.defaultTemperature ?? 1.0);
+      } catch (error) {
+        console.error("Failed to load default temperature:", error);
+      }
+    };
+
     void loadProviders();
+    void loadDefaultTemperature();
   }, [core]);
 
   // Set default model when models load
@@ -112,6 +123,48 @@ export default function Home() {
       }
     }
   }, [groupedModels, selectedModel]);
+
+  // Load temperature and system prompt from last assistant message
+  useEffect(() => {
+    const loadChatOverrides = async () => {
+      if (!chatManagement.activeChatId) return;
+
+      try {
+        const chatData = await core.chats.get(chatManagement.activeChatId);
+        if (!chatData?.messages.length) return;
+
+        // Find last assistant message with overrides
+        const lastAssistantMsg = [...chatData.messages]
+          .reverse()
+          .find(m => m.role === 'assistant');
+
+        if (lastAssistantMsg) {
+          // Load temperature if it was set on last message
+          if (lastAssistantMsg.temperature !== undefined) {
+            setChatTemperatures(prev => {
+              const next = new Map(prev);
+              next.set(chatManagement.activeChatId!, lastAssistantMsg.temperature!);
+              return next;
+            });
+          }
+
+          // Load system prompt if it was set on last message
+          if (lastAssistantMsg.systemPrompt !== undefined) {
+            setChatSystemPrompts(prev => {
+              const next = new Map(prev);
+              next.set(chatManagement.activeChatId!, lastAssistantMsg.systemPrompt!);
+              return next;
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load chat overrides:', error);
+        // Non-critical: just fall back to global defaults
+      }
+    };
+
+    void loadChatOverrides();
+  }, [chatManagement.activeChatId, core]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -156,6 +209,36 @@ export default function Home() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [searchState, hasProvider, messageOperations.isStreaming, chatManagement, imageAttachments.fileInputRef]);
 
+  // Get current chat's temperature (or default)
+  const currentTemperature = chatManagement.activeChatId
+    ? chatTemperatures.get(chatManagement.activeChatId) ?? defaultTemperature
+    : defaultTemperature;
+
+  // Get current chat's system prompt override
+  const currentSystemPrompt = chatManagement.activeChatId
+    ? chatSystemPrompts.get(chatManagement.activeChatId) ?? ""
+    : "";
+
+  // Handle temperature change for current chat
+  const handleTemperatureChange = (value: number) => {
+    if (!chatManagement.activeChatId) return;
+    setChatTemperatures((prev) => {
+      const next = new Map(prev);
+      next.set(chatManagement.activeChatId!, value);
+      return next;
+    });
+  };
+
+  // Handle system prompt change for current chat
+  const handleSystemPromptChange = (value: string) => {
+    if (!chatManagement.activeChatId) return;
+    setChatSystemPrompts((prev) => {
+      const next = new Map(prev);
+      next.set(chatManagement.activeChatId!, value);
+      return next;
+    });
+  };
+
   // Handle select chat
   const handleSelectChat = async (chatId: string) => {
     // Stop any ongoing streaming before switching
@@ -186,9 +269,10 @@ export default function Home() {
       model: selectedModel.modelId,
       providerConnectionId: selectedModel.providerId,
       ...(imageAttachments.attachedImages.length > 0 && { images: imageAttachments.attachedImages }),
-      temperature,
-      maxTokens,
-      ...(systemPromptOverride.trim() && { systemPrompt: systemPromptOverride.trim() }),
+      options: {
+        ...(Math.abs(currentTemperature - defaultTemperature) > 0.01 && { temperature: currentTemperature }),
+        ...(currentSystemPrompt.trim() && { systemPrompt: currentSystemPrompt.trim() }),
+      },
     };
 
     // Clear input immediately
@@ -289,16 +373,6 @@ export default function Home() {
             isStreaming={messageOperations.isStreaming}
           />
 
-          {/* Advanced Composer Controls */}
-          <AdvancedComposerControls
-            temperature={temperature}
-            maxTokens={maxTokens}
-            systemPrompt={systemPromptOverride}
-            onTemperatureChange={setTemperature}
-            onMaxTokensChange={setMaxTokens}
-            onSystemPromptChange={setSystemPromptOverride}
-          />
-
           {/* Composer bar */}
           <MessageComposer
             messageInput={messageInput}
@@ -309,6 +383,11 @@ export default function Home() {
             removeImageAttachment={imageAttachments.removeImageAttachment}
             hasProvider={hasProvider}
             isStreaming={messageOperations.isStreaming}
+            temperature={currentTemperature}
+            defaultTemperature={defaultTemperature}
+            onTemperatureChange={handleTemperatureChange}
+            systemPrompt={currentSystemPrompt}
+            onSystemPromptChange={handleSystemPromptChange}
             onSendMessage={handleSendMessage}
             onDrop={imageAttachments.handleDrop}
             onDragOver={imageAttachments.handleDragOver}
