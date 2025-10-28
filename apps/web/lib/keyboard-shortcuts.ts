@@ -41,6 +41,12 @@ export const keyboardShortcuts = {
     label: `${modKey}+F`,
     description: 'Search in current chat',
   },
+  toggleSidebar: {
+    key: 'b',
+    mod: true,
+    label: `${modKey}+B`,
+    description: 'Toggle sidebar',
+  },
 
   // Composer shortcuts
   sendMessage: {

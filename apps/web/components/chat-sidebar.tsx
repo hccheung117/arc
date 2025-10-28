@@ -2,6 +2,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  Sidebar,
+  SidebarContent,
+  SidebarHeader,
+  SidebarTrigger,
+  useSidebar,
+} from "@/components/ui/sidebar";
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -12,7 +19,6 @@ import { keyboardShortcuts } from "@/lib/keyboard-shortcuts";
 import type { Chat } from "@arc/core/core.js";
 
 interface ChatSidebarProps {
-  sidebarOpen: boolean;
   chats: Chat[];
   activeChatId: string | null;
   sidebarSearchQuery: string;
@@ -24,7 +30,6 @@ interface ChatSidebarProps {
 }
 
 export function ChatSidebar({
-  sidebarOpen,
   chats,
   activeChatId,
   sidebarSearchQuery,
@@ -34,6 +39,9 @@ export function ChatSidebar({
   onRenameChat,
   onDeleteChat,
 }: ChatSidebarProps) {
+  const { state } = useSidebar();
+  const isCollapsed = state === "collapsed";
+
   // Filter chats based on sidebar search
   const filteredChats = sidebarSearchQuery.trim()
     ? chats.filter((chat) =>
@@ -42,50 +50,73 @@ export function ChatSidebar({
     : chats;
 
   return (
-    <aside
-      className={`
-        fixed md:static inset-y-0 left-0 z-40
-        w-64 border-r bg-sidebar border-sidebar-border
-        transform transition-transform duration-200 ease-in-out
-        ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
-        md:translate-x-0
-      `}
-    >
-      <div className="flex flex-col h-full">
-        <div className="p-4 border-b border-sidebar-border space-y-3">
-          <div className="relative">
-            <SearchIcon className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search chats..."
-              value={sidebarSearchQuery}
-              onChange={(e) => setSidebarSearchQuery(e.target.value)}
-              className="pl-8 h-9"
-              aria-label="Search chats"
-            />
-          </div>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                className="w-full"
-                size="sm"
-                onClick={onCreateChat}
-              >
-                <Sparkles className="size-4 mr-2" />
-                New Chat
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{keyboardShortcuts.newChat.description} ({keyboardShortcuts.newChat.label})</p>
-            </TooltipContent>
-          </Tooltip>
+    <Sidebar collapsible="icon" variant="sidebar">
+      <SidebarHeader className="border-b border-sidebar-border">
+        <div className="flex items-center gap-2 p-2">
+          <SidebarTrigger />
+          {!isCollapsed && (
+            <span className="text-sm font-semibold">Chats</span>
+          )}
         </div>
 
+        {!isCollapsed && (
+          <div className="px-2 pb-2 space-y-3">
+            <div className="relative">
+              <SearchIcon className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search chats..."
+                value={sidebarSearchQuery}
+                onChange={(e) => setSidebarSearchQuery(e.target.value)}
+                className="pl-8 h-9"
+                aria-label="Search chats"
+              />
+            </div>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  size="sm"
+                  onClick={onCreateChat}
+                >
+                  <Sparkles className="size-4 mr-2" />
+                  New Chat
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{keyboardShortcuts.newChat.description} ({keyboardShortcuts.newChat.label})</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        )}
+
+        {isCollapsed && (
+          <div className="flex justify-center pb-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="size-8"
+                  onClick={onCreateChat}
+                >
+                  <Sparkles className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>{keyboardShortcuts.newChat.description} ({keyboardShortcuts.newChat.label})</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        )}
+      </SidebarHeader>
+
+      <SidebarContent>
         <ScrollArea className="flex-1">
           <div className="p-2" role="list" aria-label="Chat history">
-            {filteredChats.map((chat) => (
+            {!isCollapsed && filteredChats.map((chat) => (
               <ChatListItem
                 key={chat.id}
                 chat={chat}
@@ -97,7 +128,7 @@ export function ChatSidebar({
             ))}
           </div>
         </ScrollArea>
-      </div>
-    </aside>
+      </SidebarContent>
+    </Sidebar>
   );
 }

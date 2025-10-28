@@ -14,6 +14,8 @@ import type { Message } from '@arc/core/core.js';
 import type { ProviderConfig } from '@arc/core/core.js';
 import type { SearchResult } from '@arc/core/core.js';
 import type { Settings } from '@arc/core/core.js';
+import { SidebarProvider } from '@/components/ui/sidebar';
+import { TooltipProvider } from '@/components/ui/tooltip';
 
 // ============================================================================
 // Mock Core Factory
@@ -213,5 +215,44 @@ export function createTestProvider(overrides: Partial<ProviderConfig> = {}): Pro
     baseUrl: 'https://api.openai.com/v1',
     enabled: true,
     ...overrides,
+  };
+}
+
+// ============================================================================
+// Sidebar Test Helpers
+// ============================================================================
+
+/**
+ * Render a component with SidebarProvider and TooltipProvider wrappers
+ */
+export function renderWithSidebar(
+  ui: ReactElement,
+  options?: {
+    defaultOpen?: boolean;
+    mockCore?: Core;
+  }
+): ReturnType<typeof render> & { mockCore?: Core } {
+  const { defaultOpen = true, mockCore } = options || {};
+
+  function Wrapper({ children }: { children: React.ReactNode }) {
+    let content = children;
+
+    // Wrap with CoreProvider if mockCore provided
+    if (mockCore) {
+      const { TestCoreProvider } = createTestCoreProvider(mockCore);
+      content = <TestCoreProvider>{content}</TestCoreProvider>;
+    }
+
+    // Wrap with SidebarProvider and TooltipProvider
+    return (
+      <SidebarProvider defaultOpen={defaultOpen}>
+        <TooltipProvider>{content}</TooltipProvider>
+      </SidebarProvider>
+    );
+  }
+
+  return {
+    ...render(ui, { wrapper: Wrapper }),
+    ...(mockCore && { mockCore }),
   };
 }

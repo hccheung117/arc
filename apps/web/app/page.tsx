@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState, useRef, useMemo } from "react";
-import { MenuIcon } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { AdvancedComposerControls } from "@/components/advanced-composer-controls";
 import { ChatSidebar } from "@/components/chat-sidebar";
 import { ChatHeader } from "@/components/chat-header";
@@ -10,7 +10,6 @@ import { MessageList } from "@/components/message-list";
 import { MessageComposer } from "@/components/message-composer";
 import { CommandPalette } from "@/components/command-palette";
 import { useCore } from "@/lib/core-provider";
-import { useUIStore } from "@/lib/ui-store";
 import { useModels } from "@/lib/use-models";
 import { useChatManagement } from "@/lib/use-chat-management";
 import { useMessageOperations } from "@/lib/use-message-operations";
@@ -21,10 +20,6 @@ import type { ProviderConfig, SearchResult, Message as CoreMessage } from "@arc/
 
 export default function Home() {
   const core = useCore();
-
-  // UI state from Zustand
-  const sidebarOpen = useUIStore((state) => state.sidebarOpen);
-  const setSidebarOpen = useUIStore((state) => state.setSidebarOpen);
 
   // Provider state
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
@@ -47,16 +42,12 @@ export default function Home() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Memoize options objects to prevent infinite render loop
-  const chatManagementOptions = useMemo(() => ({
-    onChatSelected: () => setSidebarOpen(false),
-  }), [setSidebarOpen]);
-
   const messageOperationsOptions = useMemo(() => ({
     onMessageInputFocus: () => textareaRef.current?.focus(),
   }), []);
 
   // Custom hooks
-  const chatManagement = useChatManagement(core, chatManagementOptions);
+  const chatManagement = useChatManagement(core);
   const messageOperations = useMessageOperations(core, chatManagement.activeChatId, messageOperationsOptions);
 
   const searchState = useSearchState(core, chatManagement.activeChatId);
@@ -242,29 +233,20 @@ export default function Home() {
     .pop();
 
   return (
-    <TooltipProvider>
-      <div className="flex h-screen">
-        {/* Mobile menu button */}
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="md:hidden fixed top-3 left-3 z-50 p-2 rounded-md bg-background border hover:bg-accent"
-          aria-label="Toggle sidebar"
-        >
-          <MenuIcon className="size-5" />
-        </button>
-
-        {/* Sidebar */}
-        <ChatSidebar
-          sidebarOpen={sidebarOpen}
-          chats={chatManagement.chats}
-          activeChatId={chatManagement.activeChatId}
-          sidebarSearchQuery={searchState.sidebarSearchQuery}
-          setSidebarSearchQuery={searchState.setSidebarSearchQuery}
-          onSelectChat={handleSelectChat}
-          onCreateChat={chatManagement.createChat}
-          onRenameChat={chatManagement.renameChat}
-          onDeleteChat={handleDeleteChat}
-        />
+    <SidebarProvider defaultOpen={true}>
+      <TooltipProvider>
+        <div className="flex h-screen w-full">
+          {/* Sidebar */}
+          <ChatSidebar
+            chats={chatManagement.chats}
+            activeChatId={chatManagement.activeChatId}
+            sidebarSearchQuery={searchState.sidebarSearchQuery}
+            setSidebarSearchQuery={searchState.setSidebarSearchQuery}
+            onSelectChat={handleSelectChat}
+            onCreateChat={chatManagement.createChat}
+            onRenameChat={chatManagement.renameChat}
+            onDeleteChat={handleDeleteChat}
+          />
 
         {/* Main content */}
         <div className="flex flex-1 flex-col min-w-0">
@@ -336,15 +318,6 @@ export default function Home() {
           />
         </div>
 
-        {/* Overlay for mobile sidebar */}
-        {sidebarOpen && (
-          <div
-            className="md:hidden fixed inset-0 bg-black/50 z-30"
-            onClick={() => setSidebarOpen(false)}
-            aria-hidden="true"
-          />
-        )}
-
         {/* Command Palette */}
         <CommandPalette
           open={commandPaletteOpen}
@@ -354,7 +327,8 @@ export default function Home() {
           globalSearchResults={searchState.globalSearchResults}
           onResultClick={handleGlobalSearchResultClick}
         />
-      </div>
-    </TooltipProvider>
+        </div>
+      </TooltipProvider>
+    </SidebarProvider>
   );
 }
