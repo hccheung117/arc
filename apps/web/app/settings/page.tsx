@@ -10,7 +10,6 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Slider } from "@/components/ui/slider";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { SettingsSidebar } from "@/components/settings-sidebar";
 import { useUIStore } from "@/lib/ui-store";
@@ -531,22 +530,6 @@ export default function SettingsPage() {
                   showLabel={true}
                   showDescription={true}
                 />
-
-                {/* Auto-title Chats Toggle */}
-                <div className="flex items-center justify-between space-x-4">
-                  <div className="flex-1 space-y-1">
-                    <Label htmlFor="auto-title">Automatically Generate Chat Titles</Label>
-                    <p className="text-sm text-muted-foreground">
-                      Automatically generate descriptive titles for chats after the first exchange
-                    </p>
-                  </div>
-                  <Switch
-                    id="auto-title"
-                    aria-label="Automatically Generate Chat Titles"
-                    checked={coreSettings.autoTitleChats}
-                    onCheckedChange={(checked) => handleUpdateTypography({ autoTitleChats: checked })}
-                  />
-                </div>
               </CardContent>
             </Card>
           )}
