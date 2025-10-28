@@ -12,28 +12,16 @@
       "console": "integratedTerminal"
     },
     {
-      "name": "Desktop: Electron Main",
+      "name": "Desktop: Electron",
       "type": "node",
       "request": "launch",
       "cwd": "${workspaceFolder}/apps/desktop",
-      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron",
-      "runtimeArgs": ["."],
+      "runtimeExecutable": "${workspaceFolder}/apps/desktop/node_modules/.bin/electron",
+      "args": ["--remote-debugging-port=9223", "."],
+      "protocol": "inspector",
       "skipFiles": ["<node_internals>/**"],
-      "console": "integratedTerminal",
-      "preLaunchTask": "Build Desktop"
-    },
-    {
-      "name": "Desktop: Electron All",
-      "type": "node",
-      "request": "launch",
-      "cwd": "${workspaceFolder}/apps/desktop",
-      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron",
-      "runtimeArgs": [".", "--remote-debugging-port=9223"],
-      "skipFiles": ["<node_internals>/**"],
-      "console": "integratedTerminal",
-      "preLaunchTask": "Build Desktop"
+      "console": "integratedTerminal"
     }
   ],
   "compounds": []
 }
-
