@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { MenuIcon } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AdvancedComposerControls } from "@/components/advanced-composer-controls";
@@ -46,14 +46,18 @@ export default function Home() {
   // Ref for message input focus
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Custom hooks
-  const chatManagement = useChatManagement(core, {
+  // Memoize options objects to prevent infinite render loop
+  const chatManagementOptions = useMemo(() => ({
     onChatSelected: () => setSidebarOpen(false),
-  });
+  }), [setSidebarOpen]);
 
-  const messageOperations = useMessageOperations(core, chatManagement.activeChatId, {
+  const messageOperationsOptions = useMemo(() => ({
     onMessageInputFocus: () => textareaRef.current?.focus(),
-  });
+  }), []);
+
+  // Custom hooks
+  const chatManagement = useChatManagement(core, chatManagementOptions);
+  const messageOperations = useMessageOperations(core, chatManagement.activeChatId, messageOperationsOptions);
 
   const searchState = useSearchState(core, chatManagement.activeChatId);
   const imageAttachments = useImageAttachments();
