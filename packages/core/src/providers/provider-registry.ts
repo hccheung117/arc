@@ -1,5 +1,8 @@
 import type { Provider, AIConfig, ProviderType } from "@arc/ai/provider.type.js";
 import type { PlatformHTTP } from "@arc/platform";
+import { OpenAIProvider } from "@arc/ai/providers/openai.js";
+import { AnthropicProvider } from "@arc/ai/providers/anthropic.js";
+import { GeminiProvider } from "@arc/ai/providers/gemini.js";
 
 /**
  * Factory function type for creating provider instances
@@ -59,26 +62,9 @@ export function createDefaultRegistry(http: PlatformHTTP): ProviderRegistry {
   const registry = new ProviderRegistry();
 
   // Register built-in providers
-  // Note: We use dynamic imports to avoid bundling all providers
-  // These imports will be resolved at runtime
-
-  registry.register("openai", (config) => {
-    // Lazy import of OpenAI provider
-    const { OpenAIProvider } = require("@arc/ai/providers/openai.js");
-    return new OpenAIProvider(http, config);
-  });
-
-  registry.register("anthropic", (config) => {
-    // Lazy import of Anthropic provider
-    const { AnthropicProvider } = require("@arc/ai/providers/anthropic.js");
-    return new AnthropicProvider(http, config);
-  });
-
-  registry.register("gemini", (config) => {
-    // Lazy import of Gemini provider
-    const { GeminiProvider } = require("@arc/ai/providers/gemini.js");
-    return new GeminiProvider(http, config);
-  });
+  registry.register("openai", (config) => new OpenAIProvider(http, config));
+  registry.register("anthropic", (config) => new AnthropicProvider(http, config));
+  registry.register("gemini", (config) => new GeminiProvider(http, config));
 
   return registry;
 }
