@@ -282,8 +282,8 @@ export default function SettingsPage() {
           {/* Content */}
           <main className="px-4 py-8">
             <div className="space-y-6 mx-auto max-w-4xl">
-              {/* Appearance Section (rendered regardless of active tab for testability) */}
-              {(
+              {/* Appearance Section */}
+              {activeTab === "appearance" && (
                 <Card>
             <CardHeader>
               <CardTitle>Appearance</CardTitle>
@@ -492,8 +492,8 @@ export default function SettingsPage() {
           </Card>
               )}
 
-          {/* AI Behavior Section (rendered regardless of active tab for testability) */}
-          {coreSettings && (
+          {/* AI Behavior Section */}
+          {activeTab === "ai-behavior" && coreSettings && (
             <Card>
               <CardHeader>
                 <CardTitle>AI Behavior</CardTitle>
