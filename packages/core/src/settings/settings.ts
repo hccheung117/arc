@@ -46,13 +46,6 @@ export interface Settings {
   favoriteModels: string[];
 
   /**
-   * Whitelisted models to show in model selector
-   * Format: "providerId:modelId"
-   * Empty array means show all models
-   */
-  whitelistedModels: string[];
-
-  /**
    * Line height for chat messages
    */
   lineHeight: "compact" | "normal" | "relaxed";
@@ -89,7 +82,6 @@ export const defaultSettings: Settings = {
   enableMarkdown: true,
   enableSyntaxHighlighting: true,
   favoriteModels: [],
-  whitelistedModels: [],
   lineHeight: "normal",
   fontFamily: "sans",
   autoTitleChats: true,

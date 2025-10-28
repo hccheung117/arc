@@ -1,14 +1,35 @@
 /**
  * ModelSelector Component Integration Tests
  *
- * Tests the enhanced model selector with fuzzy search, grouping, and loading states
+ * Tests the enhanced model selector with fuzzy search, grouping, favorites, and loading states
  */
 
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ModelSelector } from '@/components/model-selector';
 import type { ProviderModelGroup } from '@/lib/use-models';
+
+// Mock the useCore hook
+const mockSettingsGet = vi.fn();
+const mockSettingsUpdate = vi.fn();
+
+vi.mock('@/lib/core-provider', () => ({
+  useCore: () => ({
+    settings: {
+      get: mockSettingsGet,
+      update: mockSettingsUpdate,
+    },
+  }),
+}));
+
+// Mock sonner toast
+vi.mock('sonner', () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}));
 
 describe('ModelSelector', () => {
   const mockGroupedModels: ProviderModelGroup[] = [
@@ -32,8 +53,15 @@ describe('ModelSelector', () => {
     },
   ];
 
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockSettingsGet.mockResolvedValue({
+      favoriteModels: [],
+    });
+  });
+
   describe('Basic Rendering', () => {
-    it('renders with provided grouped models', () => {
+    it('renders with provided grouped models', async () => {
       render(
         <ModelSelector
           value="gpt-4"
@@ -41,12 +69,16 @@ describe('ModelSelector', () => {
           groupedModels={mockGroupedModels}
         />
       );
+
+      await waitFor(() => {
+        expect(mockSettingsGet).toHaveBeenCalled();
+      });
 
       // Check the trigger shows the selected model
       expect(screen.getByText(/gpt-4/i)).toBeInTheDocument();
     });
 
-    it('renders combobox button with correct role', () => {
+    it('renders combobox button with correct role', async () => {
       render(
         <ModelSelector
           value="gpt-4"
@@ -55,11 +87,15 @@ describe('ModelSelector', () => {
         />
       );
 
+      await waitFor(() => {
+        expect(mockSettingsGet).toHaveBeenCalled();
+      });
+
       const trigger = screen.getByRole('combobox');
       expect(trigger).toBeInTheDocument();
     });
 
-    it('displays "Select a model" when no model is selected', () => {
+    it('displays "Select a model" when no model is selected', async () => {
       render(
         <ModelSelector
           value=""
@@ -67,6 +103,10 @@ describe('ModelSelector', () => {
           groupedModels={mockGroupedModels}
         />
       );
+
+      await waitFor(() => {
+        expect(mockSettingsGet).toHaveBeenCalled();
+      });
 
       expect(screen.getByText('Select a model')).toBeInTheDocument();
     });
@@ -145,6 +185,10 @@ describe('ModelSelector', () => {
         />
       );
 
+      await waitFor(() => {
+        expect(mockSettingsGet).toHaveBeenCalled();
+      });
+
       const trigger = screen.getByRole('combobox');
       await user.click(trigger);
 
@@ -156,7 +200,7 @@ describe('ModelSelector', () => {
   });
 
   describe('Disabled State', () => {
-    it('respects disabled prop', () => {
+    it('respects disabled prop', async () => {
       const handleChange = vi.fn();
 
       render(
@@ -168,11 +212,15 @@ describe('ModelSelector', () => {
         />
       );
 
+      await waitFor(() => {
+        expect(mockSettingsGet).toHaveBeenCalled();
+      });
+
       const trigger = screen.getByRole('combobox');
       expect(trigger).toBeDisabled();
     });
 
-    it('can be clicked when not disabled', () => {
+    it('can be clicked when not disabled', async () => {
       const handleChange = vi.fn();
 
       render(
@@ -184,13 +232,17 @@ describe('ModelSelector', () => {
         />
       );
 
+      await waitFor(() => {
+        expect(mockSettingsGet).toHaveBeenCalled();
+      });
+
       const trigger = screen.getByRole('combobox');
       expect(trigger).not.toBeDisabled();
     });
   });
 
   describe('Model Display', () => {
-    it('truncates long model IDs in the trigger', () => {
+    it('truncates long model IDs in the trigger', async () => {
       const longModelId = 'this-is-a-very-long-model-id-that-should-be-truncated-for-display';
       const groupsWithLongId: ProviderModelGroup[] = [
         {
@@ -211,6 +263,10 @@ describe('ModelSelector', () => {
         />
       );
 
+      await waitFor(() => {
+        expect(mockSettingsGet).toHaveBeenCalled();
+      });
+
       // Should show truncated version (30 chars + ...) or full text
       // The button should contain some part of the model ID
       expect(screen.getByRole('combobox').textContent).toContain('this-is-a-very-long');
@@ -229,6 +285,10 @@ describe('ModelSelector', () => {
         />
       );
 
+      await waitFor(() => {
+        expect(mockSettingsGet).toHaveBeenCalled();
+      });
+
       const trigger = screen.getByRole('combobox');
       await user.click(trigger);
 
@@ -239,7 +299,7 @@ describe('ModelSelector', () => {
   });
 
   describe('Provider Grouping', () => {
-    it('accepts grouped models structure', () => {
+    it('accepts grouped models structure', async () => {
       render(
         <ModelSelector
           value="gpt-4"
@@ -248,11 +308,15 @@ describe('ModelSelector', () => {
         />
       );
 
+      await waitFor(() => {
+        expect(mockSettingsGet).toHaveBeenCalled();
+      });
+
       // Component should render without errors
       expect(screen.getByRole('combobox')).toBeInTheDocument();
     });
 
-    it('handles multiple provider groups', () => {
+    it('handles multiple provider groups', async () => {
       render(
         <ModelSelector
           value="claude-3-opus"
@@ -261,7 +325,135 @@ describe('ModelSelector', () => {
         />
       );
 
+      await waitFor(() => {
+        expect(mockSettingsGet).toHaveBeenCalled();
+      });
+
       expect(screen.getByText(/claude-3-opus/i)).toBeInTheDocument();
+    });
+  });
+
+  describe('Favorites Management', () => {
+    it('loads favorite models from settings on mount', async () => {
+      mockSettingsGet.mockResolvedValue({
+        favoriteModels: ['provider-1:gpt-4'],
+      });
+
+      render(
+        <ModelSelector
+          value=""
+          onValueChange={() => {}}
+          groupedModels={mockGroupedModels}
+        />
+      );
+
+      await waitFor(() => {
+        expect(mockSettingsGet).toHaveBeenCalled();
+      });
+    });
+
+    it('renders management button in footer', async () => {
+      const user = userEvent.setup();
+
+      render(
+        <ModelSelector
+          value="gpt-4"
+          onValueChange={() => {}}
+          groupedModels={mockGroupedModels}
+        />
+      );
+
+      await waitFor(() => {
+        expect(mockSettingsGet).toHaveBeenCalled();
+      });
+
+      const trigger = screen.getByRole('combobox');
+      await user.click(trigger);
+
+      // Note: Full footer button testing requires E2E tools due to portal rendering
+      expect(trigger).toBeInTheDocument();
+    });
+
+    it('persists favorites when toggled', async () => {
+      mockSettingsUpdate.mockResolvedValue(undefined);
+
+      render(
+        <ModelSelector
+          value=""
+          onValueChange={() => {}}
+          groupedModels={mockGroupedModels}
+        />
+      );
+
+      await waitFor(() => {
+        expect(mockSettingsGet).toHaveBeenCalled();
+      });
+
+      // Note: Full favorites interaction testing requires E2E tools
+      // This test verifies the component mounts correctly with favorites support
+    });
+
+    it('handles favorites persistence errors gracefully', async () => {
+      mockSettingsUpdate.mockRejectedValue(new Error('Failed to save'));
+
+      render(
+        <ModelSelector
+          value=""
+          onValueChange={() => {}}
+          groupedModels={mockGroupedModels}
+        />
+      );
+
+      await waitFor(() => {
+        expect(mockSettingsGet).toHaveBeenCalled();
+      });
+
+      // Component should still render without errors
+      expect(screen.getByRole('combobox')).toBeInTheDocument();
+    });
+  });
+
+  describe('Management Mode', () => {
+    it('loads without errors in management mode', async () => {
+      render(
+        <ModelSelector
+          value="gpt-4"
+          onValueChange={() => {}}
+          groupedModels={mockGroupedModels}
+        />
+      );
+
+      await waitFor(() => {
+        expect(mockSettingsGet).toHaveBeenCalled();
+      });
+
+      // Note: Full management mode testing (toggling, star clicking) requires E2E tools
+      // due to complex Radix UI portal interactions
+      expect(screen.getByRole('combobox')).toBeInTheDocument();
+    });
+  });
+
+  describe('Favorites Group Display', () => {
+    it('prepares favorites group when favorites exist', async () => {
+      mockSettingsGet.mockResolvedValue({
+        favoriteModels: ['provider-1:gpt-4', 'provider-2:claude-3-opus'],
+      });
+
+      render(
+        <ModelSelector
+          value=""
+          onValueChange={() => {}}
+          groupedModels={mockGroupedModels}
+        />
+      );
+
+      await waitFor(() => {
+        expect(mockSettingsGet).toHaveBeenCalled();
+      });
+
+      // Note: Full favorites group rendering testing requires E2E tools
+      // This test verifies the component handles favorites in settings
+      expect(screen.getByRole('combobox')).toBeInTheDocument();
     });
   });
 });

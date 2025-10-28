@@ -137,14 +137,13 @@ describe("SettingsAPI", () => {
   });
 
   describe("new settings fields (Phase 8)", () => {
-    describe("favoriteModels and whitelistedModels", () => {
-      it("should return empty arrays by default", async () => {
+    describe("favoriteModels", () => {
+      it("should return empty array by default", async () => {
         vi.mocked(mockRepository.get).mockResolvedValue(null);
 
         const result = await api.get();
 
         expect(result.favoriteModels).toEqual([]);
-        expect(result.whitelistedModels).toEqual([]);
       });
 
       it("should correctly persist favoriteModels array", async () => {
@@ -157,19 +156,6 @@ describe("SettingsAPI", () => {
         expect(mockRepository.set).toHaveBeenCalledWith(
           "app:settings",
           expect.objectContaining({ favoriteModels: favorites })
-        );
-      });
-
-      it("should correctly persist whitelistedModels array", async () => {
-        vi.mocked(mockRepository.get).mockResolvedValue(null);
-        vi.mocked(mockRepository.set).mockResolvedValue();
-
-        const whitelist = ["openai:gpt-4", "openai:gpt-3.5-turbo"];
-        await api.update({ whitelistedModels: whitelist });
-
-        expect(mockRepository.set).toHaveBeenCalledWith(
-          "app:settings",
-          expect.objectContaining({ whitelistedModels: whitelist })
         );
       });
     });

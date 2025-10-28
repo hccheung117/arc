@@ -190,5 +190,5 @@ export type { ImageAttachment } from "./shared/image-attachment.js";
 export type { ProviderConfig } from "./providers/provider-config.js";
 export type { SearchResult } from "./search/search-engine.js";
 export type { Settings } from "./settings/settings.js";
-export type { ModelInfo } from "@arc/ai/provider.type.js";
+export type { ModelInfo, Provider } from "@arc/ai/provider.type.js";
 export type { TitleUpdatedEvent } from "./chats/chats-api.js";

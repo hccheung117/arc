@@ -18,7 +18,6 @@ import { ArrowLeft, Moon, Sun, Monitor, Plus, AlertCircle } from "lucide-react";
 import { ProviderCard } from "@/components/provider-card";
 import { ProviderFormDialog } from "@/components/provider-form-dialog";
 import { About } from "@/components/about";
-import { ModelManagement } from "@/components/model-management";
 import { ProviderListSkeleton } from "@/components/skeletons";
 import { EmptyProviderListState } from "@/components/empty-states";
 import { TemperatureSelector } from "@/components/temperature-selector";
@@ -496,9 +495,6 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
               )}
-
-          {/* Models Section */}
-          {activeTab === "models" && <ModelManagement />}
 
           {/* AI Behavior Section (rendered regardless of active tab for testability) */}
           {coreSettings && (

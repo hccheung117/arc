@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Palette, Bot, Info, Layers, Sparkles } from "lucide-react";
+import { Palette, Bot, Info, Sparkles } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -23,12 +23,6 @@ export function SettingsSidebar({ activeTab }: SettingsSidebarProps) {
       label: "Appearance",
       icon: Palette,
       href: "/settings?tab=appearance",
-    },
-    {
-      id: "models",
-      label: "Models",
-      icon: Layers,
-      href: "/settings?tab=models",
     },
     {
       id: "ai-behavior",

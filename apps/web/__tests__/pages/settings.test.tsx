@@ -18,11 +18,6 @@ vi.mock('next/navigation', () => ({
   }),
 }));
 
-// Mock model management component
-vi.mock('@/components/model-management', () => ({
-  ModelManagement: () => <div data-testid="model-management">Model Management</div>,
-}));
-
 // Mock about component
 vi.mock('@/components/about', () => ({
   About: () => <div data-testid="about">About</div>,
