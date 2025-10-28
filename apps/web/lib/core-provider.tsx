@@ -8,7 +8,7 @@
  * in the application via React Context.
  */
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useRef } from "react";
 import { createCore, type Core } from "@arc/core/core.js";
 
 // ============================================================================
@@ -44,6 +44,8 @@ export function CoreProvider({ children, value }: { children: React.ReactNode; v
   const [core, setCore] = useState<Core | null>(value ?? null);
   const [isReady, setIsReady] = useState(!!value);
   const [error, setError] = useState<Error | null>(null);
+  // Use a ref to track the core instance for cleanup
+  const coreRef = useRef<Core | null>(value ?? null);
 
   useEffect(() => {
     let mounted = true;
@@ -51,6 +53,7 @@ export function CoreProvider({ children, value }: { children: React.ReactNode; v
     // If a Core instance is provided (e.g., in tests), use it and skip initialization
     if (value) {
       setCore(value);
+      coreRef.current = value;
       setIsReady(true);
       return () => {
         mounted = false;
@@ -69,6 +72,7 @@ export function CoreProvider({ children, value }: { children: React.ReactNode; v
           : await createCore({ platform: "browser" });
 
         if (mounted) {
+          coreRef.current = coreInstance;
           setCore(coreInstance);
           setIsReady(true);
         }
@@ -85,8 +89,8 @@ export function CoreProvider({ children, value }: { children: React.ReactNode; v
     return () => {
       mounted = false;
       // Cleanup core on unmount only for internally created cores
-      if (!value && core) {
-        core.close().catch((error) => {
+      if (!value && coreRef.current) {
+        coreRef.current.close().catch((error) => {
           console.error("Failed to close core:", error);
         });
       }
