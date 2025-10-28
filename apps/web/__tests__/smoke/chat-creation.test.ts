@@ -5,21 +5,19 @@
  * Uses a real Core instance with in-memory repositories.
  */
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { Core } from '@arc/core/core.js';
-import type { Provider } from '@arc/core/core.js';
 import { createSmokeTestCore, createTestProviderConfig } from './smoke-test-utils';
 
 describe('Smoke Test: Chat Creation', () => {
   let core: Core;
-  let mockProvider: Provider;
   let cleanup: () => Promise<void>;
   let providerId: string;
 
   beforeEach(async () => {
     const setup = await createSmokeTestCore();
     core = setup.core;
-    mockProvider = setup.mockProvider;
     cleanup = setup.cleanup;
 
     // Create a test provider
@@ -70,7 +68,7 @@ describe('Smoke Test: Chat Creation', () => {
       providerConnectionId: providerId,
     });
 
-    for await (const update of stream) {
+    for await (const _update of stream) {
       // Consume stream
     }
 
@@ -91,7 +89,7 @@ describe('Smoke Test: Chat Creation', () => {
       providerConnectionId: providerId,
     });
 
-    for await (const update of stream) {
+    for await (const _update of stream) {
       // Consume stream
     }
 
@@ -123,7 +121,7 @@ describe('Smoke Test: Chat Creation', () => {
       images: [imageAttachment],
     });
 
-    for await (const update of stream) {
+    for await (const _update of stream) {
       // Consume stream
     }
 
@@ -169,7 +167,7 @@ describe('Smoke Test: Chat Creation', () => {
       providerConnectionId: providerId,
     });
 
-    for await (const update of stream) {
+    for await (const _update of stream) {
       // Consume stream
     }
 

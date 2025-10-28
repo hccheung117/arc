@@ -5,21 +5,19 @@
  * Uses a real Core instance with in-memory repositories.
  */
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { Core } from '@arc/core/core.js';
-import type { Provider } from '@arc/core/core.js';
 import { createSmokeTestCore, createTestProviderConfig } from './smoke-test-utils';
 
 describe('Smoke Test: Chat Switching', () => {
   let core: Core;
-  let mockProvider: Provider;
   let cleanup: () => Promise<void>;
   let providerId: string;
 
   beforeEach(async () => {
     const setup = await createSmokeTestCore();
     core = setup.core;
-    mockProvider = setup.mockProvider;
     cleanup = setup.cleanup;
 
     const provider = await createTestProviderConfig(core);
@@ -38,7 +36,7 @@ describe('Smoke Test: Chat Switching', () => {
       model: 'gpt-4',
       providerConnectionId: providerId,
     });
-    for await (const update of stream1) {
+    for await (const _update of stream1) {
       // Consume
     }
 
@@ -49,7 +47,7 @@ describe('Smoke Test: Chat Switching', () => {
       model: 'gpt-4',
       providerConnectionId: providerId,
     });
-    for await (const update of stream2) {
+    for await (const _update of stream2) {
       // Consume
     }
 
@@ -75,7 +73,7 @@ describe('Smoke Test: Chat Switching', () => {
         model: 'gpt-4',
         providerConnectionId: providerId,
       });
-      for await (const update of stream) {
+      for await (const _update of stream) {
         // Consume
       }
       chatIds.push(chat.id);
@@ -99,7 +97,7 @@ describe('Smoke Test: Chat Switching', () => {
       model: 'gpt-4',
       providerConnectionId: providerId,
     });
-    for await (const update of stream1a) {
+    for await (const _update of stream1a) {
       // Consume
     }
 
@@ -109,7 +107,7 @@ describe('Smoke Test: Chat Switching', () => {
       model: 'gpt-4',
       providerConnectionId: providerId,
     });
-    for await (const update of stream2a) {
+    for await (const _update of stream2a) {
       // Consume
     }
 
@@ -119,7 +117,7 @@ describe('Smoke Test: Chat Switching', () => {
       model: 'gpt-4',
       providerConnectionId: providerId,
     });
-    for await (const update of stream1b) {
+    for await (const _update of stream1b) {
       // Consume
     }
 
@@ -138,7 +136,7 @@ describe('Smoke Test: Chat Switching', () => {
       model: 'gpt-4',
       providerConnectionId: providerId,
     });
-    for await (const update of stream) {
+    for await (const _update of stream) {
       // Consume
     }
 
@@ -163,7 +161,7 @@ describe('Smoke Test: Chat Switching', () => {
       model: 'gpt-4',
       providerConnectionId: providerId,
     });
-    for await (const update of stream1) {
+    for await (const _update of stream1) {
       // Consume
     }
 
@@ -177,7 +175,7 @@ describe('Smoke Test: Chat Switching', () => {
       model: 'gpt-4',
       providerConnectionId: providerId,
     });
-    for await (const update of stream2) {
+    for await (const _update of stream2) {
       // Consume
     }
 
@@ -199,7 +197,7 @@ describe('Smoke Test: Chat Switching', () => {
         model: 'gpt-4',
         providerConnectionId: providerId,
       });
-      for await (const update of stream) {
+      for await (const _update of stream) {
         // Consume
       }
       chatIds.push(chat.id);

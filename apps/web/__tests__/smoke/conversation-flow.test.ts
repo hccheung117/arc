@@ -5,21 +5,19 @@
  * Uses a real Core instance with in-memory repositories.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { Core } from '@arc/core/core.js';
-import type { Provider } from '@arc/core/core.js';
 import { createSmokeTestCore, createTestProviderConfig } from './smoke-test-utils';
 
 describe('Smoke Test: Conversation Flow', () => {
   let core: Core;
-  let mockProvider: Provider;
   let cleanup: () => Promise<void>;
   let providerId: string;
 
   beforeEach(async () => {
     const setup = await createSmokeTestCore();
     core = setup.core;
-    mockProvider = setup.mockProvider;
     cleanup = setup.cleanup;
 
     const provider = await createTestProviderConfig(core);
@@ -39,7 +37,7 @@ describe('Smoke Test: Conversation Flow', () => {
       providerConnectionId: providerId,
     });
 
-    for await (const update of stream1) {
+    for await (const _update of stream1) {
       // Consume stream
     }
 
@@ -50,7 +48,7 @@ describe('Smoke Test: Conversation Flow', () => {
       providerConnectionId: providerId,
     });
 
-    for await (const update of stream2) {
+    for await (const _update of stream2) {
       // Consume stream
     }
 
@@ -81,7 +79,7 @@ describe('Smoke Test: Conversation Flow', () => {
             providerConnectionId: providerId,
           });
 
-      for await (const update of stream) {
+      for await (const _update of stream) {
         // Consume
       }
     }
@@ -110,7 +108,7 @@ describe('Smoke Test: Conversation Flow', () => {
       providerConnectionId: providerId,
     });
 
-    for await (const update of stream1) {
+    for await (const _update of stream1) {
       // Consume
     }
 
@@ -123,7 +121,7 @@ describe('Smoke Test: Conversation Flow', () => {
     // Note: regenerate takes chatId, not messageId, and uses the last assistant message's settings
     const stream2 = core.messages.regenerate(pendingChat.id);
 
-    for await (const update of stream2) {
+    for await (const _update of stream2) {
       // Consume
     }
 
@@ -140,7 +138,7 @@ describe('Smoke Test: Conversation Flow', () => {
       providerConnectionId: providerId,
     });
 
-    for await (const update of stream1) {
+    for await (const _update of stream1) {
       // Consume
     }
 
@@ -176,7 +174,7 @@ describe('Smoke Test: Conversation Flow', () => {
     let lastStatus: string | undefined;
 
     try {
-      for await (const update of stream1) {
+      for await (const _update of stream1) {
         console.log(`Received update ${count+1}: status=${update.status}`);
         messageId = update.messageId;
         lastStatus = update.status;
@@ -224,7 +222,7 @@ describe('Smoke Test: Conversation Flow', () => {
       providerConnectionId: providerId,
       images: [image1],
     });
-    for await (const update of stream1) {
+    for await (const _update of stream1) {
       // Consume
     }
 
@@ -235,7 +233,7 @@ describe('Smoke Test: Conversation Flow', () => {
       providerConnectionId: providerId,
       images: [image2],
     });
-    for await (const update of stream2) {
+    for await (const _update of stream2) {
       // Consume
     }
 
@@ -258,7 +256,7 @@ describe('Smoke Test: Conversation Flow', () => {
       model: 'gpt-4',
       providerConnectionId: providerId,
     });
-    for await (const update of stream1) {
+    for await (const _update of stream1) {
       // Consume
     }
 
@@ -267,7 +265,7 @@ describe('Smoke Test: Conversation Flow', () => {
       model: 'gpt-4',
       providerConnectionId: providerId,
     });
-    for await (const update of stream2) {
+    for await (const _update of stream2) {
       // Consume
     }
 

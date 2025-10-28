@@ -14,6 +14,7 @@ export function ImageAttachmentChip({ attachment, onRemove }: ImageAttachmentChi
     <div className="inline-flex items-center gap-2 px-3 py-2 bg-secondary border border-border rounded-lg group hover:bg-secondary/80 transition-colors">
       {/* Thumbnail */}
       <div className="relative size-10 rounded overflow-hidden bg-background flex-shrink-0">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={attachment.data}
           alt="Image attachment"

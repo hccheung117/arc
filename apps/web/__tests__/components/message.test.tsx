@@ -721,7 +721,7 @@ describe('Message', () => {
         status: 'complete' as const,
       };
 
-      const { rerender, unmount } = render(
+      const { rerender } = render(
         <Message
           message={userMessage}
           isLatestAssistant={false}

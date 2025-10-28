@@ -5,20 +5,18 @@
  * Uses a real Core instance with in-memory repositories.
  */
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { Core } from '@arc/core/core.js';
-import type { Provider } from '@arc/core/core.js';
 import { createSmokeTestCore } from './smoke-test-utils';
 
 describe('Smoke Test: Provider Management', () => {
   let core: Core;
-  let mockProvider: Provider;
   let cleanup: () => Promise<void>;
 
   beforeEach(async () => {
     const setup = await createSmokeTestCore();
     core = setup.core;
-    mockProvider = setup.mockProvider;
     cleanup = setup.cleanup;
   });
 
@@ -208,7 +206,7 @@ describe('Smoke Test: Provider Management', () => {
       model: 'gpt-4',
       providerConnectionId: provider.id,
     });
-    for await (const update of stream1) {
+    for await (const _update of stream1) {
       // Consume
     }
 
@@ -222,21 +220,21 @@ describe('Smoke Test: Provider Management', () => {
         model: 'gpt-4',
         providerConnectionId: provider.id,
       });
-      for await (const update of stream2) {
+      for await (const _update of stream2) {
         // Consume
       }
     }).rejects.toThrow();
   });
 
   it('should handle multiple providers of same type', async () => {
-    const provider1 = await core.providers.create({
+    await core.providers.create({
       name: 'OpenAI US',
       type: 'openai',
       apiKey: 'sk-us',
       baseUrl: 'https://api.openai.com/v1',
     });
 
-    const provider2 = await core.providers.create({
+    await core.providers.create({
       name: 'OpenAI EU',
       type: 'openai',
       apiKey: 'sk-eu',

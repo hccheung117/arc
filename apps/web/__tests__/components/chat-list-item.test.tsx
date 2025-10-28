@@ -173,7 +173,6 @@ describe('ChatListItem', () => {
     await user.dblClick(titleDiv);
 
     // Press escape
-    const input = screen.getByRole('textbox');
     await user.keyboard('{Escape}');
 
     // Should exit edit mode without calling rename

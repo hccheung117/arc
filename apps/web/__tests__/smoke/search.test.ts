@@ -5,21 +5,19 @@
  * Uses a real Core instance with in-memory repositories.
  */
 
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type { Core } from '@arc/core/core.js';
-import type { Provider } from '@arc/core/core.js';
 import { createSmokeTestCore, createTestProviderConfig } from './smoke-test-utils';
 
 describe('Smoke Test: Search', () => {
   let core: Core;
-  let mockProvider: Provider;
   let cleanup: () => Promise<void>;
   let providerId: string;
 
   beforeEach(async () => {
     const setup = await createSmokeTestCore();
     core = setup.core;
-    mockProvider = setup.mockProvider;
     cleanup = setup.cleanup;
 
     const provider = await createTestProviderConfig(core);
@@ -38,7 +36,7 @@ describe('Smoke Test: Search', () => {
       model: 'gpt-4',
       providerConnectionId: providerId,
     });
-    for await (const update of stream1) {
+    for await (const _update of stream1) {
       // Consume
     }
 
@@ -48,7 +46,7 @@ describe('Smoke Test: Search', () => {
       model: 'gpt-4',
       providerConnectionId: providerId,
     });
-    for await (const update of stream2) {
+    for await (const _update of stream2) {
       // Consume
     }
 
@@ -67,7 +65,7 @@ describe('Smoke Test: Search', () => {
       model: 'gpt-4',
       providerConnectionId: providerId,
     });
-    for await (const update of stream1) {
+    for await (const _update of stream1) {
       // Consume
     }
 
@@ -77,7 +75,7 @@ describe('Smoke Test: Search', () => {
       model: 'gpt-4',
       providerConnectionId: providerId,
     });
-    for await (const update of stream2) {
+    for await (const _update of stream2) {
       // Consume
     }
 
@@ -95,7 +93,7 @@ describe('Smoke Test: Search', () => {
       model: 'gpt-4',
       providerConnectionId: providerId,
     });
-    for await (const update of stream) {
+    for await (const _update of stream) {
       // Consume
     }
 
@@ -110,7 +108,7 @@ describe('Smoke Test: Search', () => {
       model: 'gpt-4',
       providerConnectionId: providerId,
     });
-    for await (const update of stream) {
+    for await (const _update of stream) {
       // Consume
     }
 
@@ -126,7 +124,7 @@ describe('Smoke Test: Search', () => {
       model: 'gpt-4',
       providerConnectionId: providerId,
     });
-    for await (const update of stream) {
+    for await (const _update of stream) {
       // Consume
     }
 
@@ -143,7 +141,7 @@ describe('Smoke Test: Search', () => {
       model: 'gpt-4',
       providerConnectionId: providerId,
     });
-    for await (const update of stream1) {
+    for await (const _update of stream1) {
       // Consume
     }
 
@@ -153,7 +151,7 @@ describe('Smoke Test: Search', () => {
       model: 'gpt-4',
       providerConnectionId: providerId,
     });
-    for await (const update of stream2) {
+    for await (const _update of stream2) {
       // Consume
     }
 
@@ -170,7 +168,7 @@ describe('Smoke Test: Search', () => {
       model: 'gpt-4',
       providerConnectionId: providerId,
     });
-    for await (const update of stream) {
+    for await (const _update of stream) {
       // Consume
     }
 
@@ -191,7 +189,7 @@ describe('Smoke Test: Search', () => {
       model: 'gpt-4',
       providerConnectionId: providerId,
     });
-    for await (const update of stream1) {
+    for await (const _update of stream1) {
       // Consume
     }
 
@@ -200,7 +198,7 @@ describe('Smoke Test: Search', () => {
       model: 'gpt-4',
       providerConnectionId: providerId,
     });
-    for await (const update of stream2) {
+    for await (const _update of stream2) {
       // Consume
     }
 
@@ -209,7 +207,7 @@ describe('Smoke Test: Search', () => {
       model: 'gpt-4',
       providerConnectionId: providerId,
     });
-    for await (const update of stream3) {
+    for await (const _update of stream3) {
       // Consume
     }
 
@@ -230,7 +228,7 @@ describe('Smoke Test: Search', () => {
       model: 'gpt-4',
       providerConnectionId: providerId,
     });
-    for await (const update of stream) {
+    for await (const _update of stream) {
       // Consume
     }
 
@@ -247,7 +245,7 @@ describe('Smoke Test: Search', () => {
         model: 'gpt-4',
         providerConnectionId: providerId,
       });
-      for await (const update of stream) {
+      for await (const _update of stream) {
         // Consume
       }
     }

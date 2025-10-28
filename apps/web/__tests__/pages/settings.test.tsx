@@ -280,7 +280,6 @@ describe('Settings Page', () => {
     });
 
     it('updates font size when slider changes', async () => {
-      const user = userEvent.setup();
       renderSettings();
 
       await waitFor(() => {

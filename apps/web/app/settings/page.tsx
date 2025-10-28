@@ -56,7 +56,6 @@ export default function SettingsPage() {
     defaultSystemPrompt: "",
     autoTitleChats: true,
   } as Settings);
-  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
 
   // Provider state
   const [providerConfigs, setProviderConfigs] = useState<ProviderConfig[]>([]);
@@ -76,13 +75,10 @@ export default function SettingsPage() {
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        setIsLoadingSettings(true);
         const settings = await core.settings.get();
         setCoreSettings(settings);
       } catch (error) {
         console.error("Failed to load settings:", error);
-      } finally {
-        setIsLoadingSettings(false);
       }
     };
 

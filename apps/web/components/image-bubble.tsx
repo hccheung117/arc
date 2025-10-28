@@ -31,6 +31,7 @@ export function ImageBubble({ attachments }: ImageBubbleProps) {
             aria-label={`View image ${index + 1} of ${attachments.length}`}
           >
             {/* Image thumbnail */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={attachment.data}
               alt={`Image ${index + 1}`}

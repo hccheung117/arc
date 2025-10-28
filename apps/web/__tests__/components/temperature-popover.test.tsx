@@ -86,7 +86,6 @@ describe('TemperaturePopover', () => {
     });
 
     it('shows exact value for custom temperature', async () => {
-      const user = userEvent.setup();
       render(
         <TemperaturePopover
           value={0.8}
@@ -116,7 +115,7 @@ describe('TemperaturePopover', () => {
 
   describe('Visual Indicators', () => {
     it('shows visual indicator when temperature differs from default', () => {
-      const { container } = render(
+      render(
         <TemperaturePopover
           value={0.3}
           onChange={mockOnChange}
@@ -130,7 +129,7 @@ describe('TemperaturePopover', () => {
     });
 
     it('does not show visual indicator when temperature equals default', () => {
-      const { container } = render(
+      render(
         <TemperaturePopover
           value={1.0}
           onChange={mockOnChange}
