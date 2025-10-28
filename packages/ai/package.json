@@ -39,7 +39,7 @@
     }
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc --build",
     "check-types": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run"
