@@ -7,15 +7,45 @@
   "scripts": {
     "dev": "wait-on http://localhost:3000 && electron .",
     "build": "tsc --noEmit",
+    "dist": "electron-builder",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win",
     "check-types": "tsc --noEmit",
     "lint": "eslint src --fix",
     "test": "echo 'No tests yet' && exit 0"
+  },
+  "build": {
+    "appId": "com.arc.desktop",
+    "productName": "Arc",
+    "directories": {
+      "output": "dist",
+      "app": "."
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../web/out",
+        "to": "app",
+        "filter": ["**/*"]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": ["dmg", "zip"]
+    },
+    "win": {
+      "target": ["nsis", "portable"]
+    }
   },
   "dependencies": {
     "electron": "^38.0.0"
   },
   "devDependencies": {
     "@types/node": "^20",
+    "electron-builder": "^26.0.12",
     "globals": "^16.3.0",
     "typescript": "^5"
   }
