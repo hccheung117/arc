@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "pnpm --parallel --recursive dev",
     "build": "pnpm --recursive build",
-    "lint": "pnpm --recursive lint"
+    "lint": "pnpm --recursive lint",
+    "lint:fix": "pnpm --recursive lint:fix"
   }
 }
