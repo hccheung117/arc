@@ -74,7 +74,7 @@ pnpm dlx shadcn-ui@latest add button
 
 ## 3. Next.js Best Practices
 
-### Utilizing App Router Files
+### 3.1. Utilizing App Router Files
 
 Leverage the special files of the Next.js App Router to handle concerns like layouts, loading states, and error boundaries. Avoid putting all logic into `page.tsx`.
 
@@ -84,3 +84,42 @@ Leverage the special files of the Next.js App Router to handle concerns like lay
 -   `error.tsx`: Handle runtime errors gracefully within a route segment.
 
 This approach promotes better separation of concerns and improves the user experience.
+
+### 3.2. Browser APIs in Static Export Mode
+
+Client Components are pre-rendered to HTML during `next build`. Browser APIs like `window`, `localStorage`, and `navigator` are not available on the server, so you must safely access these APIs only when running in the browser.
+
+**Always use `useEffect` or client-side checks to access Browser APIs:**
+
+```typescript
+'use client';
+
+import { useEffect } from 'react';
+
+export default function ClientComponent() {
+  useEffect(() => {
+    // Safe: Browser APIs are now available
+    console.log(window.innerHeight);
+    const theme = localStorage.getItem('theme');
+    const userAgent = navigator.userAgent;
+  }, []);
+
+  return ...;
+}
+```
+
+This prevents runtime errors during the build process and ensures your components work correctly in static export mode.
+
+## 4. Development Tools
+
+### Next.js MCP Integration
+
+Next.js 16+ includes built-in MCP (Model Context Protocol) support at `http://localhost:3000/_next/mcp` when the dev server runs. **Use this extensively for development and debugging.**
+
+MCP provides real-time runtime inspection capabilities:
+-   **Error detection**: Get current build errors, runtime errors, and config validation issues
+-   **Page metadata**: Inspect what contributes to page renders in active browser sessions
+-   **Server Actions**: Locate Server Action implementations by their ID
+-   **Project metadata**: Access dev server configuration and project paths
+
+This enables AI assistants to understand runtime behavior without parsing static files, making debugging and development significantly more efficient.
