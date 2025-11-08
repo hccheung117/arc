@@ -17,11 +17,14 @@
 - Simplicity takes precedence over cleverness
 - Clarity is more important than brevity
 - When in doubt, choose the more elegant solution
+- **Single source of truth** - Enforce single source of truth anytime anywhere to prevent duplication and maintain consistency
 
 ## Comment Style
 
-- **Don't comment everything** - Only add comments where necessary
-- **Focus on why, not what** - Explain rationales and reasoning, not obvious code behavior
-- **Write for future AI agents** - Comments should inform consistent thinking and decision-making
-- **Document architectural decisions** - Explain why certain approaches were chosen over alternatives
-- Comments are for context that isn't obvious from reading the code itself
+- **Code should be self-documenting** - Write code that explains itself through clear naming and structure
+- **Comments are for specific purposes only:**
+  - Explain **why**, never **what** - Rationales and reasoning, not code behavior
+  - Document **architectural decisions** - Why certain approaches were chosen over alternatives
+  - Provide **context for future AI agents** - Inform consistent thinking and decision-making
+- **Avoid code-explaining comments** - They are redundant when code is properly written
+- **Do not add comments beyond the stated purposes** - If the code needs explanation, refactor it to be clearer
