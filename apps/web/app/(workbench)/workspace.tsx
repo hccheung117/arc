@@ -1,25 +1,32 @@
 'use client'
 
+import { useState } from 'react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Composer } from './composer'
 import { EmptyState } from './empty-state'
 import { Message } from './message'
 import { mockMessages } from './mockmsg'
+import { ModelSelector } from './model-selector'
+import { Model, models } from './models'
 
 interface WorkspaceProps {
   hasActiveChat: boolean
 }
 
 export function Workspace({ hasActiveChat }: WorkspaceProps) {
+  const [selectedModel, setSelectedModel] = useState<Model>(
+    models.find((m) => m.id === 'claude-3-5-sonnet') || models[0]
+  )
+
   return (
     <TooltipProvider>
       <div className="flex h-full flex-col overflow-hidden">
         <header className="flex h-14 items-center border-b border-sidebar-border px-6 shrink-0">
-          <h1 className="text-sm font-semibold">
-            Claude 3.5 Sonnet
-            <span className="ml-2 text-muted-foreground font-normal">Anthropic</span>
-          </h1>
+          <ModelSelector
+            selectedModel={selectedModel}
+            onModelSelect={setSelectedModel}
+          />
         </header>
 
         {hasActiveChat ? (
