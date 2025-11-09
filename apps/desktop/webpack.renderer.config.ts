@@ -16,4 +16,7 @@ export const rendererConfig: Configuration = {
   resolve: {
     extensions: ['.js', '.ts', '.jsx', '.tsx', '.css'],
   },
+  devServer: {
+    port: 38291,
+  },
 };

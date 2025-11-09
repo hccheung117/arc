@@ -8,9 +8,14 @@
   },
   "packageManager": "pnpm@8.15.0",
   "scripts": {
-    "dev": "pnpm --parallel --recursive dev",
-    "build": "pnpm --recursive build",
+    "dev": "concurrently -n web,desktop -c cyan,magenta \"pnpm --filter web dev\" \"pnpm run dev:desktop\"",
+    "dev:desktop": "wait-on http://localhost:3000 && pnpm --filter desktop dev",
+    "build": "pnpm --filter web build && pnpm --filter desktop build",
     "lint": "pnpm --recursive lint",
     "lint:fix": "pnpm --recursive lint:fix"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0",
+    "wait-on": "^8.0.0"
   }
 }
