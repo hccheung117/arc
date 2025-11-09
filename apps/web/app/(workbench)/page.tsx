@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { SidebarProvider } from '@/components/ui/sidebar'
 import { WorkbenchSidebar } from './sidebar'
+import { Workspace } from './workspace'
 
 const MIN_SIDEBAR_WIDTH = 200
 const MAX_SIDEBAR_WIDTH = 400
@@ -43,20 +43,20 @@ export default function WorkbenchPage() {
   }, [handleMouseMove, handleMouseUp])
 
   return (
-    <SidebarProvider>
-      <div className="flex h-screen">
-        <aside style={{ width: `${sidebarWidth}px` }}>
-          <WorkbenchSidebar />
-        </aside>
+    <div className="flex h-screen overflow-hidden">
+      <aside style={{ width: `${sidebarWidth}px` }} className="flex-shrink-0">
+        <WorkbenchSidebar />
+      </aside>
 
-        <div
-          onMouseDown={handleMouseDown}
-          className="cursor-col-resize border-r border-neutral-200 hover:bg-neutral-300 hover:w-1 dark:border-neutral-800 dark:hover:bg-neutral-700 transition-all"
-          style={{ userSelect: 'none' }}
-        />
+      <div
+        onMouseDown={handleMouseDown}
+        className="w-1 bg-sidebar cursor-col-resize border-r border-sidebar-border hover:bg-neutral-300 dark:hover:bg-neutral-700 transition-all flex-shrink-0"
+        style={{ userSelect: 'none' }}
+      />
 
-        <main className="flex-1 bg-white dark:bg-black" />
-      </div>
-    </SidebarProvider>
+      <main className="flex-1 min-w-0 bg-white dark:bg-black">
+        <Workspace />
+      </main>
+    </div>
   )
 }

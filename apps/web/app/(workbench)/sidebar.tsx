@@ -2,14 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { MessageSquare } from 'lucide-react'
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-} from '@/components/ui/sidebar'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { cn } from '@/lib/utils'
 
 type Chat = {
   id: string
@@ -70,31 +64,37 @@ export function WorkbenchSidebar() {
   }, [trafficLightInsets])
 
   return (
-    <Sidebar collapsible="none" className="border-r w-full h-full">
+    <div className="flex flex-col h-full bg-sidebar">
       <div
         className="flex flex-col h-full"
         style={{
           paddingTop: `${trafficLightInsets.top}px`,
         }}
       >
-        <SidebarContent className="flex-1">
-          <ScrollArea className="h-full">
-            <SidebarMenu>
+        <ScrollArea className="flex-1">
+          <nav className="pl-2 pr-1 py-2">
+            <ul className="space-y-1">
               {mockChats.map((chat) => (
-                <SidebarMenuItem key={chat.id}>
-                  <SidebarMenuButton
-                    isActive={activeChat === chat.id}
+                <li key={chat.id}>
+                  <button
                     onClick={() => setActiveChat(chat.id)}
+                    className={cn(
+                      'flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
+                      'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                      activeChat === chat.id
+                        ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                        : 'text-sidebar-foreground'
+                    )}
                   >
-                    <MessageSquare />
-                    <span>{chat.title}</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+                    <MessageSquare className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">{chat.title}</span>
+                  </button>
+                </li>
               ))}
-            </SidebarMenu>
-          </ScrollArea>
-        </SidebarContent>
+            </ul>
+          </nav>
+        </ScrollArea>
       </div>
-    </Sidebar>
+    </div>
   )
 }
