@@ -56,7 +56,7 @@ export default function WorkbenchPage() {
       />
 
       <main className="flex-1 min-w-0 bg-white dark:bg-black">
-        <Workspace hasActiveChat={activeChatId !== null} />
+        <Workspace conversationId={activeChatId} />
       </main>
     </div>
   )

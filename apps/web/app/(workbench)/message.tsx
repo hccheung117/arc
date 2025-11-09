@@ -8,19 +8,19 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import type { Message as MessageType } from '@arc/core/messages/types'
 
 interface MessageProps {
-  type: "user" | "ai"
-  content: string
+  message: MessageType
 }
 
-export function Message({ type, content }: MessageProps) {
+export function Message({ message }: MessageProps) {
   const [isHovered, setIsHovered] = useState(false)
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(content)
+    navigator.clipboard.writeText(message.content)
   }
-  if (type === "user") {
+  if (message.role === "user") {
     return (
       <div className="flex justify-end mb-6">
         <div
@@ -29,7 +29,7 @@ export function Message({ type, content }: MessageProps) {
           onMouseLeave={() => setIsHovered(false)}
         >
           <div className="bg-muted rounded-2xl px-4 py-3">
-            <p className="text-sm whitespace-pre-wrap">{content}</p>
+            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
           </div>
           <div className="h-8 flex items-center justify-end">
             {isHovered && (
@@ -64,7 +64,7 @@ export function Message({ type, content }: MessageProps) {
           <BotMessageSquare className="w-5 h-5 text-muted-foreground" />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm whitespace-pre-wrap">{content}</div>
+          <div className="text-sm whitespace-pre-wrap">{message.content}</div>
           <div className="h-8 flex items-center justify-start">
             {isHovered && (
               <Tooltip>
