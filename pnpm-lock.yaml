@@ -83,6 +83,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@arc/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@radix-ui/react-dialog':
         specifier: ^1.1.15
         version: 1.1.15(@types/react-dom@19.2.2)(@types/react@19.2.2)(react-dom@19.2.0)(react@19.2.0)
@@ -153,6 +156,8 @@ importers:
       typescript:
         specifier: ^5
         version: 5.9.3
+
+  packages/core: {}
 
 packages:
 

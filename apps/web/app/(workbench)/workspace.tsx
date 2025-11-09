@@ -8,7 +8,8 @@ import { EmptyState } from './empty-state'
 import { Message } from './message'
 import { mockMessages } from './mockmsg'
 import { ModelSelector } from './model-selector'
-import { Model, models } from './models'
+import type { Model } from '@arc/core/models/types'
+import { models } from '@arc/core/models/mockdata'
 
 interface WorkspaceProps {
   hasActiveChat: boolean

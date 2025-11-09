@@ -11,7 +11,8 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
-import { Model, models, providers } from './models'
+import type { Model } from '@arc/core/models/types'
+import { models, providers } from '@arc/core/models/mockdata'
 
 interface ModelSelectorProps {
   selectedModel: Model
@@ -129,9 +130,6 @@ export function ModelSelector({
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-medium truncate">
                               {model.name}
-                            </div>
-                            <div className="text-xs text-muted-foreground truncate">
-                              {model.description}
                             </div>
                           </div>
                           <button
