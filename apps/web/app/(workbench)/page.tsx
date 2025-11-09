@@ -11,6 +11,7 @@ const DEFAULT_SIDEBAR_WIDTH = 280
 export default function WorkbenchPage() {
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH)
   const [isResizing, setIsResizing] = useState(false)
+  const [activeChatId, setActiveChatId] = useState<string | null>(null)
 
   const handleMouseDown = useCallback(() => {
     setIsResizing(true)
@@ -45,7 +46,7 @@ export default function WorkbenchPage() {
   return (
     <div className="flex h-screen overflow-hidden">
       <aside style={{ width: `${sidebarWidth}px` }} className="flex-shrink-0">
-        <WorkbenchSidebar />
+        <WorkbenchSidebar activeChatId={activeChatId} onChatSelect={setActiveChatId} />
       </aside>
 
       <div
@@ -55,7 +56,7 @@ export default function WorkbenchPage() {
       />
 
       <main className="flex-1 min-w-0 bg-white dark:bg-black">
-        <Workspace />
+        <Workspace hasActiveChat={activeChatId !== null} />
       </main>
     </div>
   )
