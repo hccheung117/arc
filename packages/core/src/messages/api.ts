@@ -1,7 +1,7 @@
 import type { Message, MessageStreamHandle, StreamEvent } from './types'
 import { messages as initialMessages } from './mockdata'
 
-let messageStore: Message[] = [...initialMessages]
+export let messageStore: Message[] = [...initialMessages]
 let nextId = messageStore.length + 1
 
 export function getMessages(conversationId: string): Message[] {
