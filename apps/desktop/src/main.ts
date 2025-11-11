@@ -1,5 +1,8 @@
-import { app, BrowserWindow } from 'electron';
-import path from 'path';
+import { app, BrowserWindow, ipcMain } from 'electron'
+import path from 'path'
+import { getModels } from './core/models/handlers'
+import { getMessages, addUserMessage } from './core/messages/handlers'
+import { getConversationSummaries } from './core/conversations/handlers'
 
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
 
@@ -48,5 +51,19 @@ app.on('activate', () => {
   }
 });
 
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and import them here.
+// IPC Handlers
+ipcMain.handle('models:get', () => {
+  return getModels()
+})
+
+ipcMain.handle('messages:get', (_event, conversationId: string) => {
+  return getMessages(conversationId)
+})
+
+ipcMain.handle('messages:addUser', (_event, conversationId: string, content: string) => {
+  return addUserMessage(conversationId, content)
+})
+
+ipcMain.handle('conversations:getSummaries', () => {
+  return getConversationSummaries()
+})

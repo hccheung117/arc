@@ -1,4 +1,4 @@
-import type { Provider, Model } from './types'
+import type { Provider, Model } from '@arc/contracts/src/models'
 
 export const providers: Provider[] = [
   { id: 'anthropic', name: 'Anthropic', type: 'anthropic' },

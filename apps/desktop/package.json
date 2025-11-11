@@ -15,6 +15,9 @@
   },
   "keywords": [],
   "license": "MIT",
+  "dependencies": {
+    "@arc/contracts": "workspace:*"
+  },
   "devDependencies": {
     "@electron-forge/cli": "^7.10.2",
     "@electron-forge/maker-dmg": "^7.10.2",

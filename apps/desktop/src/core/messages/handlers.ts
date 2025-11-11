@@ -1,4 +1,4 @@
-import type { Message, MessageStreamHandle, StreamEvent } from './types'
+import type { Message, MessageStreamHandle, StreamEvent } from '@arc/contracts/src/messages'
 import { messages as initialMessages } from './mockdata'
 
 export let messageStore: Message[] = [...initialMessages]

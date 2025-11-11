@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
   trailingSlash: true,
-  transpilePackages: ["@arc/core"],
+  transpilePackages: ["@arc/contracts"],
 };
 
 export default nextConfig;

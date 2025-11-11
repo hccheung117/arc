@@ -1,6 +1,6 @@
-import type { ConversationSummary } from './types'
+import type { ConversationSummary } from '@arc/contracts/src/conversations'
 import { explicitTitles } from './mockdata'
-import { messageStore, getMessages } from '@arc/core/src/messages/api'
+import { messageStore, getMessages } from '../messages/handlers'
 
 export function getConversationSummaries(): ConversationSummary[] {
   const conversationIds = new Set(messageStore.map((msg) => msg.conversationId))

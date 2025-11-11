@@ -8,7 +8,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
-import type { Message as MessageType } from '@arc/core/messages/types'
+import type { Message as MessageType } from '@arc/contracts/src/messages'
 
 interface MessageProps {
   message: MessageType

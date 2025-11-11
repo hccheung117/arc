@@ -16,6 +16,10 @@ importers:
         version: 8.0.5
 
   apps/desktop:
+    dependencies:
+      '@arc/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
     devDependencies:
       '@electron-forge/cli':
         specifier: ^7.10.2
@@ -83,9 +87,9 @@ importers:
 
   apps/web:
     dependencies:
-      '@arc/core':
+      '@arc/contracts':
         specifier: workspace:*
-        version: link:../../packages/core
+        version: link:../../packages/contracts
       '@radix-ui/react-dialog':
         specifier: ^1.1.15
         version: 1.1.15(@types/react-dom@19.2.2)(@types/react@19.2.2)(react-dom@19.2.0)(react@19.2.0)
@@ -157,7 +161,7 @@ importers:
         specifier: ^5
         version: 5.9.3
 
-  packages/core: {}
+  packages/contracts: {}
 
 packages:
 

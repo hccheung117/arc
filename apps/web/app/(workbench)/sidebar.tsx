@@ -5,8 +5,8 @@ import { MessageSquare, PenSquare } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import type { ConversationSummary } from '@arc/core/src/conversations/types'
-import { getConversationSummaries } from '@arc/core/src/conversations/api'
+import type { ConversationSummary } from '@arc/contracts/src/conversations'
+import { getConversationSummaries } from '@/lib/core/conversations'
 
 const TRAFFIC_LIGHT_FALLBACK = { top: 0, left: 0 }
 
@@ -17,7 +17,11 @@ interface WorkbenchSidebarProps {
 
 export function WorkbenchSidebar({ activeChatId, onChatSelect }: WorkbenchSidebarProps) {
   const [trafficLightInsets, setTrafficLightInsets] = useState(TRAFFIC_LIGHT_FALLBACK)
-  const conversations = getConversationSummaries()
+  const [conversations, setConversations] = useState<ConversationSummary[]>([])
+
+  useEffect(() => {
+    getConversationSummaries().then(setConversations)
+  }, [])
 
   useEffect(() => {
     if (typeof window === 'undefined') return

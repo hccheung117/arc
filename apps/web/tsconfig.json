@@ -20,7 +20,7 @@
     ],
     "paths": {
       "@/*": ["./*"],
-      "@arc/core/*": ["../../packages/core/src/*"]
+      "@arc/contracts/*": ["../../packages/contracts/src/*"]
     }
   },
   "include": [

@@ -11,21 +11,26 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
-import type { Model } from '@arc/core/models/types'
-import { models, providers } from '@arc/core/models/mockdata'
+import type { Model, Provider } from '@arc/contracts/src/models'
 
 interface ModelSelectorProps {
   selectedModel: Model
   onModelSelect: (model: Model) => void
+  models: Model[]
 }
 
 export function ModelSelector({
   selectedModel,
   onModelSelect,
+  models,
 }: ModelSelectorProps) {
   const [open, setOpen] = useState(false)
   const [showFavorites, setShowFavorites] = useState(false)
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
+
+  const providers = Array.from(
+    new Map(models.map((model) => [model.provider.id, model.provider])).values()
+  )
 
   const toggleFavorite = (modelId: string) => {
     setFavorites((prev) => {
