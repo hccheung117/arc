@@ -1,8 +1,6 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import path from 'path'
-import { getModels } from './core/models/handlers'
-import { getMessages, addUserMessage } from './core/messages/handlers'
-import { getConversationSummaries } from './core/conversations/handlers'
+import { registerAllIPC } from './ipc'
 
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
 
@@ -52,18 +50,4 @@ app.on('activate', () => {
 });
 
 // IPC Handlers
-ipcMain.handle('models:get', () => {
-  return getModels()
-})
-
-ipcMain.handle('messages:get', (_event, conversationId: string) => {
-  return getMessages(conversationId)
-})
-
-ipcMain.handle('messages:addUser', (_event, conversationId: string, content: string) => {
-  return addUserMessage(conversationId, content)
-})
-
-ipcMain.handle('conversations:getSummaries', () => {
-  return getConversationSummaries()
-})
+registerAllIPC(ipcMain)
