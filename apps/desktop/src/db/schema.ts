@@ -14,6 +14,13 @@ export const models = sqliteTable('models', {
     .references(() => providers.id),
 })
 
+export const conversations = sqliteTable('conversations', {
+  id: text('id').primaryKey(),
+  title: text('title'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+})
+
 export const messages = sqliteTable(
   'messages',
   {

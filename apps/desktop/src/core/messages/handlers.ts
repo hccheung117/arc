@@ -1,9 +1,27 @@
 import { asc, eq } from 'drizzle-orm'
 import type { Message, MessageStreamHandle, StreamEvent } from '@arc/contracts/src/messages'
 import { db } from '../../db/client'
-import { messages } from '../../db/schema'
+import { conversations, messages } from '../../db/schema'
 
 let nextId = 1
+
+async function ensureConversationExists(conversationId: string): Promise<void> {
+  const existing = await db
+    .select()
+    .from(conversations)
+    .where(eq(conversations.id, conversationId))
+    .limit(1)
+
+  if (existing.length === 0) {
+    const now = new Date().toISOString()
+    await db.insert(conversations).values({
+      id: conversationId,
+      title: null,
+      createdAt: now,
+      updatedAt: now,
+    })
+  }
+}
 
 export async function getMessages(conversationId: string): Promise<Message[]> {
   const result = await db
@@ -24,6 +42,8 @@ export async function getMessages(conversationId: string): Promise<Message[]> {
 }
 
 export async function addUserMessage(conversationId: string, content: string): Promise<Message> {
+  await ensureConversationExists(conversationId)
+
   const now = new Date().toISOString()
   const messageId = String(nextId++)
 
@@ -64,15 +84,17 @@ export function streamAssistantMessage(
     updatedAt: now,
   }
 
-  db.insert(messages)
-    .values({
-      id: messageId,
-      conversationId,
-      role: 'assistant',
-      content,
-      createdAt: now,
-      updatedAt: now,
-    })
+  ensureConversationExists(conversationId)
+    .then(() =>
+      db.insert(messages).values({
+        id: messageId,
+        conversationId,
+        role: 'assistant',
+        content,
+        createdAt: now,
+        updatedAt: now,
+      })
+    )
     .then(() => {})
     .catch((error) => {
       console.error('Failed to insert assistant message:', error)

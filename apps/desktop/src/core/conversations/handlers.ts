@@ -1,31 +1,22 @@
-import { sql } from 'drizzle-orm'
 import type { ConversationSummary } from '@arc/contracts/src/conversations'
-import { explicitTitles } from './mockdata'
 import { getMessages } from '../messages/handlers'
 import { db } from '../../db/client'
-import { messages } from '../../db/schema'
+import { conversations } from '../../db/schema'
 
 export async function getConversationSummaries(): Promise<ConversationSummary[]> {
-  const result = await db
-    .select({ conversationId: messages.conversationId })
-    .from(messages)
-    .groupBy(messages.conversationId)
-
-  const conversationIds = result.map((row) => row.conversationId)
+  const result = await db.select().from(conversations)
 
   return Promise.all(
-    conversationIds.map(async (id) => {
-      const explicitTitle = explicitTitles[id]
-
-      if (explicitTitle) {
-        return { id, title: explicitTitle }
+    result.map(async (row) => {
+      if (row.title !== null) {
+        return { id: row.id, title: row.title }
       }
 
-      const conversationMessages = await getMessages(id)
+      const conversationMessages = await getMessages(row.id)
       const firstMessage = conversationMessages[0]
       const generatedTitle = firstMessage.content.split('\n')[0]
 
-      return { id, title: generatedTitle }
+      return { id: row.id, title: generatedTitle }
     })
   )
 }

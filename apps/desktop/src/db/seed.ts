@@ -1,5 +1,5 @@
 import { db } from './client'
-import { providers, models, messages } from './schema'
+import { providers, models, conversations, messages } from './schema'
 
 export async function seedModels() {
   const existingProviders = await db.select().from(providers).limit(1)
@@ -86,6 +86,37 @@ export async function seedModels() {
         id: 'mistral-small',
         name: 'Mistral Small',
         providerId: 'mistral',
+      },
+    ])
+  })
+}
+
+export async function seedConversations() {
+  const existingConversations = await db.select().from(conversations).limit(1)
+
+  if (existingConversations.length > 0) {
+    return
+  }
+
+  db.transaction((tx) => {
+    tx.insert(conversations).values([
+      {
+        id: '1',
+        title: 'Greeting exchange',
+        createdAt: '2025-01-15T10:00:00Z',
+        updatedAt: '2025-01-15T10:00:00Z',
+      },
+      {
+        id: '2',
+        title: null,
+        createdAt: '2025-01-14T14:30:00Z',
+        updatedAt: '2025-01-14T14:30:00Z',
+      },
+      {
+        id: '3',
+        title: null,
+        createdAt: '2025-01-13T09:15:00Z',
+        updatedAt: '2025-01-13T09:15:00Z',
       },
     ])
   })
