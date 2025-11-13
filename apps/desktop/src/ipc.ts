@@ -37,28 +37,50 @@ export const ipcHandlers = {
   'conversations:getSummaries': getConversationSummaries,
 } as const satisfies { [K in keyof IPCRegistry]: IPCHandler<K> }
 
+type IPCEntry = {
+  [K in IPCChannel]: [K, IPCHandler<K>]
+}[IPCChannel]
+
+function registerChannel<T extends IPCChannel>(
+  ipcMain: IpcMain,
+  channel: T,
+  handler: IPCHandler<T>
+): void {
+  ipcMain.handle(channel, (_event, ...args) => handler(...(args as IPCArgs<T>)))
+}
+
 export function registerAllIPC(ipcMain: IpcMain): void {
-  for (const [channel, handler] of Object.entries(ipcHandlers)) {
-    ipcMain.handle(channel, (_event, ...args) => handler(...(args as any)))
+  const entries = Object.entries(ipcHandlers) as IPCEntry[]
+  for (const [channel, handler] of entries) {
+    registerChannel(ipcMain, channel, handler)
   }
 }
 
-type MethodName<T extends IPCChannel> = T extends `${infer _Prefix}:${infer Method}`
-  ? `${_Prefix}${Capitalize<Method>}`
-  : never
+const electronApiChannels = {
+  getModels: 'models:get',
+  getMessages: 'messages:get',
+  addUserMessage: 'messages:addUser',
+  getConversationSummaries: 'conversations:getSummaries',
+} as const
+
+type ElectronApiChannels = typeof electronApiChannels
 
 type ElectronAPI = {
-  [K in IPCChannel as MethodName<K>]: (...args: IPCArgs<K>) => Promise<IPCReturn<K>>
+  [K in keyof ElectronApiChannels]: (
+    ...args: IPCArgs<ElectronApiChannels[K]>
+  ) => Promise<IPCReturn<ElectronApiChannels[K]>>
 } & {
   streamAssistantMessage: (conversationId: string, content: string) => MessageStreamHandle
 }
 
 export function createElectronAPI(ipcRenderer: IpcRenderer): Omit<ElectronAPI, 'streamAssistantMessage'> {
   return {
-    getModels: () => ipcRenderer.invoke('models:get'),
-    getMessages: (conversationId: string) => ipcRenderer.invoke('messages:get', conversationId),
+    getModels: () => ipcRenderer.invoke(electronApiChannels.getModels),
+    getMessages: (conversationId: string) =>
+      ipcRenderer.invoke(electronApiChannels.getMessages, conversationId),
     addUserMessage: (conversationId: string, content: string) =>
-      ipcRenderer.invoke('messages:addUser', conversationId, content),
-    getConversationSummaries: () => ipcRenderer.invoke('conversations:getSummaries'),
+      ipcRenderer.invoke(electronApiChannels.addUserMessage, conversationId, content),
+    getConversationSummaries: () =>
+      ipcRenderer.invoke(electronApiChannels.getConversationSummaries),
   }
 }
