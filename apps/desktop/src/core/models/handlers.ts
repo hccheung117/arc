@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm'
-import { db } from '../../db/client'
-import { models, providers } from '../../db/schema'
+import { db } from '@/db/client'
+import { models, providers } from '@/db/schema'
 import type { Model } from '@arc/contracts/src/models'
 
 export async function getModels(): Promise<Model[]> {

@@ -14,20 +14,24 @@ Key implications:
 
 We follow a structured approach to file organization to keep the codebase clean and predictable.
 
-### 2.1. Import Style: Absolute Paths
+### 2.1. Import Style: Absolute Paths with Same-Folder Exception
 
-**Always use absolute imports with the `@/` path alias.** This improves readability and makes refactoring easier. Relative imports (`../`) are disallowed.
+**Use absolute imports with the `@/` path alias for cross-folder imports.** Same-folder imports using `./` are allowed. Parent folder imports (`../`) are disallowed.
 
 ```typescript
-// ✅ Correct
+// ✅ Correct - Absolute imports for cross-folder
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/use-auth'
 import { formatDate } from '@/lib/utils'
 
-// ❌ Incorrect
+// ✅ Correct - Same-folder imports
+import { MyComponent } from './my-component'
+import { helperFunction } from './helpers'
+
+// ❌ Incorrect - Parent folder imports
 import { Button } from '../../../components/ui/button'
 import { useAuth } from '../../hooks/use-auth'
-import { formatDate } from './lib/utils'
+import { formatDate } from '../lib/utils'
 ```
 
 ### 2.2. Directory Structure

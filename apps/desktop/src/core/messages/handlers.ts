@@ -1,7 +1,7 @@
 import { asc, eq } from 'drizzle-orm'
 import type { Message, MessageStreamHandle, StreamEvent } from '@arc/contracts/src/messages'
-import { db } from '../../db/client'
-import { conversations, messages } from '../../db/schema'
+import { db } from '@/db/client'
+import { conversations, messages } from '@/db/schema'
 
 let nextId = 1
 

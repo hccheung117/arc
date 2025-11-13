@@ -1,7 +1,7 @@
 import type { ConversationSummary } from '@arc/contracts/src/conversations'
-import { getMessages } from '../messages/handlers'
-import { db } from '../../db/client'
-import { conversations } from '../../db/schema'
+import { getMessages } from '@/core/messages/handlers'
+import { db } from '@/db/client'
+import { conversations } from '@/db/schema'
 
 export async function getConversationSummaries(): Promise<ConversationSummary[]> {
   const result = await db.select().from(conversations)
