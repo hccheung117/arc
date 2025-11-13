@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { MessageStreamHandle } from '@arc/contracts/src/messages'
-import { createElectronAPI } from './ipc'
+import { createElectronAPI } from './ipc-preload'
 
 contextBridge.exposeInMainWorld('electronAPI', {
   ...createElectronAPI(ipcRenderer),

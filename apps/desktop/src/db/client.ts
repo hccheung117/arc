@@ -4,6 +4,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import Database from 'better-sqlite3'
 import path from 'path'
 import * as schema from './schema'
+import { seedModels } from './seed'
 
 const dbPath = path.join(app.getPath('userData'), 'arc.db')
 const sqlite = new Database(dbPath)
@@ -14,4 +15,5 @@ export async function initializeDatabase() {
   await migrate(db, {
     migrationsFolder: path.join(__dirname, 'migrations'),
   })
+  await seedModels()
 }

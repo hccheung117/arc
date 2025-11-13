@@ -1,10 +1,25 @@
-import type { IpcMain, IpcRenderer } from 'electron'
+import type { IpcRenderer } from 'electron'
 import type { Model } from '@arc/contracts/src/models'
 import type { Message, MessageStreamHandle } from '@arc/contracts/src/messages'
 import type { ConversationSummary } from '@arc/contracts/src/conversations'
-import { getModels } from './core/models/handlers'
-import { getMessages, addUserMessage } from './core/messages/handlers'
-import { getConversationSummaries } from './core/conversations/handlers'
+
+/**
+ * IPC Preload Module
+ *
+ * This file is imported by preload.ts, which runs in Electron's renderer context.
+ * It MUST NOT import any handlers, database code, or native modules.
+ *
+ * Constraint: Electron's renderer process (Chromium sandbox) cannot load native
+ * modules like better-sqlite3. Even with contextIsolation enabled, preload scripts
+ * are bundled by webpack for the renderer environment and must remain browser-safe.
+ *
+ * Responsibilities:
+ * - Define IPC type contracts (shared between main and preload)
+ * - Provide createElectronAPI factory for preload.ts to expose typed IPC methods
+ * - Zero imports of implementation code (handlers, database, native modules)
+ *
+ * See ipc-main.ts for the main process side (handler registration with native code).
+ */
 
 export interface IPCRegistry {
   'models:get': {
@@ -28,33 +43,6 @@ export interface IPCRegistry {
 type IPCChannel = keyof IPCRegistry
 type IPCArgs<T extends IPCChannel> = IPCRegistry[T]['args']
 type IPCReturn<T extends IPCChannel> = IPCRegistry[T]['return']
-type IPCHandler<T extends IPCChannel> = (...args: IPCArgs<T>) => IPCReturn<T> | Promise<IPCReturn<T>>
-
-export const ipcHandlers = {
-  'models:get': getModels,
-  'messages:get': getMessages,
-  'messages:addUser': addUserMessage,
-  'conversations:getSummaries': getConversationSummaries,
-} as const satisfies { [K in keyof IPCRegistry]: IPCHandler<K> }
-
-type IPCEntry = {
-  [K in IPCChannel]: [K, IPCHandler<K>]
-}[IPCChannel]
-
-function registerChannel<T extends IPCChannel>(
-  ipcMain: IpcMain,
-  channel: T,
-  handler: IPCHandler<T>
-): void {
-  ipcMain.handle(channel, (_event, ...args) => handler(...(args as IPCArgs<T>)))
-}
-
-export function registerAllIPC(ipcMain: IpcMain): void {
-  const entries = Object.entries(ipcHandlers) as IPCEntry[]
-  for (const [channel, handler] of entries) {
-    registerChannel(ipcMain, channel, handler)
-  }
-}
 
 const electronApiChannels = {
   getModels: 'models:get',

@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import path from 'path'
-import { registerAllIPC } from './ipc'
+import { registerAllIPC } from './ipc-main'
 import { initializeDatabase } from './db/client'
 
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
