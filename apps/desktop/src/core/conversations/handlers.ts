@@ -1,21 +1,31 @@
+import { sql } from 'drizzle-orm'
 import type { ConversationSummary } from '@arc/contracts/src/conversations'
 import { explicitTitles } from './mockdata'
-import { messageStore, getMessages } from '../messages/handlers'
+import { getMessages } from '../messages/handlers'
+import { db } from '../../db/client'
+import { messages } from '../../db/schema'
 
-export function getConversationSummaries(): ConversationSummary[] {
-  const conversationIds = new Set(messageStore.map((msg) => msg.conversationId))
+export async function getConversationSummaries(): Promise<ConversationSummary[]> {
+  const result = await db
+    .select({ conversationId: messages.conversationId })
+    .from(messages)
+    .groupBy(messages.conversationId)
 
-  return Array.from(conversationIds).map((id) => {
-    const explicitTitle = explicitTitles[id]
+  const conversationIds = result.map((row) => row.conversationId)
 
-    if (explicitTitle) {
-      return { id, title: explicitTitle }
-    }
+  return Promise.all(
+    conversationIds.map(async (id) => {
+      const explicitTitle = explicitTitles[id]
 
-    const messages = getMessages(id)
-    const firstMessage = messages[0]
-    const generatedTitle = firstMessage.content.split('\n')[0]
+      if (explicitTitle) {
+        return { id, title: explicitTitle }
+      }
 
-    return { id, title: generatedTitle }
-  })
+      const conversationMessages = await getMessages(id)
+      const firstMessage = conversationMessages[0]
+      const generatedTitle = firstMessage.content.split('\n')[0]
+
+      return { id, title: generatedTitle }
+    })
+  )
 }

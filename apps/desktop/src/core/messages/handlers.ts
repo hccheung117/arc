@@ -1,19 +1,43 @@
+import { asc, eq } from 'drizzle-orm'
 import type { Message, MessageStreamHandle, StreamEvent } from '@arc/contracts/src/messages'
-import { messages as initialMessages } from './mockdata'
+import { db } from '../../db/client'
+import { messages } from '../../db/schema'
 
-export let messageStore: Message[] = [...initialMessages]
-let nextId = messageStore.length + 1
+let nextId = 1
 
-export function getMessages(conversationId: string): Message[] {
-  return messageStore
-    .filter((msg) => msg.conversationId === conversationId)
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+export async function getMessages(conversationId: string): Promise<Message[]> {
+  const result = await db
+    .select()
+    .from(messages)
+    .where(eq(messages.conversationId, conversationId))
+    .orderBy(asc(messages.createdAt))
+
+  return result.map((row) => ({
+    id: row.id,
+    conversationId: row.conversationId,
+    role: row.role as 'user' | 'assistant' | 'system',
+    status: 'complete' as const,
+    content: row.content,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  }))
 }
 
-export function addUserMessage(conversationId: string, content: string): Message {
+export async function addUserMessage(conversationId: string, content: string): Promise<Message> {
   const now = new Date().toISOString()
-  const message: Message = {
-    id: String(nextId++),
+  const messageId = String(nextId++)
+
+  await db.insert(messages).values({
+    id: messageId,
+    conversationId,
+    role: 'user',
+    content,
+    createdAt: now,
+    updatedAt: now,
+  })
+
+  return {
+    id: messageId,
     conversationId,
     role: 'user',
     status: 'complete',
@@ -21,9 +45,6 @@ export function addUserMessage(conversationId: string, content: string): Message
     createdAt: now,
     updatedAt: now,
   }
-
-  messageStore.push(message)
-  return message
 }
 
 export function streamAssistantMessage(
@@ -33,51 +54,35 @@ export function streamAssistantMessage(
   const now = new Date().toISOString()
   const messageId = String(nextId++)
 
-  let message: Message = {
+  const message: Message = {
     id: messageId,
     conversationId,
     role: 'assistant',
-    status: 'pending',
-    content: '',
+    status: 'complete',
+    content,
     createdAt: now,
     updatedAt: now,
   }
 
+  db.insert(messages)
+    .values({
+      id: messageId,
+      conversationId,
+      role: 'assistant',
+      content,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .then(() => {})
+    .catch((error) => {
+      console.error('Failed to insert assistant message:', error)
+    })
+
   const listeners: Array<(event: StreamEvent) => void> = []
-  let cancelled = false
-  let streamingTimeout: NodeJS.Timeout | null = null
 
-  const chunks = content.split(' ')
-
-  const startStreaming = () => {
-    message = { ...message, status: 'streaming' }
-
-    let currentIndex = 0
-    const streamNextChunk = () => {
-      if (cancelled || currentIndex >= chunks.length) {
-        if (!cancelled) {
-          message = { ...message, status: 'complete', updatedAt: new Date().toISOString() }
-          messageStore.push(message)
-          listeners.forEach((listener) =>
-            listener({ type: 'complete', message })
-          )
-        }
-        return
-      }
-
-      const chunk = chunks[currentIndex] + (currentIndex < chunks.length - 1 ? ' ' : '')
-      currentIndex++
-
-      message = { ...message, content: message.content + chunk, updatedAt: new Date().toISOString() }
-      listeners.forEach((listener) => listener({ type: 'delta', chunk }))
-
-      streamingTimeout = setTimeout(streamNextChunk, 50)
-    }
-
-    setTimeout(streamNextChunk, 100)
-  }
-
-  startStreaming()
+  setTimeout(() => {
+    listeners.forEach((listener) => listener({ type: 'complete', message }))
+  }, 0)
 
   return {
     get message() {
@@ -93,11 +98,6 @@ export function streamAssistantMessage(
       }
     },
     cancel() {
-      cancelled = true
-      if (streamingTimeout) {
-        clearTimeout(streamingTimeout)
-      }
-      message = { ...message, status: 'failed', error: new Error('Cancelled'), updatedAt: new Date().toISOString() }
       listeners.forEach((listener) =>
         listener({ type: 'error', error: new Error('Cancelled') })
       )
