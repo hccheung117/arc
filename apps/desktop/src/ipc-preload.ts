@@ -34,9 +34,21 @@ export interface IPCRegistry {
     args: [conversationId: string, content: string]
     return: Message
   }
+  'messages:addAssistant': {
+    args: [conversationId: string, content: string]
+    return: Message
+  }
   'conversations:getSummaries': {
     args: []
     return: ConversationSummary[]
+  }
+  'providers:updateConfig': {
+    args: [providerId: string, config: { apiKey?: string; baseUrl?: string }]
+    return: void
+  }
+  'providers:getConfig': {
+    args: [providerId: string]
+    return: { apiKey: string | null; baseUrl: string | null }
   }
 }
 
@@ -48,7 +60,10 @@ const electronApiChannels = {
   getModels: 'models:get',
   getMessages: 'messages:get',
   addUserMessage: 'messages:addUser',
+  addAssistantMessage: 'messages:addAssistant',
   getConversationSummaries: 'conversations:getSummaries',
+  updateProviderConfig: 'providers:updateConfig',
+  getProviderConfig: 'providers:getConfig',
 } as const
 
 type ElectronApiChannels = typeof electronApiChannels
@@ -57,18 +72,22 @@ type ElectronAPI = {
   [K in keyof ElectronApiChannels]: (
     ...args: IPCArgs<ElectronApiChannels[K]>
   ) => Promise<IPCReturn<ElectronApiChannels[K]>>
-} & {
-  streamAssistantMessage: (conversationId: string, content: string) => MessageStreamHandle
 }
 
-export function createElectronAPI(ipcRenderer: IpcRenderer): Omit<ElectronAPI, 'streamAssistantMessage'> {
+export function createElectronAPI(ipcRenderer: IpcRenderer): ElectronAPI {
   return {
     getModels: () => ipcRenderer.invoke(electronApiChannels.getModels),
     getMessages: (conversationId: string) =>
       ipcRenderer.invoke(electronApiChannels.getMessages, conversationId),
     addUserMessage: (conversationId: string, content: string) =>
       ipcRenderer.invoke(electronApiChannels.addUserMessage, conversationId, content),
+    addAssistantMessage: (conversationId: string, content: string) =>
+      ipcRenderer.invoke(electronApiChannels.addAssistantMessage, conversationId, content),
     getConversationSummaries: () =>
       ipcRenderer.invoke(electronApiChannels.getConversationSummaries),
+    updateProviderConfig: (providerId: string, config: { apiKey?: string; baseUrl?: string }) =>
+      ipcRenderer.invoke(electronApiChannels.updateProviderConfig, providerId, config),
+    getProviderConfig: (providerId: string) =>
+      ipcRenderer.invoke(electronApiChannels.getProviderConfig, providerId),
   }
 }

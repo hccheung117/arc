@@ -4,6 +4,8 @@ export const providers = sqliteTable('providers', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   type: text('type').notNull(),
+  apiKey: text('api_key'),
+  baseUrl: text('base_url'),
 })
 
 export const models = sqliteTable('models', {

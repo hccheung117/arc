@@ -67,6 +67,32 @@ export async function addUserMessage(conversationId: string, content: string): P
   }
 }
 
+export async function addAssistantMessage(conversationId: string, content: string): Promise<Message> {
+  await ensureConversationExists(conversationId)
+
+  const now = new Date().toISOString()
+  const messageId = String(nextId++)
+
+  await db.insert(messages).values({
+    id: messageId,
+    conversationId,
+    role: 'assistant',
+    content,
+    createdAt: now,
+    updatedAt: now,
+  })
+
+  return {
+    id: messageId,
+    conversationId,
+    role: 'assistant',
+    status: 'complete',
+    content,
+    createdAt: now,
+    updatedAt: now,
+  }
+}
+
 export function streamAssistantMessage(
   conversationId: string,
   content: string

@@ -1,13 +1,21 @@
 import type { Model } from '@arc/contracts/src/models'
-import type { Message, MessageStreamHandle } from '@arc/contracts/src/messages'
+import type { Message } from '@arc/contracts/src/messages'
 import type { ConversationSummary } from '@arc/contracts/src/conversations'
 
 export interface ElectronIPC {
   getModels: () => Promise<Model[]>
   getMessages: (conversationId: string) => Promise<Message[]>
   addUserMessage: (conversationId: string, content: string) => Promise<Message>
-  streamAssistantMessage: (conversationId: string, content: string) => MessageStreamHandle
+  addAssistantMessage: (conversationId: string, content: string) => Promise<Message>
   getConversationSummaries: () => Promise<ConversationSummary[]>
+  updateProviderConfig: (
+    providerId: string,
+    config: { apiKey?: string; baseUrl?: string },
+  ) => Promise<void>
+  getProviderConfig: (providerId: string) => Promise<{
+    apiKey: string | null
+    baseUrl: string | null
+  }>
 }
 
 export function getIPC(): ElectronIPC {

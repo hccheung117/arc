@@ -1,4 +1,4 @@
-import type { Message, MessageStreamHandle } from '@arc/contracts/src/messages'
+import type { Message } from '@arc/contracts/src/messages'
 import { getIPC } from './ipc'
 
 export async function getMessages(conversationId: string): Promise<Message[]> {
@@ -7,14 +7,14 @@ export async function getMessages(conversationId: string): Promise<Message[]> {
 
 export async function addUserMessage(
   conversationId: string,
-  content: string
+  content: string,
 ): Promise<Message> {
   return getIPC().addUserMessage(conversationId, content)
 }
 
-export function streamAssistantMessage(
+export async function addAssistantMessage(
   conversationId: string,
-  content: string
-): MessageStreamHandle {
-  return getIPC().streamAssistantMessage(conversationId, content)
+  content: string,
+): Promise<Message> {
+  return getIPC().addAssistantMessage(conversationId, content)
 }

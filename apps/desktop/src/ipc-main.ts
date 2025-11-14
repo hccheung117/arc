@@ -1,8 +1,9 @@
 import type { IpcMain } from 'electron'
 import type { IPCRegistry } from './ipc-preload'
 import { getModels } from './core/models/handlers'
-import { getMessages, addUserMessage } from './core/messages/handlers'
+import { getMessages, addUserMessage, addAssistantMessage } from './core/messages/handlers'
 import { getConversationSummaries } from './core/conversations/handlers'
+import { updateProviderConfig, getProviderConfig } from './core/providers/handlers'
 
 /**
  * IPC Main Process Module
@@ -27,7 +28,10 @@ export const ipcHandlers = {
   'models:get': getModels,
   'messages:get': getMessages,
   'messages:addUser': addUserMessage,
+  'messages:addAssistant': addAssistantMessage,
   'conversations:getSummaries': getConversationSummaries,
+  'providers:updateConfig': updateProviderConfig,
+  'providers:getConfig': getProviderConfig,
 } as const satisfies { [K in keyof IPCRegistry]: IPCHandler<K> }
 
 type IPCEntry = {
