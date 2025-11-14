@@ -12,7 +12,8 @@
     "dev:desktop": "wait-on http://localhost:3000 && pnpm --filter desktop dev",
     "build": "pnpm --filter web build && pnpm --filter desktop build",
     "lint": "pnpm --recursive lint",
-    "lint:fix": "pnpm --recursive lint:fix"
+    "lint:fix": "pnpm --recursive lint:fix",
+    "db:studio": "pnpm --filter desktop db:studio"
   },
   "devDependencies": {
     "concurrently": "^9.0.0",
