@@ -2,11 +2,30 @@ import type { Model } from '@arc/contracts/src/models'
 import type { Message } from '@arc/contracts/src/messages'
 import type { ConversationSummary } from '@arc/contracts/src/conversations'
 
+export interface StreamDeltaEvent {
+  streamId: string
+  chunk: string
+}
+
+export interface StreamCompleteEvent {
+  streamId: string
+  message: Message
+}
+
+export interface StreamErrorEvent {
+  streamId: string
+  error: string
+}
+
 export interface ElectronIPC {
   getModels: () => Promise<Model[]>
   getMessages: (conversationId: string) => Promise<Message[]>
-  addUserMessage: (conversationId: string, content: string) => Promise<Message>
-  addAssistantMessage: (conversationId: string, content: string) => Promise<Message>
+  streamMessage: (
+    conversationId: string,
+    model: string,
+    content: string,
+  ) => Promise<{ streamId: string; messageId: string }>
+  cancelStream: (streamId: string) => Promise<void>
   getConversationSummaries: () => Promise<ConversationSummary[]>
   updateProviderConfig: (
     providerId: string,
@@ -16,6 +35,9 @@ export interface ElectronIPC {
     apiKey: string | null
     baseUrl: string | null
   }>
+  onStreamDelta: (callback: (event: StreamDeltaEvent) => void) => () => void
+  onStreamComplete: (callback: (StreamCompleteEvent) => void) => () => void
+  onStreamError: (callback: (event: StreamErrorEvent) => void) => () => void
 }
 
 export function getIPC(): ElectronIPC {

@@ -6,6 +6,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   ...createElectronAPI(ipcRenderer),
 
   streamAssistantMessage: (conversationId: string, content: string): MessageStreamHandle => {
+    void conversationId
+    void content
     throw new Error('Streaming not yet implemented via IPC')
   },
 })

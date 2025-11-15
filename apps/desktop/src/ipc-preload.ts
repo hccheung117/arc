@@ -1,6 +1,6 @@
 import type { IpcRenderer } from 'electron'
 import type { Model } from '@arc/contracts/src/models'
-import type { Message, MessageStreamHandle } from '@arc/contracts/src/messages'
+import type { Message } from '@arc/contracts/src/messages'
 import type { ConversationSummary } from '@arc/contracts/src/conversations'
 
 /**
@@ -30,13 +30,13 @@ export interface IPCRegistry {
     args: [conversationId: string]
     return: Message[]
   }
-  'messages:addUser': {
-    args: [conversationId: string, content: string]
-    return: Message
+  'messages:stream': {
+    args: [conversationId: string, model: string, content: string]
+    return: { streamId: string; messageId: string }
   }
-  'messages:addAssistant': {
-    args: [conversationId: string, content: string]
-    return: Message
+  'messages:cancelStream': {
+    args: [streamId: string]
+    return: void
   }
   'conversations:getSummaries': {
     args: []
@@ -52,6 +52,25 @@ export interface IPCRegistry {
   }
 }
 
+/**
+ * IPC Event Types for Streaming
+ * These events are emitted from main process to renderer
+ */
+export interface StreamDeltaEvent {
+  streamId: string
+  chunk: string
+}
+
+export interface StreamCompleteEvent {
+  streamId: string
+  message: Message
+}
+
+export interface StreamErrorEvent {
+  streamId: string
+  error: string
+}
+
 type IPCChannel = keyof IPCRegistry
 type IPCArgs<T extends IPCChannel> = IPCRegistry[T]['args']
 type IPCReturn<T extends IPCChannel> = IPCRegistry[T]['return']
@@ -59,8 +78,8 @@ type IPCReturn<T extends IPCChannel> = IPCRegistry[T]['return']
 const electronApiChannels = {
   getModels: 'models:get',
   getMessages: 'messages:get',
-  addUserMessage: 'messages:addUser',
-  addAssistantMessage: 'messages:addAssistant',
+  streamMessage: 'messages:stream',
+  cancelStream: 'messages:cancelStream',
   getConversationSummaries: 'conversations:getSummaries',
   updateProviderConfig: 'providers:updateConfig',
   getProviderConfig: 'providers:getConfig',
@@ -72,6 +91,11 @@ type ElectronAPI = {
   [K in keyof ElectronApiChannels]: (
     ...args: IPCArgs<ElectronApiChannels[K]>
   ) => Promise<IPCReturn<ElectronApiChannels[K]>>
+} & {
+  // Event listeners for streaming
+  onStreamDelta: (callback: (event: StreamDeltaEvent) => void) => () => void
+  onStreamComplete: (callback: (event: StreamCompleteEvent) => void) => () => void
+  onStreamError: (callback: (event: StreamErrorEvent) => void) => () => void
 }
 
 export function createElectronAPI(ipcRenderer: IpcRenderer): ElectronAPI {
@@ -79,15 +103,30 @@ export function createElectronAPI(ipcRenderer: IpcRenderer): ElectronAPI {
     getModels: () => ipcRenderer.invoke(electronApiChannels.getModels),
     getMessages: (conversationId: string) =>
       ipcRenderer.invoke(electronApiChannels.getMessages, conversationId),
-    addUserMessage: (conversationId: string, content: string) =>
-      ipcRenderer.invoke(electronApiChannels.addUserMessage, conversationId, content),
-    addAssistantMessage: (conversationId: string, content: string) =>
-      ipcRenderer.invoke(electronApiChannels.addAssistantMessage, conversationId, content),
+    streamMessage: (conversationId: string, model: string, content: string) =>
+      ipcRenderer.invoke(electronApiChannels.streamMessage, conversationId, model, content),
+    cancelStream: (streamId: string) =>
+      ipcRenderer.invoke(electronApiChannels.cancelStream, streamId),
     getConversationSummaries: () =>
       ipcRenderer.invoke(electronApiChannels.getConversationSummaries),
     updateProviderConfig: (providerId: string, config: { apiKey?: string; baseUrl?: string }) =>
       ipcRenderer.invoke(electronApiChannels.updateProviderConfig, providerId, config),
     getProviderConfig: (providerId: string) =>
       ipcRenderer.invoke(electronApiChannels.getProviderConfig, providerId),
+    onStreamDelta: (callback: (event: StreamDeltaEvent) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, data: StreamDeltaEvent) => callback(data)
+      ipcRenderer.on('message-stream:delta', listener)
+      return () => ipcRenderer.removeListener('message-stream:delta', listener)
+    },
+    onStreamComplete: (callback: (event: StreamCompleteEvent) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, data: StreamCompleteEvent) => callback(data)
+      ipcRenderer.on('message-stream:complete', listener)
+      return () => ipcRenderer.removeListener('message-stream:complete', listener)
+    },
+    onStreamError: (callback: (event: StreamErrorEvent) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, data: StreamErrorEvent) => callback(data)
+      ipcRenderer.on('message-stream:error', listener)
+      return () => ipcRenderer.removeListener('message-stream:error', listener)
+    },
   }
 }

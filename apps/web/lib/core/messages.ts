@@ -5,16 +5,26 @@ export async function getMessages(conversationId: string): Promise<Message[]> {
   return getIPC().getMessages(conversationId)
 }
 
-export async function addUserMessage(
+export async function streamMessage(
   conversationId: string,
+  model: string,
   content: string,
-): Promise<Message> {
-  return getIPC().addUserMessage(conversationId, content)
+): Promise<{ streamId: string; messageId: string }> {
+  return getIPC().streamMessage(conversationId, model, content)
 }
 
-export async function addAssistantMessage(
-  conversationId: string,
-  content: string,
-): Promise<Message> {
-  return getIPC().addAssistantMessage(conversationId, content)
+export async function cancelStream(streamId: string): Promise<void> {
+  return getIPC().cancelStream(streamId)
+}
+
+export function onStreamDelta(callback: (event: { streamId: string; chunk: string }) => void) {
+  return getIPC().onStreamDelta(callback)
+}
+
+export function onStreamComplete(callback: (event: { streamId: string; message: Message }) => void) {
+  return getIPC().onStreamComplete(callback)
+}
+
+export function onStreamError(callback: (event: { streamId: string; error: string }) => void) {
+  return getIPC().onStreamError(callback)
 }

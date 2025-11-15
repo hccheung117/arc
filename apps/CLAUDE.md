@@ -9,8 +9,25 @@ They communicate via IPC.
 
 ## Separation of Concerns
 
-- **All I/O stays in the main process** (e.g., remote AI, local DB)
-- **All UI concerns stay in the renderer**
+### Client-Server Boundary Rules
+
+**Client** (`apps/web/` - Next.js renderer):
+- Presentation logic and UI components only
+- User interactions and event handlers
+- Client-side state management (UI state, optimistic updates)
+- **NO** network requests (no fetch, no WebSocket, no AI SDK clients)
+- **NO** file system access
+- **NO** database access
+- **NO** API keys or credentials
+
+**Server** (`apps/desktop/` - Electron main process):
+- All database operations (SQLite via Drizzle ORM)
+- All network I/O (AI provider APIs, external services)
+- All file system operations
+- Credential and API key management
+- Business logic that requires I/O
+
+**Communication**: All cross-boundary communication happens exclusively via IPC contracts defined in `packages/contracts/`.
 
 ## App-Specific Documentation
 

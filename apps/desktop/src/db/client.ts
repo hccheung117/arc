@@ -1,13 +1,13 @@
 import { app } from 'electron'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
-import Database from 'better-sqlite3'
+import BetterSqlite3 from 'better-sqlite3'
 import path from 'path'
 import * as schema from './schema'
 import { seedModels, seedConversations, seedMessages } from './seed'
 
 const dbPath = path.join(app.getPath('userData'), 'arc.db')
-const sqlite = new Database(dbPath)
+const sqlite = new BetterSqlite3(dbPath)
 
 export const db = drizzle({ client: sqlite, schema })
 

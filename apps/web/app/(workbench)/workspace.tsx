@@ -10,10 +10,7 @@ import { ModelSelector } from './model-selector'
 import type { Model } from '@arc/contracts/src/models'
 import type { Message as MessageType } from '@arc/contracts/src/messages'
 import { getModels } from '@/lib/core/models'
-import { getMessages, addUserMessage, addAssistantMessage } from '@/lib/core/messages'
-import { getProviderConfig } from '@/lib/core/providers'
-import { streamChat } from '@/lib/core/openai'
-import type { ChatCompletionMessageParam } from '@/lib/core/openai'
+import { getMessages, streamMessage, onStreamDelta, onStreamComplete, onStreamError } from '@/lib/core/messages'
 
 interface WorkspaceProps {
   conversationId: string | null
@@ -31,6 +28,7 @@ export function Workspace({ conversationId }: WorkspaceProps) {
   const [selectedModel, setSelectedModel] = useState<Model | null>(null)
   const [messages, setMessages] = useState<MessageType[]>([])
   const [streamingMessage, setStreamingMessage] = useState<StreamingMessage | null>(null)
+  const [activeStreamId, setActiveStreamId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -52,59 +50,78 @@ export function Workspace({ conversationId }: WorkspaceProps) {
     }
   }, [conversationId])
 
+  // Set up streaming event listeners
+  useEffect(() => {
+    const cleanupDelta = onStreamDelta((event) => {
+      if (event.streamId === activeStreamId) {
+        setStreamingMessage((prev) => ({
+          id: prev?.id || `streaming-${Date.now()}`,
+          role: 'assistant',
+          content: (prev?.content || '') + event.chunk,
+          status: 'streaming',
+        }))
+      }
+    })
+
+    const cleanupComplete = onStreamComplete((event) => {
+      if (event.streamId === activeStreamId) {
+        setStreamingMessage(null)
+        setActiveStreamId(null)
+        setMessages((prev) => [...prev, event.message])
+      }
+    })
+
+    const cleanupError = onStreamError((event) => {
+      if (event.streamId === activeStreamId) {
+        setStreamingMessage(null)
+        setActiveStreamId(null)
+        setError(event.error)
+      }
+    })
+
+    return () => {
+      cleanupDelta()
+      cleanupComplete()
+      cleanupError()
+    }
+  }, [activeStreamId])
+
   const handleSendMessage = async (content: string) => {
     if (!conversationId || !selectedModel) return
 
     setError(null)
 
     try {
-      const userMessage = await addUserMessage(conversationId, content)
+      // Initiate streaming via IPC
+      const { streamId, messageId } = await streamMessage(
+        conversationId,
+        selectedModel.id,
+        content
+      )
+
+      // Add user message optimistically
+      const userMessage: MessageType = {
+        id: messageId,
+        conversationId,
+        role: 'user',
+        status: 'complete',
+        content,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
       setMessages((prev) => [...prev, userMessage])
 
-      const providerConfig = await getProviderConfig(selectedModel.provider.id)
-
-      if (!providerConfig.apiKey) {
-        setError('API key not configured for this provider')
-        return
-      }
-
-      const conversationMessages: ChatCompletionMessageParam[] = [
-        ...messages.map((msg) => ({
-          role: msg.role as 'user' | 'assistant' | 'system',
-          content: msg.content,
-        })),
-        { role: 'user' as const, content: userMessage.content },
-      ]
-
-      const tempId = `streaming-${Date.now()}`
+      // Set up streaming state
+      setActiveStreamId(streamId)
       setStreamingMessage({
-        id: tempId,
+        id: `streaming-${streamId}`,
         role: 'assistant',
         content: '',
         status: 'streaming',
       })
-
-      let fullContent = ''
-      for await (const chunk of streamChat(conversationMessages, {
-        model: selectedModel.id,
-        apiKey: providerConfig.apiKey,
-        baseUrl: providerConfig.baseUrl || undefined,
-      })) {
-        fullContent += chunk
-        setStreamingMessage({
-          id: tempId,
-          role: 'assistant',
-          content: fullContent,
-          status: 'streaming',
-        })
-      }
-
-      setStreamingMessage(null)
-
-      const assistantMessage = await addAssistantMessage(conversationId, fullContent)
-      setMessages((prev) => [...prev, assistantMessage])
     } catch (err) {
       setStreamingMessage(null)
+      setActiveStreamId(null)
       setError(err instanceof Error ? err.message : 'An error occurred while sending message')
     }
   }

@@ -1,7 +1,8 @@
 import type { IpcMain } from 'electron'
 import type { IPCRegistry } from './ipc-preload'
 import { getModels } from './core/models/handlers'
-import { getMessages, addUserMessage, addAssistantMessage } from './core/messages/handlers'
+import { getMessages } from './core/messages/handlers'
+import { streamMessage, cancelStream } from './core/messages/stream-handler'
 import { getConversationSummaries } from './core/conversations/handlers'
 import { updateProviderConfig, getProviderConfig } from './core/providers/handlers'
 
@@ -20,6 +21,8 @@ import { updateProviderConfig, getProviderConfig } from './core/providers/handle
  */
 
 type IPCChannel = keyof IPCRegistry
+type StreamingChannel = 'messages:stream'
+type SimpleIPCChannel = Exclude<IPCChannel, StreamingChannel>
 type IPCArgs<T extends IPCChannel> = IPCRegistry[T]['args']
 type IPCReturn<T extends IPCChannel> = IPCRegistry[T]['return']
 type IPCHandler<T extends IPCChannel> = (...args: IPCArgs<T>) => IPCReturn<T> | Promise<IPCReturn<T>>
@@ -27,23 +30,30 @@ type IPCHandler<T extends IPCChannel> = (...args: IPCArgs<T>) => IPCReturn<T> | 
 export const ipcHandlers = {
   'models:get': getModels,
   'messages:get': getMessages,
-  'messages:addUser': addUserMessage,
-  'messages:addAssistant': addAssistantMessage,
+  'messages:cancelStream': cancelStream,
   'conversations:getSummaries': getConversationSummaries,
   'providers:updateConfig': updateProviderConfig,
   'providers:getConfig': getProviderConfig,
-} as const satisfies { [K in keyof IPCRegistry]: IPCHandler<K> }
+} satisfies Record<SimpleIPCChannel, IPCHandler<SimpleIPCChannel>>
 
 type IPCEntry = {
-  [K in IPCChannel]: [K, IPCHandler<K>]
-}[IPCChannel]
+  [K in SimpleIPCChannel]: [K, IPCHandler<K>]
+}[SimpleIPCChannel]
 
-function registerChannel<T extends IPCChannel>(
+function registerChannel<T extends SimpleIPCChannel>(
   ipcMain: IpcMain,
   channel: T,
   handler: IPCHandler<T>
 ): void {
-  ipcMain.handle(channel, (_event, ...args) => handler(...(args as IPCArgs<T>)))
+  ipcMain.handle(channel, (event, ...args) => {
+    return handler(...(args as IPCArgs<T>))
+  })
+}
+
+function registerMessageStream(ipcMain: IpcMain): void {
+  ipcMain.handle('messages:stream', (event, conversationId: string, model: string, content: string) =>
+    streamMessage(event.sender, conversationId, model, content),
+  )
 }
 
 export function registerAllIPC(ipcMain: IpcMain): void {
@@ -51,4 +61,5 @@ export function registerAllIPC(ipcMain: IpcMain): void {
   for (const [channel, handler] of entries) {
     registerChannel(ipcMain, channel, handler)
   }
+  registerMessageStream(ipcMain)
 }
