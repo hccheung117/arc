@@ -1,47 +1,40 @@
 # Code of Conduct
 
+We write software that feels intentional. Beauty, composure, and clarity matter because readers inherit every decision we make.
+
 ## Code Style Hierarchy
 
-**Mandatory code style priority (in order):**
+Our hierarchy prevents churn and maintains a unified voice:
 
-1. **Elegant** - Code should be beautiful and well-composed
-2. **Simple** - Code should be straightforward and easy to understand
-3. **Clean and clear** - Code should be readable and maintainable
-4. **Concise** - Code should be brief without sacrificing clarity
-5. **Short** - Code should be compact when all above criteria are met
+1. **Elegant** – Solutions should feel crafted, not improvised.
+2. **Simple** – Favor the obvious path; cleverness is a last resort.
+3. **Clean and clear** – Structure code so intent is unmistakable.
+4. **Concise** – Remove redundancy without obscuring meaning.
+5. **Short** – Compress only after hitting the points above.
 
 ## Design Principles
 
-- Always default to **elegant, minimal technical design**
-- Prioritize beauty and composition in code architecture
-- Simplicity takes precedence over cleverness
-- Clarity is more important than brevity
-- When in doubt, choose the more elegant solution
-- **Single source of truth** - Enforce single source of truth anytime anywhere to prevent duplication and maintain consistency
+- Default to **elegant, minimal technical design**.
+- Compose systems so each module has one purpose and one truth.
+- Optimize for readability first; performance or novelty comes later.
+- When uncertain, choose the option that future readers will understand fastest.
 
 ## Documentation & Best Practices
 
-- **Always use context7 for official documentation** - Before implementing features or making architectural decisions, consult the latest official documentation via context7
-  - Get current best practices and conventions for any library or framework
-  - Verify API usage and patterns against up-to-date sources
-  - Ensure alignment with the latest official recommendations
-- **Prefer official sources over assumptions** - When uncertain about implementation details, query context7 rather than relying on potentially outdated knowledge
-- **Stay current with ecosystem changes** - Libraries and frameworks evolve; use context7 to access the most recent documentation and migration guides
+- **Always use context7 for official documentation.** Pull current recommendations, API contracts, and migration notes before committing to an approach.
+- Confirm every external dependency against context7 to stay aligned with the latest ecosystem guidance.
+- Prefer verifiable sources over intuition; assumptions drift, documentation grounds us.
 
 ## Module Organization
 
-- **Strictly forbid barrel files** - Never create files that re-export multiple items from other modules (e.g., `export * from './module'`)
-  - Barrel files slow down builds by forcing the compiler to parse them for side-effects
-  - Import directly from source modules instead: `import { X } from './module/source'` not `import { X } from './module'`
-  - Each module should be imported explicitly from its own file
-  - This rule applies to the entire monorepo without exception
+- **Barrel files are forbidden.** Import directly from the defining module to protect the dependency graph and compiler performance.
+- Keep each module responsible for its own exports; duplication violates the single-source-of-truth rule.
 
-## Comment Style
+## Comment & Rationale Guidelines
 
-- **Code should be self-documenting** - Write code that explains itself through clear naming and structure
-- **Comments are for specific purposes only:**
-  - Explain **why**, never **what** - Rationales and reasoning, not code behavior
-  - Document **architectural decisions** - Why certain approaches were chosen over alternatives
-  - Provide **context for future AI agents** - Inform consistent thinking and decision-making
-- **Avoid code-explaining comments** - They are redundant when code is properly written
-- **Do not add comments beyond the stated purposes** - If the code needs explanation, refactor it to be clearer
+- Write self-documenting code; names and structure carry the narrative.
+- Use comments sparingly and intentionally to **capture rationales**:
+  - Explain **why a decision was made**, especially when alternatives were viable.
+  - Record **architectural trade-offs** so future work builds on context, not guesswork.
+  - Provide **breadcrumbs for future AI agents and teammates** when choices affect broader strategy.
+- Avoid restating what the code already shows. If the behavior needs narration, refactor until it speaks for itself.
