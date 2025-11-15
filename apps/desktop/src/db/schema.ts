@@ -1,4 +1,4 @@
-import { index, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 export const providers = sqliteTable('providers', {
   id: text('id').primaryKey(),
@@ -14,6 +14,7 @@ export const models = sqliteTable('models', {
   providerId: text('provider_id')
     .notNull()
     .references(() => providers.id),
+  active: integer('active').notNull().default(1),
 })
 
 export const conversations = sqliteTable('conversations', {

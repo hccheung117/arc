@@ -14,6 +14,7 @@ export async function getModels(): Promise<Model[]> {
     })
     .from(models)
     .innerJoin(providers, eq(models.providerId, providers.id))
+    .where(eq(models.active, 1))
 
   return result.map((row) => ({
     id: row.id,

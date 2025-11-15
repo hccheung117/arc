@@ -20,11 +20,12 @@
   "keywords": [],
   "license": "MIT",
   "dependencies": {
-    "@ai-sdk/openai": "^1.0.0",
+    "@ai-sdk/openai": "^2.0.67",
     "@arc/contracts": "workspace:*",
     "ai": "^5.0.0",
     "better-sqlite3": "^12.4.1",
-    "drizzle-orm": "^0.44.7"
+    "drizzle-orm": "^0.44.7",
+    "openai": "^4.77.0"
   },
   "devDependencies": {
     "@electron-forge/cli": "^7.10.2",

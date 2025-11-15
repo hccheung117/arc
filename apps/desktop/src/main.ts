@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import path from 'path'
 import { registerAllIPC } from './ipc-main'
 import { initializeDatabase } from './db/client'
+import { refreshAllModels } from './core/models/refresh'
 
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
 
@@ -34,6 +35,11 @@ const createWindow = (): void => {
 app.on('ready', async () => {
   await initializeDatabase()
   createWindow()
+
+  // Background model refresh (non-blocking)
+  refreshAllModels().catch((error) => {
+    console.error('[App] Model refresh failed:', error)
+  })
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common
