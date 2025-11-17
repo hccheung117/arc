@@ -5,23 +5,18 @@ import { MessageSquare, PenSquare } from 'lucide-react'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import type { ConversationSummary } from '@arc/contracts/src/conversations'
-import { getConversationSummaries } from '@/lib/core/conversations'
+import type { ChatThread } from './chat-thread'
 
 const TRAFFIC_LIGHT_FALLBACK = { top: 0, left: 0 }
 
 interface WorkbenchSidebarProps {
-  activeChatId: string | null
-  onChatSelect: (chatId: string) => void
+  threads: ChatThread[]
+  activeThreadId: string | null
+  onThreadSelect: (threadId: string | null) => void
 }
 
-export function WorkbenchSidebar({ activeChatId, onChatSelect }: WorkbenchSidebarProps) {
+export function WorkbenchSidebar({ threads, activeThreadId, onThreadSelect }: WorkbenchSidebarProps) {
   const [trafficLightInsets, setTrafficLightInsets] = useState(TRAFFIC_LIGHT_FALLBACK)
-  const [conversations, setConversations] = useState<ConversationSummary[]>([])
-
-  useEffect(() => {
-    getConversationSummaries().then(setConversations)
-  }, [])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -66,10 +61,7 @@ export function WorkbenchSidebar({ activeChatId, onChatSelect }: WorkbenchSideba
         }}
       >
         <div className="px-2 py-2">
-          <Button
-            className="w-full justify-start gap-2"
-            variant="outline"
-          >
+          <Button className="w-full justify-start gap-2" variant="outline" onClick={() => onThreadSelect(null)}>
             <PenSquare className="h-4 w-4" />
             New Chat
           </Button>
@@ -77,20 +69,20 @@ export function WorkbenchSidebar({ activeChatId, onChatSelect }: WorkbenchSideba
         <ScrollArea className="flex-1">
           <nav className="pl-2 pr-1 pt-1 pb-2">
             <ul className="space-y-1">
-              {conversations.map((conversation) => (
-                <li key={conversation.id}>
+              {threads.map((thread) => (
+                <li key={thread.threadId}>
                   <button
-                    onClick={() => onChatSelect(conversation.id)}
+                    onClick={() => onThreadSelect(thread.threadId)}
                     className={cn(
                       'flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors',
                       'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                      activeChatId === conversation.id
+                      activeThreadId === thread.threadId
                         ? 'bg-sidebar-accent text-sidebar-accent-foreground'
                         : 'text-sidebar-foreground'
                     )}
                   >
                     <MessageSquare className="h-4 w-4 flex-shrink-0" />
-                    <span className="truncate">{conversation.title}</span>
+                    <span className="truncate">{thread.title}</span>
                   </button>
                 </li>
               ))}

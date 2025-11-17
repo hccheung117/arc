@@ -127,3 +127,56 @@ MCP provides real-time runtime inspection capabilities:
 -   **Project metadata**: Access dev server configuration and project paths
 
 This enables AI assistants to understand runtime behavior without parsing static files, making debugging and development significantly more efficient.
+
+## 5. UI-State-First Architecture
+
+### The Problem: Data-Model-First UI
+
+Traditional UI implementations tightly couple presentation state to database entities. The UI renders database rows directly, state changes require database operations, and the user is forced to interact with database concepts. This creates several issues:
+
+- **Blinking and flashing**: As database entities are created or updated, the UI must refetch and re-render, causing visual disruptions
+- **Artificial waiting states**: Users cannot interact until database operations complete
+- **Leaked database concerns**: Users must "create conversations" or manage database entities explicitly
+- **Poor UX for lazy operations**: Operations that should be instant require roundtrips to the backend
+
+### The Solution: ChatThread ViewModel Layer
+
+We introduce a **UI ViewModel layer** that decouples UI state from database persistence. This layer uses **ChatThreads** as the primary abstraction for organizing messages in the UI, independent of how they're stored in the database.
+
+### Key Concepts
+
+**Dual Identity System:**
+- Every chat has a **threadId** (UI identity) that is stable and never changes
+- Every chat has a **conversationId** (database identity) that is created lazily when needed
+- The UI references threadId exclusively; only backend APIs use conversationId
+- This separation allows the UI to exist and update independently of database state
+
+**Lazy Conversation Creation:**
+- When users click "New Chat", a ChatThread is created immediately with a threadId
+- The thread appears in the sidebar instantly with no database operation
+- The conversationId remains null until the user sends their first message
+- On first message send, we generate a conversationId and persist to the database
+- This ensures empty conversations never exist in the database
+
+**Message-First User Mental Model:**
+- Users interact with messages, not conversations
+- Conversations emerge automatically as a by-product of messaging
+- No mandatory chat management (no create/edit/delete required for basic usage)
+- Optional management features available when users want control
+
+**Optimistic Updates:**
+- Messages are added to the ChatThread immediately when sent
+- UI updates instantly without waiting for backend confirmation
+- Backend operations happen asynchronously in the background
+- Errors are handled gracefully without blocking the UI
+
+### Benefits
+
+This architecture delivers significant user experience and code quality improvements:
+
+- **Zero blinking/flashing**: ThreadId stability means UI never re-renders due to identity changes
+- **Instant feedback**: New chats appear immediately, no waiting for database roundtrips
+- **Optimistic responsiveness**: Messages appear instantly, streaming happens in background
+- **Draft support**: Unsent messages can persist in threads (future feature)
+- **Cleaner separation**: UI logic completely decoupled from database schema
+- **Message-first UX**: Users think "send message", not "create conversation"

@@ -6,12 +6,28 @@ import { Textarea } from '@/components/ui/textarea'
 import { ImagePlus, Sparkles, Send } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 
+/*
+  UX Decision: Always-Enabled Composer
+
+  This component intentionally does NOT accept a `disabled` prop, differing from traditional
+  "lock-safe" UX patterns. The composer remains interactive at all times, allowing users to
+  type freely without artificial blocking states.
+
+  Philosophy:
+  - User agency over system control: let users decide when to interact
+  - Responsive feel: no "waiting" or "locked" visual states
+  - Modern chat UX: always ready for the next message
+  - Validation happens at send-time, not input-time
+
+  The parent component (workspace) handles edge cases like missing conversation or model.
+*/
+
 interface ComposerProps {
   onSend?: (message: string) => void | Promise<void>
-  disabled?: boolean
+  isStreaming?: boolean
 }
 
-export function Composer({ onSend, disabled = false }: ComposerProps) {
+export function Composer({ onSend, isStreaming }: ComposerProps) {
   const [message, setMessage] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -27,12 +43,19 @@ export function Composer({ onSend, disabled = false }: ComposerProps) {
   }, [message])
 
   const handleSend = async () => {
-    if (!message.trim() || disabled || !onSend) return
+    if (!message.trim() || !onSend || isStreaming) return
 
     const messageToSend = message.trim()
-    setMessage('')
 
-    await onSend(messageToSend)
+    try {
+      await onSend(messageToSend)
+      // Only clear input AFTER successful send
+      setMessage('')
+    } catch (error) {
+      // Don't clear message on error - let user retry
+      // Error is already handled in workspace.tsx
+      throw error
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -53,14 +76,13 @@ export function Composer({ onSend, disabled = false }: ComposerProps) {
           placeholder="Enter here, press ↵ to send"
           className="min-h-0 resize-none border-0 p-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none shadow-none"
           rows={1}
-          disabled={disabled}
         />
         <div className="flex items-center justify-between">
           <div className="flex gap-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8" disabled={disabled}>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
               <ImagePlus className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8" disabled={disabled}>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
               <Sparkles className="h-4 w-4" />
             </Button>
           </div>
@@ -68,7 +90,7 @@ export function Composer({ onSend, disabled = false }: ComposerProps) {
             size="icon"
             className="h-8 w-8 rounded-full"
             onClick={handleSend}
-            disabled={disabled || !message.trim()}
+            disabled={!message.trim() || isStreaming}
           >
             <Send className="h-4 w-4" />
           </Button>

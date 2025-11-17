@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { WorkbenchSidebar } from './sidebar'
 import { Workspace } from './workspace'
+import { useChatThreads } from './use-chat-threads'
 
 const MIN_SIDEBAR_WIDTH = 200
 const MAX_SIDEBAR_WIDTH = 400
@@ -11,7 +12,8 @@ const DEFAULT_SIDEBAR_WIDTH = 280
 export default function WorkbenchPage() {
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH)
   const [isResizing, setIsResizing] = useState(false)
-  const [activeChatId, setActiveChatId] = useState<string | null>(null)
+  const { threads, dispatch } = useChatThreads()
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
 
   const handleMouseDown = useCallback(() => {
     setIsResizing(true)
@@ -46,7 +48,11 @@ export default function WorkbenchPage() {
   return (
     <div className="flex h-screen overflow-hidden">
       <aside style={{ width: `${sidebarWidth}px` }} className="flex-shrink-0">
-        <WorkbenchSidebar activeChatId={activeChatId} onChatSelect={setActiveChatId} />
+        <WorkbenchSidebar
+          threads={threads}
+          activeThreadId={activeThreadId}
+          onThreadSelect={setActiveThreadId}
+        />
       </aside>
 
       <div
@@ -56,7 +62,12 @@ export default function WorkbenchPage() {
       />
 
       <main className="flex-1 min-w-0 bg-white dark:bg-black">
-        <Workspace conversationId={activeChatId} />
+        <Workspace
+          threads={threads}
+          activeThreadId={activeThreadId}
+          onThreadUpdate={dispatch}
+          onActiveThreadChange={setActiveThreadId}
+        />
       </main>
     </div>
   )

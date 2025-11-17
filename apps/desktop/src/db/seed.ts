@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto'
 import { db } from './client'
 import { providers, models, conversations, messages } from './schema'
 
@@ -139,7 +140,7 @@ export async function seedMessages() {
     tx.insert(messages)
       .values([
         {
-          id: '1',
+          id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
           conversationId: '1',
           role: 'user',
           content: 'Hello! Can you help me understand how React hooks work?',
@@ -147,7 +148,7 @@ export async function seedMessages() {
           updatedAt: '2025-01-15T10:00:00Z',
         },
         {
-          id: '2',
+          id: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
           conversationId: '1',
           role: 'assistant',
           content:
@@ -156,7 +157,7 @@ export async function seedMessages() {
           updatedAt: '2025-01-15T10:00:05Z',
         },
         {
-          id: '3',
+          id: 'c3d4e5f6-a7b8-9012-cdef-123456789012',
           conversationId: '1',
           role: 'user',
           content: 'Yes, can you explain useState with an example?',
@@ -164,7 +165,7 @@ export async function seedMessages() {
           updatedAt: '2025-01-15T10:01:00Z',
         },
         {
-          id: '4',
+          id: 'd4e5f6a7-b890-1234-def1-234567890123',
           conversationId: '1',
           role: 'assistant',
           content:
@@ -173,7 +174,7 @@ export async function seedMessages() {
           updatedAt: '2025-01-15T10:01:10Z',
         },
         {
-          id: '5',
+          id: 'e5f6a7b8-9012-3456-ef12-345678901234',
           conversationId: '2',
           role: 'user',
           content: 'What are the key considerations for planning a new software project?',
@@ -181,7 +182,7 @@ export async function seedMessages() {
           updatedAt: '2025-01-14T14:30:00Z',
         },
         {
-          id: '6',
+          id: 'f6a7b890-1234-5678-f123-456789012345',
           conversationId: '2',
           role: 'assistant',
           content:
@@ -190,7 +191,7 @@ export async function seedMessages() {
           updatedAt: '2025-01-14T14:30:15Z',
         },
         {
-          id: '7',
+          id: 'a7b89012-3456-789a-1234-567890123456',
           conversationId: '3',
           role: 'user',
           content: 'Can you review this TypeScript interface and suggest improvements?',
@@ -198,7 +199,7 @@ export async function seedMessages() {
           updatedAt: '2025-01-13T09:15:00Z',
         },
         {
-          id: '8',
+          id: 'b8901234-5678-90ab-2345-678901234567',
           conversationId: '3',
           role: 'assistant',
           content:

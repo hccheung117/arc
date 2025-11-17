@@ -14,6 +14,12 @@ export async function getConversationSummaries(): Promise<ConversationSummary[]>
 
       const conversationMessages = await getMessages(row.id)
       const firstMessage = conversationMessages[0]
+
+      // Handle empty conversations (conversation-as-by-product pattern)
+      if (!firstMessage) {
+        return { id: row.id, title: 'New Chat' }
+      }
+
       const generatedTitle = firstMessage.content.split('\n')[0]
 
       return { id: row.id, title: generatedTitle }

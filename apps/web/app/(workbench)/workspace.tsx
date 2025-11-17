@@ -11,9 +11,14 @@ import type { Model } from '@arc/contracts/src/models'
 import type { Message as MessageType } from '@arc/contracts/src/messages'
 import { getModels } from '@/lib/core/models'
 import { getMessages, streamMessage, onStreamDelta, onStreamComplete, onStreamError } from '@/lib/core/messages'
+import type { ChatThread } from './chat-thread'
+import type { ThreadAction } from './use-chat-threads'
 
 interface WorkspaceProps {
-  conversationId: string | null
+  threads: ChatThread[]
+  activeThreadId: string | null
+  onThreadUpdate: (action: ThreadAction) => void
+  onActiveThreadChange: (threadId: string) => void
 }
 
 interface StreamingMessage {
@@ -23,32 +28,56 @@ interface StreamingMessage {
   status: 'streaming'
 }
 
-export function Workspace({ conversationId }: WorkspaceProps) {
+export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThreadChange }: WorkspaceProps) {
   const [models, setModels] = useState<Model[]>([])
   const [selectedModel, setSelectedModel] = useState<Model | null>(null)
-  const [messages, setMessages] = useState<MessageType[]>([])
   const [streamingMessage, setStreamingMessage] = useState<StreamingMessage | null>(null)
   const [activeStreamId, setActiveStreamId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // Find the active thread
+  const activeThread = threads.find((t) => t.threadId === activeThreadId)
+  const messages = activeThread?.messages || []
+
+  // Persist model selection to localStorage
+  useEffect(() => {
+    if (selectedModel) {
+      localStorage.setItem('arc:selectedModelId', selectedModel.id)
+    }
+  }, [selectedModel])
 
   useEffect(() => {
     getModels().then((fetchedModels) => {
       setModels(fetchedModels)
       if (!selectedModel && fetchedModels.length > 0) {
-        setSelectedModel(
-          fetchedModels.find((m) => m.id === 'claude-3-5-sonnet') || fetchedModels[0]
-        )
+        // Try to restore last selection from localStorage
+        const savedModelId = localStorage.getItem('arc:selectedModelId')
+        const savedModel = savedModelId
+          ? fetchedModels.find((m) => m.id === savedModelId)
+          : null
+        // Use saved model if found, otherwise default to first available
+        setSelectedModel(savedModel || fetchedModels[0])
       }
     })
   }, [])
 
+  // Load messages when thread is selected and has a conversationId
   useEffect(() => {
-    if (conversationId) {
-      getMessages(conversationId).then(setMessages)
-    } else {
-      setMessages([])
+    if (!activeThread || !activeThread.conversationId) {
+      return
     }
-  }, [conversationId])
+
+    // Only fetch if messages haven't been loaded yet
+    if (activeThread.messages.length === 0) {
+      getMessages(activeThread.conversationId).then((fetchedMessages) => {
+        onThreadUpdate({
+          type: 'UPDATE_MESSAGES',
+          threadId: activeThread.threadId,
+          messages: fetchedMessages,
+        })
+      })
+    }
+  }, [activeThreadId, activeThread?.conversationId])
 
   // Set up streaming event listeners
   useEffect(() => {
@@ -67,7 +96,21 @@ export function Workspace({ conversationId }: WorkspaceProps) {
       if (event.streamId === activeStreamId) {
         setStreamingMessage(null)
         setActiveStreamId(null)
-        setMessages((prev) => [...prev, event.message])
+
+        // Find thread by conversationId in the message
+        const thread = threads.find((t) => t.conversationId === event.message.conversationId)
+        if (thread) {
+          onThreadUpdate({
+            type: 'ADD_MESSAGE',
+            threadId: thread.threadId,
+            message: event.message,
+          })
+          onThreadUpdate({
+            type: 'UPDATE_STATUS',
+            threadId: thread.threadId,
+            status: 'persisted',
+          })
+        }
       }
     })
 
@@ -84,20 +127,56 @@ export function Workspace({ conversationId }: WorkspaceProps) {
       cleanupComplete()
       cleanupError()
     }
-  }, [activeStreamId])
+  }, [activeStreamId, threads, onThreadUpdate])
 
   const handleSendMessage = async (content: string) => {
-    if (!conversationId || !selectedModel) return
+    if (!selectedModel) return
 
     setError(null)
 
     try {
+      let threadId: string
+      let conversationId: string
+
+      // Handle null activeThreadId (new chat mode)
+      if (activeThreadId === null) {
+        // Generate both IDs
+        threadId = crypto.randomUUID()
+        conversationId = crypto.randomUUID()
+
+        // Create thread
+        onThreadUpdate({
+          type: 'CREATE_DRAFT',
+          threadId,
+        })
+
+        // Set conversationId
+        onThreadUpdate({
+          type: 'SET_CONVERSATION_ID',
+          threadId,
+          conversationId,
+        })
+
+        // Update parent's active thread
+        onActiveThreadChange(threadId)
+      } else {
+        // Existing thread
+        threadId = activeThreadId
+        if (!activeThread) return
+
+        // Generate conversationId if this is the first message
+        conversationId = activeThread.conversationId || crypto.randomUUID()
+        if (!activeThread.conversationId) {
+          onThreadUpdate({
+            type: 'SET_CONVERSATION_ID',
+            threadId,
+            conversationId,
+          })
+        }
+      }
+
       // Initiate streaming via IPC
-      const { streamId, messageId } = await streamMessage(
-        conversationId,
-        selectedModel.id,
-        content
-      )
+      const { streamId, messageId } = await streamMessage(conversationId, selectedModel.id, content)
 
       // Add user message optimistically
       const userMessage: MessageType = {
@@ -109,7 +188,12 @@ export function Workspace({ conversationId }: WorkspaceProps) {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }
-      setMessages((prev) => [...prev, userMessage])
+
+      onThreadUpdate({
+        type: 'ADD_MESSAGE',
+        threadId,
+        message: userMessage,
+      })
 
       // Set up streaming state
       setActiveStreamId(streamId)
@@ -139,18 +223,22 @@ export function Workspace({ conversationId }: WorkspaceProps) {
           )}
         </header>
 
-        {conversationId ? (
+        {messages.length === 0 && !streamingMessage ? (
+          <div className="flex flex-1 min-h-0 items-center justify-center">
+            <EmptyState />
+          </div>
+        ) : (
           <ScrollArea className="flex-1 min-h-0">
             <div className="min-h-full p-6">
               {messages.map((message) => (
                 <Message key={message.id} message={message} />
               ))}
-              {streamingMessage && (
+              {streamingMessage && activeThread && (
                 <Message
                   key={streamingMessage.id}
                   message={{
                     ...streamingMessage,
-                    conversationId,
+                    conversationId: activeThread.conversationId || '',
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
                   }}
@@ -158,10 +246,6 @@ export function Workspace({ conversationId }: WorkspaceProps) {
               )}
             </div>
           </ScrollArea>
-        ) : (
-          <div className="flex flex-1 min-h-0 items-center justify-center">
-            <EmptyState />
-          </div>
         )}
 
         <div className="shrink-0">
@@ -170,7 +254,7 @@ export function Workspace({ conversationId }: WorkspaceProps) {
               {error}
             </div>
           )}
-          <Composer onSend={handleSendMessage} disabled={!conversationId || !!streamingMessage} />
+          <Composer onSend={handleSendMessage} isStreaming={activeStreamId !== null} />
         </div>
       </div>
     </TooltipProvider>

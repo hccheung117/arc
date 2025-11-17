@@ -11,8 +11,27 @@ import { streamChatCompletion, toCoreMessages, type ProviderConfig } from '@/cor
 // Track active streams for cancellation support
 const activeStreams = new Map<string, AbortController>()
 
-let nextId = 1
+/*
+  Conversation-as-By-Product Philosophy:
 
+  Conversations exist as a by-product of messages, not as pre-created containers.
+  This function embodies that philosophy: it auto-creates conversation records on-demand
+  when a message references a conversationId that doesn't exist yet.
+
+  Flow:
+  1. Client generates UUID client-side (no server roundtrip needed)
+  2. User sends first message with that UUID
+  3. This function checks if conversation exists
+  4. If not, creates conversation record with null title (title emerges later from first message)
+  5. Message is inserted
+  6. Conversation now exists as a by-product of having messages
+
+  Benefits:
+  - No "create conversation first" API call needed
+  - UUID generation is client-side (instant UX feedback)
+  - Database has no foreign key constraints (messages drive conversation existence)
+  - Conversations emerge naturally from the act of messaging
+*/
 async function ensureConversationExists(conversationId: string): Promise<void> {
   const existing = await db
     .select()
@@ -24,7 +43,7 @@ async function ensureConversationExists(conversationId: string): Promise<void> {
     const now = new Date().toISOString()
     await db.insert(conversations).values({
       id: conversationId,
-      title: null,
+      title: null, // Title will be derived from first message content when displayed
       createdAt: now,
       updatedAt: now,
     })
@@ -32,10 +51,11 @@ async function ensureConversationExists(conversationId: string): Promise<void> {
 }
 
 async function insertUserMessage(conversationId: string, content: string): Promise<Message> {
+  // Auto-create conversation record if it doesn't exist (conversation-as-by-product)
   await ensureConversationExists(conversationId)
 
   const now = new Date().toISOString()
-  const messageId = String(nextId++)
+  const messageId = randomUUID()
 
   await db.insert(messages).values({
     id: messageId,
@@ -59,7 +79,7 @@ async function insertUserMessage(conversationId: string, content: string): Promi
 
 async function insertAssistantMessage(conversationId: string, content: string): Promise<Message> {
   const now = new Date().toISOString()
-  const messageId = String(nextId++)
+  const messageId = randomUUID()
 
   await db.insert(messages).values({
     id: messageId,
