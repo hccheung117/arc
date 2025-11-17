@@ -12,9 +12,9 @@ interface ModelInfo {
 /**
  * Fetch available models from an OpenAI provider
  */
-async function fetchOpenAIModels(apiKey: string, baseUrl?: string | null): Promise<ModelInfo[]> {
+async function fetchOpenAIModels(apiKey: string | null, baseUrl?: string | null): Promise<ModelInfo[]> {
   const client = new OpenAI({
-    apiKey,
+    ...(apiKey && { apiKey }),
     ...(baseUrl && { baseURL: baseUrl }),
   })
 
@@ -101,13 +101,8 @@ async function refreshProviderModels(providerId: string, providerType: string): 
   try {
     const config = await getProviderConfig(providerId)
 
-    if (!config.apiKey) {
-      console.log(`[Model Refresh] Skipping ${providerId}: No API key configured`)
-      return
-    }
-
-    // Only support OpenAI and OpenAI-compatible providers for now
-    if (providerType !== 'openai' && providerType !== 'openai-compatible') {
+    // Only support OpenAI providers for now
+    if (providerType !== 'openai') {
       console.log(
         `[Model Refresh] Skipping ${providerId}: Provider type ${providerType} not supported for auto-refresh`,
       )

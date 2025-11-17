@@ -15,26 +15,12 @@ export function createProviderModel(
   config: ProviderConfig,
   modelId: string,
 ): LanguageModel {
-  if (!config.apiKey) {
-    throw new Error('API key not configured for provider')
-  }
-
   switch (config.type) {
     case 'openai':
-      // Official OpenAI provider
       return createOpenAI({
-        apiKey: config.apiKey,
-      })(modelId)
-
-    case 'openai-compatible':
-      // OpenAI-compatible provider with custom base URL
-      if (!config.baseUrl) {
-        throw new Error('Base URL required for OpenAI-compatible provider')
-      }
-      return createOpenAI({
-        apiKey: config.apiKey,
-        baseURL: config.baseUrl,
-      })(modelId)
+        ...(config.apiKey && { apiKey: config.apiKey }),
+        ...(config.baseUrl && { baseURL: config.baseUrl }),
+      }).chat(modelId)
 
     default:
       throw new Error(`Unsupported provider type: ${config.type}`)
@@ -60,13 +46,28 @@ export async function streamChatCompletion(
   messages: CoreMessage[],
   signal?: AbortSignal,
 ) {
+  const endpoint = `${providerConfig.baseUrl || 'https://api.openai.com/v1'}/chat/completions`
+  console.log(`[API] POST ${endpoint} ${modelId} (${messages.length} msgs)`)
+
   const model = createProviderModel(providerConfig, modelId)
 
-  const result = streamText({
-    model,
-    messages,
-    abortSignal: signal,
-  })
+  try {
+    const result = streamText({
+      model,
+      messages,
+      abortSignal: signal,
+    })
 
-  return result
+    return result
+  } catch (error) {
+    if (error instanceof Error) {
+      const apiError = error as any
+      if (apiError.statusCode) {
+        console.error(`[API] ${apiError.statusCode} ${apiError.responseBody || error.message}`)
+      } else {
+        console.error(`[API] Error: ${error.message}`)
+      }
+    }
+    throw error
+  }
 }

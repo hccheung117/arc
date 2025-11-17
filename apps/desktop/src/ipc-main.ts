@@ -51,9 +51,9 @@ function registerChannel<T extends SimpleIPCChannel>(
 }
 
 function registerMessageStream(ipcMain: IpcMain): void {
-  ipcMain.handle('messages:stream', (event, conversationId: string, model: string, content: string) =>
-    streamMessage(event.sender, conversationId, model, content),
-  )
+  ipcMain.handle('messages:stream', async (event, conversationId: string, model: string, content: string) => {
+    return streamMessage(event.sender, conversationId, model, content)
+  })
 }
 
 export function registerAllIPC(ipcMain: IpcMain): void {

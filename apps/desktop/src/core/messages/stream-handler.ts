@@ -133,10 +133,11 @@ export async function streamMessage(
 
   // Start streaming in background (non-blocking)
   startStreaming(sender, streamId, conversationId, modelId).catch((error) => {
-    console.error('Stream error:', error)
+    const errorMsg = error instanceof Error ? error.message : 'Unknown streaming error'
+    console.error(`[Stream] Error: ${errorMsg}`)
     sender.send('message-stream:error', {
       streamId,
-      error: error instanceof Error ? error.message : 'Unknown streaming error',
+      error: errorMsg,
     })
   })
 
@@ -156,14 +157,9 @@ async function startStreaming(
   activeStreams.set(streamId, abortController)
 
   try {
-    // Get conversation history
     const conversationMessages = await getMessages(conversationId)
-
-    // Get provider for model
     const providerId = await getModelProvider(modelId)
     const config = await getProviderConfig(providerId)
-
-    // Get provider type
     const provider = await db
       .select({ type: providers.type })
       .from(providers)
@@ -180,10 +176,7 @@ async function startStreaming(
       baseUrl: config.baseUrl,
     }
 
-    // Convert messages to AI SDK format
     const coreMessages = toCoreMessages(conversationMessages)
-
-    // Start streaming
     const result = await streamChatCompletion(
       providerConfig,
       modelId,
@@ -192,34 +185,48 @@ async function startStreaming(
     )
 
     let fullContent = ''
+    let chunkCount = 0
 
     // Stream text deltas
     for await (const textPart of result.textStream) {
+      chunkCount++
       fullContent += textPart
+      if (chunkCount === 1 || chunkCount % 10 === 0) {
+        console.log(`[Stream] chunk ${chunkCount} (+${textPart.length} chars, total: ${fullContent.length})`)
+      }
       sender.send('message-stream:delta', {
         streamId,
         chunk: textPart,
       })
     }
 
-    // Save complete assistant message to database
-    const assistantMessage = await insertAssistantMessage(conversationId, fullContent)
+    if (chunkCount === 0) {
+      console.warn('[Stream] Completed with 0 chunks')
+    } else {
+      console.log(`[Stream] Complete: ${chunkCount} chunks, ${fullContent.length} chars`)
+    }
 
-    // Send completion event
+    const assistantMessage = await insertAssistantMessage(conversationId, fullContent)
     sender.send('message-stream:complete', {
       streamId,
       message: assistantMessage,
     })
   } catch (error) {
     if ((error as Error).name === 'AbortError') {
-      // Stream was cancelled, don't send error
-      return
+      return // Stream was cancelled
     }
 
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error'
+    const apiError = error as any
+    if (apiError.statusCode && apiError.responseBody) {
+      console.error(`[Stream] ${apiError.statusCode}: ${apiError.responseBody}`)
+    } else {
+      console.error(`[Stream] Error: ${errorMsg}`)
+    }
+
     sender.send('message-stream:error', {
       streamId,
-      error: errorMessage,
+      error: errorMsg,
     })
   } finally {
     activeStreams.delete(streamId)

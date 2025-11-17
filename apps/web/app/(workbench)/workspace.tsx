@@ -97,7 +97,6 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
         setStreamingMessage(null)
         setActiveStreamId(null)
 
-        // Find thread by conversationId in the message
         const thread = threads.find((t) => t.conversationId === event.message.conversationId)
         if (thread) {
           onThreadUpdate({
@@ -116,6 +115,7 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
 
     const cleanupError = onStreamError((event) => {
       if (event.streamId === activeStreamId) {
+        console.error(`[UI] Stream error: ${event.error}`)
         setStreamingMessage(null)
         setActiveStreamId(null)
         setError(event.error)
@@ -138,33 +138,26 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
       let threadId: string
       let conversationId: string
 
-      // Handle null activeThreadId (new chat mode)
       if (activeThreadId === null) {
-        // Generate both IDs
         threadId = crypto.randomUUID()
         conversationId = crypto.randomUUID()
 
-        // Create thread
         onThreadUpdate({
           type: 'CREATE_DRAFT',
           threadId,
         })
 
-        // Set conversationId
         onThreadUpdate({
           type: 'SET_CONVERSATION_ID',
           threadId,
           conversationId,
         })
 
-        // Update parent's active thread
         onActiveThreadChange(threadId)
       } else {
-        // Existing thread
         threadId = activeThreadId
         if (!activeThread) return
 
-        // Generate conversationId if this is the first message
         conversationId = activeThread.conversationId || crypto.randomUUID()
         if (!activeThread.conversationId) {
           onThreadUpdate({
@@ -175,10 +168,8 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
         }
       }
 
-      // Initiate streaming via IPC
       const { streamId, messageId } = await streamMessage(conversationId, selectedModel.id, content)
 
-      // Add user message optimistically
       const userMessage: MessageType = {
         id: messageId,
         conversationId,
@@ -195,7 +186,6 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
         message: userMessage,
       })
 
-      // Set up streaming state
       setActiveStreamId(streamId)
       setStreamingMessage({
         id: `streaming-${streamId}`,
@@ -204,6 +194,7 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
         status: 'streaming',
       })
     } catch (err) {
+      console.error(`[UI] Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
       setStreamingMessage(null)
       setActiveStreamId(null)
       setError(err instanceof Error ? err.message : 'An error occurred while sending message')
