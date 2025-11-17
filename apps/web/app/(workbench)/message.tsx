@@ -8,6 +8,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { Markdown } from "@/components/markdown"
 import type { Message as MessageType } from '@arc/contracts/src/messages'
 
 interface MessageProps {
@@ -64,7 +65,7 @@ export function Message({ message }: MessageProps) {
           <BotMessageSquare className="w-5 h-5 text-muted-foreground" />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm whitespace-pre-wrap">{message.content}</div>
+          <Markdown>{message.content}</Markdown>
           <div className="h-8 flex items-center justify-start">
             {isHovered && (
               <Tooltip>

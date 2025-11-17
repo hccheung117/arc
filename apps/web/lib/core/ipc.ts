@@ -36,7 +36,7 @@ export interface ElectronIPC {
     baseUrl: string | null
   }>
   onStreamDelta: (callback: (event: StreamDeltaEvent) => void) => () => void
-  onStreamComplete: (callback: (StreamCompleteEvent) => void) => () => void
+  onStreamComplete: (callback: (event: StreamCompleteEvent) => void) => () => void
   onStreamError: (callback: (event: StreamErrorEvent) => void) => () => void
 }
 
