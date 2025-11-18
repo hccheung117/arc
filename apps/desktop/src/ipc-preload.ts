@@ -1,7 +1,7 @@
 import type { IpcRenderer } from 'electron'
 import type { Model } from '@arc/contracts/src/models'
 import type { Message } from '@arc/contracts/src/messages'
-import type { ConversationSummary } from '@arc/contracts/src/conversations'
+import type { ConversationSummary, ContextMenuAction } from '@arc/contracts/src/conversations'
 
 /**
  * IPC Preload Module
@@ -42,6 +42,18 @@ export interface IPCRegistry {
     args: []
     return: ConversationSummary[]
   }
+  'conversations:delete': {
+    args: [conversationId: string]
+    return: void
+  }
+  'conversations:rename': {
+    args: [conversationId: string, title: string]
+    return: void
+  }
+  'conversations:showContextMenu': {
+    args: []
+    return: ContextMenuAction
+  }
   'providers:updateConfig': {
     args: [providerId: string, config: { apiKey?: string; baseUrl?: string }]
     return: void
@@ -81,6 +93,9 @@ const electronApiChannels = {
   streamMessage: 'messages:stream',
   cancelStream: 'messages:cancelStream',
   getConversationSummaries: 'conversations:getSummaries',
+  deleteConversation: 'conversations:delete',
+  renameConversation: 'conversations:rename',
+  showThreadContextMenu: 'conversations:showContextMenu',
   updateProviderConfig: 'providers:updateConfig',
   getProviderConfig: 'providers:getConfig',
 } as const
@@ -109,6 +124,11 @@ export function createElectronAPI(ipcRenderer: IpcRenderer): ElectronAPI {
       ipcRenderer.invoke(electronApiChannels.cancelStream, streamId),
     getConversationSummaries: () =>
       ipcRenderer.invoke(electronApiChannels.getConversationSummaries),
+    deleteConversation: (conversationId: string) =>
+      ipcRenderer.invoke(electronApiChannels.deleteConversation, conversationId),
+    renameConversation: (conversationId: string, title: string) =>
+      ipcRenderer.invoke(electronApiChannels.renameConversation, conversationId, title),
+    showThreadContextMenu: () => ipcRenderer.invoke(electronApiChannels.showThreadContextMenu),
     updateProviderConfig: (providerId: string, config: { apiKey?: string; baseUrl?: string }) =>
       ipcRenderer.invoke(electronApiChannels.updateProviderConfig, providerId, config),
     getProviderConfig: (providerId: string) =>

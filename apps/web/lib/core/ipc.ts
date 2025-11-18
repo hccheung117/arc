@@ -1,6 +1,6 @@
 import type { Model } from '@arc/contracts/src/models'
 import type { Message } from '@arc/contracts/src/messages'
-import type { ConversationSummary } from '@arc/contracts/src/conversations'
+import type { ConversationSummary, ContextMenuAction } from '@arc/contracts/src/conversations'
 
 export interface StreamDeltaEvent {
   streamId: string
@@ -27,6 +27,9 @@ export interface ElectronIPC {
   ) => Promise<{ streamId: string; messageId: string }>
   cancelStream: (streamId: string) => Promise<void>
   getConversationSummaries: () => Promise<ConversationSummary[]>
+  deleteConversation: (conversationId: string) => Promise<void>
+  renameConversation: (conversationId: string, title: string) => Promise<void>
+  showThreadContextMenu: () => Promise<ContextMenuAction>
   updateProviderConfig: (
     providerId: string,
     config: { apiKey?: string; baseUrl?: string },

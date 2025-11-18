@@ -3,8 +3,13 @@ import type { IPCRegistry } from './ipc-preload'
 import { getModels } from './core/models/handlers'
 import { getMessages } from './core/messages/handlers'
 import { streamMessage, cancelStream } from './core/messages/stream-handler'
-import { getConversationSummaries } from './core/conversations/handlers'
+import {
+  getConversationSummaries,
+  deleteConversation,
+  renameConversation,
+} from './core/conversations/handlers'
 import { updateProviderConfig, getProviderConfig } from './core/providers/handlers'
+import { showThreadContextMenu } from './core/ui/context-menu'
 
 /**
  * IPC Main Process Module
@@ -32,6 +37,9 @@ export const ipcHandlers = {
   'messages:get': getMessages,
   'messages:cancelStream': cancelStream,
   'conversations:getSummaries': getConversationSummaries,
+  'conversations:delete': deleteConversation,
+  'conversations:rename': renameConversation,
+  'conversations:showContextMenu': showThreadContextMenu,
   'providers:updateConfig': updateProviderConfig,
   'providers:getConfig': getProviderConfig,
 } satisfies Record<SimpleIPCChannel, IPCHandler<SimpleIPCChannel>>

@@ -1,8 +1,8 @@
 import type { ConversationSummary } from '@arc/contracts/src/conversations'
 import { getMessages } from '@/core/messages/handlers'
 import { db } from '@/db/client'
-import { conversations } from '@/db/schema'
-import { desc } from 'drizzle-orm'
+import { conversations, messages } from '@/db/schema'
+import { desc, eq } from 'drizzle-orm'
 
 export async function getConversationSummaries(): Promise<ConversationSummary[]> {
   const result = await db.select().from(conversations).orderBy(desc(conversations.updatedAt))
@@ -26,4 +26,18 @@ export async function getConversationSummaries(): Promise<ConversationSummary[]>
       return { id: row.id, title: generatedTitle, updatedAt: row.updatedAt }
     })
   )
+}
+
+export async function deleteConversation(conversationId: string): Promise<void> {
+  // Delete messages first, then conversation
+  await db.delete(messages).where(eq(messages.conversationId, conversationId))
+  await db.delete(conversations).where(eq(conversations.id, conversationId))
+}
+
+export async function renameConversation(conversationId: string, title: string): Promise<void> {
+  const updatedAt = new Date().toISOString()
+  await db
+    .update(conversations)
+    .set({ title, updatedAt })
+    .where(eq(conversations.id, conversationId))
 }

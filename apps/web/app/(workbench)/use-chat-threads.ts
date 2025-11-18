@@ -15,6 +15,8 @@ export type ThreadAction =
   | { type: 'UPDATE_STATUS'; threadId: string; status: ChatThread['status'] }
   | { type: 'SET_CONVERSATION_ID'; threadId: string; conversationId: string }
   | { type: 'UPDATE_TITLE'; threadId: string; title: string }
+  | { type: 'DELETE_THREAD'; threadId: string }
+  | { type: 'RENAME_THREAD'; threadId: string; title: string }
 
 /**
  * Reducer for ChatThread state management
@@ -84,6 +86,22 @@ function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[]
     }
 
     case 'UPDATE_TITLE': {
+      return state.map((thread) => {
+        if (thread.threadId === action.threadId) {
+          return {
+            ...thread,
+            title: action.title,
+          }
+        }
+        return thread
+      })
+    }
+
+    case 'DELETE_THREAD': {
+      return state.filter((thread) => thread.threadId !== action.threadId)
+    }
+
+    case 'RENAME_THREAD': {
       return state.map((thread) => {
         if (thread.threadId === action.threadId) {
           return {

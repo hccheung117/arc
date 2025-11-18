@@ -52,6 +52,7 @@ export default function WorkbenchPage() {
           threads={threads}
           activeThreadId={activeThreadId}
           onThreadSelect={setActiveThreadId}
+          dispatch={dispatch}
         />
       </aside>
 
