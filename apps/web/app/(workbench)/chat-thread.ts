@@ -53,7 +53,7 @@ export function hydrateFromConversation(conv: ConversationSummary): ChatThread {
     messages: [],
     status: 'persisted',
     title: conv.title,
-    createdAt: new Date().toISOString(),
+    createdAt: conv.updatedAt,
   }
 }
 
