@@ -9,8 +9,10 @@ export async function getConversationSummaries(): Promise<ConversationSummary[]>
 
   return Promise.all(
     result.map(async (row) => {
+      const base = { id: row.id, updatedAt: row.updatedAt, pinned: !!row.pinned }
+
       if (row.title !== null) {
-        return { id: row.id, title: row.title, updatedAt: row.updatedAt }
+        return { ...base, title: row.title }
       }
 
       const conversationMessages = await getMessages(row.id)
@@ -18,12 +20,12 @@ export async function getConversationSummaries(): Promise<ConversationSummary[]>
 
       // Handle empty conversations (conversation-as-by-product pattern)
       if (!firstMessage) {
-        return { id: row.id, title: 'New Chat', updatedAt: row.updatedAt }
+        return { ...base, title: 'New Chat' }
       }
 
       const generatedTitle = firstMessage.content.split('\n')[0]
 
-      return { id: row.id, title: generatedTitle, updatedAt: row.updatedAt }
+      return { ...base, title: generatedTitle }
     })
   )
 }
@@ -39,5 +41,13 @@ export async function renameConversation(conversationId: string, title: string):
   await db
     .update(conversations)
     .set({ title, updatedAt })
+    .where(eq(conversations.id, conversationId))
+}
+
+export async function toggleConversationPin(conversationId: string, pinned: boolean): Promise<void> {
+  const updatedAt = new Date().toISOString()
+  await db
+    .update(conversations)
+    .set({ pinned, updatedAt })
     .where(eq(conversations.id, conversationId))
 }

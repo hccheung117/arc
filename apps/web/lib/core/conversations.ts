@@ -13,6 +13,10 @@ export async function renameConversation(conversationId: string, title: string):
   return getIPC().renameConversation(conversationId, title)
 }
 
-export async function showThreadContextMenu(): Promise<ContextMenuAction> {
-  return getIPC().showThreadContextMenu()
+export async function toggleConversationPin(conversationId: string, pinned: boolean): Promise<void> {
+  return getIPC().togglePin(conversationId, pinned)
+}
+
+export async function showThreadContextMenu(currentPinnedState: boolean): Promise<ContextMenuAction> {
+  return getIPC().showThreadContextMenu(currentPinnedState)
 }

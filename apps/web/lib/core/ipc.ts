@@ -29,7 +29,8 @@ export interface ElectronIPC {
   getConversationSummaries: () => Promise<ConversationSummary[]>
   deleteConversation: (conversationId: string) => Promise<void>
   renameConversation: (conversationId: string, title: string) => Promise<void>
-  showThreadContextMenu: () => Promise<ContextMenuAction>
+  togglePin: (conversationId: string, pinned: boolean) => Promise<void>
+  showThreadContextMenu: (currentPinnedState: boolean) => Promise<ContextMenuAction>
   updateProviderConfig: (
     providerId: string,
     config: { apiKey?: string; baseUrl?: string },

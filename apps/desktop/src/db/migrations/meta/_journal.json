@@ -36,6 +36,13 @@
       "when": 1763239507743,
       "tag": "0004_sour_amphibian",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1763576256561,
+      "tag": "0005_jittery_thena",
+      "breakpoints": true
     }
   ]
 }

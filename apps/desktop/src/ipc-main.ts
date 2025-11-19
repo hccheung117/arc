@@ -7,6 +7,7 @@ import {
   getConversationSummaries,
   deleteConversation,
   renameConversation,
+  toggleConversationPin,
 } from './core/conversations/handlers'
 import { updateProviderConfig, getProviderConfig } from './core/providers/handlers'
 import { showThreadContextMenu } from './core/ui/context-menu'
@@ -39,6 +40,7 @@ export const ipcHandlers = {
   'conversations:getSummaries': getConversationSummaries,
   'conversations:delete': deleteConversation,
   'conversations:rename': renameConversation,
+  'conversations:togglePin': toggleConversationPin,
   'conversations:showContextMenu': showThreadContextMenu,
   'providers:updateConfig': updateProviderConfig,
   'providers:getConfig': getProviderConfig,

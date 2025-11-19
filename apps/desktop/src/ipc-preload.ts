@@ -50,8 +50,12 @@ export interface IPCRegistry {
     args: [conversationId: string, title: string]
     return: void
   }
+  'conversations:togglePin': {
+    args: [conversationId: string, pinned: boolean]
+    return: void
+  }
   'conversations:showContextMenu': {
-    args: []
+    args: [currentPinnedState: boolean]
     return: ContextMenuAction
   }
   'providers:updateConfig': {
@@ -95,6 +99,7 @@ const electronApiChannels = {
   getConversationSummaries: 'conversations:getSummaries',
   deleteConversation: 'conversations:delete',
   renameConversation: 'conversations:rename',
+  togglePin: 'conversations:togglePin',
   showThreadContextMenu: 'conversations:showContextMenu',
   updateProviderConfig: 'providers:updateConfig',
   getProviderConfig: 'providers:getConfig',
@@ -128,7 +133,10 @@ export function createElectronAPI(ipcRenderer: IpcRenderer): ElectronAPI {
       ipcRenderer.invoke(electronApiChannels.deleteConversation, conversationId),
     renameConversation: (conversationId: string, title: string) =>
       ipcRenderer.invoke(electronApiChannels.renameConversation, conversationId, title),
-    showThreadContextMenu: () => ipcRenderer.invoke(electronApiChannels.showThreadContextMenu),
+    togglePin: (conversationId: string, pinned: boolean) =>
+      ipcRenderer.invoke(electronApiChannels.togglePin, conversationId, pinned),
+    showThreadContextMenu: (currentPinnedState: boolean) =>
+      ipcRenderer.invoke(electronApiChannels.showThreadContextMenu, currentPinnedState),
     updateProviderConfig: (providerId: string, config: { apiKey?: string; baseUrl?: string }) =>
       ipcRenderer.invoke(electronApiChannels.updateProviderConfig, providerId, config),
     getProviderConfig: (providerId: string) =>

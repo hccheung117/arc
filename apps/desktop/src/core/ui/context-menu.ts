@@ -5,12 +5,16 @@ import type { ContextMenuAction } from '@arc/contracts/src/conversations'
  * Shows a native context menu for thread/conversation actions.
  * Returns the selected action or null if cancelled.
  */
-export function showThreadContextMenu(): Promise<ContextMenuAction> {
+export function showThreadContextMenu(currentPinnedState: boolean): Promise<ContextMenuAction> {
   return new Promise((resolve) => {
     const menu = Menu.buildFromTemplate([
       {
         label: 'Rename',
         click: () => resolve('rename'),
+      },
+      {
+        label: currentPinnedState ? 'Unpin' : 'Pin',
+        click: () => resolve('togglePin'),
       },
       { type: 'separator' },
       {

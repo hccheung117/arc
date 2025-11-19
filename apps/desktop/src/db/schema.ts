@@ -20,6 +20,7 @@ export const models = sqliteTable('models', {
 export const conversations = sqliteTable('conversations', {
   id: text('id').primaryKey(),
   title: text('title'),
+  pinned: integer('pinned', { mode: 'boolean' }).notNull().default(false),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 })

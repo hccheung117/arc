@@ -21,6 +21,7 @@ export type ChatThread = {
   status: 'draft' | 'streaming' | 'persisted'
   title: string
   createdAt: string
+  isPinned: boolean
 }
 
 /**
@@ -37,6 +38,7 @@ export function createDraftThread(): ChatThread {
     status: 'draft',
     title: 'New Chat',
     createdAt: new Date().toISOString(),
+    isPinned: false,
   }
 }
 
@@ -54,6 +56,7 @@ export function hydrateFromConversation(conv: ConversationSummary): ChatThread {
     status: 'persisted',
     title: conv.title,
     createdAt: conv.updatedAt,
+    isPinned: conv.pinned,
   }
 }
 

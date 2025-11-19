@@ -17,6 +17,7 @@ export type ThreadAction =
   | { type: 'UPDATE_TITLE'; threadId: string; title: string }
   | { type: 'DELETE_THREAD'; threadId: string }
   | { type: 'RENAME_THREAD'; threadId: string; title: string }
+  | { type: 'TOGGLE_PIN'; threadId: string; isPinned: boolean }
 
 /**
  * Reducer for ChatThread state management
@@ -107,6 +108,18 @@ function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[]
           return {
             ...thread,
             title: action.title,
+          }
+        }
+        return thread
+      })
+    }
+
+    case 'TOGGLE_PIN': {
+      return state.map((thread) => {
+        if (thread.threadId === action.threadId) {
+          return {
+            ...thread,
+            isPinned: action.isPinned,
           }
         }
         return thread
