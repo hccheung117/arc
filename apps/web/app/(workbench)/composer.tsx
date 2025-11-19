@@ -68,13 +68,22 @@ export function Composer({ onSend, isStreaming }: ComposerProps) {
   return (
     <Card className="mx-4 mb-4 p-3 border border-sidebar-border">
       <div className="space-y-2">
+        {/**
+         * Typography: Composer uses text-body (16px) to match the message display area,
+         * providing WYSIWYG consistency. This overrides the Textarea component's default
+         * responsive pattern (text-base → md:text-label) because the composer is a
+         * content creation tool where visual consistency with messages matters more than
+         * compact UI chrome.
+         *
+         * @see tailwind.config.js - Typography scale definition
+         */}
         <Textarea
           ref={textareaRef}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Enter here, press ↵ to send"
-          className="min-h-0 resize-none border-0 p-0 focus-visible:ring-0 focus-visible:ring-offset-0 outline-none shadow-none"
+          className="min-h-0 resize-none border-0 p-0 text-body focus-visible:ring-0 focus-visible:ring-offset-0 outline-none shadow-none"
           rows={1}
         />
         <div className="flex items-center justify-between">

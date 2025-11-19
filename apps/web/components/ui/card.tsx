@@ -38,11 +38,19 @@ function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+/**
+ * Card description with semantic typography.
+ *
+ * Typography: Uses text-label (15px) for secondary descriptive text.
+ * Provides readable context without overwhelming the card title.
+ *
+ * @see tailwind.config.js - Typography scale definition
+ */
 function CardDescription({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="card-description"
-      className={cn("text-muted-foreground text-sm", className)}
+      className={cn("text-muted-foreground text-label", className)}
       {...props}
     />
   )

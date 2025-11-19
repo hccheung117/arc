@@ -75,7 +75,7 @@ function MermaidDiagram({ code }: MermaidDiagramProps) {
   }
 
   return (
-    <pre className="overflow-x-auto rounded-md border border-border/60 bg-muted/40 p-4 text-sm">
+    <pre className="overflow-x-auto rounded-md border border-border/60 bg-muted/40 p-4 text-meta">
       <code>
         {error
           ? `Mermaid render error: ${error}\n\n${code}`
@@ -168,7 +168,15 @@ function CodeBlock({ node, className, children }: CodeProps) {
 
 export const Markdown = memo(function Markdown({ children }: MarkdownProps) {
   return (
-    <div className="prose prose-sm max-w-none dark:prose-invert">
+    /**
+     * Typography: Uses prose with body size (16px/24px) for readable markdown content.
+     * The prose plugin configuration is defined in tailwind.config.js with semantic
+     * color tokens and the body font size. AI-generated responses and formatted content
+     * benefit from slightly larger, more comfortable reading text.
+     *
+     * @see tailwind.config.js - Typography scale and prose configuration
+     */
+    <div className="prose max-w-none dark:prose-invert">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex]}

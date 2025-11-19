@@ -240,8 +240,14 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
         )}
 
         <div className="shrink-0">
+          {/**
+           * Typography: Error messages use text-label (15px) to match form controls
+           * and maintain consistency with other interactive UI elements.
+           *
+           * @see tailwind.config.js - Typography scale definition
+           */}
           {error && (
-            <div className="mx-4 mb-2 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <div className="mx-4 mb-2 rounded-md bg-destructive/10 px-3 py-2 text-label text-destructive">
               {error}
             </div>
           )}

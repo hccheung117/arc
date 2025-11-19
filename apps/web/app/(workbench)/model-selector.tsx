@@ -61,13 +61,19 @@ export function ModelSelector({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
+        {/**
+         * Typography: Model selector header uses text-label (15px) for compact,
+         * readable UI chrome. The provider name uses muted styling to create hierarchy.
+         *
+         * @see tailwind.config.js - Typography scale definition
+         */}
         <Button
           variant="ghost"
           role="combobox"
           aria-expanded={open}
           className="justify-between gap-2 px-0 hover:bg-transparent"
         >
-          <span className="text-sm font-semibold">
+          <span className="text-label font-semibold">
             {selectedModel.name}
             <span className="ml-2 text-muted-foreground font-normal">
               {selectedModel.provider.name}
@@ -81,11 +87,17 @@ export function ModelSelector({
         align="start"
         style={{ boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.2), 0 8px 10px -6px rgb(0 0 0 / 0.2)' }}
       >
+        {/**
+         * Typography: Tab buttons use text-label (15px) for interactive navigation elements.
+         * This matches other UI chrome sizing like buttons and sidebar items.
+         *
+         * @see tailwind.config.js - Typography scale definition
+         */}
         <div className="flex border-b">
           <button
             onClick={() => setShowFavorites(false)}
             className={cn(
-              'flex-1 px-4 py-2 text-sm font-medium transition-colors',
+              'flex-1 px-4 py-2 text-label font-medium transition-colors',
               !showFavorites
                 ? 'border-b-2 border-foreground'
                 : 'text-muted-foreground hover:text-foreground'
@@ -96,7 +108,7 @@ export function ModelSelector({
           <button
             onClick={() => setShowFavorites(true)}
             className={cn(
-              'flex-1 px-4 py-2 text-sm font-medium transition-colors',
+              'flex-1 px-4 py-2 text-label font-medium transition-colors',
               showFavorites
                 ? 'border-b-2 border-foreground'
                 : 'text-muted-foreground hover:text-foreground'
@@ -113,7 +125,13 @@ export function ModelSelector({
               return (
                 <div key={group.provider.id}>
                   {groupIndex > 0 && <Separator className="my-2" />}
-                  <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                  {/**
+                   * Typography: Provider headers use text-meta (13px) to distinguish
+                   * category labels from selectable items, creating clear visual hierarchy.
+                   *
+                   * @see tailwind.config.js - Typography scale definition
+                   */}
+                  <div className="px-2 py-1.5 text-meta font-semibold text-muted-foreground">
                     {group.provider.name}
                   </div>
                   <div className="space-y-0.5">
@@ -132,8 +150,12 @@ export function ModelSelector({
                           )}
                           onClick={() => handleModelSelect(model)}
                         >
+                          {/**
+                           * Typography: Model names use text-label (15px) for readable,
+                           * interactive list items that match button and navigation sizing.
+                           */}
                           <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium truncate">
+                            <div className="text-label font-medium truncate">
                               {model.name}
                             </div>
                           </div>
@@ -164,7 +186,7 @@ export function ModelSelector({
               )
             })}
             {displayedModels.length === 0 && (
-              <div className="px-2 py-8 text-center text-sm text-muted-foreground">
+              <div className="px-2 py-8 text-center text-label text-muted-foreground">
                 No favorite models yet. Star models to add them here.
               </div>
             )}

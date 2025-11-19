@@ -96,6 +96,12 @@ export function SidebarItem({ thread, isActive, onSelect, dispatch }: SidebarIte
   if (isRenaming) {
     return (
       <SidebarMenuItem>
+        {/**
+         * Typography: Rename input uses text-label (15px) to match navigation item sizing.
+         * This ensures visual consistency when switching between read and edit modes.
+         *
+         * @see tailwind.config.js - Typography scale definition
+         */}
         <div className="flex items-center gap-2 px-2 py-1.5 w-full">
           <MessageSquare className="h-4 w-4 shrink-0 text-sidebar-foreground/70" />
           <input
@@ -105,7 +111,7 @@ export function SidebarItem({ thread, isActive, onSelect, dispatch }: SidebarIte
             onChange={(e) => setRenameValue(e.target.value)}
             onBlur={handleSaveRename}
             onKeyDown={handleKeyDown}
-            className="flex-1 bg-transparent border-none outline-none text-sm h-5 p-0 text-sidebar-foreground min-w-0"
+            className="flex-1 bg-transparent border-none outline-none text-label h-5 p-0 text-sidebar-foreground min-w-0"
           />
         </div>
       </SidebarMenuItem>

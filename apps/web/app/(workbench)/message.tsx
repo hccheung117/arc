@@ -29,8 +29,15 @@ export function Message({ message }: MessageProps) {
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
         >
+          {/**
+           * Typography: User message bubbles use text-body (16px/24px) for comfortable
+           * reading density. This matches the prose content size used for AI responses,
+           * creating visual consistency across the conversation.
+           *
+           * @see tailwind.config.js - Typography scale definition
+           */}
           <div className="bg-muted rounded-2xl px-4 py-3">
-            <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+            <p className="text-body whitespace-pre-wrap">{message.content}</p>
           </div>
           <div className="h-8 flex items-center justify-end">
             {isHovered && (

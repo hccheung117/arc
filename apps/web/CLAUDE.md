@@ -114,7 +114,46 @@ export default function ClientComponent() {
 
 This prevents runtime errors during the build process and ensures your components work correctly in static export mode.
 
-## 4. Development Tools
+## 4. Typography System
+
+The app uses a centralized semantic typography scale defined in `tailwind.config.js`. This system ensures consistent visual hierarchy and makes global typography changes straightforward.
+
+### 4.1. Typography Scale
+
+Six semantic tokens replace arbitrary size utilities:
+
+- **text-display**: 36px/44px - Hero text, empty states, onboarding screens
+- **text-title**: 24px/32px - Page headers, section titles
+- **text-subtitle**: 20px/28px - Secondary headings, emphasized text
+- **text-body**: 16px/24px - Messages, prose, readable paragraph content
+- **text-label**: 15px/22.4px - Buttons, navigation, form labels, UI chrome
+- **text-meta**: 13px/20px - Captions, badges, tooltips, helper text
+
+### 4.2. Usage Rules
+
+**Content (Readable Text):**
+- Messages and chat content use `text-body` for comfortable reading
+- Markdown and prose use the `prose` class, configured to body size
+- Any paragraph-length content defaults to `text-body`
+
+**Interactive Elements:**
+- Buttons, navigation items, and tabs use `text-label`
+- Form controls follow a responsive pattern: `text-base` on mobile to prevent iOS auto-zoom, `text-label` on desktop for compact consistency
+
+**Hierarchy & Metadata:**
+- Category headers, provider labels, and section dividers use `text-meta`
+- Tooltips, badges, and notification indicators use `text-meta`
+- Helper text and secondary descriptions use `text-meta`
+
+### 4.3. Design Principles
+
+- **Never use raw size utilities** - Always prefer semantic tokens over `text-sm`, `text-xs`, or `text-base`
+- **Readable content uses body** - Chat messages, prose, and paragraphs default to 16px for comfortable reading
+- **Interactive elements use label** - Buttons, navigation, and forms use 15px for compact, consistent UI chrome
+- **Metadata uses meta** - Categories, badges, and tooltips use 13px to create clear hierarchy
+- **Document your choices** - Add comments explaining why each token was chosen and reference `tailwind.config.js`
+
+## 5. Development Tools
 
 ### Next.js MCP Integration
 
@@ -128,7 +167,7 @@ MCP provides real-time runtime inspection capabilities:
 
 This enables AI assistants to understand runtime behavior without parsing static files, making debugging and development significantly more efficient.
 
-## 5. UI-State-First Architecture
+## 6. UI-State-First Architecture
 
 ### The Problem: Data-Model-First UI
 

@@ -114,6 +114,14 @@ function SheetTitle({
   )
 }
 
+/**
+ * Sheet description with semantic typography.
+ *
+ * Typography: Uses text-label (15px) for secondary descriptive text
+ * in modal-style sheets. Provides readable context for the sheet title.
+ *
+ * @see tailwind.config.js - Typography scale definition
+ */
 function SheetDescription({
   className,
   ...props
@@ -121,7 +129,7 @@ function SheetDescription({
   return (
     <SheetPrimitive.Description
       data-slot="sheet-description"
-      className={cn("text-muted-foreground text-sm", className)}
+      className={cn("text-muted-foreground text-label", className)}
       {...props}
     />
   )
