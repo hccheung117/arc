@@ -22,6 +22,20 @@ import { handleMessage } from '../../ipc/messages'
 import { db } from '../db'
 ```
 
+## Database Migration Workflow
+
+We enforce a **"Push-then-Squash"** workflow to keep the migration history clean (1 migration file per release).
+
+### 1. Local Development: `pnpm db:dev`
+- **When to run:** Whenever you modify `schema.ts` or pull changes.
+- **What it does:** Pushes schema changes directly to your local SQLite database (`drizzle-kit push`).
+- **Outcome:** Your local DB is synced. **No migration files are created.**
+
+### 2. Release Preparation: `pnpm db:release`
+- **When to run:** Only when preparing a version bump PR.
+- **What it does:** Compares your current schema against the last released migration and generates a new one (`drizzle-kit generate`).
+- **Outcome:** **One** new migration file is created for the release.
+
 ## AI Integration Guidelines
 
 ### Core Principle: Vercel AI SDK as Primary Interface

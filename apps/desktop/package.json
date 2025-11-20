@@ -13,8 +13,8 @@
     "make": "electron-forge make",
     "publish": "electron-forge publish",
     "lint": "eslint --ext .ts,.tsx .",
-    "db:generate": "node ./scripts/run-drizzle.mjs generate",
-    "db:push": "node ./scripts/run-drizzle.mjs push",
+    "db:dev": "node ./scripts/run-drizzle.mjs push",
+    "db:release": "node ./scripts/run-drizzle.mjs generate",
     "db:studio": "node ./scripts/run-drizzle.mjs studio"
   },
   "keywords": [],
