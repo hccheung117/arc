@@ -138,7 +138,8 @@ Six semantic tokens replace arbitrary size utilities:
 
 **Interactive Elements:**
 - Buttons, navigation items, and tabs use `text-label`
-- Form controls follow a responsive pattern: `text-base` on mobile to prevent iOS auto-zoom, `text-label` on desktop for compact consistency
+- Form controls (inputs, textareas) use `text-label` (15px) consistently
+  - **Note**: Previous responsive patterns (switching to `text-base` on mobile to prevent iOS auto-zoom) are explicitly removed as this is a desktop-only Electron application
 
 **Hierarchy & Metadata:**
 - Category headers, provider labels, and section dividers use `text-meta`

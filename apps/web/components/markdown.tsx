@@ -75,7 +75,7 @@ function MermaidDiagram({ code }: MermaidDiagramProps) {
   }
 
   return (
-    <pre className="overflow-x-auto rounded-md border border-border/60 bg-muted/40 p-4 text-meta">
+    <pre className="overflow-x-auto rounded-md border border-border/60 bg-muted/40 p-4 text-label">
       <code>
         {error
           ? `Mermaid render error: ${error}\n\n${code}`

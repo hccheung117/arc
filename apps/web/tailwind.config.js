@@ -59,6 +59,8 @@ module.exports = {
             fontSize: '1rem',
             lineHeight: '1.5',
             code: {
+              fontSize: '0.9375rem', // 15px to visually match body text (16px) in monospace
+              lineHeight: '1.5rem',
               backgroundColor: 'var(--muted)',
               paddingLeft: '0.25rem',
               paddingRight: '0.25rem',
@@ -74,6 +76,8 @@ module.exports = {
               content: '""',
             },
             pre: {
+              fontSize: '0.9375rem', // 15px
+              lineHeight: '1.5rem',
               backgroundColor: 'var(--muted)',
               color: 'var(--foreground)',
               paddingLeft: '1rem',

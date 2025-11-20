@@ -70,10 +70,9 @@ export function Composer({ onSend, isStreaming }: ComposerProps) {
       <div className="space-y-2">
         {/**
          * Typography: Composer uses text-body (16px) to match the message display area,
-         * providing WYSIWYG consistency. This overrides the Textarea component's default
-         * responsive pattern (text-base → md:text-label) because the composer is a
-         * content creation tool where visual consistency with messages matters more than
-         * compact UI chrome.
+         * providing WYSIWYG consistency. We override the Textarea component's default
+         * text-label (15px) because the composer is a content creation tool where
+         * visual consistency with messages matters more than compact UI chrome.
          *
          * @see tailwind.config.js - Typography scale definition
          */}
