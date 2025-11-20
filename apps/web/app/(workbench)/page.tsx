@@ -11,22 +11,22 @@ export default function WorkbenchPage() {
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
 
   return (
-    <SidebarProvider>
+    <SidebarProvider className="h-svh overflow-hidden">
         <WorkbenchSidebar
           threads={threads}
           activeThreadId={activeThreadId}
           onThreadSelect={setActiveThreadId}
           dispatch={dispatch}
         />
-      <SidebarInset>
-        <main className="flex-1 min-w-0 bg-white dark:bg-black h-full">
+      <SidebarInset className="overflow-hidden">
+        <div className="flex-1 min-w-0 bg-white dark:bg-black h-full">
         <Workspace
           threads={threads}
           activeThreadId={activeThreadId}
           onThreadUpdate={dispatch}
           onActiveThreadChange={setActiveThreadId}
         />
-      </main>
+      </div>
       </SidebarInset>
     </SidebarProvider>
   )
