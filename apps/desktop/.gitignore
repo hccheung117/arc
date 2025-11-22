@@ -90,6 +90,3 @@ typings/
 
 # Electron-Forge
 out/
-
-# Next.js build output (copied from web app)
-resources/

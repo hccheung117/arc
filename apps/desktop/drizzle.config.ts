@@ -18,11 +18,11 @@ function getUserDataPath(appName: string): string {
 }
 
 export default defineConfig({
-  schema: './src/db/schema.ts',
-  out: './src/db/migrations',
+  schema: './src/main/db/schema.ts',
+  out: './src/main/db/migrations',
   dialect: 'sqlite',
   dbCredentials: {
-    url: join(getUserDataPath('Arc'), 'arc.db'),
+    url: join(getUserDataPath('desktop-vite'), 'arc.db'),
   },
   strict: true,
 })

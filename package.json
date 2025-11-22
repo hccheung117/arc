@@ -8,15 +8,12 @@
   },
   "packageManager": "pnpm@8.15.0",
   "scripts": {
-    "dev": "concurrently -n web,desktop -c cyan,magenta \"pnpm --filter web dev\" \"pnpm run dev:desktop\"",
-    "dev:desktop": "wait-on http://localhost:3000 && pnpm --filter desktop dev",
-    "build": "pnpm --filter web build && pnpm --filter desktop build",
-    "lint": "pnpm --recursive lint",
-    "lint:fix": "pnpm --recursive lint:fix",
-    "db:studio": "pnpm --filter desktop db:studio"
-  },
-  "devDependencies": {
-    "concurrently": "^9.0.0",
-    "wait-on": "^8.0.0"
+    "start": "pnpm --filter desktop start",
+    "package": "pnpm --filter desktop package",
+    "make": "pnpm --filter desktop make",
+    "publish": "pnpm --filter desktop publish",
+    "lint": "pnpm --filter desktop lint",
+    "db:dev": "pnpm --filter desktop db:dev",
+    "db:release": "pnpm --filter desktop db:release"
   }
 }
