@@ -1,5 +1,6 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
+import type { HelloResponse } from './shared/types';
 import started from 'electron-squirrel-startup';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -52,5 +53,8 @@ app.on('activate', () => {
   }
 });
 
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and import them here.
+// IPC Handlers
+ipcMain.handle('app:hello', (): HelloResponse => ({
+  message: 'Hello from the Main Process!',
+  timestamp: new Date().toISOString(),
+}));
