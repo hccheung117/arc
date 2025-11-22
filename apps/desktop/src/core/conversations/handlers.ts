@@ -9,7 +9,7 @@ export async function getConversationSummaries(): Promise<ConversationSummary[]>
 
   return Promise.all(
     result.map(async (row) => {
-      const base = { id: row.id, updatedAt: row.updatedAt, pinned: !!row.pinned }
+      const base = { id: row.id, updatedAt: row.updatedAt.toISOString(), pinned: !!row.pinned }
 
       if (row.title !== null) {
         return { ...base, title: row.title }
@@ -37,17 +37,15 @@ export async function deleteConversation(conversationId: string): Promise<void> 
 }
 
 export async function renameConversation(conversationId: string, title: string): Promise<void> {
-  const updatedAt = new Date().toISOString()
   await db
     .update(conversations)
-    .set({ title, updatedAt })
+    .set({ title, updatedAt: new Date() })
     .where(eq(conversations.id, conversationId))
 }
 
 export async function toggleConversationPin(conversationId: string, pinned: boolean): Promise<void> {
-  const updatedAt = new Date().toISOString()
   await db
     .update(conversations)
-    .set({ pinned, updatedAt })
+    .set({ pinned, updatedAt: new Date() })
     .where(eq(conversations.id, conversationId))
 }

@@ -16,7 +16,7 @@ export async function getMessages(conversationId: string): Promise<Message[]> {
     role: row.role as 'user' | 'assistant' | 'system',
     status: 'complete' as const,
     content: row.content,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
   }))
 }

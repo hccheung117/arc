@@ -40,12 +40,9 @@ async function ensureConversationExists(conversationId: string): Promise<void> {
     .limit(1)
 
   if (existing.length === 0) {
-    const now = new Date().toISOString()
     await db.insert(conversations).values({
       id: conversationId,
       title: null, // Title will be derived from first message content when displayed
-      createdAt: now,
-      updatedAt: now,
     })
   }
 }
@@ -54,8 +51,8 @@ async function insertUserMessage(conversationId: string, content: string): Promi
   // Auto-create conversation record if it doesn't exist (conversation-as-by-product)
   await ensureConversationExists(conversationId)
 
-  const now = new Date().toISOString()
   const messageId = randomUUID()
+  const now = new Date()
 
   await db.insert(messages).values({
     id: messageId,
@@ -66,20 +63,21 @@ async function insertUserMessage(conversationId: string, content: string): Promi
     updatedAt: now,
   })
 
+  const nowISO = now.toISOString()
   return {
     id: messageId,
     conversationId,
     role: 'user',
     status: 'complete',
     content,
-    createdAt: now,
-    updatedAt: now,
+    createdAt: nowISO,
+    updatedAt: nowISO,
   }
 }
 
 async function insertAssistantMessage(conversationId: string, content: string): Promise<Message> {
-  const now = new Date().toISOString()
   const messageId = randomUUID()
+  const now = new Date()
 
   await db.insert(messages).values({
     id: messageId,
@@ -90,14 +88,15 @@ async function insertAssistantMessage(conversationId: string, content: string): 
     updatedAt: now,
   })
 
+  const nowISO = now.toISOString()
   return {
     id: messageId,
     conversationId,
     role: 'assistant',
     status: 'complete',
     content,
-    createdAt: now,
-    updatedAt: now,
+    createdAt: nowISO,
+    updatedAt: nowISO,
   }
 }
 
