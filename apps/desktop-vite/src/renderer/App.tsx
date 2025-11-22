@@ -1,9 +1,5 @@
-import { Showoff } from './components/Showoff';
+import { Workbench } from './features/workbench/Workbench';
 
 export function App() {
-  return (
-    <div className="flex min-h-screen items-center justify-center p-8">
-      <Showoff />
-    </div>
-  );
+  return <Workbench />;
 }
