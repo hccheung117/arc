@@ -5,8 +5,8 @@ import type { Message } from '@arc/contracts/src/messages'
 import { db } from '@/db/client'
 import { conversations, messages, models, providers } from '@/db/schema'
 import { getMessages } from './handlers'
-import { getProviderConfig } from '@/core/providers/handlers'
-import { streamChatCompletion, toCoreMessages, type ProviderConfig } from '@/core/ai/service'
+import { getProviderConfig } from '@/providers/handlers'
+import { streamChatCompletion, toCoreMessages, type ProviderConfig } from '@/ai/service'
 
 // Track active streams for cancellation support
 const activeStreams = new Map<string, AbortController>()

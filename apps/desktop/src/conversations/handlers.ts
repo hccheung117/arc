@@ -1,5 +1,5 @@
 import type { ConversationSummary } from '@arc/contracts/src/conversations'
-import { getMessages } from '@/core/messages/handlers'
+import { getMessages } from '@/messages/handlers'
 import { db } from '@/db/client'
 import { conversations, messages } from '@/db/schema'
 import { desc, eq } from 'drizzle-orm'

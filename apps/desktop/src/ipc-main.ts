@@ -1,16 +1,16 @@
 import type { IpcMain } from 'electron'
 import type { IPCRegistry } from './ipc-preload'
-import { getModels } from './core/models/handlers'
-import { getMessages } from './core/messages/handlers'
-import { streamMessage, cancelStream } from './core/messages/stream-handler'
+import { getModels } from '@/models/handlers'
+import { getMessages } from '@/messages/handlers'
+import { streamMessage, cancelStream } from '@/messages/stream-handler'
 import {
   getConversationSummaries,
   deleteConversation,
   renameConversation,
   toggleConversationPin,
-} from './core/conversations/handlers'
-import { updateProviderConfig, getProviderConfig } from './core/providers/handlers'
-import { showThreadContextMenu } from './core/ui/context-menu'
+} from '@/conversations/handlers'
+import { updateProviderConfig, getProviderConfig } from '@/providers/handlers'
+import { showThreadContextMenu } from '@/ui/context-menu'
 
 /**
  * IPC Main Process Module
