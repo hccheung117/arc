@@ -12,12 +12,17 @@ const createWindow = (): void => {
   const mainWindow = new BrowserWindow({
     height: 900,
     width: 1400,
+    minHeight: 600,
+    minWidth: 900,
     webPreferences: {
       preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
+
+  // Explicitly set minimum size to ensure enforcement
+  mainWindow.setMinimumSize(900, 600);
 
   if (isDevelopment) {
     mainWindow.loadURL('http://localhost:3000');

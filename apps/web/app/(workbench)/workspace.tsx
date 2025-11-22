@@ -205,13 +205,11 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
     <TooltipProvider>
       <div className="flex h-full flex-col overflow-hidden">
         <header className="flex h-14 items-center border-b border-sidebar-border px-6 shrink-0">
-          {selectedModel && (
-            <ModelSelector
-              selectedModel={selectedModel}
-              onModelSelect={setSelectedModel}
-              models={models}
-            />
-          )}
+          <ModelSelector
+            selectedModel={selectedModel}
+            onModelSelect={setSelectedModel}
+            models={models}
+          />
         </header>
 
         {messages.length === 0 && !streamingMessage ? (

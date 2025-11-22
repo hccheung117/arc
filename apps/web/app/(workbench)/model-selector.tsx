@@ -35,7 +35,7 @@ function fuzzyMatch(query: string, text: string): boolean {
 }
 
 interface ModelSelectorProps {
-  selectedModel: Model
+  selectedModel: Model | null
   onModelSelect: (model: Model) => void
   models: Model[]
 }
@@ -106,12 +106,18 @@ export function ModelSelector({
           aria-expanded={open}
           className="justify-between gap-2 px-2 -ml-2"
         >
-          <span className="text-label font-semibold">
-            {selectedModel.name}
-            <span className="ml-2 text-muted-foreground font-normal">
-              {selectedModel.provider.name}
+          {selectedModel ? (
+            <span className="text-label font-semibold">
+              {selectedModel.name}
+              <span className="ml-2 text-muted-foreground font-normal">
+                {selectedModel.provider.name}
+              </span>
             </span>
-          </span>
+          ) : (
+            <span className="text-label font-semibold text-muted-foreground">
+              Select Model
+            </span>
+          )}
           <ChevronRight
             className={cn(
               'h-4 w-4 shrink-0 opacity-50 transition-transform duration-200',
@@ -168,7 +174,11 @@ export function ModelSelector({
 
         <ScrollArea className="h-[400px]">
           <div className="p-2">
-            {filteredModels.length === 0 ? (
+            {models.length === 0 ? (
+              <div className="px-2 py-8 text-center text-label text-muted-foreground">
+                No models available. Please configure models in settings.
+              </div>
+            ) : filteredModels.length === 0 ? (
               <div className="px-2 py-8 text-center text-label text-muted-foreground">
                 {searchQuery 
                   ? `No models match "${searchQuery}"` 
@@ -186,7 +196,7 @@ export function ModelSelector({
                     </div>
                     <div className="space-y-0.5">
                       {group.models.map((model) => {
-                        const isSelected = selectedModel.id === model.id
+                        const isSelected = selectedModel?.id === model.id
                         const isFavorite = favorites.has(model.id)
 
                         return (
