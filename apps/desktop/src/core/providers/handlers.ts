@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { db } from '@/db/client'
 import { providers } from '@/db/schema'
+import { encryptSecret, decryptSecret } from '@/lib/security'
 
 export async function updateProviderConfig(
   providerId: string,
@@ -9,7 +10,7 @@ export async function updateProviderConfig(
   await db
     .update(providers)
     .set({
-      ...(config.apiKey !== undefined && { apiKey: config.apiKey }),
+      ...(config.apiKey !== undefined && { apiKey: encryptSecret(config.apiKey) }),
       ...(config.baseUrl !== undefined && { baseUrl: config.baseUrl }),
     })
     .where(eq(providers.id, providerId))
@@ -33,5 +34,8 @@ export async function getProviderConfig(providerId: string): Promise<{
     throw new Error(`Provider ${providerId} not found`)
   }
 
-  return result
+  return {
+    ...result,
+    apiKey: result.apiKey ? decryptSecret(result.apiKey) : null,
+  }
 }
