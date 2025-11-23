@@ -1,7 +1,7 @@
 import { asc, eq } from 'drizzle-orm'
-import type { Message, MessageRole } from '../../types/messages'
-import { db } from '../db/client'
-import { conversations, messages } from '../db/schema'
+import type { Message, MessageRole } from '@arc-types/messages'
+import { db } from '@main/db/client'
+import { conversations, messages } from '@main/db/schema'
 
 type MessageRow = {
   id: string

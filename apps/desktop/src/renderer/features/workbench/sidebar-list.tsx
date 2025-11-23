@@ -1,4 +1,4 @@
-import { SidebarGroup, SidebarGroupLabel, SidebarGroupContent, SidebarMenu } from '@/components/ui/sidebar'
+import { SidebarGroup, SidebarGroupLabel, SidebarGroupContent, SidebarMenu } from '@renderer/components/ui/sidebar'
 import { SidebarItem } from './sidebar-item'
 import type { ChatThread } from './chat-thread'
 import type { Dispatch } from 'react'

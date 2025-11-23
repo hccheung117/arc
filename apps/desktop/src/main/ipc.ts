@@ -9,10 +9,10 @@ import type {
   CreateMessageInput,
   ChatOptions,
   ChatResponse,
-} from '../types/arc-api'
-import type { ConversationSummary, ContextMenuAction } from '../types/conversations'
-import type { Message } from '../types/messages'
-import type { Model } from '../types/models'
+} from '@arc-types/arc-api'
+import type { ConversationSummary, ContextMenuAction } from '@arc-types/conversations'
+import type { Message } from '@arc-types/messages'
+import type { Model } from '@arc-types/models'
 import {
   getConversationSummaries,
   updateConversation,

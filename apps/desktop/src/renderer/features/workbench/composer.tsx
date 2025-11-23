@@ -1,6 +1,6 @@
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { Textarea } from '@/components/ui/textarea'
+import { Button } from '@renderer/components/ui/button'
+import { Card } from '@renderer/components/ui/card'
+import { Textarea } from '@renderer/components/ui/textarea'
 import { ImagePlus, Sparkles, Send } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 

@@ -1,8 +1,8 @@
-import type { ConversationSummary } from '../../types/conversations'
-import type { Conversation, ConversationPatch } from '../../types/arc-api'
+import type { ConversationSummary } from '@arc-types/conversations'
+import type { Conversation, ConversationPatch } from '@arc-types/arc-api'
 import { getMessages } from './messages'
-import { db } from '../db/client'
-import { conversations, messages } from '../db/schema'
+import { db } from '@main/db/client'
+import { conversations, messages } from '@main/db/schema'
 import { desc, eq } from 'drizzle-orm'
 
 type ConversationRow = {

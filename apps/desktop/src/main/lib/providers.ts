@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
-import { db } from '../db/client'
-import { providers } from '../db/schema'
-import { encryptSecret, decryptSecret } from '../security'
+import { db } from '@main/db/client'
+import { providers } from '@main/db/schema'
+import { encryptSecret, decryptSecret } from '@main/lib/security'
 
 export async function updateProviderConfig(
   providerId: string,

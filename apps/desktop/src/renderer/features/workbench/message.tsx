@@ -1,13 +1,13 @@
 import { useState } from "react"
 import { BotMessageSquare, Copy } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Button } from "@renderer/components/ui/button"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@/components/ui/tooltip"
-import { Markdown } from "@/components/markdown"
-import type { Message as MessageType } from '../../../types/messages'
+} from "@renderer/components/ui/tooltip"
+import { Markdown } from "@renderer/components/markdown"
+import type { Message as MessageType } from '@arc-types/messages'
 
 interface MessageProps {
   message: MessageType

@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
-import { WorkbenchSidebar } from '@/features/workbench/sidebar'
-import { Workspace } from '@/features/workbench/workspace'
-import { useChatThreads } from '@/features/workbench/use-chat-threads'
+import { SidebarProvider, SidebarInset } from '@renderer/components/ui/sidebar'
+import { WorkbenchSidebar } from '@renderer/features/workbench/sidebar'
+import { Workspace } from '@renderer/features/workbench/workspace'
+import { useChatThreads } from '@renderer/features/workbench/use-chat-threads'
 
 export function WorkbenchWindow() {
   const { threads, dispatch } = useChatThreads()

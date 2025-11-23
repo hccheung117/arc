@@ -1,7 +1,7 @@
 import { useReducer, useEffect } from 'react'
-import type { Message } from '../../../types/messages'
-import type { ConversationSummary } from '../../../types/conversations'
-import { getConversationSummaries } from '@/lib/conversations'
+import type { Message } from '@arc-types/messages'
+import type { ConversationSummary } from '@arc-types/conversations'
+import { getConversationSummaries } from '@renderer/lib/conversations'
 import { type ChatThread, createDraftThread, hydrateFromConversation } from './chat-thread'
 
 /**

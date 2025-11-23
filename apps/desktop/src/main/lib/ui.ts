@@ -1,5 +1,5 @@
 import { Menu } from 'electron'
-import type { ContextMenuAction } from '../../types/conversations'
+import type { ContextMenuAction } from '@arc-types/conversations'
 
 /**
  * Shows a native context menu for thread/conversation actions.

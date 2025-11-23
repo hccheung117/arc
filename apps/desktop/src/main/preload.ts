@@ -6,7 +6,7 @@ import type {
   CreateMessageInput,
   ChatOptions,
   AIStreamEvent,
-} from '../types/arc-api'
+} from '@arc-types/arc-api'
 
 /**
  * IPC Preload Module

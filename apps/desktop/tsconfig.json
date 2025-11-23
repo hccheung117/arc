@@ -16,8 +16,9 @@
     "resolveJsonModule": true,
     "types": ["@electron-forge/plugin-vite/forge-vite-env"],
     "paths": {
-      "@/*": ["./src/renderer/*"],
-      "@shared/*": ["./src/shared/*"]
+      "@renderer/*": ["./src/renderer/*"],
+      "@main/*": ["./src/main/*"],
+      "@arc-types/*": ["./src/types/*"]
     }
   },
   "include": ["src/**/*"]

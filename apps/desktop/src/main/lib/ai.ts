@@ -1,9 +1,9 @@
 import { createOpenAI } from '@ai-sdk/openai'
 import { streamText, type CoreMessage, type LanguageModel } from 'ai'
 import { eq } from 'drizzle-orm'
-import type { Message } from '../../types/messages'
-import { db } from '../db/client'
-import { models as modelsTable, providers } from '../db/schema'
+import type { Message } from '@arc-types/messages'
+import { db } from '@main/db/client'
+import { models as modelsTable, providers } from '@main/db/schema'
 import { getMessages, insertAssistantMessage } from './messages'
 import { getProviderConfig } from './providers'
 

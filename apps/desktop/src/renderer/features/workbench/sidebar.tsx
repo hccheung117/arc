@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { PenSquare } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@renderer/components/ui/button'
 import {
   Sidebar,
   SidebarContent,
   SidebarHeader,
   SidebarFooter,
   SidebarRail,
-} from '@/components/ui/sidebar'
+} from '@renderer/components/ui/sidebar'
 import { SidebarList } from './sidebar-list'
 import type { ChatThread } from './chat-thread'
 import type { ThreadAction } from './use-chat-threads'

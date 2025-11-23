@@ -22,5 +22,48 @@
         "project": "./tsconfig.json"
       }
     }
-  }
+  },
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "group": ["../*"],
+            "message": "Parent imports (../) are banned. Use aliases (@renderer/, @main/, @arc-types/) instead."
+          },
+          {
+            "group": ["@/*"],
+            "message": "The @/ alias is deprecated. Use @renderer/ for renderer code."
+          }
+        ]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["src/renderer/**/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["../*"],
+                "message": "Parent imports (../) are banned. Use @renderer/ or @arc-types/ instead."
+              },
+              {
+                "group": ["@/*"],
+                "message": "The @/ alias is deprecated. Use @renderer/ for renderer code."
+              },
+              {
+                "group": ["@main/*"],
+                "message": "Renderer cannot import main process code. Use IPC via window.arc."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }

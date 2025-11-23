@@ -1,5 +1,5 @@
-import type { ConversationSummary, ContextMenuAction } from '../../types/conversations'
-import type { Conversation, ConversationPatch, ConversationEvent, Unsubscribe } from '../../types/arc-api'
+import type { ConversationSummary, ContextMenuAction } from '@arc-types/conversations'
+import type { Conversation, ConversationPatch, ConversationEvent, Unsubscribe } from '@arc-types/arc-api'
 
 export async function getConversationSummaries(): Promise<ConversationSummary[]> {
   return window.arc.conversations.list()

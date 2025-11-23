@@ -1,16 +1,16 @@
 import { useState } from 'react'
 import { Check, ChevronRight, Search, Star } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Button } from '@renderer/components/ui/button'
+import { Input } from '@renderer/components/ui/input'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
-import { cn } from '@/lib/utils'
-import type { Model } from '../../../types/models'
+} from '@renderer/components/ui/popover'
+import { ScrollArea } from '@renderer/components/ui/scroll-area'
+import { Separator } from '@renderer/components/ui/separator'
+import { cn } from '@renderer/lib/utils'
+import type { Model } from '@arc-types/models'
 
 // Simple fuzzy matching utility
 // Returns true if all characters in query appear in text in order
