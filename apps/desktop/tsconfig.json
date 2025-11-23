@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ESNext",
-    "module": "commonjs",
+    "module": "ESNext",
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "jsx": "react-jsx",
     "strict": true,
@@ -12,8 +12,9 @@
     "sourceMap": true,
     "baseUrl": ".",
     "outDir": "dist",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
+    "types": ["@electron-forge/plugin-vite/forge-vite-env"],
     "paths": {
       "@/*": ["./src/renderer/*"],
       "@shared/*": ["./src/shared/*"]

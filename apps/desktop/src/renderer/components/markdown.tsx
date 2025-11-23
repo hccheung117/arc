@@ -117,7 +117,7 @@ function CodeBlock({ node, className, children }: CodeProps) {
         dark: 'github-dark',
       },
     })
-      .then((highlighted) => {
+      .then((highlighted: string) => {
         if (isMounted) {
           setHighlight({ key: highlightKey, html: highlighted })
         }
