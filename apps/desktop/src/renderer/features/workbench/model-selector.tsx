@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, ChevronRight, Search, Star } from 'lucide-react'
+import { ChevronRight, Search, Star } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import {

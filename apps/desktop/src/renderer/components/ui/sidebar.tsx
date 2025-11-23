@@ -8,13 +8,6 @@ import { cn } from "@renderer/lib/utils"
 import { Button } from "@renderer/components/ui/button"
 import { Input } from "@renderer/components/ui/input"
 import { Separator } from "@renderer/components/ui/separator"
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@renderer/components/ui/sheet"
 import { Skeleton } from "@renderer/components/ui/skeleton"
 import {
   Tooltip,
@@ -25,7 +18,6 @@ import {
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
-const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
 
 const MIN_SIDEBAR_WIDTH = 220
@@ -190,7 +182,7 @@ function Sidebar({
   variant?: "sidebar" | "floating" | "inset"
   collapsible?: "offcanvas" | "icon" | "none"
 }) {
-  const { isMobile, state, openMobile, setOpenMobile, isResizing } = useSidebar()
+  const { state, isResizing } = useSidebar()
 
   if (collapsible === "none") {
     return (

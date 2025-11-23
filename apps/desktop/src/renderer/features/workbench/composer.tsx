@@ -45,15 +45,10 @@ export function Composer({ onSend, isStreaming }: ComposerProps) {
 
     const messageToSend = message.trim()
 
-    try {
-      await onSend(messageToSend)
-      // Only clear input AFTER successful send
-      setMessage('')
-    } catch (error) {
-      // Don't clear message on error - let user retry
-      // Error is already handled in workspace.tsx
-      throw error
-    }
+    await onSend(messageToSend)
+    // Only clear input AFTER successful send
+    // On error, promise rejects and message is preserved for retry
+    setMessage('')
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {

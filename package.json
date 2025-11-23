@@ -15,5 +15,12 @@
     "lint": "pnpm --filter desktop lint",
     "db:dev": "pnpm --filter desktop db:dev",
     "db:release": "pnpm --filter desktop db:release"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "electron",
+      "electron-winstaller"
+    ]
   }
 }
