@@ -1,4 +1,4 @@
-import type { ArcAPI } from '../../../types/arc-api'
+import type { ArcAPI } from '../../types/arc-api'
 
 /**
  * Returns the arc API exposed via contextBridge.

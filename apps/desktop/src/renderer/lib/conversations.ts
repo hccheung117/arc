@@ -1,5 +1,5 @@
-import type { ConversationSummary, ContextMenuAction } from '../../../types/conversations'
-import type { Conversation, ConversationPatch, ConversationEvent, Unsubscribe } from '../../../types/arc-api'
+import type { ConversationSummary, ContextMenuAction } from '../../types/conversations'
+import type { Conversation, ConversationPatch, ConversationEvent, Unsubscribe } from '../../types/arc-api'
 import { getArc } from './ipc'
 
 export async function getConversationSummaries(): Promise<ConversationSummary[]> {

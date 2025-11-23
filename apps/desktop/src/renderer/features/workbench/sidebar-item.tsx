@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { MessageSquare, MoreHorizontal } from 'lucide-react'
 import { SidebarMenuItem, SidebarMenuButton, SidebarMenuAction } from '@/components/ui/sidebar'
 import type { ChatThread } from './chat-thread'
-import { showThreadContextMenu, deleteConversation, renameConversation, toggleConversationPin } from '@/lib/core/conversations'
+import { showThreadContextMenu, deleteConversation, renameConversation, toggleConversationPin } from '@/lib/conversations'
 import type { Dispatch } from 'react'
 import type { ThreadAction } from './use-chat-threads'
 

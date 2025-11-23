@@ -1,10 +1,12 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { App } from './App';
+import { WorkbenchWindow } from './workbench';
 import './globals.css';
+
+const CurrentWindow = WorkbenchWindow;
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <CurrentWindow />
   </StrictMode>
 );

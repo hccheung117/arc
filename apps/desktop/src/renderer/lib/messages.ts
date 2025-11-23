@@ -1,5 +1,5 @@
-import type { Message, MessageRole } from '../../../types/messages'
-import type { AIStreamEvent, ChatResponse, Unsubscribe } from '../../../types/arc-api'
+import type { Message, MessageRole } from '../../types/messages'
+import type { AIStreamEvent, ChatResponse, Unsubscribe } from '../../types/arc-api'
 import { getArc } from './ipc'
 
 export async function getMessages(conversationId: string): Promise<Message[]> {
