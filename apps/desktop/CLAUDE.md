@@ -176,3 +176,98 @@ This architecture delivers significant user experience and code quality improvem
 - **Draft support**: Unsent messages can persist in threads (future feature)
 - **Cleaner separation**: UI logic completely decoupled from database schema
 - **Message-first UX**: Users think "send message", not "create conversation"
+
+## 3. IPC Communication
+
+Three patterns govern all IPC communication. Choose based on direction and response requirements.
+
+### 3.1. One-Way (Renderer to Main)
+
+**When to use:** Fire-and-forget commands where the renderer does not need a response.
+
+**Examples:** Set window title, log analytics, trigger side effects.
+
+**APIs:**
+- Preload: `ipcRenderer.send(channel, ...args)`
+- Main: `ipcMain.on(channel, handler)`
+
+**Structure:**
+```ts
+// preload.ts
+contextBridge.exposeInMainWorld('api', {
+  setTitle: (title: string) => ipcRenderer.send('set-title', title)
+})
+
+// main.ts
+ipcMain.on('set-title', (_event, title: string) => {
+  mainWindow.setTitle(title)
+})
+
+// renderer
+window.api.setTitle('New Title')
+```
+
+### 3.2. Two-Way (Renderer to Main with Response)
+
+**When to use:** Request/response operations where the renderer awaits a result.
+
+**Examples:** Open file dialog, fetch system info, database queries.
+
+**APIs:**
+- Preload: `ipcRenderer.invoke(channel, ...args)` (returns Promise)
+- Main: `ipcMain.handle(channel, handler)` (returns value or Promise)
+
+**Structure:**
+```ts
+// preload.ts
+contextBridge.exposeInMainWorld('api', {
+  openFile: () => ipcRenderer.invoke('dialog:openFile')
+})
+
+// main.ts
+ipcMain.handle('dialog:openFile', async () => {
+  const { filePaths } = await dialog.showOpenDialog({ properties: ['openFile'] })
+  return filePaths[0]
+})
+
+// renderer
+const filePath = await window.api.openFile()
+```
+
+### 3.3. Push (Main to Renderer)
+
+**When to use:** Main process initiates communication to push updates or events.
+
+**Examples:** Menu actions, system events, background task completion.
+
+**APIs:**
+- Main: `webContents.send(channel, ...args)`
+- Preload: `ipcRenderer.on(channel, handler)`
+
+**Structure:**
+```ts
+// preload.ts
+contextBridge.exposeInMainWorld('api', {
+  onMenuAction: (callback: (action: string) => void) => {
+    ipcRenderer.on('menu:action', (_event, action) => callback(action))
+  }
+})
+
+// main.ts
+const menu = Menu.buildFromTemplate([
+  {
+    label: 'File',
+    submenu: [
+      {
+        label: 'New',
+        click: () => mainWindow.webContents.send('menu:action', 'new')
+      }
+    ]
+  }
+])
+
+// renderer
+window.api.onMenuAction((action) => {
+  console.log('Menu action:', action)
+})
+```
