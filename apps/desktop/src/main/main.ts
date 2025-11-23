@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { initializeDatabase } from './db/client';
-import { registerArcHandlers } from './ipc/arc-handlers';
+import { registerArcHandlers } from './ipc';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
