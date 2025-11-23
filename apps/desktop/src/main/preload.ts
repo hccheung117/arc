@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { Message } from '../types/messages'
+import type { ArcAPI, EchoResponse, PongEvent } from '../types/arc-api'
 
 /**
  * IPC Preload Module
@@ -77,3 +78,29 @@ const electronAPI = {
 }
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI)
+
+/**
+ * New ArcAPI Surface (M2: window.arc)
+ *
+ * This is the new IPC surface following the canonical patterns from plan/ipc.md.
+ * It will eventually replace electronAPI after M3 migration is complete.
+ */
+const arc: ArcAPI = {
+  // Rule 1: One-Way (Renderer → Main, fire-and-forget)
+  log: (message: string) => ipcRenderer.send('arc:log', message),
+
+  // Rule 2: Two-Way (Renderer → Main with response)
+  echo: (message: string) => ipcRenderer.invoke('arc:echo', message) as Promise<EchoResponse>,
+
+  // Rule 1: One-Way trigger for Push demo
+  ping: () => ipcRenderer.send('arc:ping'),
+
+  // Rule 3: Push (Main → Renderer subscription)
+  onPong: (callback: (event: PongEvent) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, data: PongEvent) => callback(data)
+    ipcRenderer.on('arc:pong', listener)
+    return () => ipcRenderer.removeListener('arc:pong', listener)
+  },
+}
+
+contextBridge.exposeInMainWorld('arc', arc)

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Zap } from 'lucide-react';
-import type { HelloResponse } from '@shared/types';
+import type { HelloResponse } from '../../types/types';
 import { cn } from '@/lib/utils';
 
 export function Showoff() {

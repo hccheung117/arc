@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto'
 import type { WebContents } from 'electron'
 import { eq } from 'drizzle-orm'
-import type { Message } from '../../shared/messages'
+import type { Message } from '../../types/messages'
 import { db } from '../db/client'
 import { conversations, messages, models, providers } from '../db/schema'
 import { getMessages } from './handlers'

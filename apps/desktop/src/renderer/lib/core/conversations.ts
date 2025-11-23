@@ -1,4 +1,4 @@
-import type { ConversationSummary, ContextMenuAction } from '@shared/conversations'
+import type { ConversationSummary, ContextMenuAction } from '../../../types/conversations'
 import { getIPC } from './ipc'
 
 export async function getConversationSummaries(): Promise<ConversationSummary[]> {

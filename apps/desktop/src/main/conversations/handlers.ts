@@ -1,4 +1,4 @@
-import type { ConversationSummary } from '../../shared/conversations'
+import type { ConversationSummary } from '../../types/conversations'
 import { getMessages } from '../messages/handlers'
 import { db } from '../db/client'
 import { conversations, messages } from '../db/schema'

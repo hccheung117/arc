@@ -1,4 +1,4 @@
-import type { Model } from '@shared/models'
+import type { Model } from '../../../types/models'
 import { getIPC } from './ipc'
 
 export async function getModels(): Promise<Model[]> {
