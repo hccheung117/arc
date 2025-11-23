@@ -1,30 +1,27 @@
-import type { Message } from '../../../types/messages'
-import { getIPC } from './ipc'
+import type { Message, MessageRole } from '../../../types/messages'
+import type { AIStreamEvent, ChatResponse, Unsubscribe } from '../../../types/arc-api'
+import { getArc } from './ipc'
 
 export async function getMessages(conversationId: string): Promise<Message[]> {
-  return getIPC().getMessages(conversationId)
+  return getArc().messages.list(conversationId)
 }
 
-export async function streamMessage(
+export async function createMessage(
   conversationId: string,
-  model: string,
-  content: string,
-): Promise<{ streamId: string; messageId: string }> {
-  return getIPC().streamMessage(conversationId, model, content)
+  role: MessageRole,
+  content: string
+): Promise<Message> {
+  return getArc().messages.create(conversationId, { role, content })
 }
 
-export async function cancelStream(streamId: string): Promise<void> {
-  return getIPC().cancelStream(streamId)
+export async function startAIChat(conversationId: string, model: string): Promise<ChatResponse> {
+  return getArc().ai.chat(conversationId, { model })
 }
 
-export function onStreamDelta(callback: (event: { streamId: string; chunk: string }) => void) {
-  return getIPC().onStreamDelta(callback)
+export async function stopAIChat(streamId: string): Promise<void> {
+  return getArc().ai.stop(streamId)
 }
 
-export function onStreamComplete(callback: (event: { streamId: string; message: Message }) => void) {
-  return getIPC().onStreamComplete(callback)
-}
-
-export function onStreamError(callback: (event: { streamId: string; error: string }) => void) {
-  return getIPC().onStreamError(callback)
+export function onAIEvent(callback: (event: AIStreamEvent) => void): Unsubscribe {
+  return getArc().ai.onEvent(callback)
 }

@@ -8,7 +8,7 @@ import { ModelSelector } from './model-selector'
 import type { Model } from '../../../types/models'
 import type { Message as MessageType } from '../../../types/messages'
 import { getModels } from '@/lib/core/models'
-import { getMessages, streamMessage, onStreamDelta, onStreamComplete, onStreamError } from '@/lib/core/messages'
+import { getMessages, createMessage, startAIChat, onAIEvent } from '@/lib/core/messages'
 import type { ChatThread } from './chat-thread'
 import type { ThreadAction } from './use-chat-threads'
 
@@ -79,19 +79,17 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
 
   // Set up streaming event listeners
   useEffect(() => {
-    const cleanupDelta = onStreamDelta((event) => {
-      if (event.streamId === activeStreamId) {
+    const cleanup = onAIEvent((event) => {
+      if (event.streamId !== activeStreamId) return
+
+      if (event.type === 'delta') {
         setStreamingMessage((prev) => ({
           id: prev?.id || `streaming-${Date.now()}`,
           role: 'assistant',
           content: (prev?.content || '') + event.chunk,
           status: 'streaming',
         }))
-      }
-    })
-
-    const cleanupComplete = onStreamComplete((event) => {
-      if (event.streamId === activeStreamId) {
+      } else if (event.type === 'complete') {
         setStreamingMessage(null)
         setActiveStreamId(null)
 
@@ -108,11 +106,7 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
             status: 'persisted',
           })
         }
-      }
-    })
-
-    const cleanupError = onStreamError((event) => {
-      if (event.streamId === activeStreamId) {
+      } else if (event.type === 'error') {
         console.error(`[UI] Stream error: ${event.error}`)
         setStreamingMessage(null)
         setActiveStreamId(null)
@@ -120,11 +114,7 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
       }
     })
 
-    return () => {
-      cleanupDelta()
-      cleanupComplete()
-      cleanupError()
-    }
+    return cleanup
   }, [activeStreamId, threads, onThreadUpdate])
 
   const handleSendMessage = async (content: string) => {
@@ -166,17 +156,7 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
         }
       }
 
-      const { streamId, messageId } = await streamMessage(conversationId, selectedModel.id, content)
-
-      const userMessage: MessageType = {
-        id: messageId,
-        conversationId,
-        role: 'user',
-        status: 'complete',
-        content,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }
+      const userMessage = await createMessage(conversationId, 'user', content)
 
       onThreadUpdate({
         type: 'ADD_MESSAGE',
@@ -184,6 +164,7 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
         message: userMessage,
       })
 
+      const { streamId } = await startAIChat(conversationId, selectedModel.id)
       setActiveStreamId(streamId)
       setStreamingMessage({
         id: `streaming-${streamId}`,

@@ -1,105 +1,72 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { Message } from '../types/messages'
-import type { ArcAPI, EchoResponse, PongEvent } from '../types/arc-api'
+import type {
+  ArcAPI,
+  ConversationPatch,
+  ConversationEvent,
+  CreateMessageInput,
+  ChatOptions,
+  AIStreamEvent,
+} from '../types/arc-api'
 
 /**
  * IPC Preload Module
  *
- * This file runs in Electron's renderer context (preload script).
- * It MUST NOT import any handlers, database code, or native modules.
- *
- * Constraint: Electron's renderer process (Chromium sandbox) cannot load native
- * modules like better-sqlite3. Even with contextIsolation enabled, preload scripts
- * are bundled for the renderer environment and must remain browser-safe.
- *
- * Responsibilities:
- * - Expose typed IPC methods to the renderer via contextBridge
- * - Wrap ipcRenderer.invoke calls for request/response patterns
- * - Wrap ipcRenderer.on/off for streaming events
+ * Exposes the typed window.arc API to the renderer via contextBridge.
+ * This file runs in Electron's preload context and must remain browser-safe.
  */
 
-interface StreamDeltaEvent {
-  streamId: string
-  chunk: string
-}
-
-interface StreamCompleteEvent {
-  streamId: string
-  message: Message
-}
-
-interface StreamErrorEvent {
-  streamId: string
-  error: string
-}
-
-const electronAPI = {
-  // Models
-  getModels: () => ipcRenderer.invoke('models:get'),
-
-  // Messages
-  getMessages: (conversationId: string) => ipcRenderer.invoke('messages:get', conversationId),
-  streamMessage: (conversationId: string, model: string, content: string) =>
-    ipcRenderer.invoke('messages:stream', conversationId, model, content),
-  cancelStream: (streamId: string) => ipcRenderer.invoke('messages:cancelStream', streamId),
-
-  // Conversations
-  getConversationSummaries: () => ipcRenderer.invoke('conversations:getSummaries'),
-  deleteConversation: (conversationId: string) =>
-    ipcRenderer.invoke('conversations:delete', conversationId),
-  renameConversation: (conversationId: string, title: string) =>
-    ipcRenderer.invoke('conversations:rename', conversationId, title),
-  togglePin: (conversationId: string, pinned: boolean) =>
-    ipcRenderer.invoke('conversations:togglePin', conversationId, pinned),
-  showThreadContextMenu: (currentPinnedState: boolean) =>
-    ipcRenderer.invoke('conversations:showContextMenu', currentPinnedState),
-
-  // Providers
-  updateProviderConfig: (providerId: string, config: { apiKey?: string; baseUrl?: string }) =>
-    ipcRenderer.invoke('providers:updateConfig', providerId, config),
-  getProviderConfig: (providerId: string) => ipcRenderer.invoke('providers:getConfig', providerId),
-
-  // Stream event listeners (push from main to renderer)
-  onStreamDelta: (callback: (event: StreamDeltaEvent) => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, data: StreamDeltaEvent) => callback(data)
-    ipcRenderer.on('message-stream:delta', listener)
-    return () => ipcRenderer.removeListener('message-stream:delta', listener)
-  },
-  onStreamComplete: (callback: (event: StreamCompleteEvent) => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, data: StreamCompleteEvent) => callback(data)
-    ipcRenderer.on('message-stream:complete', listener)
-    return () => ipcRenderer.removeListener('message-stream:complete', listener)
-  },
-  onStreamError: (callback: (event: StreamErrorEvent) => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, data: StreamErrorEvent) => callback(data)
-    ipcRenderer.on('message-stream:error', listener)
-    return () => ipcRenderer.removeListener('message-stream:error', listener)
-  },
-}
-
-contextBridge.exposeInMainWorld('electronAPI', electronAPI)
-
-/**
- * New ArcAPI Surface (M2: window.arc)
- *
- * This is the new IPC surface following the canonical patterns from plan/ipc.md.
- * It will eventually replace electronAPI after M3 migration is complete.
- */
 const arc: ArcAPI = {
-  // Rule 1: One-Way (Renderer → Main, fire-and-forget)
-  log: (message: string) => ipcRenderer.send('arc:log', message),
+  conversations: {
+    list: () => ipcRenderer.invoke('arc:conversations:list'),
 
-  // Rule 2: Two-Way (Renderer → Main with response)
-  echo: (message: string) => ipcRenderer.invoke('arc:echo', message) as Promise<EchoResponse>,
+    update: (id: string, patch: ConversationPatch) =>
+      ipcRenderer.invoke('arc:conversations:update', id, patch),
 
-  // Rule 1: One-Way trigger for Push demo
-  ping: () => ipcRenderer.send('arc:ping'),
+    delete: (id: string) => ipcRenderer.invoke('arc:conversations:delete', id),
 
-  // Rule 3: Push (Main → Renderer subscription)
-  onPong: (callback: (event: PongEvent) => void) => {
-    const listener = (_event: Electron.IpcRendererEvent, data: PongEvent) => callback(data)
-    ipcRenderer.on('arc:pong', listener)
-    return () => ipcRenderer.removeListener('arc:pong', listener)
+    onEvent: (callback: (event: ConversationEvent) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, data: ConversationEvent) => callback(data)
+      ipcRenderer.on('arc:conversations:event', listener)
+      return () => ipcRenderer.removeListener('arc:conversations:event', listener)
+    },
+  },
+
+  messages: {
+    list: (conversationId: string) =>
+      ipcRenderer.invoke('arc:messages:list', conversationId),
+
+    create: (conversationId: string, input: CreateMessageInput) =>
+      ipcRenderer.invoke('arc:messages:create', conversationId, input),
+  },
+
+  models: {
+    list: () => ipcRenderer.invoke('arc:models:list'),
+  },
+
+  ai: {
+    chat: (conversationId: string, options: ChatOptions) =>
+      ipcRenderer.invoke('arc:ai:chat', conversationId, options),
+
+    stop: (streamId: string) => ipcRenderer.invoke('arc:ai:stop', streamId),
+
+    onEvent: (callback: (event: AIStreamEvent) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, data: AIStreamEvent) => callback(data)
+      ipcRenderer.on('arc:ai:event', listener)
+      return () => ipcRenderer.removeListener('arc:ai:event', listener)
+    },
+  },
+
+  config: {
+    get: <T = unknown>(key: string) =>
+      ipcRenderer.invoke('arc:config:get', key) as Promise<T | null>,
+
+    set: <T = unknown>(key: string, value: T) =>
+      ipcRenderer.invoke('arc:config:set', key, value),
+  },
+
+  ui: {
+    showThreadContextMenu: (isPinned: boolean) =>
+      ipcRenderer.invoke('arc:ui:showThreadContextMenu', isPinned),
   },
 }
 

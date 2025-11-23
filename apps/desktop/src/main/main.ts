@@ -1,10 +1,8 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
-import type { HelloResponse } from '../types/types';
 import started from 'electron-squirrel-startup';
 import { initializeDatabase } from './db/client';
-import { registerAllIPC } from './ipc/handlers';
-import { registerDemoHandlers } from './ipc/demo-handlers';
+import { registerArcHandlers } from './ipc/arc-handlers';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -38,8 +36,7 @@ const createWindow = () => {
 // Some APIs can only be used after this event occurs.
 app.on('ready', async () => {
   await initializeDatabase();
-  registerAllIPC(ipcMain);
-  registerDemoHandlers(ipcMain);
+  registerArcHandlers(ipcMain);
   createWindow();
 });
 
@@ -59,9 +56,3 @@ app.on('activate', () => {
     createWindow();
   }
 });
-
-// IPC Handlers
-ipcMain.handle('app:hello', (): HelloResponse => ({
-  message: 'Hello from the Main Process!',
-  timestamp: new Date().toISOString(),
-}));
