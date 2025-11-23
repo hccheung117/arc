@@ -10,7 +10,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
-import type { Model } from '@shared/models'
+import type { Model } from '../../../types/models'
 
 // Simple fuzzy matching utility
 // Returns true if all characters in query appear in text in order

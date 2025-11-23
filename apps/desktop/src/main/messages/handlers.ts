@@ -1,5 +1,5 @@
 import { asc, eq } from 'drizzle-orm'
-import type { Message } from '../../shared/messages'
+import type { Message } from '../../types/messages'
 import { db } from '../db/client'
 import { messages } from '../db/schema'
 

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { Message } from '../shared/messages'
+import type { Message } from '../types/messages'
 
 /**
  * IPC Preload Module

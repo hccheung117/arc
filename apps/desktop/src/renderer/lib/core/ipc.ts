@@ -1,6 +1,6 @@
-import type { Model } from '@shared/models'
-import type { Message } from '@shared/messages'
-import type { ConversationSummary, ContextMenuAction } from '@shared/conversations'
+import type { Model } from '../../../types/models'
+import type { Message } from '../../../types/messages'
+import type { ConversationSummary, ContextMenuAction } from '../../../types/conversations'
 
 export interface StreamDeltaEvent {
   streamId: string

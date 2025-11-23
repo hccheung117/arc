@@ -1,5 +1,5 @@
-import type { Message } from '@shared/messages'
-import type { ConversationSummary } from '@shared/conversations'
+import type { Message } from '../../../types/messages'
+import type { ConversationSummary } from '../../../types/conversations'
 
 /**
  * ChatThread: UI ViewModel for organizing messages

@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
-import type { HelloResponse } from '../shared/types';
+import type { HelloResponse } from '../types/types';
 import started from 'electron-squirrel-startup';
 import { initializeDatabase } from './db/client';
 import { registerAllIPC } from './ipc/handlers';

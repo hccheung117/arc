@@ -1,6 +1,6 @@
 import { createOpenAI } from '@ai-sdk/openai'
 import { streamText, type CoreMessage, type LanguageModel } from 'ai'
-import type { Message } from '../../shared/messages'
+import type { Message } from '../../types/messages'
 
 export interface ProviderConfig {
   type: string

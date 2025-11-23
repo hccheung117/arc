@@ -7,7 +7,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { Markdown } from "@/components/markdown"
-import type { Message as MessageType } from '@shared/messages'
+import type { Message as MessageType } from '../../../types/messages'
 
 interface MessageProps {
   message: MessageType

@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { db } from '../db/client'
 import { models, providers } from '../db/schema'
-import type { Model } from '../../shared/models'
+import type { Model } from '../../types/models'
 
 export async function getModels(): Promise<Model[]> {
   const result = await db

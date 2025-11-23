@@ -1,4 +1,4 @@
-import type { Message } from '@shared/messages'
+import type { Message } from '../../../types/messages'
 import { getIPC } from './ipc'
 
 export async function getMessages(conversationId: string): Promise<Message[]> {
