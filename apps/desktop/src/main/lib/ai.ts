@@ -1,9 +1,7 @@
 import { createOpenAI } from '@ai-sdk/openai'
 import { streamText, type CoreMessage, type LanguageModel } from 'ai'
-import { eq } from 'drizzle-orm'
 import type { Message } from '@arc-types/messages'
-import { db } from '@main/db/client'
-import { models as modelsTable, providers } from '@main/db/schema'
+import { modelsFile, settingsFile } from '@main/storage'
 import { getMessages, insertAssistantMessage } from './messages'
 import { getProviderConfig } from './providers'
 
@@ -54,17 +52,14 @@ export function toCoreMessages(messages: Message[]): CoreMessage[] {
  * Get provider ID for a given model.
  */
 export async function getModelProvider(modelId: string): Promise<string> {
-  const result = await db
-    .select({ providerId: modelsTable.providerId })
-    .from(modelsTable)
-    .where(eq(modelsTable.id, modelId))
-    .get()
+  const modelsCache = await modelsFile().read()
+  const model = modelsCache.models.find((m) => m.id === modelId)
 
-  if (!result) {
+  if (!model) {
     throw new Error(`Model ${modelId} not found`)
   }
 
-  return result.providerId
+  return model.providerId
 }
 
 /**
@@ -123,11 +118,8 @@ export async function startChatStream(
 
     const providerId = await getModelProvider(modelId)
     const config = await getProviderConfig(providerId)
-    const provider = await db
-      .select({ type: providers.type })
-      .from(providers)
-      .where(eq(providers.id, providerId))
-      .get()
+    const settings = await settingsFile().read()
+    const provider = settings.providers.find((p) => p.id === providerId)
 
     if (!provider) {
       throw new Error(`Provider ${providerId} not found`)

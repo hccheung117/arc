@@ -9,10 +9,4 @@ export default defineConfig({
       '@arc-types': path.resolve(__dirname, './src/types'),
     },
   },
-  build: {
-    rollupOptions: {
-      // Native modules must be external - they can't be bundled
-      external: ['better-sqlite3'],
-    },
-  },
 });
