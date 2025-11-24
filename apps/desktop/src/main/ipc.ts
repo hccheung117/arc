@@ -1,6 +1,6 @@
 import type { IpcMain, IpcMainInvokeEvent } from 'electron'
 import { BrowserWindow } from 'electron'
-import { randomUUID } from 'crypto'
+import { createId } from '@paralleldrive/cuid2'
 import type {
   Conversation,
   ConversationPatch,
@@ -16,13 +16,13 @@ import type { Model } from '@arc-types/models'
 import {
   getConversationSummaries,
   updateConversation,
-  ensureConversation,
   deleteConversation,
 } from './lib/conversations'
 import { getMessages, createMessage } from './lib/messages'
 import { getModels } from './lib/models'
 import { startChatStream, cancelStream } from './lib/ai'
 import { getConfig, setConfig } from './lib/providers'
+import { threadIndexFile, type StoredThread } from './storage'
 import { showThreadContextMenu } from './lib/ui'
 
 /**
@@ -74,15 +74,16 @@ async function handleConversationsDelete(_event: IpcMainInvokeEvent, id: string)
 }
 
 /**
- * Ensures a conversation exists and emits 'created' event if newly created.
- * Used internally by message handlers.
+ * Helper to convert a StoredThread to a Conversation for event emission.
  */
-export async function ensureConversationAndEmit(conversationId: string): Promise<Conversation> {
-  const { conversation, wasCreated } = await ensureConversation(conversationId)
-  if (wasCreated) {
-    emitConversationEvent({ type: 'created', conversation })
+function storedThreadToConversation(thread: StoredThread): Conversation {
+  return {
+    id: thread.id,
+    title: thread.title ?? 'New Chat',
+    pinned: thread.pinned,
+    createdAt: thread.createdAt,
+    updatedAt: thread.updatedAt,
   }
-  return conversation
 }
 
 export function registerConversationsHandlers(ipcMain: IpcMain): void {
@@ -105,10 +106,23 @@ async function handleMessagesList(
 async function handleMessagesCreate(
   _event: IpcMainInvokeEvent,
   conversationId: string,
-  input: CreateMessageInput
+  input: CreateMessageInput,
 ): Promise<Message> {
-  await ensureConversationAndEmit(conversationId)
-  return createMessage(conversationId, input)
+  const { message, threadWasCreated } = await createMessage(conversationId, input)
+
+  // Emit 'created' event if this is a new thread
+  if (threadWasCreated) {
+    const index = await threadIndexFile().read()
+    const thread = index.threads.find((t) => t.id === conversationId)
+    if (thread) {
+      emitConversationEvent({
+        type: 'created',
+        conversation: storedThreadToConversation(thread),
+      })
+    }
+  }
+
+  return message
 }
 
 export function registerMessagesHandlers(ipcMain: IpcMain): void {
@@ -137,7 +151,7 @@ async function handleAIChat(
   conversationId: string,
   options: ChatOptions
 ): Promise<ChatResponse> {
-  const streamId = randomUUID()
+  const streamId = createId()
 
   startChatStream(streamId, conversationId, options.model, {
     onDelta: (chunk) => emitAIStreamEvent({ type: 'delta', streamId, chunk }),

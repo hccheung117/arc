@@ -1,28 +1,39 @@
-import { eq } from 'drizzle-orm'
-import { db } from '@main/db/client'
-import { models, providers } from '@main/db/schema'
+import { modelsFile, settingsFile } from '@main/storage'
 import type { Model } from '@arc-types/models'
 
+/**
+ * Returns the list of available models by joining the models cache
+ * with provider information from settings.
+ *
+ * This performs an in-memory JOIN equivalent to the previous SQL query.
+ */
 export async function getModels(): Promise<Model[]> {
-  const result = await db
-    .select({
-      id: models.id,
-      name: models.name,
-      providerId: providers.id,
-      providerName: providers.name,
-      providerType: providers.type,
-    })
-    .from(models)
-    .innerJoin(providers, eq(models.providerId, providers.id))
-    .where(eq(models.active, 1))
+  // Read both storage files
+  const [modelsCache, settings] = await Promise.all([
+    modelsFile().read(),
+    settingsFile().read(),
+  ])
 
-  return result.map((row) => ({
-    id: row.id,
-    name: row.name,
-    provider: {
-      id: row.providerId,
-      name: row.providerName,
-      type: row.providerType as 'openai' | 'anthropic' | 'google' | 'mistral',
-    },
-  }))
+  // Build provider lookup map for efficient joins
+  const providersById = new Map(
+    settings.providers
+      .filter((p) => p.isEnabled)
+      .map((p) => [p.id, p]),
+  )
+
+  // Join models with providers (in-memory)
+  return modelsCache.models
+    .filter((model) => providersById.has(model.providerId))
+    .map((model) => {
+      const provider = providersById.get(model.providerId)!
+      return {
+        id: model.id,
+        name: model.name,
+        provider: {
+          id: provider.id,
+          name: provider.name,
+          type: provider.type as 'openai' | 'anthropic' | 'google' | 'mistral',
+        },
+      }
+    })
 }

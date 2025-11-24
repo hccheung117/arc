@@ -1,22 +1,22 @@
+import { createId } from '@paralleldrive/cuid2'
 import type { Message } from '@arc-types/messages'
 import type { ConversationSummary } from '@arc-types/conversations'
 
 /**
  * ChatThread: UI ViewModel for organizing messages
  *
- * Decouples UI state from database persistence using dual-identity system:
- * - threadId: Stable UI identifier (never changes)
- * - conversationId: Mutable DB identifier (null → UUID on first message)
+ * Uses cuid2 for stable IDs. Both threadId and conversationId use cuid2
+ * for consistency and better properties (sortable, URL-safe, collision-resistant).
  *
  * This enables:
  * - Instant UI feedback (threads exist before database conversations)
- * - Zero blinking (threadId stability prevents re-renders)
+ * - Zero blinking (ID stability prevents re-renders)
  * - Lazy persistence (conversations created only when needed)
  * - Message-first UX (users interact with messages, not conversations)
  */
 export type ChatThread = {
-  threadId: string
-  conversationId: string | null
+  threadId: string // cuid2 - stable UI identifier
+  conversationId: string | null // cuid2 - database identifier (null until persisted)
   messages: Message[]
   status: 'draft' | 'streaming' | 'persisted'
   title: string
@@ -27,12 +27,12 @@ export type ChatThread = {
 /**
  * Create a new draft thread for "New Chat"
  *
- * Draft threads have no conversationId yet - it's generated lazily
+ * Draft threads have no conversationId yet - it's generated using cuid2
  * when the user sends their first message.
  */
 export function createDraftThread(): ChatThread {
   return {
-    threadId: crypto.randomUUID(),
+    threadId: createId(),
     conversationId: null,
     messages: [],
     status: 'draft',
@@ -50,7 +50,7 @@ export function createDraftThread(): ChatThread {
  */
 export function hydrateFromConversation(conv: ConversationSummary): ChatThread {
   return {
-    threadId: crypto.randomUUID(),
+    threadId: createId(),
     conversationId: conv.id,
     messages: [],
     status: 'persisted',

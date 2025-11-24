@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createId } from '@paralleldrive/cuid2'
 import { ScrollArea } from '@renderer/components/ui/scroll-area'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
 import { Composer } from './composer'
@@ -9,6 +10,7 @@ import type { Model } from '@arc-types/models'
 import { getModels } from '@renderer/lib/models'
 import { getMessages, createMessage, startAIChat, onAIEvent } from '@renderer/lib/messages'
 import type { ChatThread } from './chat-thread'
+import { createDraftThread } from './chat-thread'
 import type { ThreadAction } from './use-chat-threads'
 
 interface WorkspaceProps {
@@ -126,8 +128,10 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
       let conversationId: string
 
       if (activeThreadId === null) {
-        threadId = crypto.randomUUID()
-        conversationId = crypto.randomUUID()
+        // Create new thread with cuid2 IDs
+        const thread = createDraftThread()
+        threadId = thread.threadId
+        conversationId = createId() // Generate conversationId using cuid2
 
         onThreadUpdate({
           type: 'CREATE_DRAFT',
@@ -145,7 +149,7 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
         threadId = activeThreadId
         if (!activeThread) return
 
-        conversationId = activeThread.conversationId || crypto.randomUUID()
+        conversationId = activeThread.conversationId || createId()
         if (!activeThread.conversationId) {
           onThreadUpdate({
             type: 'SET_CONVERSATION_ID',

@@ -1,94 +1,125 @@
-import { asc, eq } from 'drizzle-orm'
+import { createId } from '@paralleldrive/cuid2'
 import type { Message, MessageRole } from '@arc-types/messages'
-import { db } from '@main/db/client'
-import { conversations, messages } from '@main/db/schema'
-
-type MessageRow = {
-  id: string
-  conversationId: string
-  role: string
-  content: string
-  createdAt: Date
-  updatedAt: Date
-}
+import {
+  messageLogFile,
+  threadIndexFile,
+  reduceMessageEvents,
+  type StoredMessageEvent,
+} from '@main/storage'
 
 /**
- * Converts a database row to a Message entity.
+ * Converts a StoredMessageEvent to a Message entity.
+ * Hydrates default fields (status, conversationId) that are not stored on disk.
  */
-export function toMessage(row: MessageRow): Message {
+export function toMessage(event: StoredMessageEvent, conversationId: string): Message {
   return {
-    id: row.id,
-    conversationId: row.conversationId,
-    role: row.role as 'user' | 'assistant' | 'system',
-    status: 'complete',
-    content: row.content,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
+    id: event.id,
+    conversationId,
+    role: event.role!,
+    status: 'complete', // All persisted messages are complete
+    content: event.content!,
+    createdAt: event.createdAt!,
+    updatedAt: event.updatedAt ?? event.createdAt!,
   }
 }
 
+/**
+ * Returns all messages for a conversation by reading and reducing the event log.
+ * Implements event sourcing: the log is the source of truth.
+ */
 export async function getMessages(conversationId: string): Promise<Message[]> {
-  const result = await db
-    .select()
-    .from(messages)
-    .where(eq(messages.conversationId, conversationId))
-    .orderBy(asc(messages.createdAt))
-
-  return result.map(toMessage)
+  const events = await messageLogFile(conversationId).read()
+  const reducedEvents = reduceMessageEvents(events)
+  return reducedEvents.map((event) => toMessage(event, conversationId))
 }
 
 /**
- * Creates a new message in the database.
- * Also updates the conversation's updatedAt timestamp.
+ * Creates a new message by appending to the event log.
+ * Implements lazy thread creation: adds thread to index on first message.
+ *
+ * This is the critical "message-first" operation that drives the entire system.
+ *
+ * @returns Object with message and wasCreated flag for event emission
  */
 export async function createMessage(
   conversationId: string,
-  input: { role: MessageRole; content: string }
-): Promise<Message> {
-  const now = new Date()
-  const [inserted] = await db
-    .insert(messages)
-    .values({
-      conversationId,
-      role: input.role,
-      content: input.content,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .returning()
+  input: { role: MessageRole; content: string },
+): Promise<{ message: Message; threadWasCreated: boolean }> {
+  const now = new Date().toISOString()
+  const messageId = createId()
 
-  await db
-    .update(conversations)
-    .set({ updatedAt: now })
-    .where(eq(conversations.id, conversationId))
+  // Create the message event
+  const event: StoredMessageEvent = {
+    id: messageId,
+    role: input.role,
+    content: input.content,
+    createdAt: now,
+  }
 
-  return toMessage(inserted)
+  // Append to message log (creates file if doesn't exist)
+  await messageLogFile(conversationId).append(event)
+
+  // Lazily create thread in index if this is the first message
+  let wasCreated = false
+  await threadIndexFile().update((index) => {
+    const existingThread = index.threads.find((t) => t.id === conversationId)
+
+    if (!existingThread) {
+      // First message: create new thread entry
+      index.threads.push({
+        id: conversationId,
+        title: null, // Will be auto-generated from first message
+        pinned: false,
+        renamed: false,
+        createdAt: now,
+        updatedAt: now,
+      })
+      wasCreated = true
+    } else {
+      // Existing thread: update timestamp
+      existingThread.updatedAt = now
+    }
+
+    return index
+  })
+
+  const message = toMessage(event, conversationId)
+  return { message, threadWasCreated: wasCreated }
 }
 
 /**
- * Inserts an assistant message to database.
- * Also updates the conversation's updatedAt timestamp.
+ * Inserts an assistant message by appending to the event log.
+ * Called after AI streaming completes.
+ *
+ * Note: This function is only called when the stream is complete, ensuring
+ * that only full, valid responses are persisted.
  */
 export async function insertAssistantMessage(
   conversationId: string,
-  content: string
+  content: string,
 ): Promise<Message> {
-  const now = new Date()
-  const [inserted] = await db
-    .insert(messages)
-    .values({
-      conversationId,
-      role: 'assistant',
-      content,
-      createdAt: now,
-      updatedAt: now,
-    })
-    .returning()
+  const now = new Date().toISOString()
+  const messageId = createId()
 
-  await db
-    .update(conversations)
-    .set({ updatedAt: now })
-    .where(eq(conversations.id, conversationId))
+  // Create the message event
+  const event: StoredMessageEvent = {
+    id: messageId,
+    role: 'assistant',
+    content,
+    createdAt: now,
+  }
 
-  return toMessage(inserted)
+  // Append to message log
+  await messageLogFile(conversationId).append(event)
+
+  // Update thread timestamp in index
+  await threadIndexFile().update((index) => {
+    const thread = index.threads.find((t) => t.id === conversationId)
+    if (thread) {
+      thread.updatedAt = now
+    }
+    return index
+  })
+
+  return toMessage(event, conversationId)
 }

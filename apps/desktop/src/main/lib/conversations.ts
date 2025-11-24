@@ -1,43 +1,45 @@
 import type { ConversationSummary } from '@arc-types/conversations'
 import type { Conversation, ConversationPatch } from '@arc-types/arc-api'
 import { getMessages } from './messages'
-import { db } from '@main/db/client'
-import { conversations, messages } from '@main/db/schema'
-import { desc, eq } from 'drizzle-orm'
-
-type ConversationRow = {
-  id: string
-  title: string | null
-  pinned: boolean | null
-  createdAt: Date
-  updatedAt: Date
-}
+import { threadIndexFile, messageLogFile, type StoredThread } from '@main/storage'
 
 /**
- * Converts a database row to a Conversation entity.
+ * Converts a StoredThread to a Conversation entity.
  */
-export function toConversation(row: ConversationRow): Conversation {
+export function toConversation(thread: StoredThread): Conversation {
   return {
-    id: row.id,
-    title: row.title ?? 'New Chat',
-    pinned: row.pinned ?? false,
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
+    id: thread.id,
+    title: thread.title ?? 'New Chat',
+    pinned: thread.pinned,
+    createdAt: thread.createdAt,
+    updatedAt: thread.updatedAt,
   }
 }
 
+/**
+ * Returns all conversation summaries for the sidebar.
+ * Threads are sorted by last update time (most recent first).
+ * Titles are either user-set or auto-generated from the first message.
+ */
 export async function getConversationSummaries(): Promise<ConversationSummary[]> {
-  const result = await db.select().from(conversations).orderBy(desc(conversations.updatedAt))
+  const index = await threadIndexFile().read()
+
+  // Sort by updatedAt descending (most recent first)
+  const sortedThreads = [...index.threads].sort((a, b) => {
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  })
 
   return Promise.all(
-    result.map(async (row) => {
-      const base = { id: row.id, updatedAt: row.updatedAt.toISOString(), pinned: !!row.pinned }
+    sortedThreads.map(async (thread) => {
+      const base = { id: thread.id, updatedAt: thread.updatedAt, pinned: thread.pinned }
 
-      if (row.title !== null) {
-        return { ...base, title: row.title }
+      // If user has set a custom title, use it
+      if (thread.title !== null) {
+        return { ...base, title: thread.title }
       }
 
-      const conversationMessages = await getMessages(row.id)
+      // Otherwise, generate title from first message
+      const conversationMessages = await getMessages(thread.id)
       const firstMessage = conversationMessages[0]
 
       if (!firstMessage) {
@@ -47,7 +49,7 @@ export async function getConversationSummaries(): Promise<ConversationSummary[]>
       const generatedTitle = firstMessage.content.split('\n')[0]
 
       return { ...base, title: generatedTitle }
-    })
+    }),
   )
 }
 
@@ -57,84 +59,81 @@ export async function getConversationSummaries(): Promise<ConversationSummary[]>
  */
 export async function updateConversation(
   id: string,
-  patch: ConversationPatch
+  patch: ConversationPatch,
 ): Promise<Conversation> {
-  const updateData: { title?: string; pinned?: boolean; updatedAt: Date } = {
-    updatedAt: new Date(),
+  let updatedThread: StoredThread | undefined
+
+  await threadIndexFile().update((index) => {
+    const thread = index.threads.find((t) => t.id === id)
+    if (!thread) {
+      throw new Error(`Conversation not found: ${id}`)
+    }
+
+    // Apply patch
+    const now = new Date().toISOString()
+    if (patch.title !== undefined) {
+      thread.title = patch.title
+      thread.renamed = true
+    }
+    if (patch.pinned !== undefined) {
+      thread.pinned = patch.pinned
+    }
+    thread.updatedAt = now
+
+    updatedThread = thread
+    return index
+  })
+
+  if (!updatedThread) {
+    throw new Error(`Failed to update conversation: ${id}`)
   }
 
-  if (patch.title !== undefined) {
-    updateData.title = patch.title
-  }
-  if (patch.pinned !== undefined) {
-    updateData.pinned = patch.pinned
-  }
-
-  await db.update(conversations).set(updateData).where(eq(conversations.id, id))
-
-  const [row] = await db.select().from(conversations).where(eq(conversations.id, id))
-
-  if (!row) {
-    throw new Error(`Conversation not found: ${id}`)
-  }
-
-  return toConversation(row)
+  return toConversation(updatedThread)
 }
 
 /**
- * Ensures a conversation exists. Returns existing or newly created conversation.
- * Event emission is handled by IPC layer.
- *
- * @returns Object with conversation and wasCreated flag for IPC layer to emit appropriate event
+ * Deletes a conversation and all its messages.
+ * Removes the thread from the index and deletes its message log file.
  */
-export async function ensureConversation(
-  conversationId: string
-): Promise<{ conversation: Conversation; wasCreated: boolean }> {
-  const [existing] = await db
-    .select()
-    .from(conversations)
-    .where(eq(conversations.id, conversationId))
-
-  if (existing) {
-    return { conversation: toConversation(existing), wasCreated: false }
-  }
-
-  const now = new Date()
-  await db.insert(conversations).values({
-    id: conversationId,
-    title: null,
-    pinned: false,
-    createdAt: now,
-    updatedAt: now,
+export async function deleteConversation(conversationId: string): Promise<void> {
+  // Remove from index
+  await threadIndexFile().update((index) => {
+    index.threads = index.threads.filter((t) => t.id !== conversationId)
+    return index
   })
 
-  const [created] = await db
-    .select()
-    .from(conversations)
-    .where(eq(conversations.id, conversationId))
-
-  if (!created) {
-    throw new Error(`Failed to create conversation: ${conversationId}`)
-  }
-
-  return { conversation: toConversation(created), wasCreated: true }
+  // Delete message log file
+  await messageLogFile(conversationId).delete()
 }
 
-export async function deleteConversation(conversationId: string): Promise<void> {
-  await db.delete(messages).where(eq(messages.conversationId, conversationId))
-  await db.delete(conversations).where(eq(conversations.id, conversationId))
-}
-
+/**
+ * Renames a conversation by setting a custom title.
+ * Marks the conversation as renamed so auto-generation doesn't override it.
+ */
 export async function renameConversation(conversationId: string, title: string): Promise<void> {
-  await db
-    .update(conversations)
-    .set({ title, updatedAt: new Date() })
-    .where(eq(conversations.id, conversationId))
+  await threadIndexFile().update((index) => {
+    const thread = index.threads.find((t) => t.id === conversationId)
+    if (!thread) {
+      throw new Error(`Conversation not found: ${conversationId}`)
+    }
+    thread.title = title
+    thread.renamed = true
+    thread.updatedAt = new Date().toISOString()
+    return index
+  })
 }
 
+/**
+ * Toggles the pinned status of a conversation.
+ */
 export async function toggleConversationPin(conversationId: string, pinned: boolean): Promise<void> {
-  await db
-    .update(conversations)
-    .set({ pinned, updatedAt: new Date() })
-    .where(eq(conversations.id, conversationId))
+  await threadIndexFile().update((index) => {
+    const thread = index.threads.find((t) => t.id === conversationId)
+    if (!thread) {
+      throw new Error(`Conversation not found: ${conversationId}`)
+    }
+    thread.pinned = pinned
+    thread.updatedAt = new Date().toISOString()
+    return index
+  })
 }

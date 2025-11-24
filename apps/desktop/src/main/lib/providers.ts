@@ -1,42 +1,42 @@
-import { eq } from 'drizzle-orm'
-import { db } from '@main/db/client'
-import { providers } from '@main/db/schema'
+import { settingsFile } from '@main/storage'
 import { encryptSecret, decryptSecret } from '@main/lib/security'
 
 export async function updateProviderConfig(
   providerId: string,
   config: { apiKey?: string; baseUrl?: string },
 ): Promise<void> {
-  await db
-    .update(providers)
-    .set({
-      ...(config.apiKey !== undefined && { apiKey: encryptSecret(config.apiKey) }),
-      ...(config.baseUrl !== undefined && { baseUrl: config.baseUrl }),
-    })
-    .where(eq(providers.id, providerId))
-    .run()
+  await settingsFile().update((settings) => {
+    const provider = settings.providers.find((p) => p.id === providerId)
+    if (!provider) {
+      throw new Error(`Provider ${providerId} not found`)
+    }
+
+    // Update fields if provided
+    if (config.apiKey !== undefined) {
+      provider.apiKey = encryptSecret(config.apiKey)
+    }
+    if (config.baseUrl !== undefined) {
+      provider.baseUrl = config.baseUrl
+    }
+
+    return settings
+  })
 }
 
 export async function getProviderConfig(providerId: string): Promise<{
   apiKey: string | null
   baseUrl: string | null
 }> {
-  const result = await db
-    .select({
-      apiKey: providers.apiKey,
-      baseUrl: providers.baseUrl,
-    })
-    .from(providers)
-    .where(eq(providers.id, providerId))
-    .get()
+  const settings = await settingsFile().read()
+  const provider = settings.providers.find((p) => p.id === providerId)
 
-  if (!result) {
+  if (!provider) {
     throw new Error(`Provider ${providerId} not found`)
   }
 
   return {
-    ...result,
-    apiKey: result.apiKey ? decryptSecret(result.apiKey) : null,
+    apiKey: provider.apiKey ? decryptSecret(provider.apiKey) : null,
+    baseUrl: provider.baseUrl,
   }
 }
 
