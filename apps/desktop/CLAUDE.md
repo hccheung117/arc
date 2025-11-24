@@ -8,12 +8,12 @@ This document outlines development practices for the Arc desktop Electron applic
 
 We enforce a **"Push-then-Squash"** workflow to keep migration history clean (one migration file per release).
 
-**Local Development: `pnpm db:dev`**
+**Local Development: `npm run db:dev`**
 - **When to run:** Whenever you modify `schema.ts` or pull changes
 - **What it does:** Pushes schema changes directly to your local SQLite database (`drizzle-kit push`)
 - **Outcome:** Your local DB is synced. **No migration files are created**
 
-**Release Preparation: `pnpm db:release`**
+**Release Preparation: `npm run db:release`**
 - **When to run:** Only when preparing a version bump PR
 - **What it does:** Compares your current schema against the last released migration and generates a new one (`drizzle-kit generate`)
 - **Outcome:** **One** new migration file is created for the release
@@ -79,7 +79,7 @@ Always use the official `shadcn-ui` CLI to add new components:
 
 ```bash
 # Example: Adding a button component
-pnpm dlx shadcn-ui@latest add button
+npx shadcn-ui@latest add button
 ```
 
 ### 2.3. Typography System

@@ -16,9 +16,9 @@ export async function initializeDatabase() {
   const journalPath = path.join(migrationsFolder, 'meta', '_journal.json')
 
   // In dev mode, migrations may not exist yet - skip if journal doesn't exist
-  // Use `pnpm db:dev` to push schema changes during development
+  // Use `npm run db:dev` to push schema changes during development
   if (!fs.existsSync(journalPath)) {
-    console.log('[DB] No migrations found, skipping. Use `pnpm db:dev` to set up schema.')
+    console.log('[DB] No migrations found, skipping. Use `npm run db:dev` to set up schema.')
     return
   }
 

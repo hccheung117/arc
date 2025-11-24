@@ -5,6 +5,7 @@
   "description": "My Electron application description",
   "main": ".vite/build/main.js",
   "scripts": {
+    "postinstall": "electron-rebuild",
     "start": "electron-forge start",
     "package": "electron-forge package",
     "make": "electron-forge make",

@@ -3,24 +3,18 @@
   "version": "0.0.0",
   "private": true,
   "engines": {
-    "node": ">=20.9.0",
-    "pnpm": ">=8.0.0"
+    "node": ">=20.9.0"
   },
-  "packageManager": "pnpm@8.15.0",
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
-    "start": "pnpm --filter desktop start",
-    "package": "pnpm --filter desktop package",
-    "make": "pnpm --filter desktop make",
-    "publish": "pnpm --filter desktop publish",
-    "lint": "pnpm --filter desktop lint",
-    "db:dev": "pnpm --filter desktop db:dev",
-    "db:release": "pnpm --filter desktop db:release"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "better-sqlite3",
-      "electron",
-      "electron-winstaller"
-    ]
+    "start": "npm run start -w apps/desktop",
+    "package": "npm run package -w apps/desktop",
+    "make": "npm run make -w apps/desktop",
+    "publish": "npm run publish -w apps/desktop",
+    "lint": "npm run lint -w apps/desktop",
+    "db:dev": "npm run db:dev -w apps/desktop",
+    "db:release": "npm run db:release -w apps/desktop"
   }
 }
