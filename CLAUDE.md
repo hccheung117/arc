@@ -30,6 +30,10 @@ Our hierarchy prevents churn and maintains a unified voice:
 - **Barrel files are forbidden.** Import directly from the defining module to protect the dependency graph and compiler performance.
 - Keep each module responsible for its own exports; duplication violates the single-source-of-truth rule.
 
+## Package Management
+
+- **Always use npm.** Consistency in package management prevents lock file conflicts and ensures reproducible builds across the team.
+
 ## Comment & Rationale Guidelines
 
 - Write self-documenting code; names and structure carry the narrative.
