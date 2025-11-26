@@ -1,5 +1,4 @@
 import { settingsFile } from '@main/storage'
-import { encryptSecret, decryptSecret } from '@main/lib/security'
 
 export async function updateProviderConfig(
   providerId: string,
@@ -13,7 +12,7 @@ export async function updateProviderConfig(
 
     // Update fields if provided
     if (config.apiKey !== undefined) {
-      provider.apiKey = encryptSecret(config.apiKey)
+      provider.apiKey = config.apiKey
     }
     if (config.baseUrl !== undefined) {
       provider.baseUrl = config.baseUrl
@@ -35,7 +34,7 @@ export async function getProviderConfig(providerId: string): Promise<{
   }
 
   return {
-    apiKey: provider.apiKey ? decryptSecret(provider.apiKey) : null,
+    apiKey: provider.apiKey ?? null,
     baseUrl: provider.baseUrl,
   }
 }
