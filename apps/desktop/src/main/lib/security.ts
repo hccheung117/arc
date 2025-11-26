@@ -28,7 +28,7 @@ export function decryptSecret(encryptedBase64: string): string {
   try {
     const buffer = Buffer.from(encryptedBase64, 'base64')
     return safeStorage.decryptString(buffer)
-  } catch (error) {
+  } catch {
     // If decryption fails, it's likely:
     // 1. The string wasn't encrypted (legacy plaintext)
     // 2. It was encrypted on a different machine (safeStorage is machine-bound)

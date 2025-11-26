@@ -59,11 +59,11 @@ Distinguish between transient streaming state and persistent data:
 
 Code that is reusable across multiple, unrelated parts of the application belongs in the root-level directories:
 
-- `@/components/`: Shared React components
-- `@/hooks/`: Shared React hooks (`use...`)
-- `@/lib/`: Shared utility functions and libraries
+- `@renderer/components/`: Shared React components
+- `@renderer/hooks/`: Shared React hooks (`use...`)
+- `@renderer/lib/`: Shared utility functions and libraries
 
-Feature-specific code should be organized within feature directories (e.g., `@/features/workbench/`).
+Feature-specific code should be organized within feature directories (e.g., `@renderer/features/workbench/`).
 
 ### 2.2. UI Components (shadcn/ui)
 
@@ -71,7 +71,7 @@ This project uses **shadcn/ui** for its component library.
 
 **Installation Path**
 
-All shadcn/ui components **must** be installed in the `@/components/ui` directory. This directory is reserved exclusively for unmodified shadcn/ui components. Do not place custom components here.
+All shadcn/ui components **must** be installed in the `@renderer/components/ui` directory. This directory is reserved exclusively for unmodified shadcn/ui components. Do not place custom components here.
 
 **Adding New Components**
 
