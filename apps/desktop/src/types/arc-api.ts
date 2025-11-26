@@ -13,6 +13,7 @@
 import type { Message, MessageRole } from './messages'
 import type { ConversationSummary, ContextMenuAction } from './conversations'
 import type { Model } from './models'
+import type { ArcImportResult, ArcImportEvent } from './arc-file'
 
 /** Cleanup function returned by event subscriptions */
 export type Unsubscribe = () => void
@@ -129,6 +130,15 @@ export interface ArcAPI {
   ui: {
     /** Show thread context menu (Rule 2: Two-Way) */
     showThreadContextMenu(isPinned: boolean): Promise<ContextMenuAction>
+  }
+
+  /** .arc file import operations */
+  import: {
+    /** Import .arc file from path (Rule 2: Two-Way) */
+    file(filePath: string): Promise<ArcImportResult>
+
+    /** Subscribe to import events (Rule 3: Push) */
+    onEvent(callback: (event: ArcImportEvent) => void): Unsubscribe
   }
 }
 

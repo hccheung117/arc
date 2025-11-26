@@ -1,6 +1,7 @@
 import type { IpcMain, IpcMainInvokeEvent } from 'electron'
 import { BrowserWindow } from 'electron'
 import { createId } from '@paralleldrive/cuid2'
+import { readFile } from 'node:fs/promises'
 import type {
   Conversation,
   ConversationPatch,
@@ -10,6 +11,7 @@ import type {
   ChatOptions,
   ChatResponse,
 } from '@arc-types/arc-api'
+import type { ArcImportResult, ArcImportEvent } from '@arc-types/arc-file'
 import type { ConversationSummary, ContextMenuAction } from '@arc-types/conversations'
 import type { Message } from '@arc-types/messages'
 import type { Model } from '@arc-types/models'
@@ -24,6 +26,7 @@ import { startChatStream, cancelStream } from './lib/ai'
 import { getConfig, setConfig } from './lib/providers'
 import { threadIndexFile, type StoredThread } from './storage'
 import { showThreadContextMenu } from './lib/ui'
+import { validateArcFile, importArcFile } from './lib/arc-import'
 
 /**
  * Arc IPC Handlers
@@ -215,6 +218,37 @@ export function registerUIHandlers(ipcMain: IpcMain): void {
 }
 
 // ============================================================================
+// IMPORT HANDLERS
+// ============================================================================
+
+export function emitImportEvent(event: ArcImportEvent): void {
+  broadcast('arc:import:event', event)
+}
+
+async function handleImportFile(
+  _event: IpcMainInvokeEvent,
+  filePath: string
+): Promise<ArcImportResult> {
+  const content = await readFile(filePath, 'utf-8')
+
+  const validation = validateArcFile(content)
+  if (!validation.valid || !validation.data) {
+    const error = validation.error || 'Unknown validation error'
+    emitImportEvent({ type: 'error', error })
+    throw new Error(error)
+  }
+
+  const result = await importArcFile(validation.data)
+  emitImportEvent({ type: 'success', result })
+
+  return result
+}
+
+export function registerImportHandlers(ipcMain: IpcMain): void {
+  ipcMain.handle('arc:import:file', handleImportFile)
+}
+
+// ============================================================================
 // MAIN REGISTRATION
 // ============================================================================
 
@@ -225,4 +259,5 @@ export function registerArcHandlers(ipcMain: IpcMain): void {
   registerAIHandlers(ipcMain)
   registerConfigHandlers(ipcMain)
   registerUIHandlers(ipcMain)
+  registerImportHandlers(ipcMain)
 }

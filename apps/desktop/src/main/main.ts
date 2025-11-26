@@ -1,7 +1,9 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
+import { readFile } from 'node:fs/promises';
 import started from 'electron-squirrel-startup';
-import { registerArcHandlers } from './ipc';
+import { registerArcHandlers, emitImportEvent } from './ipc';
+import { validateArcFile, importArcFile } from './lib/arc-import';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -52,5 +54,34 @@ app.on('activate', () => {
   // dock icon is clicked and there are no other windows open.
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
+  }
+});
+
+// Handle .arc file drops on dock icon (macOS) and file associations
+app.on('open-file', async (event, filePath) => {
+  event.preventDefault();
+
+  // Only process .arc files
+  if (path.extname(filePath).toLowerCase() !== '.arc') {
+    return;
+  }
+
+  try {
+    const content = await readFile(filePath, 'utf-8');
+    const validation = validateArcFile(content);
+
+    if (!validation.valid || !validation.data) {
+      emitImportEvent({
+        type: 'error',
+        error: validation.error || 'Invalid .arc file',
+      });
+      return;
+    }
+
+    const result = await importArcFile(validation.data);
+    emitImportEvent({ type: 'success', result });
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Import failed';
+    emitImportEvent({ type: 'error', error: errorMsg });
   }
 });

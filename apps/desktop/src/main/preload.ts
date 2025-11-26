@@ -7,6 +7,7 @@ import type {
   ChatOptions,
   AIStreamEvent,
 } from '@arc-types/arc-api'
+import type { ArcImportEvent } from '@arc-types/arc-file'
 
 /**
  * IPC Preload Module
@@ -67,6 +68,16 @@ const arc: ArcAPI = {
   ui: {
     showThreadContextMenu: (isPinned: boolean) =>
       ipcRenderer.invoke('arc:ui:showThreadContextMenu', isPinned),
+  },
+
+  import: {
+    file: (filePath: string) => ipcRenderer.invoke('arc:import:file', filePath),
+
+    onEvent: (callback: (event: ArcImportEvent) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, data: ArcImportEvent) => callback(data)
+      ipcRenderer.on('arc:import:event', listener)
+      return () => ipcRenderer.removeListener('arc:import:event', listener)
+    },
   },
 }
 
