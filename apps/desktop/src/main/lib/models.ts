@@ -17,7 +17,7 @@ export async function getModels(): Promise<Model[]> {
   // Build provider lookup map for efficient joins
   const providersById = new Map(
     settings.providers
-      .filter((p) => p.isEnabled)
+      .filter((p) => p.enabled)
       .map((p) => [p.id, p]),
   )
 

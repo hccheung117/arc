@@ -38,7 +38,7 @@ export interface StoredProvider {
   type: string // 'openai' | 'anthropic' | 'ollama' etc.
   apiKey: string | null // Encrypted using safeStorage
   baseUrl: string | null
-  isEnabled: boolean
+  enabled: boolean
 }
 
 /**

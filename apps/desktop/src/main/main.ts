@@ -66,6 +66,8 @@ app.on('open-file', async (event, filePath) => {
     return;
   }
 
+  console.log(`[arc:import] Dock drop: ${filePath}`);
+
   try {
     const content = await readFile(filePath, 'utf-8');
     const validation = validateArcFile(content);

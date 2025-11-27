@@ -140,6 +140,12 @@ export interface ArcAPI {
     /** Subscribe to import events (Rule 3: Push) */
     onEvent(callback: (event: ArcImportEvent) => void): Unsubscribe
   }
+
+  /** Electron utilities exposed to renderer */
+  utils: {
+    /** Get file path from a dropped File object */
+    getFilePath(file: File): string
+  }
 }
 
 declare global {

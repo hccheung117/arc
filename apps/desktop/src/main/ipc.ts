@@ -229,6 +229,7 @@ async function handleImportFile(
   _event: IpcMainInvokeEvent,
   filePath: string
 ): Promise<ArcImportResult> {
+  console.log(`[arc:import] IPC request: ${filePath}`)
   const content = await readFile(filePath, 'utf-8')
 
   const validation = validateArcFile(content)

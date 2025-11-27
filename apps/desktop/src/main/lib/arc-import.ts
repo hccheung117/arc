@@ -26,10 +26,13 @@ interface ValidationResult {
  * Validates .arc file content against the schema.
  */
 export function validateArcFile(content: string): ValidationResult {
+  console.log('[arc:import] Validating file content')
+
   let parsed: unknown
   try {
     parsed = JSON.parse(content)
   } catch {
+    console.log('[arc:import] Validation failed: Invalid JSON')
     return { valid: false, error: 'Invalid JSON format' }
   }
 
@@ -74,7 +77,9 @@ export function validateArcFile(content: string): ValidationResult {
     }
   }
 
-  return { valid: true, data: parsed as ArcFile }
+  const arcFile = parsed as ArcFile
+  console.log(`[arc:import] Validation passed: ${arcFile.providers.length} provider(s)`)
+  return { valid: true, data: arcFile }
 }
 
 /**
@@ -111,6 +116,8 @@ function formatProviderName(type: string): string {
  * Imports providers from .arc file using upsert semantics.
  */
 export async function importArcFile(arcFile: ArcFile): Promise<ArcImportResult> {
+  console.log('[arc:import] Starting import')
+
   const result: ArcImportResult = {
     success: true,
     providersAdded: 0,
@@ -137,7 +144,7 @@ export async function importArcFile(arcFile: ArcFile): Promise<ArcImportResult> 
           type: incoming.type,
           apiKey: incoming.apiKey || null,
           baseUrl: incoming.baseUrl || null,
-          isEnabled: true,
+          enabled: true,
         }
         settings.providers.push(newProvider)
         result.providersAdded++
@@ -146,5 +153,6 @@ export async function importArcFile(arcFile: ArcFile): Promise<ArcImportResult> 
     return settings
   })
 
+  console.log(`[arc:import] Complete: ${result.providersAdded} added, ${result.providersUpdated} updated`)
   return result
 }

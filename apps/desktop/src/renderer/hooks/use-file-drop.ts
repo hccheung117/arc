@@ -59,8 +59,9 @@ export function useFileDrop({ extension, onDrop }: UseFileDropOptions): UseFileD
         return
       }
 
-      // Electron's File object has a path property
-      const filePath = (file as File & { path: string }).path
+      // Use Electron's webUtils to get file path (contextIsolation-safe)
+      const filePath = window.arc.utils.getFilePath(file)
+      console.log(`[arc:import] File dropped: ${filePath}`)
       if (filePath) {
         onDrop(filePath)
       }

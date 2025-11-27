@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
   ArcAPI,
   ConversationPatch,
@@ -78,6 +78,10 @@ const arc: ArcAPI = {
       ipcRenderer.on('arc:import:event', listener)
       return () => ipcRenderer.removeListener('arc:import:event', listener)
     },
+  },
+
+  utils: {
+    getFilePath: (file: File) => webUtils.getPathForFile(file),
   },
 }
 
