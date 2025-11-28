@@ -1,4 +1,5 @@
 import { createId } from '@paralleldrive/cuid2'
+import type { LanguageModelUsage } from 'ai'
 import type { Message, MessageRole, MessageAttachment } from '@arc-types/messages'
 import type { AttachmentInput } from '@arc-types/arc-api'
 import {
@@ -153,6 +154,7 @@ export async function insertAssistantMessage(
   content: string,
   modelId: string,
   providerId: string,
+  usage: LanguageModelUsage,
 ): Promise<Message> {
   const now = new Date().toISOString()
   const messageId = createId()
@@ -165,6 +167,7 @@ export async function insertAssistantMessage(
     createdAt: now,
     modelId,
     providerId,
+    usage,
   }
 
   // Append to message log

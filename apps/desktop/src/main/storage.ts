@@ -111,8 +111,14 @@ export interface StoredMessageEvent {
   modelId: string // Model ID when message was sent/generated
   providerId: string // Provider ID when message was sent/generated
 
-  // AI-specific metadata (assistant messages only)
-  usage?: number // Token count
+  // AI SDK usage (assistant messages only) - stored as-is from SDK
+  usage?: {
+    inputTokens?: number
+    outputTokens?: number
+    totalTokens?: number
+    reasoningTokens?: number
+    cachedInputTokens?: number
+  }
 }
 
 // ============================================================================
