@@ -144,7 +144,6 @@ export async function importArcFile(arcFile: ArcFile): Promise<ArcImportResult> 
           type: incoming.type,
           apiKey: incoming.apiKey || null,
           baseUrl: incoming.baseUrl || null,
-          enabled: true,
         }
         settings.providers.push(newProvider)
         result.providersAdded++

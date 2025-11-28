@@ -2,8 +2,9 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import started from 'electron-squirrel-startup';
-import { registerArcHandlers, emitImportEvent } from './ipc';
+import { registerArcHandlers, emitImportEvent, emitModelsEvent } from './ipc';
 import { validateArcFile, importArcFile } from './lib/arc-import';
+import { fetchAllModels } from './lib/models';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -38,6 +39,13 @@ const createWindow = () => {
 app.on('ready', () => {
   registerArcHandlers(ipcMain);
   createWindow();
+
+  // Background model fetch on startup
+  fetchAllModels()
+    .then((updated) => {
+      if (updated) emitModelsEvent({ type: 'updated' });
+    })
+    .catch((err) => console.error('[models] Startup fetch failed:', err));
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common
@@ -82,6 +90,13 @@ app.on('open-file', async (event, filePath) => {
 
     const result = await importArcFile(validation.data);
     emitImportEvent({ type: 'success', result });
+
+    // Trigger background model fetch after dock drop import
+    fetchAllModels()
+      .then((updated) => {
+        if (updated) emitModelsEvent({ type: 'updated' });
+      })
+      .catch((err) => console.error('[models] Background fetch failed:', err));
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Import failed';
     emitImportEvent({ type: 'error', error: errorMsg });

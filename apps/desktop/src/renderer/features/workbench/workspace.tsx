@@ -7,7 +7,7 @@ import { EmptyState } from './empty-state'
 import { Message } from './message'
 import { ModelSelector } from './model-selector'
 import type { Model } from '@arc-types/models'
-import { getModels } from '@renderer/lib/models'
+import { getModels, onModelsEvent } from '@renderer/lib/models'
 import { getMessages, createMessage, startAIChat, onAIEvent } from '@renderer/lib/messages'
 import type { ChatThread } from './chat-thread'
 import { createDraftThread } from './chat-thread'
@@ -46,18 +46,43 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
   }, [selectedModel])
 
   useEffect(() => {
-    getModels().then((fetchedModels) => {
-      setModels(fetchedModels)
-      if (!selectedModel && fetchedModels.length > 0) {
-        // Try to restore last selection from localStorage
-        const savedModelId = localStorage.getItem('arc:selectedModelId')
-        const savedModel = savedModelId
-          ? fetchedModels.find((m) => m.id === savedModelId)
-          : null
-        // Use saved model if found, otherwise default to first available
-        setSelectedModel(savedModel || fetchedModels[0])
+    const fetchModels = () => {
+      getModels().then((fetchedModels) => {
+        setModels(fetchedModels)
+        
+        setSelectedModel((prev) => {
+          if (prev) {
+            // Optional: Verify the selected model still exists in the new list
+            // For now, we keep the selection to avoid disruption
+            return prev
+          }
+
+          if (fetchedModels.length > 0) {
+            // Try to restore last selection from localStorage
+            const savedModelId = localStorage.getItem('arc:selectedModelId')
+            const savedModel = savedModelId
+              ? fetchedModels.find((m) => m.id === savedModelId)
+              : null
+            // Use saved model if found, otherwise default to first available
+            return savedModel || fetchedModels[0]
+          }
+          
+          return null
+        })
+      })
+    }
+
+    // Initial fetch
+    fetchModels()
+
+    // Listen for model updates from backend
+    const unsubscribe = onModelsEvent((event) => {
+      if (event.type === 'updated') {
+        fetchModels()
       }
     })
+
+    return unsubscribe
   }, [])
 
   // Load messages when thread is selected and has a conversationId

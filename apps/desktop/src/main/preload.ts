@@ -6,6 +6,7 @@ import type {
   CreateMessageInput,
   ChatOptions,
   AIStreamEvent,
+  ModelsEvent,
 } from '@arc-types/arc-api'
 import type { ArcImportEvent } from '@arc-types/arc-file'
 
@@ -42,6 +43,12 @@ const arc: ArcAPI = {
 
   models: {
     list: () => ipcRenderer.invoke('arc:models:list'),
+
+    onEvent: (callback: (event: ModelsEvent) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, data: ModelsEvent) => callback(data)
+      ipcRenderer.on('arc:models:event', listener)
+      return () => ipcRenderer.removeListener('arc:models:event', listener)
+    },
   },
 
   ai: {

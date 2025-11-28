@@ -21,7 +21,7 @@ import {
   deleteConversation,
 } from './lib/conversations'
 import { getMessages, createMessage } from './lib/messages'
-import { getModels } from './lib/models'
+import { getModels, fetchAllModels } from './lib/models'
 import { startChatStream, cancelStream } from './lib/ai'
 import { getConfig, setConfig } from './lib/providers'
 import { threadIndexFile, type StoredThread } from './storage'
@@ -137,6 +137,12 @@ export function registerMessagesHandlers(ipcMain: IpcMain): void {
 // MODELS HANDLERS
 // ============================================================================
 
+export type ModelsEvent = { type: 'updated' }
+
+export function emitModelsEvent(event: ModelsEvent): void {
+  broadcast('arc:models:event', event)
+}
+
 async function handleModelsList(): Promise<Model[]> {
   return getModels()
 }
@@ -241,6 +247,13 @@ async function handleImportFile(
 
   const result = await importArcFile(validation.data)
   emitImportEvent({ type: 'success', result })
+
+  // Trigger background model fetch after successful import
+  fetchAllModels()
+    .then((updated) => {
+      if (updated) emitModelsEvent({ type: 'updated' })
+    })
+    .catch((err) => console.error('[models] Background fetch failed:', err))
 
   return result
 }
