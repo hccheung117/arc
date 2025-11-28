@@ -1,7 +1,9 @@
 import { createOpenAI } from '@ai-sdk/openai'
 import { streamText, type CoreMessage, type LanguageModel } from 'ai'
+import * as fs from 'fs/promises'
 import type { Message } from '@arc-types/messages'
 import { modelsFile, settingsFile } from '@main/storage'
+import { getAttachmentPath } from './attachments'
 import { getMessages, insertAssistantMessage } from './messages'
 import { getProviderConfig } from './providers'
 
@@ -36,29 +38,38 @@ export function createProviderModel(
  * Convert database messages to AI SDK CoreMessage format.
  * Handles multimodal content when user messages have image attachments.
  * Only user role supports multimodal content in the AI SDK.
+ *
+ * Reads attachment files as Buffer directly - AI SDK accepts Buffer without
+ * base64 encoding overhead.
  */
-export function toCoreMessages(messages: Message[]): CoreMessage[] {
-  return messages.map((message): CoreMessage => {
-    // Only user messages can have multimodal content
-    if (message.role === 'user' && message.attachments?.length) {
-      return {
-        role: 'user',
-        content: [
-          ...message.attachments.map((att) => ({
+export async function toCoreMessages(
+  messages: Message[],
+  conversationId: string,
+): Promise<CoreMessage[]> {
+  return Promise.all(
+    messages.map(async (message): Promise<CoreMessage> => {
+      // Only user messages can have multimodal content
+      if (message.role === 'user' && message.attachments?.length) {
+        const imageParts = await Promise.all(
+          message.attachments.map(async (att) => ({
             type: 'image' as const,
-            image: att.url, // data: URL (already hydrated)
+            image: await fs.readFile(getAttachmentPath(conversationId, att.path)),
+            mediaType: att.mimeType,
           })),
-          { type: 'text' as const, text: message.content },
-        ],
+        )
+        return {
+          role: 'user',
+          content: [...imageParts, { type: 'text' as const, text: message.content }],
+        }
       }
-    }
 
-    // All other cases: simple text content
-    return {
-      role: message.role as 'user' | 'assistant' | 'system',
-      content: message.content,
-    }
-  })
+      // All other cases: simple text content
+      return {
+        role: message.role as 'user' | 'assistant' | 'system',
+        content: message.content,
+      }
+    }),
+  )
 }
 
 /**
@@ -144,7 +155,7 @@ export async function startChatStream(
       baseUrl: config.baseUrl,
     }
 
-    const coreMessages = toCoreMessages(conversationMessages)
+    const coreMessages = await toCoreMessages(conversationMessages, conversationId)
     const result = await streamChatCompletion(
       providerConfig,
       modelId,
