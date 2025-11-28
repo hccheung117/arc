@@ -30,6 +30,7 @@ import { JsonLog } from './arcfs/json-log'
  */
 export interface StoredSettings {
   providers: StoredProvider[]
+  favorites?: string[]
 }
 
 export interface StoredProvider {
@@ -157,7 +158,7 @@ export function getMessagesDir(): string {
  */
 export function settingsFile(): JsonFile<StoredSettings> {
   const filePath = path.join(getDataDir(), 'settings.json')
-  const defaultValue: StoredSettings = { providers: [] }
+  const defaultValue: StoredSettings = { providers: [], favorites: [] }
   return new JsonFile(filePath, defaultValue)
 }
 

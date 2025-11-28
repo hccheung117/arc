@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ChevronRight, Search, Star } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
@@ -48,6 +48,15 @@ export function ModelSelector({
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
 
+  useEffect(() => {
+    window.arc.config.get<string[]>('favorites').then((saved) => {
+      if (saved && saved.length > 0) {
+        setFavorites(new Set(saved))
+        setShowFavorites(true)
+      }
+    })
+  }, [])
+
   const toggleFavorite = (modelId: string) => {
     setFavorites((prev) => {
       const next = new Set(prev)
@@ -56,6 +65,8 @@ export function ModelSelector({
       } else {
         next.add(modelId)
       }
+
+      window.arc.config.set('favorites', Array.from(next))
       return next
     })
   }
@@ -105,7 +116,7 @@ export function ModelSelector({
           className="justify-between gap-2 px-2 -ml-2"
         >
           {selectedModel ? (
-            <span className="text-label font-semibold">
+            <span className="text-label font-medium">
               {selectedModel.name}
               <span className="ml-2 text-muted-foreground font-normal">
                 {selectedModel.provider.name}
@@ -125,7 +136,7 @@ export function ModelSelector({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[320px] p-0"
+        className="w-auto min-w-[320px] max-w-[500px] p-0"
         align="start"
         style={{ boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.2), 0 8px 10px -6px rgb(0 0 0 / 0.2)' }}
       >
@@ -209,7 +220,7 @@ export function ModelSelector({
                             onClick={() => handleModelSelect(model)}
                           >
                             <div className="flex-1 min-w-0">
-                              <div className="text-label font-medium truncate">
+                              <div className="text-label truncate" title={model.name}>
                                 {model.name}
                               </div>
                             </div>
@@ -219,8 +230,10 @@ export function ModelSelector({
                                 toggleFavorite(model.id)
                               }}
                               className={cn(
-                                'shrink-0 opacity-0 group-hover:opacity-100 transition-opacity',
-                                isFavorite && 'opacity-100'
+                                'shrink-0 transition-opacity',
+                                isFavorite
+                                  ? 'opacity-100'
+                                  : 'opacity-0 group-hover:opacity-100'
                               )}
                             >
                               <Star

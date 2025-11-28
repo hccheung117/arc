@@ -51,6 +51,11 @@ export async function getConfig<T = unknown>(key: string): Promise<T | null> {
     return config as T
   }
 
+  if (key === 'favorites') {
+    const settings = await settingsFile().read()
+    return (settings.favorites ?? []) as T
+  }
+
   return null
 }
 
@@ -64,5 +69,14 @@ export async function setConfig<T = unknown>(key: string, value: T): Promise<voi
     const providerId = key.slice('provider:'.length)
     const config = value as { apiKey?: string; baseUrl?: string }
     await updateProviderConfig(providerId, config)
+    return
+  }
+
+  if (key === 'favorites') {
+    const favorites = value as string[]
+    await settingsFile().update((settings) => ({
+      ...settings,
+      favorites,
+    }))
   }
 }
