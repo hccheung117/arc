@@ -40,10 +40,7 @@ async function fetchOpenAIModels(provider: StoredProvider): Promise<StoredModel[
   const data = (await response.json()) as OpenAIModelsResponse
   const now = new Date().toISOString()
 
-  // Filter to chat models (gpt-*, o1*, o3*)
-  return data.data
-    .filter((m) => m.id.startsWith('gpt-') || m.id.startsWith('o1') || m.id.startsWith('o3'))
-    .map((m) => ({
+  return data.data.map((m) => ({
       id: m.id,
       providerId: provider.id,
       name: m.id,
@@ -66,14 +63,7 @@ export async function fetchAllModels(): Promise<boolean> {
   const allModels: StoredModel[] = []
 
   const results = await Promise.allSettled(
-    settings.providers.map(async (provider) => {
-      if (provider.type === 'openai') {
-        return fetchOpenAIModels(provider)
-      }
-      // Other providers not yet implemented
-      console.log(`[models] Provider type '${provider.type}' not yet supported for fetching`)
-      return []
-    })
+    settings.providers.map((provider) => fetchOpenAIModels(provider))
   )
 
   for (const result of results) {
@@ -124,7 +114,7 @@ export async function getModels(): Promise<Model[]> {
         provider: {
           id: provider.id,
           name: provider.name,
-          type: provider.type as 'openai' | 'anthropic' | 'google' | 'mistral',
+          type: 'openai',
         },
       }
     })

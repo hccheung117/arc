@@ -26,16 +26,10 @@ export function createProviderModel(
   config: ProviderConfig,
   modelId: string,
 ): LanguageModel {
-  switch (config.type) {
-    case 'openai':
-      return createOpenAI({
-        ...(config.apiKey && { apiKey: config.apiKey }),
-        ...(config.baseUrl && { baseURL: config.baseUrl }),
-      }).chat(modelId)
-
-    default:
-      throw new Error(`Unsupported provider type: ${config.type}`)
-  }
+  return createOpenAI({
+    ...(config.apiKey && { apiKey: config.apiKey }),
+    ...(config.baseUrl && { baseURL: config.baseUrl }),
+  }).chat(modelId)
 }
 
 /**

@@ -1,7 +1,7 @@
 export interface Provider {
   id: string
   name: string
-  type: 'openai' | 'anthropic' | 'google' | 'mistral'
+  type: 'openai'
 }
 
 export interface Model {

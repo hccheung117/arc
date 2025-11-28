@@ -1,7 +1,7 @@
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
 import { Textarea } from '@renderer/components/ui/textarea'
-import { ImagePlus, Sparkles, Send } from 'lucide-react'
+import { ImagePlus, Send } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 
 /*
@@ -82,9 +82,6 @@ export function Composer({ onSend, isStreaming }: ComposerProps) {
           <div className="flex gap-1">
             <Button variant="ghost" size="icon" className="h-8 w-8">
               <ImagePlus className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <Sparkles className="h-4 w-4" />
             </Button>
           </div>
           <Button

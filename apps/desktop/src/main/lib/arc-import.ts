@@ -105,9 +105,6 @@ function findMatchingProvider(
 function formatProviderName(type: string): string {
   const names: Record<string, string> = {
     openai: 'OpenAI',
-    anthropic: 'Anthropic',
-    ollama: 'Ollama',
-    google: 'Google AI',
   }
   return names[type] || type.charAt(0).toUpperCase() + type.slice(1)
 }
