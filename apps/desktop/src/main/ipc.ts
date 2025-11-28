@@ -1,5 +1,5 @@
 import type { IpcMain, IpcMainInvokeEvent } from 'electron'
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, shell } from 'electron'
 import { createId } from '@paralleldrive/cuid2'
 import { readFile } from 'node:fs/promises'
 import type {
@@ -27,6 +27,7 @@ import { getConfig, setConfig } from './lib/providers'
 import { threadIndexFile, type StoredThread } from './storage'
 import { showThreadContextMenu } from './lib/ui'
 import { validateArcFile, importArcFile } from './lib/arc-import'
+import { getAttachmentPath } from './lib/attachments'
 
 /**
  * Arc IPC Handlers
@@ -263,6 +264,30 @@ export function registerImportHandlers(ipcMain: IpcMain): void {
 }
 
 // ============================================================================
+// UTILS HANDLERS
+// ============================================================================
+
+async function handleUtilsOpenFile(
+  _event: IpcMainInvokeEvent,
+  filePath: string
+): Promise<void> {
+  await shell.openPath(filePath)
+}
+
+async function handleUtilsGetAttachmentPath(
+  _event: IpcMainInvokeEvent,
+  conversationId: string,
+  relativePath: string
+): Promise<string> {
+  return getAttachmentPath(conversationId, relativePath)
+}
+
+export function registerUtilsHandlers(ipcMain: IpcMain): void {
+  ipcMain.handle('arc:utils:openFile', handleUtilsOpenFile)
+  ipcMain.handle('arc:utils:getAttachmentPath', handleUtilsGetAttachmentPath)
+}
+
+// ============================================================================
 // MAIN REGISTRATION
 // ============================================================================
 
@@ -274,4 +299,5 @@ export function registerArcHandlers(ipcMain: IpcMain): void {
   registerConfigHandlers(ipcMain)
   registerUIHandlers(ipcMain)
   registerImportHandlers(ipcMain)
+  registerUtilsHandlers(ipcMain)
 }

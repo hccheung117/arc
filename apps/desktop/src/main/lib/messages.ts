@@ -1,17 +1,47 @@
 import { createId } from '@paralleldrive/cuid2'
-import type { Message, MessageRole } from '@arc-types/messages'
+import type { Message, MessageRole, MessageAttachment } from '@arc-types/messages'
+import type { AttachmentInput } from '@arc-types/arc-api'
 import {
   messageLogFile,
   threadIndexFile,
   reduceMessageEvents,
   type StoredMessageEvent,
+  type StoredAttachment,
 } from '@main/storage'
+import { writeAttachment, readAttachment } from './attachments'
+
+/**
+ * Hydrates a stored attachment with its data URL.
+ */
+async function hydrateAttachment(
+  threadId: string,
+  stored: StoredAttachment,
+): Promise<MessageAttachment> {
+  const url = await readAttachment(threadId, stored.path, stored.mimeType)
+  return {
+    type: stored.type,
+    path: stored.path,
+    mimeType: stored.mimeType,
+    url,
+  }
+}
 
 /**
  * Converts a StoredMessageEvent to a Message entity.
- * Hydrates default fields (status, conversationId) that are not stored on disk.
+ * Hydrates default fields (status, conversationId) and attachment data URLs.
  */
-export function toMessage(event: StoredMessageEvent, conversationId: string): Message {
+export async function toMessage(
+  event: StoredMessageEvent,
+  conversationId: string,
+): Promise<Message> {
+  // Hydrate attachments with data URLs
+  let attachments: MessageAttachment[] | undefined
+  if (event.attachments?.length) {
+    attachments = await Promise.all(
+      event.attachments.map((att) => hydrateAttachment(conversationId, att)),
+    )
+  }
+
   return {
     id: event.id,
     conversationId,
@@ -20,6 +50,7 @@ export function toMessage(event: StoredMessageEvent, conversationId: string): Me
     content: event.content!,
     createdAt: event.createdAt!,
     updatedAt: event.updatedAt ?? event.createdAt!,
+    attachments,
   }
 }
 
@@ -30,7 +61,7 @@ export function toMessage(event: StoredMessageEvent, conversationId: string): Me
 export async function getMessages(conversationId: string): Promise<Message[]> {
   const events = await messageLogFile(conversationId).read()
   const reducedEvents = reduceMessageEvents(events)
-  return reducedEvents.map((event) => toMessage(event, conversationId))
+  return Promise.all(reducedEvents.map((event) => toMessage(event, conversationId)))
 }
 
 /**
@@ -43,10 +74,20 @@ export async function getMessages(conversationId: string): Promise<Message[]> {
  */
 export async function createMessage(
   conversationId: string,
-  input: { role: MessageRole; content: string },
+  input: { role: MessageRole; content: string; attachments?: AttachmentInput[] },
 ): Promise<{ message: Message; threadWasCreated: boolean }> {
   const now = new Date().toISOString()
   const messageId = createId()
+
+  // Write attachments to disk and collect stored references
+  let storedAttachments: StoredAttachment[] | undefined
+  if (input.attachments?.length) {
+    storedAttachments = await Promise.all(
+      input.attachments.map((att, index) =>
+        writeAttachment(conversationId, messageId, index, att.data, att.mimeType),
+      ),
+    )
+  }
 
   // Create the message event
   const event: StoredMessageEvent = {
@@ -54,6 +95,7 @@ export async function createMessage(
     role: input.role,
     content: input.content,
     createdAt: now,
+    attachments: storedAttachments,
   }
 
   // Append to message log (creates file if doesn't exist)
@@ -83,7 +125,7 @@ export async function createMessage(
     return index
   })
 
-  const message = toMessage(event, conversationId)
+  const message = await toMessage(event, conversationId)
   return { message, threadWasCreated: wasCreated }
 }
 
@@ -121,5 +163,5 @@ export async function insertAssistantMessage(
     return index
   })
 
-  return toMessage(event, conversationId)
+  return await toMessage(event, conversationId)
 }

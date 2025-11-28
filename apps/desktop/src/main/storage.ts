@@ -90,12 +90,22 @@ export interface StoredThread {
  *
  * Location: data/messages/{threadId}.jsonl
  */
+/** Stored attachment reference (path only, no data URL) */
+export interface StoredAttachment {
+  type: 'image'
+  path: string // Relative path: {messageId}-{index}.{ext}
+  mimeType: string
+}
+
 export interface StoredMessageEvent {
   id: string // cuid2 - Message ID
   role?: 'user' | 'assistant' | 'system' // Required for 'create' events
   content?: string // Message content (can be updated)
   createdAt?: string // ISO timestamp (only on 'create' events)
   updatedAt?: string // ISO timestamp (on 'update' events)
+
+  // Attachments (user messages with images)
+  attachments?: StoredAttachment[]
 
   // AI-specific metadata (assistant messages only)
   usage?: number // Token count
@@ -120,8 +130,9 @@ function getDataDir(): string {
 
 /**
  * Path to the messages directory (contains index + logs).
+ * Exported for use by attachments module.
  */
-function getMessagesDir(): string {
+export function getMessagesDir(): string {
   return path.join(getDataDir(), 'messages')
 }
 

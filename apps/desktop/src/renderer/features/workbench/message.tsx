@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { BotMessageSquare, Copy } from "lucide-react"
 import { Button } from "@renderer/components/ui/button"
 import {
@@ -7,18 +7,95 @@ import {
   TooltipTrigger,
 } from "@renderer/components/ui/tooltip"
 import { Markdown } from "@renderer/components/markdown"
-import type { Message as MessageType } from '@arc-types/messages'
+import type { Message as MessageType, MessageAttachment } from '@arc-types/messages'
 
 interface MessageProps {
   message: MessageType
 }
 
+/** Renders a clickable image attachment */
+function AttachmentImage({
+  attachment,
+  conversationId
+}: {
+  attachment: MessageAttachment
+  conversationId: string
+}) {
+  const [isLoading, setIsLoading] = useState(true)
+  const [hasError, setHasError] = useState(false)
+
+  const handleClick = useCallback(async () => {
+    try {
+      const absolutePath = await window.arc.utils.getAttachmentPath(
+        conversationId,
+        attachment.path
+      )
+      await window.arc.utils.openFile(absolutePath)
+    } catch (err) {
+      console.error('Failed to open attachment:', err)
+    }
+  }, [conversationId, attachment.path])
+
+  if (hasError) {
+    return (
+      <div className="h-32 w-32 rounded-md border border-border bg-muted flex items-center justify-center">
+        <span className="text-meta text-muted-foreground">Failed to load</span>
+      </div>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      className="block rounded-md overflow-hidden border border-border hover:border-primary transition-colors cursor-pointer"
+    >
+      {isLoading && (
+        <div className="h-32 w-32 bg-muted animate-pulse" />
+      )}
+      <img
+        src={attachment.url}
+        alt="Attachment"
+        className={`max-h-48 max-w-xs object-contain ${isLoading ? 'hidden' : ''}`}
+        onLoad={() => setIsLoading(false)}
+        onError={() => {
+          setIsLoading(false)
+          setHasError(true)
+        }}
+      />
+    </button>
+  )
+}
+
+/** Renders a gallery of attachments */
+function AttachmentGallery({
+  attachments,
+  conversationId
+}: {
+  attachments: MessageAttachment[]
+  conversationId: string
+}) {
+  return (
+    <div className="flex flex-wrap gap-2 mb-2">
+      {attachments.map((attachment, index) => (
+        <AttachmentImage
+          key={`${attachment.path}-${index}`}
+          attachment={attachment}
+          conversationId={conversationId}
+        />
+      ))}
+    </div>
+  )
+}
+
 export function Message({ message }: MessageProps) {
   const [isHovered, setIsHovered] = useState(false)
+  const hasAttachments = message.attachments && message.attachments.length > 0
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content)
   }
+
   if (message.role === "user") {
     return (
       <div className="flex justify-end mb-6">
@@ -35,7 +112,16 @@ export function Message({ message }: MessageProps) {
            * @see tailwind.config.js - Typography scale definition
            */}
           <div className="bg-muted rounded-2xl px-4 py-3">
-            <p className="text-body whitespace-pre-wrap">{message.content}</p>
+            {/* Attachments rendered above text */}
+            {hasAttachments && (
+              <AttachmentGallery
+                attachments={message.attachments!}
+                conversationId={message.conversationId}
+              />
+            )}
+            {message.content && (
+              <p className="text-body whitespace-pre-wrap">{message.content}</p>
+            )}
           </div>
           <div className="h-8 flex items-center justify-end">
             {isHovered && (

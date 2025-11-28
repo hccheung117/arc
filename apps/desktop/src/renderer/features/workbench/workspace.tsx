@@ -7,6 +7,7 @@ import { EmptyState } from './empty-state'
 import { Message } from './message'
 import { ModelSelector } from './model-selector'
 import type { Model } from '@arc-types/models'
+import type { AttachmentInput } from '@arc-types/arc-api'
 import { getModels, onModelsEvent } from '@renderer/lib/models'
 import { getMessages, createMessage, startAIChat, onAIEvent } from '@renderer/lib/messages'
 import type { ChatThread } from './chat-thread'
@@ -143,7 +144,7 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
     return cleanup
   }, [activeStreamId, threads, onThreadUpdate])
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (content: string, attachments?: AttachmentInput[]) => {
     if (!selectedModel) return
 
     setError(null)
@@ -184,7 +185,7 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
         }
       }
 
-      const userMessage = await createMessage(conversationId, 'user', content)
+      const userMessage = await createMessage(conversationId, 'user', content, attachments)
 
       onThreadUpdate({
         type: 'ADD_MESSAGE',

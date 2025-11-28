@@ -39,10 +39,19 @@ export type ConversationEvent =
   | { type: 'updated'; conversation: Conversation }
   | { type: 'deleted'; id: string }
 
+/** Attachment input payload (base64 encoded for IPC transport) */
+export interface AttachmentInput {
+  type: 'image'
+  data: string // Base64-encoded image data
+  mimeType: string
+  name?: string // Original filename (optional)
+}
+
 /** Message creation payload */
 export interface CreateMessageInput {
   role: MessageRole
   content: string
+  attachments?: AttachmentInput[]
 }
 
 /** AI chat options */
@@ -151,6 +160,12 @@ export interface ArcAPI {
   utils: {
     /** Get file path from a dropped File object */
     getFilePath(file: File): string
+
+    /** Open a file with the native OS viewer */
+    openFile(filePath: string): Promise<void>
+
+    /** Get absolute path for an attachment */
+    getAttachmentPath(conversationId: string, relativePath: string): Promise<string>
   }
 }
 

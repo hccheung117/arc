@@ -33,13 +33,32 @@ export function createProviderModel(
 }
 
 /**
- * Convert database messages to AI SDK CoreMessage format
+ * Convert database messages to AI SDK CoreMessage format.
+ * Handles multimodal content when user messages have image attachments.
+ * Only user role supports multimodal content in the AI SDK.
  */
 export function toCoreMessages(messages: Message[]): CoreMessage[] {
-  return messages.map((message) => ({
-    role: message.role as 'user' | 'assistant' | 'system',
-    content: message.content,
-  }))
+  return messages.map((message): CoreMessage => {
+    // Only user messages can have multimodal content
+    if (message.role === 'user' && message.attachments?.length) {
+      return {
+        role: 'user',
+        content: [
+          ...message.attachments.map((att) => ({
+            type: 'image' as const,
+            image: att.url, // data: URL (already hydrated)
+          })),
+          { type: 'text' as const, text: message.content },
+        ],
+      }
+    }
+
+    // All other cases: simple text content
+    return {
+      role: message.role as 'user' | 'assistant' | 'system',
+      content: message.content,
+    }
+  })
 }
 
 /**
