@@ -159,7 +159,7 @@ export async function startChatStream(
       callbacks.onDelta(textPart)
     }
 
-    const assistantMessage = await insertAssistantMessage(conversationId, fullContent)
+    const assistantMessage = await insertAssistantMessage(conversationId, fullContent, modelId, providerId)
     callbacks.onComplete(assistantMessage)
   } catch (error) {
     if ((error as Error).name === 'AbortError') {

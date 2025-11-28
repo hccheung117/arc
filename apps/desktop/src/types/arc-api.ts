@@ -52,6 +52,8 @@ export interface CreateMessageInput {
   role: MessageRole
   content: string
   attachments?: AttachmentInput[]
+  modelId: string
+  providerId: string
 }
 
 /** AI chat options */

@@ -107,10 +107,12 @@ export interface StoredMessageEvent {
   // Attachments (user messages with images)
   attachments?: StoredAttachment[]
 
+  // Model context (required on all messages)
+  modelId: string // Model ID when message was sent/generated
+  providerId: string // Provider ID when message was sent/generated
+
   // AI-specific metadata (assistant messages only)
   usage?: number // Token count
-  modelId?: string // Model used for generation
-  providerId?: string // Provider used for generation
 }
 
 // ============================================================================

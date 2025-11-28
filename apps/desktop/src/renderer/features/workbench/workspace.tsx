@@ -185,7 +185,14 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
         }
       }
 
-      const userMessage = await createMessage(conversationId, 'user', content, attachments)
+      const userMessage = await createMessage(
+        conversationId,
+        'user',
+        content,
+        selectedModel.id,
+        selectedModel.provider.id,
+        attachments,
+      )
 
       onThreadUpdate({
         type: 'ADD_MESSAGE',

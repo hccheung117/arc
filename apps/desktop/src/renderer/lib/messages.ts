@@ -9,9 +9,11 @@ export async function createMessage(
   conversationId: string,
   role: MessageRole,
   content: string,
+  modelId: string,
+  providerId: string,
   attachments?: AttachmentInput[],
 ): Promise<Message> {
-  return window.arc.messages.create(conversationId, { role, content, attachments })
+  return window.arc.messages.create(conversationId, { role, content, attachments, modelId, providerId })
 }
 
 export async function startAIChat(conversationId: string, model: string): Promise<ChatResponse> {

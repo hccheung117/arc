@@ -84,7 +84,7 @@ export async function getMessages(conversationId: string): Promise<Message[]> {
  */
 export async function createMessage(
   conversationId: string,
-  input: { role: MessageRole; content: string; attachments?: AttachmentInput[] },
+  input: { role: MessageRole; content: string; attachments?: AttachmentInput[]; modelId: string; providerId: string },
 ): Promise<{ message: Message; threadWasCreated: boolean }> {
   const now = new Date().toISOString()
   const messageId = createId()
@@ -106,6 +106,8 @@ export async function createMessage(
     content: input.content,
     createdAt: now,
     attachments: storedAttachments,
+    modelId: input.modelId,
+    providerId: input.providerId,
   }
 
   // Append to message log (creates file if doesn't exist)
@@ -149,6 +151,8 @@ export async function createMessage(
 export async function insertAssistantMessage(
   conversationId: string,
   content: string,
+  modelId: string,
+  providerId: string,
 ): Promise<Message> {
   const now = new Date().toISOString()
   const messageId = createId()
@@ -159,6 +163,8 @@ export async function insertAssistantMessage(
     role: 'assistant',
     content,
     createdAt: now,
+    modelId,
+    providerId,
   }
 
   // Append to message log
