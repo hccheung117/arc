@@ -105,6 +105,10 @@ export async function streamChatCompletion(
       model,
       messages,
       abortSignal: signal,
+      temperature: 0,
+      providerOptions: {
+        openai: { reasoningEffort: 'high' },
+      },
     })
 
     return result

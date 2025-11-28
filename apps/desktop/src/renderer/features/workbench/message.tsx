@@ -1,11 +1,6 @@
 import { useState, useCallback } from "react"
-import { BotMessageSquare, Copy } from "lucide-react"
+import { BotMessageSquare, Copy, Check } from "lucide-react"
 import { Button } from "@renderer/components/ui/button"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@renderer/components/ui/tooltip"
 import { Markdown } from "@renderer/components/markdown"
 import type { Message as MessageType, MessageAttachment } from '@arc-types/messages'
 
@@ -90,10 +85,13 @@ function AttachmentGallery({
 
 export function Message({ message }: MessageProps) {
   const [isHovered, setIsHovered] = useState(false)
+  const [isCopied, setIsCopied] = useState(false)
   const hasAttachments = message.attachments && message.attachments.length > 0
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content)
+    setIsCopied(true)
+    setTimeout(() => setIsCopied(false), 2000)
   }
 
   if (message.role === "user") {
@@ -124,21 +122,18 @@ export function Message({ message }: MessageProps) {
             )}
           </div>
           <div className="h-8 flex items-center justify-end">
-            {isHovered && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={handleCopy}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Copy</TooltipContent>
-              </Tooltip>
-            )}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={handleCopy}
+              className={`text-muted-foreground hover:text-foreground transition-opacity duration-200 ${isHovered || isCopied ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+            >
+              {isCopied ? (
+                <Check className="w-4 h-4 animate-in zoom-in-50 duration-300" />
+              ) : (
+                <Copy className="w-4 h-4" />
+              )}
+            </Button>
           </div>
         </div>
       </div>
@@ -158,21 +153,18 @@ export function Message({ message }: MessageProps) {
         <div className="flex-1 min-w-0">
           <Markdown>{message.content}</Markdown>
           <div className="h-8 flex items-center justify-start">
-            {isHovered && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={handleCopy}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Copy</TooltipContent>
-              </Tooltip>
-            )}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={handleCopy}
+              className={`text-muted-foreground hover:text-foreground transition-opacity duration-200 ${isHovered || isCopied ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+            >
+              {isCopied ? (
+                <Check className="w-4 h-4 animate-in zoom-in-50 duration-300" />
+              ) : (
+                <Copy className="w-4 h-4" />
+              )}
+            </Button>
           </div>
         </div>
       </div>
