@@ -11,6 +11,16 @@ import {
 import { writeAttachment, readAttachment } from './attachments'
 
 /**
+ * Generates a title from message content.
+ * Takes the first line, trimmed and truncated to 100 chars.
+ */
+function generateTitle(content: string): string {
+  const firstLine = content.split('\n')[0].trim()
+  if (!firstLine) return 'New Chat'
+  return firstLine.length > 100 ? firstLine.slice(0, 100) : firstLine
+}
+
+/**
  * Hydrates a stored attachment with its data URL.
  */
 async function hydrateAttachment(
@@ -107,10 +117,10 @@ export async function createMessage(
     const existingThread = index.threads.find((t) => t.id === conversationId)
 
     if (!existingThread) {
-      // First message: create new thread entry
+      // First message: create new thread entry with title from user message
       index.threads.push({
         id: conversationId,
-        title: null, // Will be auto-generated from first message
+        title: input.role === 'user' ? generateTitle(input.content) : null,
         pinned: false,
         renamed: false,
         createdAt: now,

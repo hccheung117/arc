@@ -60,18 +60,3 @@ export function hydrateFromConversation(conv: ConversationSummary): ChatThread {
   }
 }
 
-/**
- * Generate a title from the first message content
- *
- * Takes the first line of the first user message as the title.
- * Used as a fallback when no explicit title is set.
- */
-export function generateTitleFromMessages(messages: Message[]): string {
-  if (messages.length === 0) return 'New Chat'
-
-  const firstMessage = messages.find((m) => m.role === 'user')
-  if (!firstMessage) return 'New Chat'
-
-  const firstLine = firstMessage.content.split('\n')[0]
-  return firstLine.trim() || 'New Chat'
-}

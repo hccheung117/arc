@@ -1,6 +1,5 @@
 import type { ConversationSummary } from '@arc-types/conversations'
 import type { Conversation, ConversationPatch } from '@arc-types/arc-api'
-import { getMessages } from './messages'
 import { threadIndexFile, messageLogFile, type StoredThread } from '@main/storage'
 
 /**
@@ -19,7 +18,7 @@ export function toConversation(thread: StoredThread): Conversation {
 /**
  * Returns all conversation summaries for the sidebar.
  * Threads are sorted by last update time (most recent first).
- * Titles are either user-set or auto-generated from the first message.
+ * Titles are stored in index.json (set eagerly on first user message).
  */
 export async function getConversationSummaries(): Promise<ConversationSummary[]> {
   const index = await threadIndexFile().read()
@@ -29,28 +28,12 @@ export async function getConversationSummaries(): Promise<ConversationSummary[]>
     return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
   })
 
-  return Promise.all(
-    sortedThreads.map(async (thread) => {
-      const base = { id: thread.id, updatedAt: thread.updatedAt, pinned: thread.pinned }
-
-      // If user has set a custom title, use it
-      if (thread.title !== null) {
-        return { ...base, title: thread.title }
-      }
-
-      // Otherwise, generate title from first message
-      const conversationMessages = await getMessages(thread.id)
-      const firstMessage = conversationMessages[0]
-
-      if (!firstMessage) {
-        return { ...base, title: 'New Chat' }
-      }
-
-      const generatedTitle = firstMessage.content.split('\n')[0]
-
-      return { ...base, title: generatedTitle }
-    }),
-  )
+  return sortedThreads.map((thread) => ({
+    id: thread.id,
+    updatedAt: thread.updatedAt,
+    pinned: thread.pinned,
+    title: thread.title ?? 'New Chat',
+  }))
 }
 
 /**
