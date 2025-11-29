@@ -5,8 +5,7 @@ import type { ConversationSummary } from '@arc-types/conversations'
 /**
  * ChatThread: UI ViewModel for organizing messages
  *
- * Uses cuid2 for stable IDs. Both threadId and conversationId use cuid2
- * for consistency and better properties (sortable, URL-safe, collision-resistant).
+ * Uses cuid2 for stable IDs.
  *
  * This enables:
  * - Instant UI feedback (threads exist before database conversations)
@@ -15,8 +14,7 @@ import type { ConversationSummary } from '@arc-types/conversations'
  * - Message-first UX (users interact with messages, not conversations)
  */
 export type ChatThread = {
-  threadId: string // cuid2 - stable UI identifier
-  conversationId: string | null // cuid2 - database identifier (null until persisted)
+  id: string // cuid2 - stable identifier for both UI and database
   messages: Message[]
   status: 'draft' | 'streaming' | 'persisted'
   title: string
@@ -27,13 +25,12 @@ export type ChatThread = {
 /**
  * Create a new draft thread for "New Chat"
  *
- * Draft threads have no conversationId yet - it's generated using cuid2
- * when the user sends their first message.
+ * Draft threads use a generated cuid2 ID which will become the
+ * database conversationId once persisted.
  */
 export function createDraftThread(): ChatThread {
   return {
-    threadId: createId(),
-    conversationId: null,
+    id: createId(),
     messages: [],
     status: 'draft',
     title: 'New Chat',
@@ -50,8 +47,7 @@ export function createDraftThread(): ChatThread {
  */
 export function hydrateFromConversation(conv: ConversationSummary): ChatThread {
   return {
-    threadId: createId(),
-    conversationId: conv.id,
+    id: conv.id,
     messages: [],
     status: 'persisted',
     title: conv.title,
@@ -59,4 +55,3 @@ export function hydrateFromConversation(conv: ConversationSummary): ChatThread {
     isPinned: conv.pinned,
   }
 }
-

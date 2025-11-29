@@ -8,16 +8,15 @@ import { type ChatThread, createDraftThread, hydrateFromConversation } from './c
  * Actions for managing ChatThread state
  */
 export type ThreadAction =
-  | { type: 'CREATE_DRAFT'; threadId?: string }
+  | { type: 'CREATE_DRAFT'; id?: string }
   | { type: 'HYDRATE'; conversations: ConversationSummary[] }
-  | { type: 'ADD_MESSAGE'; threadId: string; message: Message }
-  | { type: 'UPDATE_MESSAGES'; threadId: string; messages: Message[] }
-  | { type: 'UPDATE_STATUS'; threadId: string; status: ChatThread['status'] }
-  | { type: 'SET_CONVERSATION_ID'; threadId: string; conversationId: string }
-  | { type: 'UPDATE_TITLE'; threadId: string; title: string }
-  | { type: 'DELETE_THREAD'; threadId: string }
-  | { type: 'RENAME_THREAD'; threadId: string; title: string }
-  | { type: 'TOGGLE_PIN'; threadId: string; isPinned: boolean }
+  | { type: 'ADD_MESSAGE'; id: string; message: Message }
+  | { type: 'UPDATE_MESSAGES'; id: string; messages: Message[] }
+  | { type: 'UPDATE_STATUS'; id: string; status: ChatThread['status'] }
+  | { type: 'UPDATE_TITLE'; id: string; title: string }
+  | { type: 'DELETE_THREAD'; id: string }
+  | { type: 'RENAME_THREAD'; id: string; title: string }
+  | { type: 'TOGGLE_PIN'; id: string; isPinned: boolean }
 
 /**
  * Reducer for ChatThread state management
@@ -25,8 +24,8 @@ export type ThreadAction =
 function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[] {
   switch (action.type) {
     case 'CREATE_DRAFT': {
-      const newThread = action.threadId
-        ? { ...createDraftThread(), threadId: action.threadId }
+      const newThread = action.id
+        ? { ...createDraftThread(), id: action.id }
         : createDraftThread()
       return [newThread, ...state]
     }
@@ -39,7 +38,7 @@ function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[]
 
     case 'ADD_MESSAGE': {
       return state.map((thread) => {
-        if (thread.threadId === action.threadId) {
+        if (thread.id === action.id) {
           return {
             ...thread,
             messages: [...thread.messages, action.message],
@@ -51,7 +50,7 @@ function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[]
 
     case 'UPDATE_MESSAGES': {
       return state.map((thread) => {
-        if (thread.threadId === action.threadId) {
+        if (thread.id === action.id) {
           return {
             ...thread,
             messages: action.messages,
@@ -63,7 +62,7 @@ function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[]
 
     case 'UPDATE_STATUS': {
       return state.map((thread) => {
-        if (thread.threadId === action.threadId) {
+        if (thread.id === action.id) {
           return {
             ...thread,
             status: action.status,
@@ -73,22 +72,9 @@ function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[]
       })
     }
 
-    case 'SET_CONVERSATION_ID': {
-      return state.map((thread) => {
-        if (thread.threadId === action.threadId) {
-          return {
-            ...thread,
-            conversationId: action.conversationId,
-            status: 'streaming' as const,
-          }
-        }
-        return thread
-      })
-    }
-
     case 'UPDATE_TITLE': {
       return state.map((thread) => {
-        if (thread.threadId === action.threadId) {
+        if (thread.id === action.id) {
           return {
             ...thread,
             title: action.title,
@@ -99,12 +85,12 @@ function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[]
     }
 
     case 'DELETE_THREAD': {
-      return state.filter((thread) => thread.threadId !== action.threadId)
+      return state.filter((thread) => thread.id !== action.id)
     }
 
     case 'RENAME_THREAD': {
       return state.map((thread) => {
-        if (thread.threadId === action.threadId) {
+        if (thread.id === action.id) {
           return {
             ...thread,
             title: action.title,
@@ -116,7 +102,7 @@ function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[]
 
     case 'TOGGLE_PIN': {
       return state.map((thread) => {
-        if (thread.threadId === action.threadId) {
+        if (thread.id === action.id) {
           return {
             ...thread,
             isPinned: action.isPinned,
@@ -146,11 +132,8 @@ function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[]
  * // Create new draft thread
  * dispatch({ type: 'CREATE_DRAFT' })
  *
- * // Set conversationId on first message
- * dispatch({ type: 'SET_CONVERSATION_ID', threadId, conversationId })
- *
  * // Add message to thread
- * dispatch({ type: 'ADD_MESSAGE', threadId, message })
+ * dispatch({ type: 'ADD_MESSAGE', id, message })
  * ```
  */
 export function useChatThreads() {

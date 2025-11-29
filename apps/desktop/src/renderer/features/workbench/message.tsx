@@ -151,7 +151,14 @@ export function Message({ message }: MessageProps) {
           <BotMessageSquare className="w-5 h-5 text-muted-foreground" />
         </div>
         <div className="flex-1 min-w-0">
-          <Markdown>{message.content}</Markdown>
+          {/* UX: Show a pulsing cursor during the "thinking" phase before first token */}
+          {message.status === 'streaming' && !message.content ? (
+            <div className="h-[24px] flex items-center">
+              <div className="h-4 w-2 bg-foreground/50 animate-pulse rounded-[1px]" />
+            </div>
+          ) : (
+            <Markdown>{message.content}</Markdown>
+          )}
           <div className="h-8 flex items-center justify-start">
             <Button
               variant="ghost"

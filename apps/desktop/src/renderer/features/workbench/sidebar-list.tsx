@@ -12,16 +12,11 @@ interface SidebarListProps {
 }
 
 export function SidebarList({ threads, activeThreadId, onThreadSelect, dispatch }: SidebarListProps) {
-  // Filter out threads with null conversationId (drafts that haven't started) unless they are the active one?
-  // Actually, drafts are "New Chat" and should be in the list. The chat-thread logic says they have conversationId: null.
-  // The original sidebar filtered: threads.filter((thread) => thread.conversationId !== null)
-  // But wait, "New Chat" needs to be accessible.
-  // Typically "New Chat" button creates a draft. If we create a draft, it appears in the list?
-  // The original sidebar had a separate "New Chat" button at the top.
+  // Filter out draft threads that haven't been started yet
+  const validThreads = threads.filter((thread) => thread.status !== 'draft')
 
-  // Let's separate Pinned vs Recent.
-  const pinnedThreads = threads.filter(t => t.isPinned && t.conversationId !== null)
-  const recentThreads = threads.filter(t => !t.isPinned && t.conversationId !== null)
+  const pinnedThreads = validThreads.filter(t => t.isPinned)
+  const recentThreads = validThreads.filter(t => !t.isPinned)
 
   return (
     <>
@@ -32,9 +27,9 @@ export function SidebarList({ threads, activeThreadId, onThreadSelect, dispatch 
             <SidebarMenu>
               {pinnedThreads.map((thread) => (
                 <SidebarItem
-                  key={thread.threadId}
+                  key={thread.id}
                   thread={thread}
-                  isActive={activeThreadId === thread.threadId}
+                  isActive={activeThreadId === thread.id}
                   onSelect={(id) => onThreadSelect(id)}
                   dispatch={dispatch}
                 />
@@ -50,9 +45,9 @@ export function SidebarList({ threads, activeThreadId, onThreadSelect, dispatch 
           <SidebarMenu>
             {recentThreads.map((thread) => (
               <SidebarItem
-                key={thread.threadId}
+                key={thread.id}
                 thread={thread}
-                isActive={activeThreadId === thread.threadId}
+                isActive={activeThreadId === thread.id}
                 onSelect={(id) => onThreadSelect(id)}
                 dispatch={dispatch}
               />

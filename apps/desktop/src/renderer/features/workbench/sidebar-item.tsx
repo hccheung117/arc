@@ -52,11 +52,9 @@ export function SidebarItem({ thread, isActive, onSelect, dispatch }: SidebarIte
       return
     }
 
-    if (thread.conversationId) {
-      await renameConversation(thread.conversationId, renameValue)
-    }
+    await renameConversation(thread.id, renameValue)
 
-    dispatch({ type: 'RENAME_THREAD', threadId: thread.threadId, title: renameValue })
+    dispatch({ type: 'RENAME_THREAD', id: thread.id, title: renameValue })
     setIsRenaming(false)
   }
 
@@ -66,10 +64,8 @@ export function SidebarItem({ thread, isActive, onSelect, dispatch }: SidebarIte
   }
 
   const handleDelete = async () => {
-    if (thread.conversationId) {
-      await deleteConversation(thread.conversationId)
-    }
-    dispatch({ type: 'DELETE_THREAD', threadId: thread.threadId })
+    await deleteConversation(thread.id)
+    dispatch({ type: 'DELETE_THREAD', id: thread.id })
     if (isActive) {
       onSelect('') // Deselect if active
     }
@@ -77,10 +73,8 @@ export function SidebarItem({ thread, isActive, onSelect, dispatch }: SidebarIte
 
   const handleTogglePin = async () => {
     const newPinnedState = !thread.isPinned
-    if (thread.conversationId) {
-      await toggleConversationPin(thread.conversationId, newPinnedState)
-    }
-    dispatch({ type: 'TOGGLE_PIN', threadId: thread.threadId, isPinned: newPinnedState })
+    await toggleConversationPin(thread.id, newPinnedState)
+    dispatch({ type: 'TOGGLE_PIN', id: thread.id, isPinned: newPinnedState })
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -122,7 +116,7 @@ export function SidebarItem({ thread, isActive, onSelect, dispatch }: SidebarIte
     <SidebarMenuItem>
       <SidebarMenuButton
         isActive={isActive}
-        onClick={() => onSelect(thread.threadId)}
+        onClick={() => onSelect(thread.id)}
         onContextMenu={handleContextMenu}
         className="group/item"
       >

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { createId } from '@paralleldrive/cuid2'
 import { ScrollArea } from '@renderer/components/ui/scroll-area'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
 import { Composer } from './composer'
@@ -36,7 +35,7 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
   const [error, setError] = useState<string | null>(null)
 
   // Find the active thread
-  const activeThread = threads.find((t) => t.threadId === activeThreadId)
+  const activeThread = threads.find((t) => t.id === activeThreadId)
   const messages = activeThread?.messages || []
 
   // Persist model selection to localStorage
@@ -86,23 +85,24 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
     return unsubscribe
   }, [])
 
-  // Load messages when thread is selected and has a conversationId
+  // Load messages when thread is selected
   useEffect(() => {
-    if (!activeThread || !activeThread.conversationId) {
+    if (!activeThread) {
       return
     }
 
-    // Only fetch if messages haven't been loaded yet
-    if (activeThread.messages.length === 0) {
-      getMessages(activeThread.conversationId).then((fetchedMessages) => {
+    // Only fetch if messages haven't been loaded yet and it's not a fresh draft
+    // (Drafts start with 0 messages anyway, but persisted threads might need hydration)
+    if (activeThread.messages.length === 0 && activeThread.status !== 'draft') {
+      getMessages(activeThread.id).then((fetchedMessages) => {
         onThreadUpdate({
           type: 'UPDATE_MESSAGES',
-          threadId: activeThread.threadId,
+          id: activeThread.id,
           messages: fetchedMessages,
         })
       })
     }
-  }, [activeThreadId, activeThread?.conversationId])
+  }, [activeThreadId, activeThread?.status])
 
   // Set up streaming event listeners
   useEffect(() => {
@@ -120,18 +120,23 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
         setStreamingMessage(null)
         setActiveStreamId(null)
 
-        const thread = threads.find((t) => t.conversationId === event.message.conversationId)
+        // Find thread by matching ID
+        const thread = threads.find((t) => t.id === event.message.conversationId)
         if (thread) {
           onThreadUpdate({
             type: 'ADD_MESSAGE',
-            threadId: thread.threadId,
+            id: thread.id,
             message: event.message,
           })
-          onThreadUpdate({
-            type: 'UPDATE_STATUS',
-            threadId: thread.threadId,
-            status: 'persisted',
-          })
+          
+          // If it was a draft or streaming, mark as persisted now
+          if (thread.status !== 'persisted') {
+            onThreadUpdate({
+              type: 'UPDATE_STATUS',
+              id: thread.id,
+              status: 'persisted',
+            })
+          }
         }
       } else if (event.type === 'error') {
         console.error(`[UI] Stream error: ${event.error}`)
@@ -151,42 +156,25 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
 
     try {
       let threadId: string
-      let conversationId: string
 
       if (activeThreadId === null) {
-        // Create new thread with cuid2 IDs
+        // Create new thread with unified ID
         const thread = createDraftThread()
-        threadId = thread.threadId
-        conversationId = createId() // Generate conversationId using cuid2
+        threadId = thread.id
 
         onThreadUpdate({
           type: 'CREATE_DRAFT',
-          threadId,
-        })
-
-        onThreadUpdate({
-          type: 'SET_CONVERSATION_ID',
-          threadId,
-          conversationId,
+          id: threadId,
         })
 
         onActiveThreadChange(threadId)
       } else {
         threadId = activeThreadId
         if (!activeThread) return
-
-        conversationId = activeThread.conversationId || createId()
-        if (!activeThread.conversationId) {
-          onThreadUpdate({
-            type: 'SET_CONVERSATION_ID',
-            threadId,
-            conversationId,
-          })
-        }
       }
 
       const userMessage = await createMessage(
-        conversationId,
+        threadId,
         'user',
         content,
         selectedModel.id,
@@ -196,11 +184,19 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
 
       onThreadUpdate({
         type: 'ADD_MESSAGE',
-        threadId,
+        id: threadId,
         message: userMessage,
       })
 
-      const { streamId } = await startAIChat(conversationId, selectedModel.id)
+      // Start streaming - thread status update handled by reducer/effects if needed
+      // or we can explicitly set to streaming here
+      onThreadUpdate({
+        type: 'UPDATE_STATUS',
+        id: threadId,
+        status: 'streaming',
+      })
+
+      const { streamId } = await startAIChat(threadId, selectedModel.id)
       setActiveStreamId(streamId)
       setStreamingMessage({
         id: `streaming-${streamId}`,
@@ -242,7 +238,7 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
                   key={streamingMessage.id}
                   message={{
                     ...streamingMessage,
-                    conversationId: activeThread.conversationId || '',
+                    conversationId: activeThread.id,
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
                   }}
