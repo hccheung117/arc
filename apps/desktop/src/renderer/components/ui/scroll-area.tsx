@@ -3,11 +3,17 @@ import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area"
 
 import { cn } from "@renderer/lib/utils"
 
+interface ScrollAreaProps extends React.ComponentProps<typeof ScrollAreaPrimitive.Root> {
+  /** Callback ref to access the scroll viewport element for position tracking */
+  onViewportMount?: (element: HTMLDivElement | null) => void
+}
+
 function ScrollArea({
   className,
   children,
+  onViewportMount,
   ...props
-}: React.ComponentProps<typeof ScrollAreaPrimitive.Root>) {
+}: ScrollAreaProps) {
   return (
     <ScrollAreaPrimitive.Root
       data-slot="scroll-area"
@@ -15,6 +21,7 @@ function ScrollArea({
       {...props}
     >
       <ScrollAreaPrimitive.Viewport
+        ref={onViewportMount}
         data-slot="scroll-area-viewport"
         className="focus-visible:ring-ring/50 size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:outline-1"
       >

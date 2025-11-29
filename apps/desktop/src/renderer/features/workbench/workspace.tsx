@@ -12,6 +12,8 @@ import { getMessages, createMessage, startAIChat, onAIEvent } from '@renderer/li
 import type { ChatThread } from './chat-thread'
 import { createDraftThread } from './chat-thread'
 import type { ThreadAction } from './use-chat-threads'
+import { useAutoScroll } from './use-auto-scroll'
+import { ChevronDown } from 'lucide-react'
 
 interface WorkspaceProps {
   threads: ChatThread[]
@@ -35,6 +37,11 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
   const [streamingMessage, setStreamingMessage] = useState<StreamingMessage | null>(null)
   const [activeStreamId, setActiveStreamId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // State for scroll viewport element to enable smart auto-scroll
+  // Using state (not ref) ensures effects re-run when element mounts
+  const [viewport, setViewport] = useState<HTMLDivElement | null>(null)
+  const { isAtBottom, scrollToBottom } = useAutoScroll(viewport, streamingMessage?.content, activeThreadId)
 
   // Find the active thread
   const activeThread = threads.find((t) => t.id === activeThreadId)
@@ -243,25 +250,85 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
             <EmptyState />
           </div>
         ) : (
-          <ScrollArea className="flex-1 min-h-0">
-            <div className="min-h-full p-6">
-              {messages.map((message) => (
-                <Message key={message.id} message={message} />
-              ))}
-              {streamingMessage && activeThread && (
-                <Message
-                  key={streamingMessage.id}
-                  message={{
-                    ...streamingMessage,
-                    conversationId: activeThread.id,
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                  }}
-                  isThinking={streamingMessage.isThinking}
-                />
-              )}
-            </div>
-          </ScrollArea>
+          /**
+           * Message List Scroll Container
+           *
+           * ## Auto-Scroll Behavior
+           *
+           * This ScrollArea implements smart auto-scroll for AI streaming:
+           *
+           * | User Position | AI Streaming | Behavior                       |
+           * |---------------|--------------|--------------------------------|
+           * | At bottom     | Yes          | Auto-scroll follows content    |
+           * | Scrolled up   | Yes          | No scroll, show "↓" button     |
+           * | At bottom     | No           | Static, no auto-scroll         |
+           * | Scrolled up   | No           | Static, no button              |
+           *
+           * The viewportRef is passed to useAutoScroll hook which:
+           * 1. Attaches scroll listener to detect position
+           * 2. Triggers scrollToBottom when content updates (if at bottom)
+           * 3. Returns isAtBottom for button visibility
+           *
+           * ## Why viewportRef on ScrollArea?
+           *
+           * Radix ScrollArea wraps content in a Viewport element that handles
+           * actual scrolling. We need direct access to this element's scroll
+           * properties (scrollTop, scrollHeight, clientHeight) to implement
+           * position detection.
+           *
+           * @see use-auto-scroll.ts for detailed behavior documentation
+           */
+          <div className="relative flex-1 min-h-0">
+            <ScrollArea className="h-full" onViewportMount={setViewport}>
+              <div className="min-h-full p-6">
+                {messages.map((message) => (
+                  <Message key={message.id} message={message} />
+                ))}
+                {streamingMessage && activeThread && (
+                  <Message
+                    key={streamingMessage.id}
+                    message={{
+                      ...streamingMessage,
+                      conversationId: activeThread.id,
+                      createdAt: new Date().toISOString(),
+                      updatedAt: new Date().toISOString(),
+                    }}
+                    isThinking={streamingMessage.isThinking}
+                  />
+                )}
+              </div>
+            </ScrollArea>
+
+            {/**
+             * Scroll-to-Bottom Button
+             *
+             * Appears when:
+             * 1. AI is streaming (!isAtBottom && activeStreamId)
+             * 2. User has scrolled up to read previous content
+             *
+             * Purpose:
+             * - Provides a quick way to return to "watching" mode
+             * - Visual indicator that new content is appearing below
+             * - Clicking scrolls to bottom AND re-engages auto-scroll
+             *
+             * Design decisions:
+             * - Positioned above composer to avoid obscuring input
+             * - Uses subtle styling to not distract from content
+             * - Only shows during streaming (not for static content)
+             *   because scrolling up in a static conversation is normal reading
+             *
+             * @see use-auto-scroll.ts for the underlying scroll logic
+             */}
+            {!isAtBottom && activeStreamId && (
+              <button
+                onClick={scrollToBottom}
+                className="absolute bottom-4 right-6 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-opacity hover:bg-primary/90"
+                aria-label="Scroll to bottom"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         )}
 
         <div className="shrink-0">
