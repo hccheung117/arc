@@ -1,7 +1,7 @@
 import { useReducer, useEffect } from 'react'
 import type { Message } from '@arc-types/messages'
 import type { ConversationSummary } from '@arc-types/conversations'
-import { getConversationSummaries } from '@renderer/lib/conversations'
+import { getConversationSummaries, onConversationEvent } from '@renderer/lib/conversations'
 import { type ChatThread, createDraftThread, hydrateFromConversation } from './chat-thread'
 
 /**
@@ -144,6 +144,26 @@ export function useChatThreads() {
     getConversationSummaries().then((conversations) => {
       dispatch({ type: 'HYDRATE', conversations })
     })
+  }, [])
+
+  // Subscribe to conversation events for sidebar reactivity
+  useEffect(() => {
+    const unsubscribe = onConversationEvent((event) => {
+      switch (event.type) {
+        case 'created':
+        case 'updated':
+          dispatch({
+            type: 'UPDATE_TITLE',
+            id: event.conversation.id,
+            title: event.conversation.title,
+          })
+          break
+        case 'deleted':
+          dispatch({ type: 'DELETE_THREAD', id: event.id })
+          break
+      }
+    })
+    return unsubscribe
   }, [])
 
   return { threads, dispatch }
