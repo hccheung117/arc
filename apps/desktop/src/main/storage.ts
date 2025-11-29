@@ -102,6 +102,7 @@ export interface StoredMessageEvent {
   id: string // cuid2 - Message ID
   role?: 'user' | 'assistant' | 'system' // Required for 'create' events
   content?: string // Message content (can be updated)
+  reasoning?: string // Reasoning/thinking content from AI models
   createdAt?: string // ISO timestamp (only on 'create' events)
   updatedAt?: string // ISO timestamp (on 'update' events)
 

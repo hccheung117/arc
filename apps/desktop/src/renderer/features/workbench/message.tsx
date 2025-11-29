@@ -2,10 +2,12 @@ import { useState, useCallback } from "react"
 import { BotMessageSquare, Copy, Check } from "lucide-react"
 import { Button } from "@renderer/components/ui/button"
 import { Markdown } from "@renderer/components/markdown"
+import { ThinkingBlock } from "./thinking-block"
 import type { Message as MessageType, MessageAttachment } from '@arc-types/messages'
 
 interface MessageProps {
   message: MessageType
+  isThinking?: boolean
 }
 
 /** Renders a clickable image attachment */
@@ -83,10 +85,11 @@ function AttachmentGallery({
   )
 }
 
-export function Message({ message }: MessageProps) {
+export function Message({ message, isThinking }: MessageProps) {
   const [isHovered, setIsHovered] = useState(false)
   const [isCopied, setIsCopied] = useState(false)
   const hasAttachments = message.attachments && message.attachments.length > 0
+  const hasReasoning = message.reasoning && message.reasoning.length > 0
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content)
@@ -151,8 +154,16 @@ export function Message({ message }: MessageProps) {
           <BotMessageSquare className="w-5 h-5 text-muted-foreground" />
         </div>
         <div className="flex-1 min-w-0">
+          {/* Reasoning/thinking block for AI models that support it */}
+          {hasReasoning && (
+            <ThinkingBlock
+              content={message.reasoning!}
+              isStreaming={message.status === 'streaming' && isThinking === true}
+            />
+          )}
+
           {/* UX: Show a pulsing cursor during the "thinking" phase before first token */}
-          {message.status === 'streaming' && !message.content ? (
+          {message.status === 'streaming' && !message.content && !hasReasoning ? (
             <div className="h-[24px] flex items-center">
               <div className="h-4 w-2 bg-foreground/50 animate-pulse rounded-[1px]" />
             </div>

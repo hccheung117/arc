@@ -165,6 +165,7 @@ async function handleAIChat(
 
   startChatStream(streamId, conversationId, options.model, {
     onDelta: (chunk) => emitAIStreamEvent({ type: 'delta', streamId, chunk }),
+    onReasoning: (chunk) => emitAIStreamEvent({ type: 'reasoning', streamId, chunk }),
     onComplete: (message) => emitAIStreamEvent({ type: 'complete', streamId, message }),
     onError: (error) => emitAIStreamEvent({ type: 'error', streamId, error }),
   }).catch((error) => {

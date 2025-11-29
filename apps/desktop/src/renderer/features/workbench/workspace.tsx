@@ -24,7 +24,9 @@ interface StreamingMessage {
   id: string
   role: 'assistant'
   content: string
+  reasoning: string
   status: 'streaming'
+  isThinking: boolean
 }
 
 export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThreadChange }: WorkspaceProps) {
@@ -109,12 +111,23 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
     const cleanup = onAIEvent((event) => {
       if (event.streamId !== activeStreamId) return
 
-      if (event.type === 'delta') {
+      if (event.type === 'reasoning') {
+        setStreamingMessage((prev) => ({
+          id: prev?.id || `streaming-${Date.now()}`,
+          role: 'assistant',
+          content: prev?.content || '',
+          reasoning: (prev?.reasoning || '') + event.chunk,
+          status: 'streaming',
+          isThinking: true,
+        }))
+      } else if (event.type === 'delta') {
         setStreamingMessage((prev) => ({
           id: prev?.id || `streaming-${Date.now()}`,
           role: 'assistant',
           content: (prev?.content || '') + event.chunk,
+          reasoning: prev?.reasoning || '',
           status: 'streaming',
+          isThinking: false,
         }))
       } else if (event.type === 'complete') {
         setStreamingMessage(null)
@@ -202,7 +215,9 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
         id: `streaming-${streamId}`,
         role: 'assistant',
         content: '',
+        reasoning: '',
         status: 'streaming',
+        isThinking: false,
       })
     } catch (err) {
       console.error(`[UI] Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
@@ -242,6 +257,7 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
                     createdAt: new Date().toISOString(),
                     updatedAt: new Date().toISOString(),
                   }}
+                  isThinking={streamingMessage.isThinking}
                 />
               )}
             </div>

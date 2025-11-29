@@ -59,6 +59,7 @@ export async function toMessage(
     role: event.role!,
     status: 'complete', // All persisted messages are complete
     content: event.content!,
+    reasoning: event.reasoning,
     createdAt: event.createdAt!,
     updatedAt: event.updatedAt ?? event.createdAt!,
     attachments,
@@ -152,6 +153,7 @@ export async function createMessage(
 export async function insertAssistantMessage(
   conversationId: string,
   content: string,
+  reasoning: string | undefined,
   modelId: string,
   providerId: string,
   usage: LanguageModelUsage,
@@ -164,6 +166,7 @@ export async function insertAssistantMessage(
     id: messageId,
     role: 'assistant',
     content,
+    reasoning,
     createdAt: now,
     modelId,
     providerId,

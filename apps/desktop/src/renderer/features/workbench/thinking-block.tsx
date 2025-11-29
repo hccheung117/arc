@@ -1,0 +1,68 @@
+import { useState, useEffect, useRef } from 'react'
+import { ChevronRight } from 'lucide-react'
+import { Markdown } from '@renderer/components/markdown'
+
+interface ThinkingBlockProps {
+  content: string
+  isStreaming: boolean
+}
+
+export function ThinkingBlock({ content, isStreaming }: ThinkingBlockProps) {
+  const [isExpanded, setIsExpanded] = useState(true)
+  const [thinkingDuration, setThinkingDuration] = useState<number | null>(null)
+  const startTimeRef = useRef<number | null>(null)
+
+  // Track thinking duration
+  useEffect(() => {
+    if (isStreaming && !startTimeRef.current) {
+      startTimeRef.current = Date.now()
+    }
+
+    if (!isStreaming && startTimeRef.current) {
+      const duration = Math.round((Date.now() - startTimeRef.current) / 1000)
+      setThinkingDuration(duration)
+      // Auto-collapse when thinking ends
+      setIsExpanded(false)
+    }
+  }, [isStreaming])
+
+  // Keep expanded while streaming
+  useEffect(() => {
+    if (isStreaming) {
+      setIsExpanded(true)
+    }
+  }, [isStreaming])
+
+  const headerText = isStreaming
+    ? 'Thinking...'
+    : thinkingDuration !== null
+      ? `Thought for ${thinkingDuration}s`
+      : 'Thought'
+
+  return (
+    <div className="mb-3">
+      <button
+        type="button"
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="flex items-center gap-1 text-meta text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <ChevronRight
+          className={`w-3.5 h-3.5 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
+        />
+        <span className={isStreaming ? 'animate-pulse' : ''}>
+          {headerText}
+        </span>
+      </button>
+
+      <div
+        className={`overflow-hidden transition-all duration-300 ease-in-out ${
+          isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+        }`}
+      >
+        <div className="mt-2 pl-4 border-l-2 border-muted text-muted-foreground">
+          <Markdown>{content}</Markdown>
+        </div>
+      </div>
+    </div>
+  )
+}

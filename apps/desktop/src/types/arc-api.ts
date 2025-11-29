@@ -69,6 +69,7 @@ export interface ChatResponse {
 /** AI stream events (IPC-safe: error is string, not Error object) */
 export type AIStreamEvent =
   | { type: 'delta'; streamId: string; chunk: string }
+  | { type: 'reasoning'; streamId: string; chunk: string }
   | { type: 'complete'; streamId: string; message: Message }
   | { type: 'error'; streamId: string; error: string }
 

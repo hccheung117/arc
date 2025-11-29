@@ -15,6 +15,7 @@ export interface ProviderConfig {
 
 export interface StreamCallbacks {
   onDelta: (chunk: string) => void
+  onReasoning: (chunk: string) => void
   onComplete: (message: Message) => void
   onError: (error: string) => void
 }
@@ -96,7 +97,9 @@ export async function streamChatCompletion(
   signal?: AbortSignal,
 ) {
   const endpoint = `${providerConfig.baseUrl || 'https://api.openai.com/v1'}/chat/completions`
-  console.log(`[API] POST ${endpoint} ${modelId} (${messages.length} msgs)`)
+  const temperature = 0
+  const reasoningEffort = 'high'
+  console.log(`[API] POST ${endpoint} ${modelId} (${messages.length} msgs) temp=${temperature} reasoning=${reasoningEffort}`)
 
   const model = createProviderModel(providerConfig, modelId)
 
@@ -105,9 +108,9 @@ export async function streamChatCompletion(
       model,
       messages,
       abortSignal: signal,
-      temperature: 0,
+      temperature,
       providerOptions: {
-        openai: { reasoningEffort: 'high' },
+        openai: { reasoningEffort },
       },
     })
 
@@ -168,15 +171,36 @@ export async function startChatStream(
     )
 
     let fullContent = ''
+    let fullReasoning = ''
+    let reasoningStarted = false
 
-    for await (const textPart of result.textStream) {
-      fullContent += textPart
-      callbacks.onDelta(textPart)
+    for await (const part of result.fullStream) {
+      if (part.type === 'reasoning-delta') {
+        if (!reasoningStarted) {
+          console.log(`[AI] Reasoning started`)
+          reasoningStarted = true
+        }
+        fullReasoning += part.text
+        callbacks.onReasoning(part.text)
+      } else if (part.type === 'text-delta') {
+        if (reasoningStarted && fullContent === '') {
+          console.log(`[AI] Reasoning complete (${fullReasoning.length} chars), response started`)
+        }
+        fullContent += part.text
+        callbacks.onDelta(part.text)
+      }
     }
 
     const usage = await result.usage
 
-    const assistantMessage = await insertAssistantMessage(conversationId, fullContent, modelId, providerId, usage)
+    const assistantMessage = await insertAssistantMessage(
+      conversationId,
+      fullContent,
+      fullReasoning || undefined,
+      modelId,
+      providerId,
+      usage,
+    )
     callbacks.onComplete(assistantMessage)
   } catch (error) {
     if ((error as Error).name === 'AbortError') {

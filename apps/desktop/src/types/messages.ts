@@ -14,6 +14,7 @@ export interface Message {
   readonly role: MessageRole
   readonly status: MessageStatus
   readonly content: string
+  readonly reasoning?: string
   readonly createdAt: string
   readonly updatedAt: string
   readonly error?: Error
