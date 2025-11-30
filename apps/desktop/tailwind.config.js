@@ -75,17 +75,6 @@ module.exports = {
             'code::after': {
               content: '""',
             },
-            pre: {
-              fontSize: '0.9375rem', // 15px
-              lineHeight: '1.5rem',
-              backgroundColor: 'var(--muted)',
-              color: 'var(--foreground)',
-              paddingLeft: '1rem',
-              paddingRight: '1rem',
-              paddingTop: '0.75rem',
-              paddingBottom: '0.75rem',
-              borderRadius: '0.5rem',
-            },
             'pre code': {
               backgroundColor: 'transparent',
               padding: '0',

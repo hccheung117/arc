@@ -122,3 +122,24 @@
     @apply bg-background text-foreground;
   }
 }
+
+/**
+ * Shiki Dual Theme Support
+ * 
+ * When using Shiki with dual themes (light/dark), it outputs inline styles with
+ * CSS custom properties. By default, it uses --shiki-light colors. In dark mode,
+ * we swap to --shiki-dark colors.
+ * 
+ * @see https://shiki.style/guide/dual-themes
+ */
+.shiki,
+.shiki span {
+  color: var(--shiki-light);
+  background-color: var(--shiki-light-bg);
+}
+
+.dark .shiki,
+.dark .shiki span {
+  color: var(--shiki-dark);
+  background-color: var(--shiki-dark-bg);
+}

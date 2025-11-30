@@ -6,28 +6,39 @@ import { cn } from "@renderer/lib/utils"
 interface ScrollAreaProps extends React.ComponentProps<typeof ScrollAreaPrimitive.Root> {
   /** Callback ref to access the scroll viewport element for position tracking */
   onViewportMount?: (element: HTMLDivElement | null) => void
+  /** Whether to show horizontal scrollbar */
+  horizontal?: boolean
+  /** Whether to show vertical scrollbar (default: true) */
+  vertical?: boolean
 }
 
 function ScrollArea({
   className,
   children,
   onViewportMount,
+  horizontal = false,
+  vertical = true,
   ...props
 }: ScrollAreaProps) {
   return (
     <ScrollAreaPrimitive.Root
       data-slot="scroll-area"
-      className={cn("relative", className)}
+      className={cn("relative overflow-hidden", className)}
       {...props}
     >
       <ScrollAreaPrimitive.Viewport
         ref={onViewportMount}
         data-slot="scroll-area-viewport"
-        className="focus-visible:ring-ring/50 size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:outline-1"
+        className={cn(
+          "focus-visible:ring-ring/50 size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:outline-1",
+          // Force viewport to respect parent width for horizontal scrolling
+          horizontal && "[&>div]:!block"
+        )}
       >
         {children}
       </ScrollAreaPrimitive.Viewport>
-      <ScrollBar />
+      {vertical && <ScrollBar orientation="vertical" />}
+      {horizontal && <ScrollBar orientation="horizontal" />}
       <ScrollAreaPrimitive.Corner />
     </ScrollAreaPrimitive.Root>
   )
