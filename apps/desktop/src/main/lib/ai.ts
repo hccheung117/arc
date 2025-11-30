@@ -133,6 +133,20 @@ export async function streamChatCompletion(
  * This is the high-level streaming function that handles the full flow:
  * fetch messages → get provider config → stream → save result.
  *
+ * MEMORY-ONLY STREAMING STRATEGY:
+ * ------------------------------
+ * Reasoning and content are accumulated in memory during streaming:
+ * - UI receives real-time deltas via callbacks (ephemeral)
+ * - Storage is NOT touched until streaming completes successfully
+ * - On completion, a single atomic write persists the full message
+ *
+ * Crash behavior:
+ * - Crash during streaming → no storage corruption, user retries cleanly
+ * - Crash after completion → full message is persisted
+ *
+ * This design treats AI output as "disposable until complete" while
+ * treating user input as "precious from the start".
+ *
  * @returns streamId for tracking/cancellation
  */
 export async function startChatStream(
@@ -174,6 +188,9 @@ export async function startChatStream(
       abortController.signal,
     )
 
+    // MEMORY-ONLY ACCUMULATORS
+    // These hold streaming data that will be written atomically on completion.
+    // If the stream fails or is cancelled, this data is discarded—by design.
     let fullContent = ''
     let fullReasoning = ''
     let reasoningStarted = false

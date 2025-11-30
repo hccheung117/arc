@@ -87,7 +87,19 @@ export interface StoredThread {
  *
  * Event sourcing log for a single thread.
  * Append-only for crash safety and zero data loss.
- * Multiple events can share the same `id` (create + update).
+ *
+ * ATOMIC WRITE POLICY FOR AI RESPONSES:
+ * ------------------------------------
+ * AI assistant messages are written as a single, complete line containing both
+ * `reasoning` and `content`. We intentionally avoid incremental writes during
+ * streaming to ensure crash safety:
+ *
+ * - If the app crashes during AI generation, nothing is persisted (clean slate)
+ * - User reopens and sees their last message with no AI response → clear "retry" state
+ * - No "zombie" messages with reasoning but no content
+ *
+ * The reducer supports merging multiple events with the same ID for future
+ * extensibility (e.g., message edits), but AI streaming does NOT use this pattern.
  *
  * Location: data/messages/{threadId}.jsonl
  */

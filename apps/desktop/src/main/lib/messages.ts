@@ -166,10 +166,23 @@ export async function createMessage(
 
 /**
  * Inserts an assistant message by appending to the event log.
- * Called after AI streaming completes.
+ * Called ONLY after AI streaming completes successfully.
  *
- * Note: This function is only called when the stream is complete, ensuring
- * that only full, valid responses are persisted.
+ * ATOMIC WRITE GUARANTEE:
+ * ----------------------
+ * This function writes a single JSONL line containing all message data:
+ * - content: The full response text
+ * - reasoning: The full thinking/reasoning (if present)
+ * - usage: Token counts from the AI SDK
+ *
+ * We deliberately avoid writing partial data during streaming. If the stream
+ * fails or the app crashes mid-generation, no incomplete message is persisted.
+ * This ensures users never see a message with reasoning but no answer.
+ *
+ * The transactional pattern:
+ * 1. User message → persisted immediately (never lose user input)
+ * 2. AI streaming → memory only (ephemeral UI deltas)
+ * 3. AI complete → single atomic write (this function)
  */
 export async function insertAssistantMessage(
   conversationId: string,
