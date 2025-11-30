@@ -14,7 +14,7 @@
 
 import * as fs from 'fs/promises'
 import * as path from 'path'
-import { getMessagesDir, type StoredAttachment } from '../storage'
+import { getMessagesDir, type StoredAttachment } from '@main/storage'
 
 /**
  * Maps MIME type to file extension.
@@ -121,5 +121,24 @@ export async function deleteThreadAttachments(threadId: string): Promise<void> {
     await fs.rm(dir, { recursive: true, force: true })
   } catch {
     // Directory may not exist, ignore
+  }
+}
+
+/**
+ * Deletes a single attachment file.
+ * Used when truncating messages during edit operations.
+ *
+ * @param threadId - The thread ID
+ * @param relativePath - The relative path from the message log
+ */
+export async function deleteAttachmentFile(
+  threadId: string,
+  relativePath: string,
+): Promise<void> {
+  const absolutePath = path.join(getThreadAttachmentsDir(threadId), relativePath)
+  try {
+    await fs.unlink(absolutePath)
+  } catch {
+    // File may not exist, ignore
   }
 }

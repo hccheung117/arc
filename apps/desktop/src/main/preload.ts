@@ -4,6 +4,8 @@ import type {
   ConversationPatch,
   ConversationEvent,
   CreateMessageInput,
+  EditMessageInput,
+  EditMessageResult,
   ChatOptions,
   AIStreamEvent,
   ModelsEvent,
@@ -39,6 +41,9 @@ const arc: ArcAPI = {
 
     create: (conversationId: string, input: CreateMessageInput) =>
       ipcRenderer.invoke('arc:messages:create', conversationId, input),
+
+    edit: (conversationId: string, messageId: string, input: EditMessageInput) =>
+      ipcRenderer.invoke('arc:messages:edit', conversationId, messageId, input) as Promise<EditMessageResult>,
   },
 
   models: {

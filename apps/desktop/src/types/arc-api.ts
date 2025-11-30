@@ -56,6 +56,17 @@ export interface CreateMessageInput {
   providerId: string
 }
 
+/** Message edit payload */
+export interface EditMessageInput {
+  content: string
+}
+
+/** Message edit result */
+export interface EditMessageResult {
+  message: Message
+  deletedIds: string[]
+}
+
 /** AI chat options */
 export interface ChatOptions {
   model: string
@@ -109,6 +120,13 @@ export interface ArcAPI {
      * conversations.onEvent('created') event.
      */
     create(conversationId: string, input: CreateMessageInput): Promise<Message>
+
+    /**
+     * Edit a message and delete all subsequent messages (Rule 2: Two-Way)
+     * Used for "edit and regenerate" flow - user edits a previous message
+     * and AI responds fresh from that point.
+     */
+    edit(conversationId: string, messageId: string, input: EditMessageInput): Promise<EditMessageResult>
   }
 
   /** Model resource operations */

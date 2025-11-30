@@ -9,7 +9,7 @@ import {
   type StoredMessageEvent,
   type StoredAttachment,
 } from '@main/storage'
-import { writeAttachment, readAttachment } from './attachments'
+import { writeAttachment, readAttachment, deleteAttachmentFile } from './attachments'
 
 /**
  * Generates a title from message content.
@@ -186,4 +186,84 @@ export async function insertAssistantMessage(
   })
 
   return await toMessage(event, conversationId)
+}
+
+/**
+ * Edits a message and deletes all subsequent messages.
+ * Used for the "edit and regenerate" flow where the user edits a previous
+ * message and wants the AI to respond fresh from that point.
+ *
+ * @param conversationId - The thread ID
+ * @param messageId - The message to edit
+ * @param newContent - The new content for the message
+ * @returns The updated message and list of deleted message IDs
+ */
+export async function editMessageAndTruncate(
+  conversationId: string,
+  messageId: string,
+  newContent: string,
+): Promise<{ message: Message; deletedIds: string[] }> {
+  const now = new Date().toISOString()
+
+  // Read current state
+  const events = await messageLogFile(conversationId).read()
+  const messages = reduceMessageEvents(events)
+
+  // Find the target message index
+  const targetIndex = messages.findIndex((m) => m.id === messageId)
+  if (targetIndex === -1) {
+    throw new Error(`Message not found: ${messageId}`)
+  }
+
+  const targetMessage = messages[targetIndex]
+
+  // Collect messages to delete (everything after target)
+  const messagesToDelete = messages.slice(targetIndex + 1)
+  const deletedIds = messagesToDelete.map((m) => m.id)
+
+  // Append update event for the edited message
+  const updateEvent: StoredMessageEvent = {
+    id: messageId,
+    content: newContent,
+    updatedAt: now,
+    modelId: targetMessage.modelId,
+    providerId: targetMessage.providerId,
+  }
+  await messageLogFile(conversationId).append(updateEvent)
+
+  // Append deletion events for subsequent messages
+  for (const msg of messagesToDelete) {
+    const deleteEvent: StoredMessageEvent = {
+      id: msg.id,
+      deleted: true,
+      updatedAt: now,
+      modelId: msg.modelId,
+      providerId: msg.providerId,
+    }
+    await messageLogFile(conversationId).append(deleteEvent)
+
+    // Clean up attachments for deleted messages
+    if (msg.attachments?.length) {
+      for (const att of msg.attachments) {
+        await deleteAttachmentFile(conversationId, att.path)
+      }
+    }
+  }
+
+  // Update thread timestamp
+  await threadIndexFile().update((index) => {
+    const thread = index.threads.find((t) => t.id === conversationId)
+    if (thread) {
+      thread.updatedAt = now
+    }
+    return index
+  })
+
+  // Return the updated message
+  const updatedMessage = await toMessage(
+    { ...targetMessage, content: newContent, updatedAt: now },
+    conversationId,
+  )
+
+  return { message: updatedMessage, deletedIds }
 }

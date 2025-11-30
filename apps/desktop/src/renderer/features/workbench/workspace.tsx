@@ -8,7 +8,7 @@ import { ModelSelector } from './model-selector'
 import type { Model } from '@arc-types/models'
 import type { AttachmentInput } from '@arc-types/arc-api'
 import { getModels, onModelsEvent } from '@renderer/lib/models'
-import { getMessages, createMessage, startAIChat, stopAIChat, onAIEvent } from '@renderer/lib/messages'
+import { getMessages, createMessage, editMessage, startAIChat, stopAIChat, onAIEvent } from '@renderer/lib/messages'
 import type { ChatThread } from './chat-thread'
 import { createDraftThread } from './chat-thread'
 import type { ThreadAction } from './use-chat-threads'
@@ -177,6 +177,46 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
     setError(null)
 
     try {
+      // EDITING FLOW: Edit existing message and truncate subsequent messages
+      if (editingMessageId !== null && activeThread) {
+        const { message: editedMessage, deletedIds } = await editMessage(
+          activeThread.id,
+          editingMessageId,
+          content,
+        )
+
+        onThreadUpdate({
+          type: 'EDIT_AND_TRUNCATE',
+          id: activeThread.id,
+          editedMessage,
+          deletedIds,
+        })
+
+        // Clear editing state before starting AI
+        setEditingMessageId(null)
+
+        // Start streaming for AI response
+        onThreadUpdate({
+          type: 'UPDATE_STATUS',
+          id: activeThread.id,
+          status: 'streaming',
+        })
+
+        const { streamId } = await startAIChat(activeThread.id, selectedModel.id)
+        setActiveStreamId(streamId)
+        setStreamingMessage({
+          id: `streaming-${streamId}`,
+          role: 'assistant',
+          content: '',
+          reasoning: '',
+          status: 'streaming',
+          isThinking: false,
+        })
+
+        return
+      }
+
+      // NORMAL FLOW: Create new message
       let threadId: string
 
       if (activeThreadId === null) {

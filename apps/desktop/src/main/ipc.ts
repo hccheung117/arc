@@ -8,6 +8,8 @@ import type {
   ConversationEvent,
   AIStreamEvent,
   CreateMessageInput,
+  EditMessageInput,
+  EditMessageResult,
   ChatOptions,
   ChatResponse,
 } from '@arc-types/arc-api'
@@ -20,7 +22,7 @@ import {
   updateConversation,
   deleteConversation,
 } from './lib/conversations'
-import { getMessages, createMessage } from './lib/messages'
+import { getMessages, createMessage, editMessageAndTruncate } from './lib/messages'
 import { getModels, fetchAllModels } from './lib/models'
 import { startChatStream, cancelStream } from './lib/ai'
 import { getConfig, setConfig } from './lib/providers'
@@ -129,9 +131,19 @@ async function handleMessagesCreate(
   return message
 }
 
+async function handleMessagesEdit(
+  _event: IpcMainInvokeEvent,
+  conversationId: string,
+  messageId: string,
+  input: EditMessageInput,
+): Promise<EditMessageResult> {
+  return editMessageAndTruncate(conversationId, messageId, input.content)
+}
+
 export function registerMessagesHandlers(ipcMain: IpcMain): void {
   ipcMain.handle('arc:messages:list', handleMessagesList)
   ipcMain.handle('arc:messages:create', handleMessagesCreate)
+  ipcMain.handle('arc:messages:edit', handleMessagesEdit)
 }
 
 // ============================================================================

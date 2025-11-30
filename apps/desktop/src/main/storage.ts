@@ -105,6 +105,7 @@ export interface StoredMessageEvent {
   reasoning?: string // Reasoning/thinking content from AI models
   createdAt?: string // ISO timestamp (only on 'create' events)
   updatedAt?: string // ISO timestamp (on 'update' events)
+  deleted?: boolean // Marks message as soft-deleted (for edit-and-truncate flow)
 
   // Attachments (user messages with images)
   attachments?: StoredAttachment[]
@@ -245,8 +246,10 @@ export function reduceMessageEvents(events: StoredMessageEvent[]): StoredMessage
     }
   }
 
-  // Convert to array and sort by creation time
+  // Convert to array, filter deleted messages, and sort by creation time
   const messages = Array.from(messagesById.values())
+    .filter((msg) => !msg.deleted)
+
   messages.sort((a, b) => {
     const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0
     const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0

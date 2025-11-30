@@ -1,5 +1,5 @@
 import type { Message, MessageRole } from '@arc-types/messages'
-import type { AIStreamEvent, AttachmentInput, ChatResponse, Unsubscribe } from '@arc-types/arc-api'
+import type { AIStreamEvent, AttachmentInput, ChatResponse, EditMessageResult, Unsubscribe } from '@arc-types/arc-api'
 
 export async function getMessages(conversationId: string): Promise<Message[]> {
   return window.arc.messages.list(conversationId)
@@ -14,6 +14,14 @@ export async function createMessage(
   attachments?: AttachmentInput[],
 ): Promise<Message> {
   return window.arc.messages.create(conversationId, { role, content, attachments, modelId, providerId })
+}
+
+export async function editMessage(
+  conversationId: string,
+  messageId: string,
+  content: string,
+): Promise<EditMessageResult> {
+  return window.arc.messages.edit(conversationId, messageId, { content })
 }
 
 export async function startAIChat(conversationId: string, model: string): Promise<ChatResponse> {

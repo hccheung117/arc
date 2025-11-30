@@ -17,6 +17,7 @@ export type ThreadAction =
   | { type: 'DELETE_THREAD'; id: string }
   | { type: 'RENAME_THREAD'; id: string; title: string }
   | { type: 'TOGGLE_PIN'; id: string; isPinned: boolean }
+  | { type: 'EDIT_AND_TRUNCATE'; id: string; editedMessage: Message; deletedIds: string[] }
 
 /**
  * Reducer for ChatThread state management
@@ -106,6 +107,22 @@ function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[]
           return {
             ...thread,
             isPinned: action.isPinned,
+          }
+        }
+        return thread
+      })
+    }
+
+    case 'EDIT_AND_TRUNCATE': {
+      return state.map((thread) => {
+        if (thread.id === action.id) {
+          // Update the edited message and remove deleted messages
+          const updatedMessages = thread.messages
+            .filter((m) => !action.deletedIds.includes(m.id))
+            .map((m) => (m.id === action.editedMessage.id ? action.editedMessage : m))
+          return {
+            ...thread,
+            messages: updatedMessages,
           }
         }
         return thread
