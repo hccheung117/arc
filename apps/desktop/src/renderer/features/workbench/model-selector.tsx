@@ -73,15 +73,14 @@ export function ModelSelector({
 
   // Filter models based on search query or favorites tab
   const filteredModels = models.filter((model) => {
-    // If searching, search across ALL models (ignoring tabs)
-    if (searchQuery) {
-      // Match against model name or provider name
-      return fuzzyMatch(searchQuery, model.name) ||
-             fuzzyMatch(searchQuery, model.provider.name)
-    }
+    const matchesSearch = searchQuery
+      ? fuzzyMatch(searchQuery, model.name) ||
+        fuzzyMatch(searchQuery, model.provider.name)
+      : true
 
-    // If not searching, respect the tabs
-    return showFavorites ? favorites.has(model.id) : true
+    const matchesTab = showFavorites ? favorites.has(model.id) : true
+
+    return matchesSearch && matchesTab
   })
 
   const providers = Array.from(
@@ -136,12 +135,12 @@ export function ModelSelector({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-auto min-w-[320px] max-w-[500px] p-0"
+        className="w-[380px] p-0"
         align="start"
         style={{ boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.2), 0 8px 10px -6px rgb(0 0 0 / 0.2)' }}
       >
-        <div className="p-2 border-b border-border">
-          <div className="relative">
+        <div className="flex items-center gap-2 p-2 border-b border-border">
+          <div className="relative flex-1">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
             <Input
               placeholder="Search models..."
@@ -151,35 +150,31 @@ export function ModelSelector({
               autoFocus
             />
           </div>
-        </div>
-
-        {/* Hide tabs when searching to keep UI clean */}
-        {!searchQuery && (
-          <div className="flex border-b">
+          <div className="flex items-center bg-muted/50 rounded-lg p-1 h-9 shrink-0">
             <button
               onClick={() => setShowFavorites(false)}
               className={cn(
-                'flex-1 px-4 py-2 text-label font-medium transition-colors',
+                'px-3 py-1 text-meta font-medium rounded-md transition-all',
                 !showFavorites
-                  ? 'border-b-2 border-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
               )}
             >
-              All Models
+              All
             </button>
             <button
               onClick={() => setShowFavorites(true)}
               className={cn(
-                'flex-1 px-4 py-2 text-label font-medium transition-colors',
+                'px-3 py-1 text-meta font-medium rounded-md transition-all',
                 showFavorites
-                  ? 'border-b-2 border-foreground'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
               )}
             >
               Favorites
             </button>
           </div>
-        )}
+        </div>
 
         <ScrollArea className="h-[400px]">
           <div className="p-2">
