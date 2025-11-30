@@ -47,13 +47,18 @@ export function SidebarList({ threads, activeThreadId, onThreadSelect, dispatch 
 
   // Group recent threads by date
   const groupedThreads = recentThreads.reduce((acc, thread) => {
-    const label = getGroupLabel(thread.createdAt)
+    const label = getGroupLabel(thread.updatedAt)
     if (!acc[label]) {
       acc[label] = []
     }
     acc[label].push(thread)
     return acc
   }, {} as Record<string, ChatThread[]>)
+
+  // Sort threads within each group by updatedAt desc
+  Object.keys(groupedThreads).forEach((key) => {
+    groupedThreads[key].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+  })
 
   // Sort groups
   const sortedGroups = Object.keys(groupedThreads).sort((a, b) => {
@@ -66,8 +71,8 @@ export function SidebarList({ threads, activeThreadId, onThreadSelect, dispatch 
     
     // If both are months/years, sort by most recent thread in the group
     // Assuming threads are already sorted by date desc, we can check the first thread
-    const dateA = new Date(groupedThreads[a][0].createdAt).getTime()
-    const dateB = new Date(groupedThreads[b][0].createdAt).getTime()
+    const dateA = new Date(groupedThreads[a][0].updatedAt).getTime()
+    const dateB = new Date(groupedThreads[b][0].updatedAt).getTime()
     return dateB - dateA
   })
 

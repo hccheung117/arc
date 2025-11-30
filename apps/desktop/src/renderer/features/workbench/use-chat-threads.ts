@@ -13,7 +13,7 @@ export type ThreadAction =
   | { type: 'ADD_MESSAGE'; id: string; message: Message }
   | { type: 'UPDATE_MESSAGES'; id: string; messages: Message[] }
   | { type: 'UPDATE_STATUS'; id: string; status: ChatThread['status'] }
-  | { type: 'UPDATE_TITLE'; id: string; title: string }
+  | { type: 'UPDATE_THREAD_METADATA'; id: string; title: string; updatedAt: string }
   | { type: 'DELETE_THREAD'; id: string }
   | { type: 'RENAME_THREAD'; id: string; title: string }
   | { type: 'TOGGLE_PIN'; id: string; isPinned: boolean }
@@ -43,6 +43,7 @@ function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[]
           return {
             ...thread,
             messages: [...thread.messages, action.message],
+            updatedAt: new Date().toISOString(),
           }
         }
         return thread
@@ -73,12 +74,13 @@ function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[]
       })
     }
 
-    case 'UPDATE_TITLE': {
+    case 'UPDATE_THREAD_METADATA': {
       return state.map((thread) => {
         if (thread.id === action.id) {
           return {
             ...thread,
             title: action.title,
+            updatedAt: action.updatedAt,
           }
         }
         return thread
@@ -123,6 +125,7 @@ function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[]
           return {
             ...thread,
             messages: updatedMessages,
+            updatedAt: new Date().toISOString(),
           }
         }
         return thread
@@ -170,9 +173,10 @@ export function useChatThreads() {
         case 'created':
         case 'updated':
           dispatch({
-            type: 'UPDATE_TITLE',
+            type: 'UPDATE_THREAD_METADATA',
             id: event.conversation.id,
             title: event.conversation.title,
+            updatedAt: event.conversation.updatedAt,
           })
           break
         case 'deleted':

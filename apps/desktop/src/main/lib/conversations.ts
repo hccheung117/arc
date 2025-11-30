@@ -31,6 +31,7 @@ export async function getConversationSummaries(): Promise<ConversationSummary[]>
   return sortedThreads.map((thread) => ({
     id: thread.id,
     updatedAt: thread.updatedAt,
+    createdAt: thread.createdAt,
     pinned: thread.pinned,
     title: thread.title ?? 'New Chat',
   }))

@@ -19,6 +19,7 @@ export type ChatThread = {
   status: 'draft' | 'streaming' | 'persisted'
   title: string
   createdAt: string
+  updatedAt: string
   isPinned: boolean
 }
 
@@ -29,12 +30,14 @@ export type ChatThread = {
  * database conversationId once persisted.
  */
 export function createDraftThread(): ChatThread {
+  const now = new Date().toISOString()
   return {
     id: createId(),
     messages: [],
     status: 'draft',
     title: 'New Chat',
-    createdAt: new Date().toISOString(),
+    createdAt: now,
+    updatedAt: now,
     isPinned: false,
   }
 }
@@ -51,7 +54,8 @@ export function hydrateFromConversation(conv: ConversationSummary): ChatThread {
     messages: [],
     status: 'persisted',
     title: conv.title,
-    createdAt: conv.updatedAt,
+    createdAt: conv.createdAt || conv.updatedAt, // Fallback if createdAt is missing
+    updatedAt: conv.updatedAt,
     isPinned: conv.pinned,
   }
 }
