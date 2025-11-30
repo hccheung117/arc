@@ -75,6 +75,8 @@ const arc: ArcAPI = {
   ui: {
     showThreadContextMenu: (isPinned: boolean) =>
       ipcRenderer.invoke('arc:ui:showThreadContextMenu', isPinned),
+    showMessageContextMenu: (content: string, hasEditOption: boolean) =>
+      ipcRenderer.invoke('arc:ui:showMessageContextMenu', content, hasEditOption),
   },
 
   import: {

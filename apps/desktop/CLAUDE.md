@@ -177,6 +177,18 @@ This architecture delivers significant user experience and code quality improvem
 - **Cleaner separation**: UI logic completely decoupled from database schema
 - **Message-first UX**: Users think "send message", not "create conversation"
 
+### 2.5. Context Menus
+
+**Always use native OS context menus** rather than custom React-based context menu components.
+
+Native context menus provide:
+- Consistent look and feel with the operating system
+- Proper accessibility support built-in
+- Correct positioning and overflow handling
+- Native keyboard navigation
+
+Implement context menus via IPC: the renderer sends menu item definitions to the main process, which constructs and displays the menu using Electron's `Menu.buildFromTemplate()` and `menu.popup()` APIs.
+
 ## 3. IPC Communication
 
 Three patterns govern all IPC communication. Choose based on direction and response requirements.

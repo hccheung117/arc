@@ -1,5 +1,6 @@
 export type MessageStatus = 'pending' | 'streaming' | 'complete' | 'failed'
 export type MessageRole = 'user' | 'assistant' | 'system'
+export type MessageContextMenuAction = 'copy' | 'edit' | null
 
 export interface MessageAttachment {
   readonly type: 'image'

@@ -10,7 +10,7 @@
  * - Rule 3 (Push): Main → Renderer event subscription
  */
 
-import type { Message, MessageRole } from './messages'
+import type { Message, MessageRole, MessageContextMenuAction } from './messages'
 import type { ConversationSummary, ContextMenuAction } from './conversations'
 import type { Model } from './models'
 import type { ArcImportResult, ArcImportEvent } from './arc-file'
@@ -148,6 +148,9 @@ export interface ArcAPI {
   ui: {
     /** Show thread context menu (Rule 2: Two-Way) */
     showThreadContextMenu(isPinned: boolean): Promise<ContextMenuAction>
+    
+    /** Show message context menu (Rule 2: Two-Way) */
+    showMessageContextMenu(content: string, hasEditOption: boolean): Promise<MessageContextMenuAction>
   }
 
   /** .arc file import operations */

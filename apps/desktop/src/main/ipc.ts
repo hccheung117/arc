@@ -13,7 +13,7 @@ import type {
 } from '@arc-types/arc-api'
 import type { ArcImportResult, ArcImportEvent } from '@arc-types/arc-file'
 import type { ConversationSummary, ContextMenuAction } from '@arc-types/conversations'
-import type { Message } from '@arc-types/messages'
+import type { Message, MessageContextMenuAction } from '@arc-types/messages'
 import type { Model } from '@arc-types/models'
 import {
   getConversationSummaries,
@@ -25,7 +25,7 @@ import { getModels, fetchAllModels } from './lib/models'
 import { startChatStream, cancelStream } from './lib/ai'
 import { getConfig, setConfig } from './lib/providers'
 import { threadIndexFile, type StoredThread } from './storage'
-import { showThreadContextMenu } from './lib/ui'
+import { showThreadContextMenu, showMessageContextMenu } from './lib/ui'
 import { validateArcFile, importArcFile } from './lib/arc-import'
 import { getAttachmentPath } from './lib/attachments'
 
@@ -221,8 +221,17 @@ async function handleUIShowThreadContextMenu(
   return showThreadContextMenu(isPinned)
 }
 
+async function handleUIShowMessageContextMenu(
+  _event: IpcMainInvokeEvent,
+  content: string,
+  hasEditOption: boolean
+): Promise<MessageContextMenuAction> {
+  return showMessageContextMenu(content, hasEditOption)
+}
+
 export function registerUIHandlers(ipcMain: IpcMain): void {
   ipcMain.handle('arc:ui:showThreadContextMenu', handleUIShowThreadContextMenu)
+  ipcMain.handle('arc:ui:showMessageContextMenu', handleUIShowMessageContextMenu)
 }
 
 // ============================================================================

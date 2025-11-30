@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react"
-import { BotMessageSquare, Copy, Check } from "lucide-react"
+import { BotMessageSquare, Copy, Check, Pencil } from "lucide-react"
 import { Button } from "@renderer/components/ui/button"
 import { Markdown } from "@renderer/components/markdown"
 import { ThinkingBlock } from "./thinking-block"
@@ -8,6 +8,8 @@ import type { Message as MessageType, MessageAttachment } from '@arc-types/messa
 interface MessageProps {
   message: MessageType
   isThinking?: boolean
+  onEdit?: (content: string) => void
+  isEditing?: boolean
 }
 
 /** Renders a clickable image attachment */
@@ -85,7 +87,7 @@ function AttachmentGallery({
   )
 }
 
-export function Message({ message, isThinking }: MessageProps) {
+export function Message({ message, isThinking, onEdit, isEditing }: MessageProps) {
   const [isHovered, setIsHovered] = useState(false)
   const [isCopied, setIsCopied] = useState(false)
   const hasAttachments = message.attachments && message.attachments.length > 0
@@ -97,9 +99,30 @@ export function Message({ message, isThinking }: MessageProps) {
     setTimeout(() => setIsCopied(false), 2000)
   }
 
+  const handleContextMenu = useCallback(async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    
+    // Safety check for API availability (in case of version mismatch/hot-reload lag)
+    if (!window.arc.ui?.showMessageContextMenu) {
+      console.warn('Context menu API not available')
+      return
+    }
+
+    try {
+      const result = await window.arc.ui.showMessageContextMenu(message.content, !!onEdit)
+      
+      if (result === 'edit' && onEdit) {
+        onEdit(message.content)
+      }
+    } catch (err) {
+      console.error('Failed to show context menu:', err)
+    }
+  }, [message.content, onEdit])
+
   if (message.role === "user") {
     return (
-      <div className="flex justify-end mb-6">
+      <div className={`flex justify-end mb-6 transition-all duration-300 ${isEditing ? 'opacity-40 blur-[1px]' : ''}`}>
         <div
           className="max-w-[70%]"
           onMouseEnter={() => setIsHovered(true)}
@@ -112,7 +135,10 @@ export function Message({ message, isThinking }: MessageProps) {
            *
            * @see tailwind.config.js - Typography scale definition
            */}
-          <div className="bg-muted rounded-2xl px-4 py-3">
+          <div 
+            className="bg-muted rounded-2xl px-4 py-3"
+            onContextMenu={handleContextMenu}
+          >
             {/* Attachments rendered above text */}
             {hasAttachments && (
               <AttachmentGallery
@@ -124,7 +150,17 @@ export function Message({ message, isThinking }: MessageProps) {
               <p className="text-body whitespace-pre-wrap">{message.content}</p>
             )}
           </div>
-          <div className="h-8 flex items-center justify-end">
+          <div className="h-8 flex items-center justify-end gap-1">
+            {onEdit && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => onEdit(message.content)}
+                className={`text-muted-foreground hover:text-foreground transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+              >
+                <Pencil className="w-4 h-4" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon-sm"
@@ -145,32 +181,44 @@ export function Message({ message, isThinking }: MessageProps) {
 
   return (
     <div
-      className="mb-6"
+      className={`mb-6 transition-all duration-300 ${isEditing ? 'opacity-40 blur-[1px]' : ''}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       <div className="flex gap-3">
-        <div className="shrink-0 mt-1">
-          <BotMessageSquare className="w-5 h-5 text-muted-foreground" />
+        <div className="shrink-0">
+          <BotMessageSquare className="w-8 h-8 text-muted-foreground" />
         </div>
         <div className="flex-1 min-w-0">
-          {/* Reasoning/thinking block for AI models that support it */}
-          {hasReasoning && (
-            <ThinkingBlock
-              content={message.reasoning!}
-              isStreaming={message.status === 'streaming' && isThinking === true}
-            />
-          )}
+          <div onContextMenu={handleContextMenu}>
+            {/* Reasoning/thinking block for AI models that support it */}
+            {hasReasoning && (
+              <ThinkingBlock
+                content={message.reasoning!}
+                isStreaming={message.status === 'streaming' && isThinking === true}
+              />
+            )}
 
-          {/* UX: Show a pulsing cursor during the "thinking" phase before first token */}
-          {message.status === 'streaming' && !message.content && !hasReasoning ? (
-            <div className="h-[24px] flex items-center">
-              <div className="h-4 w-2 bg-foreground/50 animate-pulse rounded-[1px]" />
-            </div>
-          ) : (
-            <Markdown>{message.content}</Markdown>
-          )}
-          <div className="h-8 flex items-center justify-start">
+            {/* UX: Show a pulsing cursor during the "thinking" phase before first token */}
+            {message.status === 'streaming' && !message.content && !hasReasoning ? (
+              <div className="h-[24px] flex items-center">
+                <div className="h-4 w-2 bg-foreground/50 animate-pulse rounded-[1px]" />
+              </div>
+            ) : (
+              <Markdown>{message.content}</Markdown>
+            )}
+          </div>
+          <div className="h-8 flex items-center justify-start gap-1">
+            {onEdit && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => onEdit(message.content)}
+                className={`text-muted-foreground hover:text-foreground transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+              >
+                <Pencil className="w-4 h-4" />
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon-sm"

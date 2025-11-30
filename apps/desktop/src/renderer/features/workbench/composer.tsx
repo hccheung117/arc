@@ -1,8 +1,8 @@
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
 import { Textarea } from '@renderer/components/ui/textarea'
-import { ImagePlus, Send, X } from 'lucide-react'
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { ImagePlus, Send, Square, X, Pencil } from 'lucide-react'
+import { useState, useRef, useEffect, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { createId } from '@paralleldrive/cuid2'
 import type { AttachmentInput } from '@arc-types/arc-api'
 
@@ -32,18 +32,36 @@ interface ComposerAttachment {
 
 interface ComposerProps {
   onSend?: (message: string, attachments?: AttachmentInput[]) => void | Promise<void>
+  onStop?: () => void
   isStreaming?: boolean
+  isEditing?: boolean
+  onCancelEdit?: () => void
+}
+
+export interface ComposerRef {
+  setMessage: (message: string) => void
+  focus: () => void
 }
 
 /** Accepted image MIME types */
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
 
-export function Composer({ onSend, isStreaming }: ComposerProps) {
+export const Composer = forwardRef<ComposerRef, ComposerProps>(({ onSend, onStop, isStreaming, isEditing, onCancelEdit }, ref) => {
   const [message, setMessage] = useState('')
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([])
   const [isDragging, setIsDragging] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useImperativeHandle(ref, () => ({
+    setMessage: (text: string) => {
+      setMessage(text)
+      // Height adjustment will happen via useEffect
+    },
+    focus: () => {
+      textareaRef.current?.focus()
+    }
+  }))
 
   useEffect(() => {
     const textarea = textareaRef.current
@@ -180,12 +198,29 @@ export function Composer({ onSend, isStreaming }: ComposerProps) {
   return (
     <Card
       className={`mx-4 mb-4 p-3 border transition-colors ${
-        isDragging ? 'border-primary bg-primary/5' : 'border-sidebar-border'
+        isDragging ? 'border-primary bg-primary/5' : 
+        isEditing ? 'border-primary ring-1 ring-primary' : 'border-sidebar-border'
       }`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {/* Editing indicator */}
+      {isEditing && (
+        <div className="flex items-center justify-between mb-0 px-1">
+          <span className="text-xs font-medium text-primary flex items-center gap-1">
+            <Pencil className="h-3 w-3" />
+            Editing message
+          </span>
+          <button 
+            onClick={onCancelEdit}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
       <div className="space-y-2">
         {/* Attachment Thumbnails */}
         {attachments.length > 0 && (
@@ -246,16 +281,28 @@ export function Composer({ onSend, isStreaming }: ComposerProps) {
               <ImagePlus className="h-4 w-4" />
             </Button>
           </div>
-          <Button
-            size="icon"
-            className="h-8 w-8 rounded-full"
-            onClick={handleSend}
-            disabled={!canSend}
-          >
-            <Send className="h-4 w-4" />
-          </Button>
+          {isStreaming ? (
+            <Button
+              size="icon"
+              variant="destructive"
+              className="h-8 w-8 rounded-full"
+              onClick={onStop}
+            >
+              <Square className="h-3 w-3 fill-current" />
+            </Button>
+          ) : (
+            <Button
+              size="icon"
+              className="h-8 w-8 rounded-full"
+              onClick={handleSend}
+              disabled={!canSend}
+            >
+              <Send className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
     </Card>
   )
-}
+})
+Composer.displayName = "Composer"

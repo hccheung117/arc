@@ -1,14 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { ScrollArea } from '@renderer/components/ui/scroll-area'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
-import { Composer } from './composer'
+import { Composer, type ComposerRef } from './composer'
 import { EmptyState } from './empty-state'
 import { Message } from './message'
 import { ModelSelector } from './model-selector'
 import type { Model } from '@arc-types/models'
 import type { AttachmentInput } from '@arc-types/arc-api'
 import { getModels, onModelsEvent } from '@renderer/lib/models'
-import { getMessages, createMessage, startAIChat, onAIEvent } from '@renderer/lib/messages'
+import { getMessages, createMessage, startAIChat, stopAIChat, onAIEvent } from '@renderer/lib/messages'
 import type { ChatThread } from './chat-thread'
 import { createDraftThread } from './chat-thread'
 import type { ThreadAction } from './use-chat-threads'
@@ -37,6 +37,8 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
   const [streamingMessage, setStreamingMessage] = useState<StreamingMessage | null>(null)
   const [activeStreamId, setActiveStreamId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
+  const composerRef = useRef<ComposerRef>(null)
 
   // State for scroll viewport element to enable smart auto-scroll
   // Using state (not ref) ensures effects re-run when element mounts
@@ -231,8 +233,30 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
       setStreamingMessage(null)
       setActiveStreamId(null)
       setError(err instanceof Error ? err.message : 'An error occurred while sending message')
+    } finally {
+      // Always clear editing state after sending
+      setEditingMessageId(null)
     }
   }
+
+  const handleStopStreaming = useCallback(() => {
+    if (activeStreamId) {
+      stopAIChat(activeStreamId)
+      setStreamingMessage(null)
+      setActiveStreamId(null)
+    }
+  }, [activeStreamId])
+
+  const handleEditMessage = useCallback((content: string, messageId: string) => {
+    setEditingMessageId(messageId)
+    composerRef.current?.setMessage(content)
+    composerRef.current?.focus()
+  }, [])
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingMessageId(null)
+    composerRef.current?.setMessage('')
+  }, [])
 
   return (
     <TooltipProvider>
@@ -282,7 +306,12 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
             <ScrollArea className="h-full" onViewportMount={setViewport}>
               <div className="min-h-full p-6">
                 {messages.map((message) => (
-                  <Message key={message.id} message={message} />
+                  <Message 
+                    key={message.id} 
+                    message={message} 
+                    onEdit={(content) => handleEditMessage(content, message.id)}
+                    isEditing={editingMessageId === message.id}
+                  />
                 ))}
                 {streamingMessage && activeThread && (
                   <Message
@@ -294,6 +323,8 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
                       updatedAt: new Date().toISOString(),
                     }}
                     isThinking={streamingMessage.isThinking}
+                    onEdit={(content) => handleEditMessage(content, streamingMessage.id)}
+                    isEditing={editingMessageId === streamingMessage.id}
                   />
                 )}
               </div>
@@ -343,7 +374,14 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
               {error}
             </div>
           )}
-          <Composer onSend={handleSendMessage} isStreaming={activeStreamId !== null} />
+          <Composer 
+            ref={composerRef} 
+            onSend={handleSendMessage} 
+            onStop={handleStopStreaming} 
+            isStreaming={activeStreamId !== null}
+            isEditing={editingMessageId !== null}
+            onCancelEdit={handleCancelEdit}
+          />
         </div>
       </div>
     </TooltipProvider>
