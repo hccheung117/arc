@@ -74,7 +74,7 @@ export function WorkbenchWindow() {
 
       {/* Import feedback message */}
       {importMessage && (
-        <div className="fixed bottom-4 right-4 z-50 rounded-md bg-primary px-4 py-2 text-label text-primary-foreground shadow-lg">
+        <div className="fixed bottom-4 right-4 z-50 rounded-md bg-primary px-4 py-2 text-label text-primary-foreground shadow-lg select-text cursor-text">
           {importMessage}
         </div>
       )}

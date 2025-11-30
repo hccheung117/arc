@@ -458,7 +458,7 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
            * @see tailwind.config.js - Typography scale definition
            */}
           {error && (
-            <div className="mx-4 mb-2 rounded-md bg-destructive/10 px-3 py-2 text-label text-destructive">
+            <div className="mx-4 mb-2 rounded-md bg-destructive/10 px-3 py-2 text-label text-destructive select-text cursor-text">
               {error}
             </div>
           )}

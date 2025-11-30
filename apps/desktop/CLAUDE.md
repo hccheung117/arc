@@ -189,6 +189,21 @@ Native context menus provide:
 
 Implement context menus via IPC: the renderer sends menu item definitions to the main process, which constructs and displays the menu using Electron's `Menu.buildFromTemplate()` and `menu.popup()` APIs.
 
+### 2.6. Text Selection
+
+**Default to non-selectable UI** to feel like a native desktop application.
+
+The global stylesheet applies `select-none` and `cursor-default` to the `body`. This prevents accidental text selection on buttons, labels, headers, and other UI chrome—matching the behavior of native macOS/Windows apps.
+
+**Opt-in for selectable content:**
+
+Explicitly add `select-text cursor-text` to elements where users need to select and copy text:
+
+- Chat messages (user and AI)
+- Composer/input fields (handled by `Input` and `Textarea` components)
+- Error messages and toasts (users may need to copy error details)
+- Code blocks (already handled by the Markdown component)
+
 ## 3. IPC Communication
 
 Three patterns govern all IPC communication. Choose based on direction and response requirements.

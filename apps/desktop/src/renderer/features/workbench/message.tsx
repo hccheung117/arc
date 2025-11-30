@@ -141,7 +141,7 @@ export function Message({ message, isThinking, onEdit, isEditing, branchInfo, on
            * @see tailwind.config.js - Typography scale definition
            */}
           <div 
-            className="bg-muted rounded-2xl px-4 py-3"
+            className="bg-muted rounded-2xl px-4 py-3 select-text cursor-text"
             onContextMenu={handleContextMenu}
           >
             {/* Attachments rendered above text */}
@@ -199,7 +199,7 @@ export function Message({ message, isThinking, onEdit, isEditing, branchInfo, on
           <BotMessageSquare className="w-8 h-8 text-muted-foreground" />
         </div>
         <div className="flex-1 min-w-0">
-          <div onContextMenu={handleContextMenu}>
+          <div onContextMenu={handleContextMenu} className="select-text cursor-text">
             {/* Reasoning/thinking block for AI models that support it */}
             {hasReasoning && (
               <ThinkingBlock
