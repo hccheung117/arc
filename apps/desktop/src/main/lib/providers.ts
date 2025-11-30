@@ -1,4 +1,4 @@
-import { settingsFile } from '@main/storage'
+import { settingsFile, type StoredFavorite } from '@main/storage'
 
 export async function updateProviderConfig(
   providerId: string,
@@ -73,7 +73,7 @@ export async function setConfig<T = unknown>(key: string, value: T): Promise<voi
   }
 
   if (key === 'favorites') {
-    const favorites = value as string[]
+    const favorites = value as StoredFavorite[]
     await settingsFile().update((settings) => ({
       ...settings,
       favorites,

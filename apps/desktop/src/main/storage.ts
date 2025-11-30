@@ -28,9 +28,14 @@ import { JsonLog } from './arcfs/json-log'
  *
  * Location: data/settings.json
  */
+export interface StoredFavorite {
+  providerId: string
+  modelId: string
+}
+
 export interface StoredSettings {
   providers: StoredProvider[]
-  favorites?: string[]
+  favorites?: StoredFavorite[]
 }
 
 export interface StoredProvider {

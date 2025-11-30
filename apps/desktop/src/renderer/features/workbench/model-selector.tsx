@@ -12,6 +12,16 @@ import { Separator } from '@renderer/components/ui/separator'
 import { cn } from '@renderer/lib/utils'
 import type { Model } from '@arc-types/models'
 
+interface StoredFavorite {
+  providerId: string
+  modelId: string
+}
+
+// Composite key for efficient Set lookups
+function favoriteKey(providerId: string, modelId: string): string {
+  return `${providerId}:${modelId}`
+}
+
 // Simple fuzzy matching utility
 // Returns true if all characters in query appear in text in order
 function fuzzyMatch(query: string, text: string): boolean {
@@ -49,24 +59,47 @@ export function ModelSelector({
   const [searchQuery, setSearchQuery] = useState('')
 
   useEffect(() => {
-    window.arc.config.get<string[]>('favorites').then((saved) => {
+    window.arc.config.get<StoredFavorite[]>('favorites').then((saved) => {
       if (saved && saved.length > 0) {
-        setFavorites(new Set(saved))
-        setShowFavorites(true)
+        // Filter out invalid entries (e.g., from old string[] format or corrupted data)
+        const validFavorites = saved.filter(
+          (f) =>
+            f &&
+            typeof f === 'object' &&
+            f.providerId &&
+            f.modelId &&
+            f.providerId !== 'undefined' &&
+            f.modelId !== 'undefined'
+        )
+        if (validFavorites.length > 0) {
+          const keys = validFavorites.map((f) => favoriteKey(f.providerId, f.modelId))
+          setFavorites(new Set(keys))
+          setShowFavorites(true)
+        }
+        // Clean up invalid entries by re-saving
+        if (validFavorites.length !== saved.length) {
+          window.arc.config.set('favorites', validFavorites)
+        }
       }
     })
   }, [])
 
-  const toggleFavorite = (modelId: string) => {
+  const toggleFavorite = (model: Model) => {
+    const key = favoriteKey(model.provider.id, model.id)
     setFavorites((prev) => {
       const next = new Set(prev)
-      if (next.has(modelId)) {
-        next.delete(modelId)
+      if (next.has(key)) {
+        next.delete(key)
       } else {
-        next.add(modelId)
+        next.add(key)
       }
 
-      window.arc.config.set('favorites', Array.from(next))
+      // Convert Set back to array of objects for storage
+      const favoritesArray: StoredFavorite[] = Array.from(next).map((k) => {
+        const [providerId, modelId] = k.split(':')
+        return { providerId, modelId }
+      })
+      window.arc.config.set('favorites', favoritesArray)
       return next
     })
   }
@@ -78,7 +111,8 @@ export function ModelSelector({
         fuzzyMatch(searchQuery, model.provider.name)
       : true
 
-    const matchesTab = showFavorites ? favorites.has(model.id) : true
+    const key = favoriteKey(model.provider.id, model.id)
+    const matchesTab = showFavorites ? favorites.has(key) : true
 
     return matchesSearch && matchesTab
   })
@@ -200,12 +234,15 @@ export function ModelSelector({
                     </div>
                     <div className="space-y-0.5">
                       {group.models.map((model) => {
-                        const isSelected = selectedModel?.id === model.id
-                        const isFavorite = favorites.has(model.id)
+                        const isSelected = selectedModel?.id === model.id &&
+                          selectedModel?.provider.id === model.provider.id
+                        const isFavorite = favorites.has(
+                          favoriteKey(model.provider.id, model.id)
+                        )
 
                         return (
                           <div
-                            key={model.id}
+                            key={`${model.provider.id}:${model.id}`}
                             className={cn(
                               'group relative flex items-center gap-2 rounded-md px-2 py-2 cursor-pointer transition-colors',
                               isSelected
@@ -222,7 +259,7 @@ export function ModelSelector({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
-                                toggleFavorite(model.id)
+                                toggleFavorite(model)
                               }}
                               className={cn(
                                 'shrink-0 transition-opacity',
