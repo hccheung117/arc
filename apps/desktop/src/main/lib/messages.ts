@@ -8,6 +8,8 @@ import {
   reduceMessageEvents,
   type StoredMessageEvent,
   type StoredAttachment,
+  type StoredThreadMetaEvent,
+  type BranchInfo,
 } from '@main/storage'
 import { writeAttachment, readAttachment, deleteAttachmentFile } from './attachments'
 
@@ -67,13 +69,24 @@ export async function toMessage(
 }
 
 /**
- * Returns all messages for a conversation by reading and reducing the event log.
+ * Result of getMessages with branching support.
+ */
+export interface GetMessagesResult {
+  messages: Message[]
+  branchPoints: BranchInfo[]
+}
+
+/**
+ * Returns messages along the active path with branch information.
  * Implements event sourcing: the log is the source of truth.
  */
-export async function getMessages(conversationId: string): Promise<Message[]> {
+export async function getMessages(conversationId: string): Promise<GetMessagesResult> {
   const events = await messageLogFile(conversationId).read()
-  const reducedEvents = reduceMessageEvents(events)
-  return Promise.all(reducedEvents.map((event) => toMessage(event, conversationId)))
+  const { messages: reducedEvents, branchPoints } = reduceMessageEvents(events)
+  const messages = await Promise.all(
+    reducedEvents.map((event) => toMessage(event, conversationId)),
+  )
+  return { messages, branchPoints }
 }
 
 /**
@@ -86,7 +99,14 @@ export async function getMessages(conversationId: string): Promise<Message[]> {
  */
 export async function createMessage(
   conversationId: string,
-  input: { role: MessageRole; content: string; attachments?: AttachmentInput[]; modelId: string; providerId: string },
+  input: {
+    role: MessageRole
+    content: string
+    parentId: string | null
+    attachments?: AttachmentInput[]
+    modelId: string
+    providerId: string
+  },
 ): Promise<{ message: Message; threadWasCreated: boolean }> {
   const now = new Date().toISOString()
   const messageId = createId()
@@ -106,6 +126,7 @@ export async function createMessage(
     id: messageId,
     role: input.role,
     content: input.content,
+    parentId: input.parentId,
     createdAt: now,
     attachments: storedAttachments,
     modelId: input.modelId,
@@ -154,6 +175,7 @@ export async function insertAssistantMessage(
   conversationId: string,
   content: string,
   reasoning: string | undefined,
+  parentId: string | null,
   modelId: string,
   providerId: string,
   usage: LanguageModelUsage,
@@ -167,6 +189,7 @@ export async function insertAssistantMessage(
     role: 'assistant',
     content,
     reasoning,
+    parentId,
     createdAt: now,
     modelId,
     providerId,
@@ -189,66 +212,74 @@ export async function insertAssistantMessage(
 }
 
 /**
- * Edits a message and deletes all subsequent messages.
- * Used for the "edit and regenerate" flow where the user edits a previous
- * message and wants the AI to respond fresh from that point.
+ * Result of createBranch operation.
+ */
+export interface CreateBranchResult {
+  message: Message
+  branchPoints: BranchInfo[]
+}
+
+/**
+ * Creates a new branch by adding a message after a specific point.
+ * Used for the "edit and regenerate" flow - preserves old conversation, creates new branch.
  *
  * @param conversationId - The thread ID
- * @param messageId - The message to edit
- * @param newContent - The new content for the message
- * @returns The updated message and list of deleted message IDs
+ * @param parentId - The message to branch from (null for root)
+ * @param content - Content for the new message
+ * @param attachments - Optional attachments
+ * @param modelId - Model ID for the message
+ * @param providerId - Provider ID for the message
+ * @returns The new message and updated branch points
  */
-export async function editMessageAndTruncate(
+export async function createBranch(
   conversationId: string,
-  messageId: string,
-  newContent: string,
-): Promise<{ message: Message; deletedIds: string[] }> {
+  parentId: string | null,
+  content: string,
+  attachments: AttachmentInput[] | undefined,
+  modelId: string,
+  providerId: string,
+): Promise<CreateBranchResult> {
   const now = new Date().toISOString()
+  const messageId = createId()
 
-  // Read current state
-  const events = await messageLogFile(conversationId).read()
-  const messages = reduceMessageEvents(events)
-
-  // Find the target message index
-  const targetIndex = messages.findIndex((m) => m.id === messageId)
-  if (targetIndex === -1) {
-    throw new Error(`Message not found: ${messageId}`)
+  // Write attachments if provided
+  let storedAttachments: StoredAttachment[] | undefined
+  if (attachments?.length) {
+    storedAttachments = await Promise.all(
+      attachments.map((att, index) =>
+        writeAttachment(conversationId, messageId, index, att.data, att.mimeType),
+      ),
+    )
   }
 
-  const targetMessage = messages[targetIndex]
-
-  // Collect messages to delete (everything after target)
-  const messagesToDelete = messages.slice(targetIndex + 1)
-  const deletedIds = messagesToDelete.map((m) => m.id)
-
-  // Append update event for the edited message
-  const updateEvent: StoredMessageEvent = {
+  // Create new message event with parentId
+  const event: StoredMessageEvent = {
     id: messageId,
-    content: newContent,
+    role: 'user',
+    content,
+    parentId,
+    createdAt: now,
+    attachments: storedAttachments,
+    modelId,
+    providerId,
+  }
+  await messageLogFile(conversationId).append(event)
+
+  // Update active path to include this new message
+  const events = await messageLogFile(conversationId).read()
+  const { branchPoints } = reduceMessageEvents(events)
+
+  // Compute path to parent, then add new message
+  const pathToParent = parentId ? getPathToMessage(events, parentId) : []
+  const newActivePath = [...pathToParent, messageId]
+
+  // Persist new active path
+  const metaEvent: StoredThreadMetaEvent = {
+    type: 'thread_meta',
+    activePath: newActivePath,
     updatedAt: now,
-    modelId: targetMessage.modelId,
-    providerId: targetMessage.providerId,
   }
-  await messageLogFile(conversationId).append(updateEvent)
-
-  // Append deletion events for subsequent messages
-  for (const msg of messagesToDelete) {
-    const deleteEvent: StoredMessageEvent = {
-      id: msg.id,
-      deleted: true,
-      updatedAt: now,
-      modelId: msg.modelId,
-      providerId: msg.providerId,
-    }
-    await messageLogFile(conversationId).append(deleteEvent)
-
-    // Clean up attachments for deleted messages
-    if (msg.attachments?.length) {
-      for (const att of msg.attachments) {
-        await deleteAttachmentFile(conversationId, att.path)
-      }
-    }
-  }
+  await messageLogFile(conversationId).append(metaEvent)
 
   // Update thread timestamp
   await threadIndexFile().update((index) => {
@@ -259,11 +290,125 @@ export async function editMessageAndTruncate(
     return index
   })
 
-  // Return the updated message
-  const updatedMessage = await toMessage(
-    { ...targetMessage, content: newContent, updatedAt: now },
-    conversationId,
+  const message = await toMessage(event, conversationId)
+
+  // Re-read to get updated branch points
+  const updatedEvents = await messageLogFile(conversationId).read()
+  const { branchPoints: updatedBranchPoints } = reduceMessageEvents(updatedEvents)
+
+  return { message, branchPoints: updatedBranchPoints }
+}
+
+/**
+ * Result of switchBranch operation.
+ */
+export interface SwitchBranchResult {
+  messages: Message[]
+  branchPoints: BranchInfo[]
+}
+
+/**
+ * Switches to a different branch at a given branch point.
+ *
+ * @param conversationId - The thread ID
+ * @param branchParentId - The message where branching occurs (null for root)
+ * @param targetBranchIndex - Which branch to switch to (0-indexed)
+ * @returns Updated messages along new active path + branch points
+ */
+export async function switchBranch(
+  conversationId: string,
+  branchParentId: string | null,
+  targetBranchIndex: number,
+): Promise<SwitchBranchResult> {
+  const now = new Date().toISOString()
+
+  const events = await messageLogFile(conversationId).read()
+  const { branchPoints } = reduceMessageEvents(events)
+
+  // Find the branch point
+  const branchInfo = branchPoints.find((b) => b.parentId === branchParentId)
+  if (!branchInfo || targetBranchIndex >= branchInfo.branches.length) {
+    throw new Error('Invalid branch selection')
+  }
+
+  // Get the path to the branch parent
+  const pathToParent = branchParentId ? getPathToMessage(events, branchParentId) : []
+
+  // Get the selected branch's first message and follow to leaf
+  const selectedBranchFirstMsg = branchInfo.branches[targetBranchIndex]
+  const pathFromBranch = getPathFromMessage(events, selectedBranchFirstMsg)
+
+  const newActivePath = [...pathToParent, ...pathFromBranch]
+
+  // Persist new active path
+  const metaEvent: StoredThreadMetaEvent = {
+    type: 'thread_meta',
+    activePath: newActivePath,
+    updatedAt: now,
+  }
+  await messageLogFile(conversationId).append(metaEvent)
+
+  // Return updated view
+  const updatedEvents = await messageLogFile(conversationId).read()
+  const { messages: reducedMessages, branchPoints: updatedBranchPoints } =
+    reduceMessageEvents(updatedEvents)
+
+  const messages = await Promise.all(
+    reducedMessages.map((m) => toMessage(m, conversationId)),
   )
 
-  return { message: updatedMessage, deletedIds }
+  return { messages, branchPoints: updatedBranchPoints }
+}
+
+/**
+ * Helper: Get path from root to a specific message.
+ */
+function getPathToMessage(events: import('@main/storage').ThreadEvent[], targetId: string): string[] {
+  const { messages } = reduceMessageEvents(events)
+
+  // Build parent map
+  const parentMap = new Map<string, string | null>()
+  for (const msg of messages) {
+    parentMap.set(msg.id, msg.parentId)
+  }
+
+  // Walk backwards from target to root
+  const path: string[] = []
+  let current: string | null = targetId
+  while (current) {
+    path.unshift(current)
+    current = parentMap.get(current) ?? null
+  }
+
+  return path
+}
+
+/**
+ * Helper: Get path from a message to its leaf (following first child at each level).
+ */
+function getPathFromMessage(events: import('@main/storage').ThreadEvent[], startMsgId: string): string[] {
+  const { messages } = reduceMessageEvents(events)
+
+  // Build children map
+  const childrenMap = new Map<string | null, string[]>()
+  for (const msg of messages) {
+    const parentId = msg.parentId
+    if (!childrenMap.has(parentId)) {
+      childrenMap.set(parentId, [])
+    }
+    childrenMap.get(parentId)!.push(msg.id)
+  }
+
+  // Follow first child from startMsgId
+  const path: string[] = [startMsgId]
+  let current = startMsgId
+
+  while (true) {
+    const children = childrenMap.get(current)
+    if (!children || children.length === 0) break
+    path.push(children[0])
+    current = children[0]
+  }
+
+  return path
 }

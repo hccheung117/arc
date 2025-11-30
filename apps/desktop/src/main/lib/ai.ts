@@ -145,7 +145,7 @@ export async function startChatStream(
   activeStreams.set(streamId, abortController)
 
   try {
-    const conversationMessages = await getMessages(conversationId)
+    const { messages: conversationMessages } = await getMessages(conversationId)
 
     const providerId = await getModelProvider(modelId)
     const config = await getProviderConfig(providerId)
@@ -162,12 +162,16 @@ export async function startChatStream(
       baseUrl: config.baseUrl,
     }
 
+    // Get the parent ID (last message in the conversation)
+    const lastMessage = conversationMessages[conversationMessages.length - 1]
+    const parentId = lastMessage?.id ?? null
+
     const coreMessages = await toCoreMessages(conversationMessages, conversationId)
     const result = await streamChatCompletion(
       providerConfig,
       modelId,
       coreMessages,
-      abortController.signal
+      abortController.signal,
     )
 
     let fullContent = ''
@@ -197,6 +201,7 @@ export async function startChatStream(
       conversationId,
       fullContent,
       fullReasoning || undefined,
+      parentId,
       modelId,
       providerId,
       usage,

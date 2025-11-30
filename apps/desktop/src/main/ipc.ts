@@ -8,8 +8,10 @@ import type {
   ConversationEvent,
   AIStreamEvent,
   CreateMessageInput,
-  EditMessageInput,
-  EditMessageResult,
+  CreateBranchInput,
+  ListMessagesResult,
+  CreateBranchResult,
+  SwitchBranchResult,
   ChatOptions,
   ChatResponse,
 } from '@arc-types/arc-api'
@@ -22,7 +24,7 @@ import {
   updateConversation,
   deleteConversation,
 } from './lib/conversations'
-import { getMessages, createMessage, editMessageAndTruncate } from './lib/messages'
+import { getMessages, createMessage, createBranch, switchBranch } from './lib/messages'
 import { getModels, fetchAllModels } from './lib/models'
 import { startChatStream, cancelStream } from './lib/ai'
 import { getConfig, setConfig } from './lib/providers'
@@ -104,8 +106,8 @@ export function registerConversationsHandlers(ipcMain: IpcMain): void {
 
 async function handleMessagesList(
   _event: IpcMainInvokeEvent,
-  conversationId: string
-): Promise<Message[]> {
+  conversationId: string,
+): Promise<ListMessagesResult> {
   return getMessages(conversationId)
 }
 
@@ -131,19 +133,35 @@ async function handleMessagesCreate(
   return message
 }
 
-async function handleMessagesEdit(
+async function handleMessagesCreateBranch(
   _event: IpcMainInvokeEvent,
   conversationId: string,
-  messageId: string,
-  input: EditMessageInput,
-): Promise<EditMessageResult> {
-  return editMessageAndTruncate(conversationId, messageId, input.content)
+  input: CreateBranchInput,
+): Promise<CreateBranchResult> {
+  return createBranch(
+    conversationId,
+    input.parentId,
+    input.content,
+    input.attachments,
+    input.modelId,
+    input.providerId,
+  )
+}
+
+async function handleMessagesSwitchBranch(
+  _event: IpcMainInvokeEvent,
+  conversationId: string,
+  branchParentId: string | null,
+  targetBranchIndex: number,
+): Promise<SwitchBranchResult> {
+  return switchBranch(conversationId, branchParentId, targetBranchIndex)
 }
 
 export function registerMessagesHandlers(ipcMain: IpcMain): void {
   ipcMain.handle('arc:messages:list', handleMessagesList)
   ipcMain.handle('arc:messages:create', handleMessagesCreate)
-  ipcMain.handle('arc:messages:edit', handleMessagesEdit)
+  ipcMain.handle('arc:messages:createBranch', handleMessagesCreateBranch)
+  ipcMain.handle('arc:messages:switchBranch', handleMessagesSwitchBranch)
 }
 
 // ============================================================================

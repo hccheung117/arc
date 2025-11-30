@@ -4,8 +4,7 @@ import type {
   ConversationPatch,
   ConversationEvent,
   CreateMessageInput,
-  EditMessageInput,
-  EditMessageResult,
+  CreateBranchInput,
   ChatOptions,
   AIStreamEvent,
   ModelsEvent,
@@ -42,8 +41,20 @@ const arc: ArcAPI = {
     create: (conversationId: string, input: CreateMessageInput) =>
       ipcRenderer.invoke('arc:messages:create', conversationId, input),
 
-    edit: (conversationId: string, messageId: string, input: EditMessageInput) =>
-      ipcRenderer.invoke('arc:messages:edit', conversationId, messageId, input) as Promise<EditMessageResult>,
+    createBranch: (conversationId: string, input: CreateBranchInput) =>
+      ipcRenderer.invoke('arc:messages:createBranch', conversationId, input),
+
+    switchBranch: (
+      conversationId: string,
+      branchParentId: string | null,
+      targetBranchIndex: number,
+    ) =>
+      ipcRenderer.invoke(
+        'arc:messages:switchBranch',
+        conversationId,
+        branchParentId,
+        targetBranchIndex,
+      ),
   },
 
   models: {

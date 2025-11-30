@@ -51,20 +51,44 @@ export interface AttachmentInput {
 export interface CreateMessageInput {
   role: MessageRole
   content: string
+  parentId: string | null
   attachments?: AttachmentInput[]
   modelId: string
   providerId: string
 }
 
-/** Message edit payload */
-export interface EditMessageInput {
-  content: string
+/** Branch info for UI navigation */
+export interface BranchInfo {
+  parentId: string | null
+  branches: string[]
+  currentIndex: number
 }
 
-/** Message edit result */
-export interface EditMessageResult {
+/** Result of listing messages with branch info */
+export interface ListMessagesResult {
+  messages: Message[]
+  branchPoints: BranchInfo[]
+}
+
+/** Create branch payload (for edit flow) */
+export interface CreateBranchInput {
+  parentId: string | null
+  content: string
+  attachments?: AttachmentInput[]
+  modelId: string
+  providerId: string
+}
+
+/** Create branch result */
+export interface CreateBranchResult {
   message: Message
-  deletedIds: string[]
+  branchPoints: BranchInfo[]
+}
+
+/** Switch branch result */
+export interface SwitchBranchResult {
+  messages: Message[]
+  branchPoints: BranchInfo[]
 }
 
 /** AI chat options */
@@ -111,8 +135,8 @@ export interface ArcAPI {
 
   /** Message resource operations */
   messages: {
-    /** List messages for a conversation (Rule 2: Two-Way) */
-    list(conversationId: string): Promise<Message[]>
+    /** List messages for a conversation with branch info (Rule 2: Two-Way) */
+    list(conversationId: string): Promise<ListMessagesResult>
 
     /**
      * Create a new message (Rule 2: Two-Way)
@@ -122,11 +146,20 @@ export interface ArcAPI {
     create(conversationId: string, input: CreateMessageInput): Promise<Message>
 
     /**
-     * Edit a message and delete all subsequent messages (Rule 2: Two-Way)
-     * Used for "edit and regenerate" flow - user edits a previous message
-     * and AI responds fresh from that point.
+     * Create a new branch (Rule 2: Two-Way)
+     * Used for "edit and regenerate" flow - creates new branch, preserves old conversation.
      */
-    edit(conversationId: string, messageId: string, input: EditMessageInput): Promise<EditMessageResult>
+    createBranch(conversationId: string, input: CreateBranchInput): Promise<CreateBranchResult>
+
+    /**
+     * Switch to a different branch (Rule 2: Two-Way)
+     * Returns messages along the new active path.
+     */
+    switchBranch(
+      conversationId: string,
+      branchParentId: string | null,
+      targetBranchIndex: number,
+    ): Promise<SwitchBranchResult>
   }
 
   /** Model resource operations */

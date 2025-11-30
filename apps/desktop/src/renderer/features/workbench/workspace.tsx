@@ -6,9 +6,9 @@ import { EmptyState } from './empty-state'
 import { Message } from './message'
 import { ModelSelector } from './model-selector'
 import type { Model } from '@arc-types/models'
-import type { AttachmentInput } from '@arc-types/arc-api'
+import type { AttachmentInput, BranchInfo } from '@arc-types/arc-api'
 import { getModels, onModelsEvent } from '@renderer/lib/models'
-import { getMessages, createMessage, editMessage, startAIChat, stopAIChat, onAIEvent } from '@renderer/lib/messages'
+import { getMessages, createMessage, createBranch, switchBranch, startAIChat, stopAIChat, onAIEvent } from '@renderer/lib/messages'
 import type { ChatThread } from './chat-thread'
 import { createDraftThread } from './chat-thread'
 import type { ThreadAction } from './use-chat-threads'
@@ -38,6 +38,7 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
   const [activeStreamId, setActiveStreamId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
+  const [branchPoints, setBranchPoints] = useState<BranchInfo[]>([])
   const composerRef = useRef<ComposerRef>(null)
 
   // State for scroll viewport element to enable smart auto-scroll
@@ -99,18 +100,20 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
   // Load messages when thread is selected
   useEffect(() => {
     if (!activeThread) {
+      setBranchPoints([])
       return
     }
 
     // Only fetch if messages haven't been loaded yet and it's not a fresh draft
     // (Drafts start with 0 messages anyway, but persisted threads might need hydration)
     if (activeThread.messages.length === 0 && activeThread.status !== 'draft') {
-      getMessages(activeThread.id).then((fetchedMessages) => {
+      getMessages(activeThread.id).then(({ messages: fetchedMessages, branchPoints: fetchedBranchPoints }) => {
         onThreadUpdate({
           type: 'UPDATE_MESSAGES',
           id: activeThread.id,
           messages: fetchedMessages,
         })
+        setBranchPoints(fetchedBranchPoints)
       })
     }
   }, [activeThreadId, activeThread?.status])
@@ -177,20 +180,29 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
     setError(null)
 
     try {
-      // EDITING FLOW: Edit existing message and truncate subsequent messages
+      // EDITING FLOW: Create new branch (preserves old conversation)
       if (editingMessageId !== null && activeThread) {
-        const { message: editedMessage, deletedIds } = await editMessage(
+        // Find the parent message (message BEFORE the one being edited)
+        const editIndex = messages.findIndex((m) => m.id === editingMessageId)
+        const parentId = editIndex > 0 ? messages[editIndex - 1].id : null
+
+        const { message: newMessage, branchPoints: newBranchPoints } = await createBranch(
           activeThread.id,
-          editingMessageId,
+          parentId,
           content,
+          selectedModel.id,
+          selectedModel.provider.id,
+          attachments,
         )
 
+        // Reload messages to get the new active path
+        const { messages: updatedMessages, branchPoints: updatedBranchPoints } = await getMessages(activeThread.id)
         onThreadUpdate({
-          type: 'EDIT_AND_TRUNCATE',
+          type: 'UPDATE_MESSAGES',
           id: activeThread.id,
-          editedMessage,
-          deletedIds,
+          messages: updatedMessages,
         })
+        setBranchPoints(updatedBranchPoints)
 
         // Clear editing state before starting AI
         setEditingMessageId(null)
@@ -235,10 +247,15 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
         if (!activeThread) return
       }
 
+      // Get parent ID (last message in current conversation)
+      const lastMessage = messages[messages.length - 1]
+      const parentId = lastMessage?.id ?? null
+
       const userMessage = await createMessage(
         threadId,
         'user',
         content,
+        parentId,
         selectedModel.id,
         selectedModel.provider.id,
         attachments,
@@ -298,6 +315,28 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
     composerRef.current?.setMessage('')
   }, [])
 
+  const handleBranchSwitch = useCallback(async (branchParentId: string | null, index: number) => {
+    if (!activeThread) return
+
+    try {
+      const { messages: newMessages, branchPoints: newBranchPoints } = await switchBranch(
+        activeThread.id,
+        branchParentId,
+        index,
+      )
+
+      onThreadUpdate({
+        type: 'UPDATE_MESSAGES',
+        id: activeThread.id,
+        messages: newMessages,
+      })
+      setBranchPoints(newBranchPoints)
+    } catch (err) {
+      console.error(`[UI] Branch switch error: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      setError(err instanceof Error ? err.message : 'Failed to switch branch')
+    }
+  }, [activeThread, onThreadUpdate])
+
   return (
     <TooltipProvider>
       <div className="flex h-full flex-col overflow-hidden">
@@ -345,14 +384,23 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
           <div className="relative flex-1 min-h-0">
             <ScrollArea className="h-full" onViewportMount={setViewport}>
               <div className="min-h-full p-6">
-                {messages.map((message) => (
-                  <Message 
-                    key={message.id} 
-                    message={message} 
-                    onEdit={(content) => handleEditMessage(content, message.id)}
-                    isEditing={editingMessageId === message.id}
-                  />
-                ))}
+                {messages.map((message, index) => {
+                  // Branch info for this message: check if it was edited (has siblings)
+                  // For the first message, check parentId === null; otherwise check the previous message
+                  const parentId = index === 0 ? null : messages[index - 1].id
+                  const branchInfo = branchPoints.find((bp) => bp.parentId === parentId)
+                  console.log(`[Branch] msg=${message.id.slice(0,8)} idx=${index} parentId=${parentId} branchInfo=`, branchInfo, 'all branchPoints=', branchPoints)
+                  return (
+                    <Message
+                      key={message.id}
+                      message={message}
+                      onEdit={(content) => handleEditMessage(content, message.id)}
+                      isEditing={editingMessageId === message.id}
+                      branchInfo={branchInfo}
+                      onBranchSwitch={(targetIndex) => handleBranchSwitch(parentId, targetIndex)}
+                    />
+                  )
+                })}
                 {streamingMessage && activeThread && (
                   <Message
                     key={streamingMessage.id}

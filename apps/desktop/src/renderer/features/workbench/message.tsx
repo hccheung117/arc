@@ -3,13 +3,17 @@ import { BotMessageSquare, Copy, Check, Pencil } from "lucide-react"
 import { Button } from "@renderer/components/ui/button"
 import { Markdown } from "@renderer/components/markdown"
 import { ThinkingBlock } from "./thinking-block"
+import { BranchIndicator } from "./branch-indicator"
 import type { Message as MessageType, MessageAttachment } from '@arc-types/messages'
+import type { BranchInfo } from '@arc-types/arc-api'
 
 interface MessageProps {
   message: MessageType
   isThinking?: boolean
   onEdit?: (content: string) => void
   isEditing?: boolean
+  branchInfo?: BranchInfo
+  onBranchSwitch?: (index: number) => void
 }
 
 /** Renders a clickable image attachment */
@@ -87,7 +91,8 @@ function AttachmentGallery({
   )
 }
 
-export function Message({ message, isThinking, onEdit, isEditing }: MessageProps) {
+export function Message({ message, isThinking, onEdit, isEditing, branchInfo, onBranchSwitch }: MessageProps) {
+  console.log(`[Message] id=${message.id.slice(0,8)} branchInfo=`, branchInfo, 'onBranchSwitch=', !!onBranchSwitch)
   const [isHovered, setIsHovered] = useState(false)
   const [isCopied, setIsCopied] = useState(false)
   const hasAttachments = message.attachments && message.attachments.length > 0
@@ -150,7 +155,11 @@ export function Message({ message, isThinking, onEdit, isEditing }: MessageProps
               <p className="text-body whitespace-pre-wrap">{message.content}</p>
             )}
           </div>
-          <div className="h-8 flex items-center justify-end gap-1">
+          <div className="h-8 flex items-center gap-1">
+            {branchInfo && branchInfo.branches.length > 1 && onBranchSwitch && (
+              <BranchIndicator branchInfo={branchInfo} onSwitch={onBranchSwitch} />
+            )}
+            <div className="flex-1" />
             {onEdit && (
               <Button
                 variant="ghost"
@@ -208,7 +217,10 @@ export function Message({ message, isThinking, onEdit, isEditing }: MessageProps
               <Markdown>{message.content}</Markdown>
             )}
           </div>
-          <div className="h-8 flex items-center justify-start gap-1">
+          <div className="h-8 flex items-center gap-1">
+            {branchInfo && branchInfo.branches.length > 1 && onBranchSwitch && (
+              <BranchIndicator branchInfo={branchInfo} onSwitch={onBranchSwitch} />
+            )}
             {onEdit && (
               <Button
                 variant="ghost"

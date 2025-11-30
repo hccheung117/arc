@@ -1,7 +1,15 @@
 import type { Message, MessageRole } from '@arc-types/messages'
-import type { AIStreamEvent, AttachmentInput, ChatResponse, EditMessageResult, Unsubscribe } from '@arc-types/arc-api'
+import type {
+  AIStreamEvent,
+  AttachmentInput,
+  ChatResponse,
+  Unsubscribe,
+  ListMessagesResult,
+  CreateBranchResult,
+  SwitchBranchResult,
+} from '@arc-types/arc-api'
 
-export async function getMessages(conversationId: string): Promise<Message[]> {
+export async function getMessages(conversationId: string): Promise<ListMessagesResult> {
   return window.arc.messages.list(conversationId)
 }
 
@@ -9,19 +17,44 @@ export async function createMessage(
   conversationId: string,
   role: MessageRole,
   content: string,
+  parentId: string | null,
   modelId: string,
   providerId: string,
   attachments?: AttachmentInput[],
 ): Promise<Message> {
-  return window.arc.messages.create(conversationId, { role, content, attachments, modelId, providerId })
+  return window.arc.messages.create(conversationId, {
+    role,
+    content,
+    parentId,
+    attachments,
+    modelId,
+    providerId,
+  })
 }
 
-export async function editMessage(
+export async function createBranch(
   conversationId: string,
-  messageId: string,
+  parentId: string | null,
   content: string,
-): Promise<EditMessageResult> {
-  return window.arc.messages.edit(conversationId, messageId, { content })
+  modelId: string,
+  providerId: string,
+  attachments?: AttachmentInput[],
+): Promise<CreateBranchResult> {
+  return window.arc.messages.createBranch(conversationId, {
+    parentId,
+    content,
+    attachments,
+    modelId,
+    providerId,
+  })
+}
+
+export async function switchBranch(
+  conversationId: string,
+  branchParentId: string | null,
+  targetBranchIndex: number,
+): Promise<SwitchBranchResult> {
+  return window.arc.messages.switchBranch(conversationId, branchParentId, targetBranchIndex)
 }
 
 export async function startAIChat(conversationId: string, model: string): Promise<ChatResponse> {
