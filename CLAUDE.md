@@ -18,6 +18,7 @@ Our hierarchy prevents churn and maintains a unified voice:
 - Compose systems so each module has one purpose and one truth.
 - Optimize for readability first; performance or novelty comes later.
 - When uncertain, choose the option that future readers will understand fastest.
+- **Never consider backward compatibility.** We're in rapid prototyping—always aim for the best design and avoid compromises driven by legacy concerns.
 
 ## Documentation & Best Practices
 
