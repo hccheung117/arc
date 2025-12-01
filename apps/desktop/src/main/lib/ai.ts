@@ -4,6 +4,7 @@ import * as fs from 'fs/promises'
 import type { Message } from '@arc-types/messages'
 import { modelsFile, settingsFile } from '@main/storage'
 import { getAttachmentPath } from './attachments'
+import { loggingFetch } from './http-logger'
 import { getMessages, insertAssistantMessage } from './messages'
 import { getProviderConfig } from './providers'
 
@@ -32,6 +33,7 @@ export function createProviderModel(
   return createOpenAI({
     ...(config.apiKey && { apiKey: config.apiKey }),
     ...(config.baseUrl && { baseURL: config.baseUrl }),
+    fetch: loggingFetch,
   }).chat(modelId)
 }
 

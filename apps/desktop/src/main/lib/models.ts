@@ -1,5 +1,6 @@
 import { modelsFile, settingsFile, type StoredProvider, type StoredModel } from '@main/storage'
 import type { Model } from '@arc-types/models'
+import { loggingFetch } from './http-logger'
 
 const OPENAI_DEFAULT_BASE_URL = 'https://api.openai.com/v1'
 
@@ -31,7 +32,7 @@ async function fetchOpenAIModels(provider: StoredProvider): Promise<StoredModel[
     headers['Authorization'] = `Bearer ${provider.apiKey}`
   }
 
-  const response = await fetch(endpoint, { headers })
+  const response = await loggingFetch(endpoint, { headers })
 
   if (!response.ok) {
     throw new Error(`Failed to fetch models: ${response.status} ${response.statusText}`)
