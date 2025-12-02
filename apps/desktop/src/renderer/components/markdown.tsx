@@ -3,8 +3,6 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
-import type { BundledLanguage } from 'shiki'
-import { codeToHtml } from 'shiki/bundle/web'
 import { Check, Copy } from 'lucide-react'
 
 interface MarkdownProps {
@@ -97,12 +95,9 @@ function CodeBlock({ node, className, children }: CodeProps) {
   const isMermaid = normalizedClassName
     ?.split(/\s+/)
     .some((token) => token === 'language-mermaid')
-  const [highlight, setHighlight] = useState<{ key: string; html: string } | null>(null)
   const match = /language-(\w+)/.exec(normalizedClassName || '')
-  const lang = match?.[1] as BundledLanguage | undefined
+  const lang = match?.[1]
   const code = rawCode.replace(/\n$/, '')
-  const highlightKey =
-    isBlock && !isMermaid && lang && code ? `${lang}:${code}` : null
 
   // Copy functionality
   const [isCopied, setIsCopied] = useState(false)
@@ -111,37 +106,6 @@ function CodeBlock({ node, className, children }: CodeProps) {
     setIsCopied(true)
     setTimeout(() => setIsCopied(false), 2000)
   }, [code])
-
-  useEffect(() => {
-    if (!highlightKey || !lang) {
-      return
-    }
-
-    let isMounted = true
-
-    codeToHtml(code, {
-      lang,
-      themes: {
-        light: 'github-light',
-        dark: 'github-dark',
-      },
-    })
-      .then((highlighted: string) => {
-        if (isMounted) {
-          setHighlight({ key: highlightKey, html: highlighted })
-        }
-      })
-      .catch(() => {
-        // Language not supported by shiki/bundle/web - fall back to plain text
-        if (isMounted) {
-          setHighlight(null)
-        }
-      })
-
-    return () => {
-      isMounted = false
-    }
-  }, [code, highlightKey, lang])
 
   // Inline code stays inline
   if (!isBlock) {
@@ -191,18 +155,11 @@ function CodeBlock({ node, className, children }: CodeProps) {
       </div>
 
       {/* Code content - grid child auto-constrained, pre scrolls horizontally */}
-      {highlightKey && highlight?.key === highlightKey ? (
-        <div
-          dangerouslySetInnerHTML={{ __html: highlight.html }}
-          className="overflow-x-auto p-4 [&>pre]:m-0! [&>pre]:p-0! [&>pre]:bg-transparent! [&_code]:p-0!"
-        />
-      ) : (
-        <pre className="overflow-x-auto min-w-0 m-0! p-4!">
-          <code className={normalizedClassName}>
-            {code}
-          </code>
-        </pre>
-      )}
+      <pre className="overflow-x-auto min-w-0 m-0! p-4!">
+        <code className={normalizedClassName}>
+          {code}
+        </code>
+      </pre>
     </div>
   )
 }
