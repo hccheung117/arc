@@ -160,16 +160,6 @@ export function Message({ message, isThinking, onEdit, isEditing, branchInfo, on
               <BranchIndicator branchInfo={branchInfo} onSwitch={onBranchSwitch} />
             )}
             <div className="flex-1" />
-            {onEdit && (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => onEdit(message.content)}
-                className={`text-muted-foreground hover:text-foreground transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-              >
-                <Pencil className="w-4 h-4" />
-              </Button>
-            )}
             <Button
               variant="ghost"
               size="icon-sm"
@@ -182,6 +172,16 @@ export function Message({ message, isThinking, onEdit, isEditing, branchInfo, on
                 <Copy className="w-4 h-4" />
               )}
             </Button>
+            {onEdit && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => onEdit(message.content)}
+                className={`text-muted-foreground hover:text-foreground transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+              >
+                <Pencil className="w-4 h-4" />
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -221,16 +221,6 @@ export function Message({ message, isThinking, onEdit, isEditing, branchInfo, on
             {branchInfo && branchInfo.branches.length > 1 && onBranchSwitch && (
               <BranchIndicator branchInfo={branchInfo} onSwitch={onBranchSwitch} />
             )}
-            {onEdit && (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => onEdit(message.content)}
-                className={`text-muted-foreground hover:text-foreground transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-              >
-                <Pencil className="w-4 h-4" />
-              </Button>
-            )}
             <Button
               variant="ghost"
               size="icon-sm"
@@ -243,6 +233,16 @@ export function Message({ message, isThinking, onEdit, isEditing, branchInfo, on
                 <Copy className="w-4 h-4" />
               )}
             </Button>
+            {onEdit && (
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => onEdit(message.content)}
+                className={`text-muted-foreground hover:text-foreground transition-opacity duration-200 ${isHovered ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+              >
+                <Pencil className="w-4 h-4" />
+              </Button>
+            )}
           </div>
         </div>
       </div>
