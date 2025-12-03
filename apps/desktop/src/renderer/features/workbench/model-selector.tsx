@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { ChevronRight, Search, Star } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
@@ -57,6 +57,25 @@ export function ModelSelector({
   const [showFavorites, setShowFavorites] = useState(false)
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
+
+  // Calculate stable dimensions based on the full model list so layout doesn't jump during search/filtering
+  const { width: popoverWidth, height: scrollHeight } = useMemo(() => {
+    if (models.length === 0) return { width: 380, height: 200 }
+
+    // Width: Match longest name, clamped between 380px and 800px
+    const longestNameLength = Math.max(...models.map((m) => m.name.length), 0)
+    // Approx 7px per char (average for 15px font) + 60px buffer for icons/padding
+    const calculatedWidth = Math.max(380, Math.min(800, longestNameLength * 7 + 60))
+
+    // Height: Estimate based on items, headers, and separators
+    const providerIds = new Set(models.map((m) => m.provider.id))
+    const providerCount = providerIds.size
+    // Item ~36px, Header ~30px, Separator ~17px
+    const estimatedHeight =
+      models.length * 36 + providerCount * 30 + Math.max(0, providerCount - 1) * 17 + 20
+
+    return { width: calculatedWidth, height: estimatedHeight }
+  }, [models])
 
   useEffect(() => {
     window.arc.config.get<StoredFavorite[]>('favorites').then((saved) => {
@@ -169,9 +188,13 @@ export function ModelSelector({
         </Button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[380px] p-0"
+        className="p-0"
         align="start"
-        style={{ boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.2), 0 8px 10px -6px rgb(0 0 0 / 0.2)' }}
+        style={{
+          width: popoverWidth,
+          maxWidth: '85vw',
+          boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.2), 0 8px 10px -6px rgb(0 0 0 / 0.2)',
+        }}
       >
         <div className="flex items-center gap-2 p-2 border-b border-border">
           <div className="relative flex-1">
@@ -210,7 +233,10 @@ export function ModelSelector({
           </div>
         </div>
 
-        <ScrollArea className="h-[400px]">
+        <ScrollArea
+          style={{ height: scrollHeight, maxHeight: '55vh' }}
+          className="w-full"
+        >
           <div className="p-2">
             {models.length === 0 ? (
               <div className="px-2 py-8 text-center text-label text-muted-foreground">
