@@ -22,6 +22,28 @@ function favoriteKey(providerId: string, modelId: string): string {
   return `${providerId}:${modelId}`
 }
 
+// Accurate text measurement using Canvas API
+// Creates canvas once and reuses context for performance
+const measureTextWidth = (() => {
+  let canvas: HTMLCanvasElement | null = null
+  let ctx: CanvasRenderingContext2D | null = null
+
+  return (text: string): number => {
+    if (!canvas) {
+      canvas = document.createElement('canvas')
+      ctx = canvas.getContext('2d')!
+      // Match text-label: 15px with system font stack from globals.css
+      ctx.font = '15px ui-sans-serif, system-ui, sans-serif'
+    }
+    return ctx!.measureText(text).width
+  }
+})()
+
+// Buffer for UI chrome - calculated from actual CSS values:
+// ScrollArea padding (p-2 × 2): 16px + Item padding (px-2 × 2): 16px +
+// Gap (gap-2): 8px + Star icon (h-4 w-4): 16px + Scrollbar: 12px
+const UI_CHROME_BUFFER = 68
+
 // Simple fuzzy matching utility
 // Returns true if all characters in query appear in text in order
 function fuzzyMatch(query: string, text: string): boolean {
@@ -62,12 +84,14 @@ export function ModelSelector({
   const { width: popoverWidth, height: scrollHeight } = useMemo(() => {
     if (models.length === 0) return { width: 380, height: 200 }
 
-    // Width: Match longest name, clamped between 380px and 800px
-    const longestNameLength = Math.max(...models.map((m) => m.name.length), 0)
-    // Approx 7px per char (average for 15px font) + 60px buffer for icons/padding
-    const calculatedWidth = Math.max(380, Math.min(800, longestNameLength * 7 + 60))
+    // Measure actual text widths using Canvas API for accuracy
+    // This replaces the broken `charCount * 7` estimation that failed for wide/CJK characters
+    const longestTextWidth = Math.max(...models.map((m) => measureTextWidth(m.name)), 0)
 
-    // Height: Estimate based on items, headers, and separators
+    // Width: actual measured text + buffer, clamped between 380px and 800px
+    const calculatedWidth = Math.max(380, Math.min(800, Math.ceil(longestTextWidth) + UI_CHROME_BUFFER))
+
+    // Height: estimate based on items, headers, and separators
     const providerIds = new Set(models.map((m) => m.provider.id))
     const providerCount = providerIds.size
     // Item ~36px, Header ~30px, Separator ~17px
