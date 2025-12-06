@@ -389,7 +389,6 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
                   // For the first message, check parentId === null; otherwise check the previous message
                   const parentId = index === 0 ? null : messages[index - 1].id
                   const branchInfo = branchPoints.find((bp) => bp.parentId === parentId)
-                  console.log(`[Branch] msg=${message.id.slice(0,8)} idx=${index} parentId=${parentId} branchInfo=`, branchInfo, 'all branchPoints=', branchPoints)
                   return (
                     <Message
                       key={message.id}

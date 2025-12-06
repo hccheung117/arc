@@ -1,61 +1,49 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 
 /**
- * Smart Auto-Scroll Hook
+ * User-Action-Centric Auto-Scroll
  *
- * Implements "sticky" scroll behavior for streaming AI content.
+ * ## Core Principle
  *
- * ## UX Contract
+ * State comes from USER ACTIONS, not from geometry.
  *
- * The fundamental rule: **Only auto-scroll if the user is already at the bottom.**
+ * The mode flag (FOLLOW vs MANUAL) changes ONLY when the user scrolls.
+ * Content arrival NEVER changes the mode—it only triggers scroll adjustments
+ * if we're already in FOLLOW mode.
  *
- * This distinguishes between two user modes:
+ * ## Two Modes
  *
- * 1. **"Watching" Mode** (user at bottom)
- *    - User wants to follow the streaming content in real-time
- *    - Every new chunk should scroll the view to keep content visible
- *    - This is the default state when a conversation starts
+ * - FOLLOW: Auto-stick to bottom when new content arrives
+ * - MANUAL: Never move viewport; user is in charge
  *
- * 2. **"Reading" Mode** (user scrolled up)
- *    - User is reviewing previous content while AI streams
- *    - Auto-scroll would be disruptive and disorienting
- *    - Content continues streaming silently below the fold
- *    - User can return to "watching" by scrolling back to bottom
+ * ## State Transitions
  *
- * ## Threshold
+ * | Event              | Action                                           |
+ * |--------------------|--------------------------------------------------|
+ * | User scrolls UP    | → MANUAL (they want to read history)             |
+ * | User scrolls DOWN  | Check final position: near bottom? → FOLLOW      |
+ * | Content arrives    | FOLLOW: scroll to bottom. MANUAL: do nothing.    |
+ * | Programmatic scroll| No mode change (we caused it, not user)          |
  *
- * We use a 50px threshold to determine "at bottom" because:
- * - Pixel-perfect positioning (0px) is too strict; minor scroll jitter
- *   would break the sticky behavior
- * - 50px provides comfortable tolerance while still being intentional
- * - If user scrolls up more than 50px, they're clearly "reading"
+ * ## Why This Works
  *
- * ## Why Not Use scrollIntoView or Other Native APIs?
+ * Previous approaches checked geometry on content arrival:
+ * "If near bottom → follow, else stop following"
  *
- * Native scroll APIs don't provide the conditional logic we need.
- * We must manually track position and decide whether to scroll.
+ * This breaks when a big chunk arrives—suddenly you're "far from bottom"
+ * for one frame, and the logic incorrectly thinks user scrolled away.
  *
- * ## Why Use Element Instead of Ref?
+ * With user-action-centric design, chunk size doesn't matter:
+ * - FOLLOW + big chunk = yank viewport to new bottom
+ * - MANUAL + big chunk = viewport stays put
  *
- * Using `HTMLDivElement | null` instead of `RefObject<HTMLDivElement>` ensures
- * that useEffect hooks re-run when the element mounts. With RefObject, the
- * object itself is stable and effects don't re-run when `.current` changes.
- *
- * ## Edge Cases Handled
- *
- * - Initial render: Start in "watching" mode (at bottom)
- * - Empty → first message: Scroll to show new content
- * - User sends message: Follow same smart logic (no forced scroll)
- * - Conversation switch: Reset to bottom of new conversation
- *
- * @param viewport - The scroll container element (null when not mounted)
- * @param streamingContent - Current streaming content to trigger scroll on updates
- * @returns Object with isAtBottom state and scrollToBottom function
+ * The mode only changes when the USER explicitly scrolls.
  */
 
-const SCROLL_THRESHOLD = 50
-// Time window to respect user scroll intent before resuming auto-scroll
-const USER_SCROLL_DEBOUNCE_MS = 150
+const BOTTOM_THRESHOLD = 50
+
+// Debug logging - enabled in development, disabled in production
+const DEBUG = process.env.NODE_ENV !== 'production'
 
 interface UseAutoScrollReturn {
   isAtBottom: boolean
@@ -67,30 +55,49 @@ export function useAutoScroll(
   streamingContent: string | undefined,
   chatId?: string | null
 ): UseAutoScrollReturn {
-  // Track whether user is at/near bottom of scroll container
   const [isAtBottom, setIsAtBottom] = useState(true)
 
-  // Track timestamp of last user scroll to implement scroll intent debounce
-  const lastUserScrollRef = useRef<number>(0)
+  // FOLLOW (false) vs MANUAL (true) - only user scrolls change this
+  const isManualModeRef = useRef(false)
+
+  // Guard to ignore scroll events we caused
+  const isProgrammaticScrollRef = useRef(false)
 
   /**
-   * Scroll listener - attaches when viewport element is available
+   * User Scroll Handler
    *
-   * Updates isAtBottom state on every scroll event so the UI can
-   * show/hide the scroll-to-bottom button appropriately.
-   *
-   * Also records timestamp for user scroll intent detection.
+   * Only place where mode changes. Examines where the user ended up:
+   * - Near bottom → FOLLOW mode
+   * - Away from bottom → MANUAL mode
    */
   useEffect(() => {
     if (!viewport) return
 
     const handleScroll = () => {
-      // Record when user scrolled - used to debounce auto-scroll
-      lastUserScrollRef.current = Date.now()
-
       const { scrollTop, scrollHeight, clientHeight } = viewport
-      const atBottom = scrollTop + clientHeight >= scrollHeight - SCROLL_THRESHOLD
-      setIsAtBottom(atBottom)
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight
+      const nearBottom = distanceFromBottom <= BOTTOM_THRESHOLD
+
+      // Ignore our own scrolls - they don't reflect user intent
+      if (isProgrammaticScrollRef.current) {
+        isProgrammaticScrollRef.current = false
+        setIsAtBottom(nearBottom)
+        return
+      }
+
+      // User scroll: mode changes based on where they landed
+      const wasManual = isManualModeRef.current
+      isManualModeRef.current = !nearBottom
+
+      if (DEBUG) {
+        if (wasManual && nearBottom) {
+          console.log('[AutoScroll] MANUAL → FOLLOW (user reached bottom)')
+        } else if (!wasManual && !nearBottom) {
+          console.log(`[AutoScroll] FOLLOW → MANUAL (user scrolled up, dist=${Math.round(distanceFromBottom)}px)`)
+        }
+      }
+
+      setIsAtBottom(nearBottom)
     }
 
     viewport.addEventListener('scroll', handleScroll, { passive: true })
@@ -98,57 +105,52 @@ export function useAutoScroll(
   }, [viewport])
 
   /**
-   * Auto-scroll when chat changes or viewport mounts
-   * 
-   * When the user switches to a different chat, or when the scroll view
-   * first mounts (e.g. after loading messages), we want to start at the bottom.
+   * Chat Change: Reset to FOLLOW mode at bottom
    */
   useEffect(() => {
     if (!viewport) return
 
-    // Use requestAnimationFrame to ensure DOM has updated with new messages
-    requestAnimationFrame(() => {
-      viewport.scrollTop = viewport.scrollHeight
-      setIsAtBottom(true)
-    })
+    isProgrammaticScrollRef.current = true
+    isManualModeRef.current = false
+    viewport.scrollTop = viewport.scrollHeight
+    setIsAtBottom(true)
+
+    if (DEBUG) {
+      console.log(`[AutoScroll] CHAT_CHANGE → FOLLOW (chatId=${chatId?.slice(0, 8)})`)
+    }
   }, [viewport, chatId])
 
   /**
-   * Auto-scroll when streaming content changes AND user is at bottom
+   * Content Arrival: Scroll only if in FOLLOW mode
    *
-   * This effect runs on every content update during streaming.
-   * We check position at scroll-time (not using isAtBottom state) to
-   * avoid stale closure issues and ensure accurate position detection.
-   *
-   * User scroll intent debounce: If user scrolled within the last 150ms,
-   * we skip auto-scroll to let them escape the "sticky" behavior.
+   * Key rule: This effect NEVER changes the mode.
+   * It only performs the scroll adjustment if we're already following.
    */
   useEffect(() => {
     if (!viewport || streamingContent === undefined) return
 
-    // Respect user scroll intent - don't auto-scroll if user scrolled recently
-    const timeSinceUserScroll = Date.now() - lastUserScrollRef.current
-    if (timeSinceUserScroll < USER_SCROLL_DEBOUNCE_MS) return
-
-    // Check position at the moment of content update
-    const { scrollTop, scrollHeight, clientHeight } = viewport
-    const atBottom = scrollTop + clientHeight >= scrollHeight - SCROLL_THRESHOLD
-
-    if (atBottom) {
-      // Use requestAnimationFrame to ensure DOM has updated
-      requestAnimationFrame(() => {
-        viewport.scrollTop = viewport.scrollHeight
-      })
+    // MANUAL mode: do nothing, user is in charge
+    if (isManualModeRef.current) {
+      return
     }
+
+    // FOLLOW mode: pin to bottom
+    isProgrammaticScrollRef.current = true
+    viewport.scrollTop = viewport.scrollHeight
   }, [viewport, streamingContent])
 
   /**
-   * Manual scroll-to-bottom for the button
-   *
-   * Also updates isAtBottom state so the button hides immediately.
+   * Manual Button: Jump to bottom and enter FOLLOW mode
    */
   const scrollToBottom = useCallback(() => {
     if (!viewport) return
+
+    if (DEBUG) {
+      console.log('[AutoScroll] BUTTON → FOLLOW')
+    }
+
+    isProgrammaticScrollRef.current = true
+    isManualModeRef.current = false
     viewport.scrollTop = viewport.scrollHeight
     setIsAtBottom(true)
   }, [viewport])

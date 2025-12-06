@@ -92,7 +92,6 @@ function AttachmentGallery({
 }
 
 export function Message({ message, isThinking, onEdit, isEditing, branchInfo, onBranchSwitch }: MessageProps) {
-  console.log(`[Message] id=${message.id.slice(0,8)} branchInfo=`, branchInfo, 'onBranchSwitch=', !!onBranchSwitch)
   const [isHovered, setIsHovered] = useState(false)
   const [isCopied, setIsCopied] = useState(false)
   const hasAttachments = message.attachments && message.attachments.length > 0
