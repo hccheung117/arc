@@ -135,15 +135,6 @@ export async function fetchAllModels(): Promise<boolean> {
   return true
 }
 
-/**
- * Formats provider type to display name.
- */
-function formatProviderName(type: string): string {
-  const names: Record<string, string> = {
-    openai: 'OpenAI',
-  }
-  return names[type] || type.charAt(0).toUpperCase() + type.slice(1)
-}
 
 /**
  * Returns the list of available models by joining the models cache
@@ -180,7 +171,7 @@ export async function getModels(): Promise<Model[]> {
         name: displayName,
         provider: {
           id: provider.id,
-          name: formatProviderName(provider.type),
+          name: profile.name,
           type: 'openai',
         },
       }
