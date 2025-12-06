@@ -1,11 +1,5 @@
-export interface Provider {
-  id: string
-  name: string
-  type: 'openai'
-}
+import type { z } from 'zod'
+import { ProviderSchema, ModelSchema } from './models.schema'
 
-export interface Model {
-  id: string
-  name: string
-  provider: Provider
-}
+export type Provider = z.infer<typeof ProviderSchema>
+export type Model = z.infer<typeof ModelSchema>

@@ -1,9 +1,8 @@
-export interface ConversationSummary {
-  id: string
-  title: string
-  createdAt: string
-  updatedAt: string
-  pinned: boolean
-}
+import type { z } from 'zod'
+import {
+  ConversationSummarySchema,
+  ContextMenuActionSchema,
+} from './conversations.schema'
 
-export type ContextMenuAction = 'rename' | 'delete' | 'togglePin' | null
+export type ConversationSummary = z.infer<typeof ConversationSummarySchema>
+export type ContextMenuAction = z.infer<typeof ContextMenuActionSchema>

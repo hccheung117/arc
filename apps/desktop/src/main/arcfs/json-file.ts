@@ -1,6 +1,7 @@
 import { mkdir, readFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import writeFileAtomic from 'write-file-atomic'
+import type { z } from 'zod'
 import type { IJsonFile } from './types'
 
 /**
@@ -8,13 +9,13 @@ import type { IJsonFile } from './types'
  *
  * Guarantees:
  * - Atomicity: Files are never partially written. Write-replace strategy ensures consistency.
- * - Safety: Returns default value if file is missing or corrupted.
+ * - Validation: Data is validated against a Zod schema on read.
  * - Simplicity: Automatically creates parent directories and handles serialization.
  *
  * Usage:
  * ```ts
- * const settings = new JsonFile('/path/to/settings.json', { theme: 'dark' })
- * const data = await settings.read() // Returns default if file doesn't exist
+ * const settings = new JsonFile('/path/to/settings.json', defaultSettings, SettingsSchema)
+ * const data = await settings.read() // Returns default if file doesn't exist, throws on invalid
  * await settings.write({ theme: 'light' })
  * await settings.update(data => ({ ...data, locale: 'en' }))
  * ```
@@ -22,22 +23,20 @@ import type { IJsonFile } from './types'
 export class JsonFile<T> implements IJsonFile<T> {
   constructor(
     private readonly filePath: string,
-    private readonly defaultValue: T
+    private readonly defaultValue: T,
+    private readonly schema: z.ZodType<T>
   ) {}
 
   async read(): Promise<T> {
     try {
       const content = await readFile(this.filePath, 'utf-8')
-      return JSON.parse(content) as T
+      const parsed = JSON.parse(content)
+      return this.schema.parse(parsed)
     } catch (error) {
-      // File doesn't exist or is corrupted - return default value
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         return this.defaultValue
       }
-
-      // Parse error - log warning and return default
-      console.warn(`Failed to parse ${this.filePath}, using default:`, error)
-      return this.defaultValue
+      throw error
     }
   }
 

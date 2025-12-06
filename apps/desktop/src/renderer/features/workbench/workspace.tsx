@@ -186,7 +186,7 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
         const editIndex = messages.findIndex((m) => m.id === editingMessageId)
         const parentId = editIndex > 0 ? messages[editIndex - 1].id : null
 
-        const { message: newMessage, branchPoints: newBranchPoints } = await createBranch(
+        await createBranch(
           activeThread.id,
           parentId,
           content,

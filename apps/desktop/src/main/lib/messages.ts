@@ -11,7 +11,7 @@ import {
   type StoredThreadMetaEvent,
   type BranchInfo,
 } from '@main/storage'
-import { writeAttachment, readAttachment, deleteAttachmentFile } from './attachments'
+import { writeAttachment, readAttachment } from './attachments'
 
 /**
  * Generates a title from message content.
@@ -280,7 +280,6 @@ export async function createBranch(
 
   // Update active path to include this new message
   const events = await messageLogFile(conversationId).read()
-  const { branchPoints } = reduceMessageEvents(events)
 
   // Compute path to parent, then add new message
   const pathToParent = parentId ? getPathToMessage(events, parentId) : []

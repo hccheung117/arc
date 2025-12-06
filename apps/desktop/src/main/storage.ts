@@ -13,170 +13,42 @@
 
 import { app } from 'electron'
 import * as path from 'path'
+import type { z } from 'zod'
 import { JsonFile } from './arcfs/json-file'
 import { JsonLog } from './arcfs/json-log'
+import {
+  StoredFavoriteSchema,
+  StoredSettingsSchema,
+  StoredModelFilterSchema,
+  StoredProviderSchema,
+  StoredModelCacheSchema,
+  StoredModelSchema,
+  StoredThreadIndexSchema,
+  StoredThreadSchema,
+  StoredAttachmentSchema,
+  StoredMessageEventSchema,
+  StoredThreadMetaEventSchema,
+  ThreadEventSchema,
+  BranchInfoSchema,
+} from './storage.schema'
 
 // ============================================================================
-// ON-DISK SCHEMAS
+// TYPE EXPORTS (derived from Zod schemas)
 // ============================================================================
 
-/**
- * Settings Schema (Config Archetype)
- *
- * Stores user-configured AI providers and preferences.
- * Written atomically via JsonFile.
- *
- * Location: arcfs/settings.json
- */
-export interface StoredFavorite {
-  providerId: string
-  modelId: string
-}
-
-export interface StoredSettings {
-  activeProfileId: string | null
-  favorites: StoredFavorite[]
-}
-
-/** Model filter configuration for provider */
-export interface StoredModelFilter {
-  mode: 'allow' | 'deny'
-  rules: string[]
-}
-
-export interface StoredProvider {
-  id: string // cuid2
-  name: string
-  type: string // 'openai' | 'anthropic' | 'ollama' etc.
-  apiKey: string | null // Encrypted using safeStorage
-  baseUrl: string | null
-  modelFilter?: StoredModelFilter // Optional model visibility filter
-}
-
-/**
- * Models Cache Schema (Config Archetype - Transient)
- *
- * Stores the latest list of available models fetched from providers.
- * Can be regenerated; safe to delete.
- *
- * Location: arcfs/models.cache.json
- */
-export interface StoredModelCache {
-  models: StoredModel[]
-}
-
-export interface StoredModel {
-  id: string // Model ID from provider (e.g., 'gpt-4o')
-  providerId: string // cuid2 reference to StoredProvider
-  name: string // Display name
-  contextWindow?: number
-  fetchedAt: string // ISO timestamp
-}
-
-/**
- * Thread Index Schema (Ledger Archetype)
- *
- * High-level metadata for all threads to power Sidebar and navigation.
- * Loaded entirely into memory on startup for instant UI rendering.
- *
- * Location: arcfs/messages/index.json
- */
-export interface StoredThreadIndex {
-  threads: StoredThread[]
-}
-
-export interface StoredThread {
-  id: string // cuid2
-  title: string | null // User-set title, or null for auto-generated
-  pinned: boolean
-  renamed: boolean // Whether user has manually renamed this thread
-  createdAt: string // ISO timestamp
-  updatedAt: string // ISO timestamp
-}
-
-/**
- * Message Event Schema (Stream Archetype)
- *
- * Event sourcing log for a single thread.
- * Append-only for crash safety and zero data loss.
- *
- * ATOMIC WRITE POLICY FOR AI RESPONSES:
- * ------------------------------------
- * AI assistant messages are written as a single, complete line containing both
- * `reasoning` and `content`. We intentionally avoid incremental writes during
- * streaming to ensure crash safety:
- *
- * - If the app crashes during AI generation, nothing is persisted (clean slate)
- * - User reopens and sees their last message with no AI response → clear "retry" state
- * - No "zombie" messages with reasoning but no content
- *
- * The reducer supports merging multiple events with the same ID for future
- * extensibility (e.g., message edits), but AI streaming does NOT use this pattern.
- *
- * Location: arcfs/messages/{threadId}.jsonl
- */
-/** Stored attachment reference (path only, no data URL) */
-export interface StoredAttachment {
-  type: 'image'
-  path: string // Relative path: {messageId}-{index}.{ext}
-  mimeType: string
-}
-
-export interface StoredMessageEvent {
-  id: string // cuid2 - Message ID
-  role?: 'user' | 'assistant' | 'system' // Required for 'create' events
-  content?: string // Message content (can be updated)
-  reasoning?: string // Reasoning/thinking content from AI models
-  createdAt?: string // ISO timestamp (only on 'create' events)
-  updatedAt?: string // ISO timestamp (on 'update' events)
-  deleted?: boolean // Marks message as soft-deleted
-
-  // Tree structure for branching
-  parentId: string | null // null for root message, parent message ID otherwise
-
-  // Attachments (user messages with images)
-  attachments?: StoredAttachment[]
-
-  // Model context (required on all messages)
-  modelId: string // Model ID when message was sent/generated
-  providerId: string // Provider ID when message was sent/generated
-
-  // AI SDK usage (assistant messages only) - stored as-is from SDK
-  usage?: {
-    inputTokens?: number
-    outputTokens?: number
-    totalTokens?: number
-    reasoningTokens?: number
-    cachedInputTokens?: number
-  }
-}
-
-/**
- * Thread Metadata Event (Stream Archetype)
- *
- * Tracks the active path through the message tree for branching support.
- * Stored in the same JSONL file as message events.
- */
-export interface StoredThreadMetaEvent {
-  type: 'thread_meta'
-  activePath: string[] // Ordered message IDs representing current view
-  updatedAt: string // ISO timestamp
-}
-
-/**
- * Union type for all events in a thread log.
- */
-export type ThreadEvent = StoredMessageEvent | StoredThreadMetaEvent
-
-/**
- * Branch information for UI navigation.
- * Describes a point where the conversation diverges.
- */
-export interface BranchInfo {
-  parentId: string | null // The message where branching occurs (null for root)
-  branches: string[] // Message IDs of the first message in each branch
-  currentIndex: number // Which branch is currently active (0-indexed)
-}
+export type StoredFavorite = z.infer<typeof StoredFavoriteSchema>
+export type StoredSettings = z.infer<typeof StoredSettingsSchema>
+export type StoredModelFilter = z.infer<typeof StoredModelFilterSchema>
+export type StoredProvider = z.infer<typeof StoredProviderSchema>
+export type StoredModelCache = z.infer<typeof StoredModelCacheSchema>
+export type StoredModel = z.infer<typeof StoredModelSchema>
+export type StoredThreadIndex = z.infer<typeof StoredThreadIndexSchema>
+export type StoredThread = z.infer<typeof StoredThreadSchema>
+export type StoredAttachment = z.infer<typeof StoredAttachmentSchema>
+export type StoredMessageEvent = z.infer<typeof StoredMessageEventSchema>
+export type StoredThreadMetaEvent = z.infer<typeof StoredThreadMetaEventSchema>
+export type ThreadEvent = z.infer<typeof ThreadEventSchema>
+export type BranchInfo = z.infer<typeof BranchInfoSchema>
 
 // ============================================================================
 // PATH MANAGEMENT
@@ -210,12 +82,12 @@ export function getMessagesDir(): string {
  *
  * Default: Empty providers array.
  * Format: Standard JSON Object.
- * Safety: Atomic write via write-file-atomic.
+ * Safety: Atomic write via write-file-atomic + Zod validation.
  */
 export function settingsFile(): JsonFile<StoredSettings> {
   const filePath = path.join(getDataDir(), 'settings.json')
   const defaultValue: StoredSettings = { activeProfileId: null, favorites: [] }
-  return new JsonFile(filePath, defaultValue)
+  return new JsonFile(filePath, defaultValue, StoredSettingsSchema)
 }
 
 /**
@@ -223,13 +95,13 @@ export function settingsFile(): JsonFile<StoredSettings> {
  *
  * Default: Empty models array.
  * Format: Standard JSON Object.
- * Safety: Atomic write via write-file-atomic.
+ * Safety: Atomic write via write-file-atomic + Zod validation.
  * Lifecycle: Transient, can be regenerated.
  */
 export function modelsFile(): JsonFile<StoredModelCache> {
   const filePath = path.join(getDataDir(), 'models.cache.json')
   const defaultValue: StoredModelCache = { models: [] }
-  return new JsonFile(filePath, defaultValue)
+  return new JsonFile(filePath, defaultValue, StoredModelCacheSchema)
 }
 
 /**
@@ -237,27 +109,27 @@ export function modelsFile(): JsonFile<StoredModelCache> {
  *
  * Default: Empty threads array.
  * Format: Standard JSON Object.
- * Safety: Atomic write via write-file-atomic.
+ * Safety: Atomic write via write-file-atomic + Zod validation.
  * Access: Read-heavy (app startup), Write-occasional (rename/pin/etc).
  */
 export function threadIndexFile(): JsonFile<StoredThreadIndex> {
   const filePath = path.join(getMessagesDir(), 'index.json')
   const defaultValue: StoredThreadIndex = { threads: [] }
-  return new JsonFile(filePath, defaultValue)
+  return new JsonFile(filePath, defaultValue, StoredThreadIndexSchema)
 }
 
 /**
  * Returns a JsonLog engine for a specific thread's message history.
  *
  * Format: JSON Lines (JSONL) - one event per line.
- * Safety: Append-only, crash-proof.
+ * Safety: Append-only, crash-proof + Zod validation per line.
  * Access: Write-frequent (streaming), Read-lazy (on thread open).
  *
  * @param threadId - The thread ID (cuid2)
  */
 export function messageLogFile(threadId: string): JsonLog<ThreadEvent> {
   const filePath = path.join(getMessagesDir(), `${threadId}.jsonl`)
-  return new JsonLog(filePath)
+  return new JsonLog(filePath, ThreadEventSchema)
 }
 
 // ============================================================================

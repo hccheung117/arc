@@ -10,7 +10,8 @@
  * - Rule 3 (Push): Main → Renderer event subscription
  */
 
-import type { Message, MessageRole, MessageContextMenuAction } from './messages'
+import type { z } from 'zod'
+import type { Message, MessageContextMenuAction } from './messages'
 import type { ConversationSummary, ContextMenuAction } from './conversations'
 import type { Model } from './models'
 import type {
@@ -19,24 +20,25 @@ import type {
   ProfileInstallResult,
   ProfilesEvent,
 } from './arc-file'
+import {
+  ConversationPatchSchema,
+  AttachmentInputSchema,
+  CreateMessageInputSchema,
+  CreateBranchInputSchema,
+  ChatOptionsSchema,
+  ConversationSchema,
+  BranchInfoSchema,
+  ChatResponseSchema,
+} from './arc-api.schema'
 
 /** Cleanup function returned by event subscriptions */
 export type Unsubscribe = () => void
 
 /** Full conversation entity (returned by update operations) */
-export interface Conversation {
-  readonly id: string
-  readonly title: string
-  readonly pinned: boolean
-  readonly createdAt: string
-  readonly updatedAt: string
-}
+export type Conversation = z.infer<typeof ConversationSchema>
 
 /** Partial update payload for conversations */
-export interface ConversationPatch {
-  title?: string
-  pinned?: boolean
-}
+export type ConversationPatch = z.infer<typeof ConversationPatchSchema>
 
 /** Conversation lifecycle events (Rule 3: Push) */
 export type ConversationEvent =
@@ -45,29 +47,13 @@ export type ConversationEvent =
   | { type: 'deleted'; id: string }
 
 /** Attachment input payload (base64 encoded for IPC transport) */
-export interface AttachmentInput {
-  type: 'image'
-  data: string // Base64-encoded image data
-  mimeType: string
-  name?: string // Original filename (optional)
-}
+export type AttachmentInput = z.infer<typeof AttachmentInputSchema>
 
 /** Message creation payload */
-export interface CreateMessageInput {
-  role: MessageRole
-  content: string
-  parentId: string | null
-  attachments?: AttachmentInput[]
-  modelId: string
-  providerId: string
-}
+export type CreateMessageInput = z.infer<typeof CreateMessageInputSchema>
 
 /** Branch info for UI navigation */
-export interface BranchInfo {
-  parentId: string | null
-  branches: string[]
-  currentIndex: number
-}
+export type BranchInfo = z.infer<typeof BranchInfoSchema>
 
 /** Result of listing messages with branch info */
 export interface ListMessagesResult {
@@ -76,13 +62,7 @@ export interface ListMessagesResult {
 }
 
 /** Create branch payload (for edit flow) */
-export interface CreateBranchInput {
-  parentId: string | null
-  content: string
-  attachments?: AttachmentInput[]
-  modelId: string
-  providerId: string
-}
+export type CreateBranchInput = z.infer<typeof CreateBranchInputSchema>
 
 /** Create branch result */
 export interface CreateBranchResult {
@@ -97,14 +77,10 @@ export interface SwitchBranchResult {
 }
 
 /** AI chat options */
-export interface ChatOptions {
-  model: string
-}
+export type ChatOptions = z.infer<typeof ChatOptionsSchema>
 
 /** AI chat response with stream handle */
-export interface ChatResponse {
-  streamId: string
-}
+export type ChatResponse = z.infer<typeof ChatResponseSchema>
 
 /** AI stream events (IPC-safe: error is string, not Error object) */
 export type AIStreamEvent =
@@ -204,7 +180,7 @@ export interface ArcAPI {
   ui: {
     /** Show thread context menu (Rule 2: Two-Way) */
     showThreadContextMenu(isPinned: boolean): Promise<ContextMenuAction>
-    
+
     /** Show message context menu (Rule 2: Two-Way) */
     showMessageContextMenu(content: string, hasEditOption: boolean): Promise<MessageContextMenuAction>
   }

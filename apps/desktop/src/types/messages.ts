@@ -1,31 +1,19 @@
-export type MessageStatus = 'pending' | 'streaming' | 'complete' | 'failed'
-export type MessageRole = 'user' | 'assistant' | 'system'
-export type MessageContextMenuAction = 'copy' | 'edit' | null
+import type { z } from 'zod'
+import {
+  MessageStatusSchema,
+  MessageRoleSchema,
+  MessageContextMenuActionSchema,
+  MessageAttachmentSchema,
+  MessageSchema,
+  StreamEventSchema,
+} from './messages.schema'
 
-export interface MessageAttachment {
-  readonly type: 'image'
-  readonly path: string // Relative path: {messageId}-{index}.{ext}
-  readonly mimeType: string // image/png, image/jpeg, image/gif, image/webp
-  readonly url: string // data: URL for display (hydrated on read)
-}
-
-export interface Message {
-  readonly id: string
-  readonly conversationId: string
-  readonly role: MessageRole
-  readonly status: MessageStatus
-  readonly content: string
-  readonly reasoning?: string
-  readonly createdAt: string
-  readonly updatedAt: string
-  readonly error?: Error
-  readonly attachments?: MessageAttachment[]
-}
-
-export type StreamEvent =
-  | { type: 'delta'; chunk: string }
-  | { type: 'complete'; message: Message }
-  | { type: 'error'; error: Error }
+export type MessageStatus = z.infer<typeof MessageStatusSchema>
+export type MessageRole = z.infer<typeof MessageRoleSchema>
+export type MessageContextMenuAction = z.infer<typeof MessageContextMenuActionSchema>
+export type MessageAttachment = z.infer<typeof MessageAttachmentSchema>
+export type Message = z.infer<typeof MessageSchema>
+export type StreamEvent = z.infer<typeof StreamEventSchema>
 
 export interface MessageStreamHandle {
   readonly message: Message

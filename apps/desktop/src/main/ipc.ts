@@ -1,7 +1,8 @@
-import type { IpcMain, IpcMainInvokeEvent } from 'electron'
+import type { IpcMain } from 'electron'
 import { BrowserWindow, shell } from 'electron'
 import { createId } from '@paralleldrive/cuid2'
 import { readFile } from 'node:fs/promises'
+import { z } from 'zod'
 import type {
   Conversation,
   ConversationPatch,
@@ -15,10 +16,17 @@ import type {
   ChatOptions,
   ChatResponse,
 } from '@arc-types/arc-api'
+import {
+  ConversationPatchSchema,
+  CreateMessageInputSchema,
+  CreateBranchInputSchema,
+  ChatOptionsSchema,
+} from '@arc-types/arc-api.schema'
 import type { ArcImportEvent } from '@arc-types/arc-file'
 import type { ConversationSummary, ContextMenuAction } from '@arc-types/conversations'
 import type { Message, MessageContextMenuAction } from '@arc-types/messages'
 import type { Model } from '@arc-types/models'
+import { validatedArgs } from './ipc-validation'
 import {
   getConversationSummaries,
   updateConversation,
@@ -75,7 +83,6 @@ async function handleConversationsList(): Promise<ConversationSummary[]> {
 }
 
 async function handleConversationsUpdate(
-  _event: IpcMainInvokeEvent,
   id: string,
   patch: ConversationPatch
 ): Promise<Conversation> {
@@ -84,7 +91,7 @@ async function handleConversationsUpdate(
   return conversation
 }
 
-async function handleConversationsDelete(_event: IpcMainInvokeEvent, id: string): Promise<void> {
+async function handleConversationsDelete(id: string): Promise<void> {
   await deleteConversation(id)
   emitConversationEvent({ type: 'deleted', id })
 }
@@ -104,29 +111,30 @@ function storedThreadToConversation(thread: StoredThread): Conversation {
 
 export function registerConversationsHandlers(ipcMain: IpcMain): void {
   ipcMain.handle('arc:conversations:list', handleConversationsList)
-  ipcMain.handle('arc:conversations:update', handleConversationsUpdate)
-  ipcMain.handle('arc:conversations:delete', handleConversationsDelete)
+  ipcMain.handle(
+    'arc:conversations:update',
+    validatedArgs(z.tuple([z.string(), ConversationPatchSchema]), handleConversationsUpdate)
+  )
+  ipcMain.handle(
+    'arc:conversations:delete',
+    validatedArgs(z.tuple([z.string()]), handleConversationsDelete)
+  )
 }
 
 // ============================================================================
 // MESSAGES HANDLERS
 // ============================================================================
 
-async function handleMessagesList(
-  _event: IpcMainInvokeEvent,
-  conversationId: string,
-): Promise<ListMessagesResult> {
+async function handleMessagesList(conversationId: string): Promise<ListMessagesResult> {
   return getMessages(conversationId)
 }
 
 async function handleMessagesCreate(
-  _event: IpcMainInvokeEvent,
   conversationId: string,
   input: CreateMessageInput,
 ): Promise<Message> {
   const { message, threadWasCreated } = await createMessage(conversationId, input)
 
-  // Emit 'created' event if this is a new thread
   if (threadWasCreated) {
     const index = await threadIndexFile().read()
     const thread = index.threads.find((t) => t.id === conversationId)
@@ -142,7 +150,6 @@ async function handleMessagesCreate(
 }
 
 async function handleMessagesCreateBranch(
-  _event: IpcMainInvokeEvent,
   conversationId: string,
   input: CreateBranchInput,
 ): Promise<CreateBranchResult> {
@@ -157,7 +164,6 @@ async function handleMessagesCreateBranch(
 }
 
 async function handleMessagesSwitchBranch(
-  _event: IpcMainInvokeEvent,
   conversationId: string,
   branchParentId: string | null,
   targetBranchIndex: number,
@@ -166,10 +172,25 @@ async function handleMessagesSwitchBranch(
 }
 
 export function registerMessagesHandlers(ipcMain: IpcMain): void {
-  ipcMain.handle('arc:messages:list', handleMessagesList)
-  ipcMain.handle('arc:messages:create', handleMessagesCreate)
-  ipcMain.handle('arc:messages:createBranch', handleMessagesCreateBranch)
-  ipcMain.handle('arc:messages:switchBranch', handleMessagesSwitchBranch)
+  ipcMain.handle(
+    'arc:messages:list',
+    validatedArgs(z.tuple([z.string()]), handleMessagesList)
+  )
+  ipcMain.handle(
+    'arc:messages:create',
+    validatedArgs(z.tuple([z.string(), CreateMessageInputSchema]), handleMessagesCreate)
+  )
+  ipcMain.handle(
+    'arc:messages:createBranch',
+    validatedArgs(z.tuple([z.string(), CreateBranchInputSchema]), handleMessagesCreateBranch)
+  )
+  ipcMain.handle(
+    'arc:messages:switchBranch',
+    validatedArgs(
+      z.tuple([z.string(), z.string().nullable(), z.number()]),
+      handleMessagesSwitchBranch
+    )
+  )
 }
 
 // ============================================================================
@@ -194,11 +215,7 @@ export function registerModelsHandlers(ipcMain: IpcMain): void {
 // AI HANDLERS
 // ============================================================================
 
-async function handleAIChat(
-  _event: IpcMainInvokeEvent,
-  conversationId: string,
-  options: ChatOptions
-): Promise<ChatResponse> {
+async function handleAIChat(conversationId: string, options: ChatOptions): Promise<ChatResponse> {
   const streamId = createId()
 
   startChatStream(streamId, conversationId, options.model, {
@@ -215,52 +232,53 @@ async function handleAIChat(
   return { streamId }
 }
 
-async function handleAIStop(_event: IpcMainInvokeEvent, streamId: string): Promise<void> {
+async function handleAIStop(streamId: string): Promise<void> {
   cancelStream(streamId)
 }
 
 export function registerAIHandlers(ipcMain: IpcMain): void {
-  ipcMain.handle('arc:ai:chat', handleAIChat)
-  ipcMain.handle('arc:ai:stop', handleAIStop)
+  ipcMain.handle(
+    'arc:ai:chat',
+    validatedArgs(z.tuple([z.string(), ChatOptionsSchema]), handleAIChat)
+  )
+  ipcMain.handle(
+    'arc:ai:stop',
+    validatedArgs(z.tuple([z.string()]), handleAIStop)
+  )
 }
 
 // ============================================================================
 // CONFIG HANDLERS
 // ============================================================================
 
-async function handleConfigGet<T = unknown>(
-  _event: IpcMainInvokeEvent,
-  key: string
-): Promise<T | null> {
+async function handleConfigGet<T = unknown>(key: string): Promise<T | null> {
   return getConfig<T>(key)
 }
 
-async function handleConfigSet<T = unknown>(
-  _event: IpcMainInvokeEvent,
-  key: string,
-  value: T
-): Promise<void> {
+async function handleConfigSet<T = unknown>(key: string, value: T): Promise<void> {
   await setConfig(key, value)
 }
 
 export function registerConfigHandlers(ipcMain: IpcMain): void {
-  ipcMain.handle('arc:config:get', handleConfigGet)
-  ipcMain.handle('arc:config:set', handleConfigSet)
+  ipcMain.handle(
+    'arc:config:get',
+    validatedArgs(z.tuple([z.string()]), handleConfigGet)
+  )
+  ipcMain.handle(
+    'arc:config:set',
+    validatedArgs(z.tuple([z.string(), z.unknown()]), handleConfigSet)
+  )
 }
 
 // ============================================================================
 // UI HANDLERS
 // ============================================================================
 
-async function handleUIShowThreadContextMenu(
-  _event: IpcMainInvokeEvent,
-  isPinned: boolean
-): Promise<ContextMenuAction> {
+async function handleUIShowThreadContextMenu(isPinned: boolean): Promise<ContextMenuAction> {
   return showThreadContextMenu(isPinned)
 }
 
 async function handleUIShowMessageContextMenu(
-  _event: IpcMainInvokeEvent,
   content: string,
   hasEditOption: boolean
 ): Promise<MessageContextMenuAction> {
@@ -268,8 +286,14 @@ async function handleUIShowMessageContextMenu(
 }
 
 export function registerUIHandlers(ipcMain: IpcMain): void {
-  ipcMain.handle('arc:ui:showThreadContextMenu', handleUIShowThreadContextMenu)
-  ipcMain.handle('arc:ui:showMessageContextMenu', handleUIShowMessageContextMenu)
+  ipcMain.handle(
+    'arc:ui:showThreadContextMenu',
+    validatedArgs(z.tuple([z.boolean()]), handleUIShowThreadContextMenu)
+  )
+  ipcMain.handle(
+    'arc:ui:showMessageContextMenu',
+    validatedArgs(z.tuple([z.string(), z.boolean()]), handleUIShowMessageContextMenu)
+  )
 }
 
 // ============================================================================
@@ -293,21 +317,16 @@ async function handleProfilesGetActive(): Promise<string | null> {
   return getActiveProfileId()
 }
 
-async function handleProfilesInstall(
-  _event: IpcMainInvokeEvent,
-  filePath: string
-): Promise<ProfileInstallResult> {
+async function handleProfilesInstall(filePath: string): Promise<ProfileInstallResult> {
   console.log(`[arc:profiles] Install request: ${filePath}`)
   const content = await readFile(filePath, 'utf-8')
 
   const result = await installProfile(content)
   emitProfilesEvent({ type: 'installed', profile: result })
 
-  // Auto-activate the installed profile
   await activateProfile(result.id)
   emitProfilesEvent({ type: 'activated', profileId: result.id })
 
-  // Trigger background model fetch after activation
   fetchAllModels()
     .then((updated) => {
       if (updated) emitModelsEvent({ type: 'updated' })
@@ -317,14 +336,10 @@ async function handleProfilesInstall(
   return result
 }
 
-async function handleProfilesUninstall(
-  _event: IpcMainInvokeEvent,
-  profileId: string
-): Promise<void> {
+async function handleProfilesUninstall(profileId: string): Promise<void> {
   await uninstallProfile(profileId)
   emitProfilesEvent({ type: 'uninstalled', profileId })
 
-  // Trigger model refresh (may now be empty if this was active)
   fetchAllModels()
     .then((updated) => {
       if (updated) emitModelsEvent({ type: 'updated' })
@@ -332,14 +347,10 @@ async function handleProfilesUninstall(
     .catch((err) => console.error('[models] Background fetch failed:', err))
 }
 
-async function handleProfilesActivate(
-  _event: IpcMainInvokeEvent,
-  profileId: string | null
-): Promise<void> {
+async function handleProfilesActivate(profileId: string | null): Promise<void> {
   await activateProfile(profileId)
   emitProfilesEvent({ type: 'activated', profileId })
 
-  // Trigger model refresh after activation
   fetchAllModels()
     .then((updated) => {
       if (updated) emitModelsEvent({ type: 'updated' })
@@ -350,9 +361,18 @@ async function handleProfilesActivate(
 export function registerProfilesHandlers(ipcMain: IpcMain): void {
   ipcMain.handle('arc:profiles:list', handleProfilesList)
   ipcMain.handle('arc:profiles:getActive', handleProfilesGetActive)
-  ipcMain.handle('arc:profiles:install', handleProfilesInstall)
-  ipcMain.handle('arc:profiles:uninstall', handleProfilesUninstall)
-  ipcMain.handle('arc:profiles:activate', handleProfilesActivate)
+  ipcMain.handle(
+    'arc:profiles:install',
+    validatedArgs(z.tuple([z.string()]), handleProfilesInstall)
+  )
+  ipcMain.handle(
+    'arc:profiles:uninstall',
+    validatedArgs(z.tuple([z.string()]), handleProfilesUninstall)
+  )
+  ipcMain.handle(
+    'arc:profiles:activate',
+    validatedArgs(z.tuple([z.string().nullable()]), handleProfilesActivate)
+  )
 }
 
 // ============================================================================
@@ -363,31 +383,26 @@ export function emitImportEvent(event: ArcImportEvent): void {
   broadcast('arc:import:event', event)
 }
 
-async function handleImportFile(
-  _event: IpcMainInvokeEvent,
-  filePath: string
-): Promise<ProfileInstallResult> {
-  // Redirect to profile install
-  return handleProfilesInstall(_event, filePath)
+async function handleImportFile(filePath: string): Promise<ProfileInstallResult> {
+  return handleProfilesInstall(filePath)
 }
 
 export function registerImportHandlers(ipcMain: IpcMain): void {
-  ipcMain.handle('arc:import:file', handleImportFile)
+  ipcMain.handle(
+    'arc:import:file',
+    validatedArgs(z.tuple([z.string()]), handleImportFile)
+  )
 }
 
 // ============================================================================
 // UTILS HANDLERS
 // ============================================================================
 
-async function handleUtilsOpenFile(
-  _event: IpcMainInvokeEvent,
-  filePath: string
-): Promise<void> {
+async function handleUtilsOpenFile(filePath: string): Promise<void> {
   await shell.openPath(filePath)
 }
 
 async function handleUtilsGetAttachmentPath(
-  _event: IpcMainInvokeEvent,
   conversationId: string,
   relativePath: string
 ): Promise<string> {
@@ -395,8 +410,14 @@ async function handleUtilsGetAttachmentPath(
 }
 
 export function registerUtilsHandlers(ipcMain: IpcMain): void {
-  ipcMain.handle('arc:utils:openFile', handleUtilsOpenFile)
-  ipcMain.handle('arc:utils:getAttachmentPath', handleUtilsGetAttachmentPath)
+  ipcMain.handle(
+    'arc:utils:openFile',
+    validatedArgs(z.tuple([z.string()]), handleUtilsOpenFile)
+  )
+  ipcMain.handle(
+    'arc:utils:getAttachmentPath',
+    validatedArgs(z.tuple([z.string(), z.string()]), handleUtilsGetAttachmentPath)
+  )
 }
 
 // ============================================================================
