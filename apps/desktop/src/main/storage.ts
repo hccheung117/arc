@@ -13,42 +13,143 @@
 
 import { app } from 'electron'
 import * as path from 'path'
-import type { z } from 'zod'
+import { z } from 'zod'
 import { JsonFile } from './arcfs/json-file'
 import { JsonLog } from './arcfs/json-log'
-import {
-  StoredFavoriteSchema,
-  StoredSettingsSchema,
-  StoredModelFilterSchema,
-  StoredProviderSchema,
-  StoredModelCacheSchema,
-  StoredModelSchema,
-  StoredThreadIndexSchema,
-  StoredThreadSchema,
-  StoredAttachmentSchema,
+
+// ============================================================================
+// SETTINGS SCHEMAS
+// ============================================================================
+
+export const StoredFavoriteSchema = z.object({
+  providerId: z.string(),
+  modelId: z.string(),
+})
+export type StoredFavorite = z.infer<typeof StoredFavoriteSchema>
+
+export const StoredSettingsSchema = z.object({
+  activeProfileId: z.string().nullable(),
+  favorites: z.array(StoredFavoriteSchema),
+})
+export type StoredSettings = z.infer<typeof StoredSettingsSchema>
+
+export const StoredModelFilterSchema = z.object({
+  mode: z.enum(['allow', 'deny']),
+  rules: z.array(z.string()),
+})
+export type StoredModelFilter = z.infer<typeof StoredModelFilterSchema>
+
+export const StoredProviderSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  type: z.string(),
+  apiKey: z.string().nullable(),
+  baseUrl: z.string().nullable(),
+  modelFilter: StoredModelFilterSchema.optional(),
+})
+export type StoredProvider = z.infer<typeof StoredProviderSchema>
+
+// ============================================================================
+// MODELS CACHE SCHEMAS
+// ============================================================================
+
+export const StoredModelSchema = z.object({
+  id: z.string(),
+  providerId: z.string(),
+  name: z.string(),
+  contextWindow: z.number().optional(),
+  fetchedAt: z.string(),
+})
+export type StoredModel = z.infer<typeof StoredModelSchema>
+
+export const StoredModelCacheSchema = z.object({
+  models: z.array(StoredModelSchema),
+})
+export type StoredModelCache = z.infer<typeof StoredModelCacheSchema>
+
+// ============================================================================
+// THREAD INDEX SCHEMAS
+// ============================================================================
+
+export const StoredThreadSchema = z.object({
+  id: z.string(),
+  title: z.string().nullable(),
+  pinned: z.boolean(),
+  renamed: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+export type StoredThread = z.infer<typeof StoredThreadSchema>
+
+export const StoredThreadIndexSchema = z.object({
+  threads: z.array(StoredThreadSchema),
+})
+export type StoredThreadIndex = z.infer<typeof StoredThreadIndexSchema>
+
+// ============================================================================
+// MESSAGE EVENT SCHEMAS
+// ============================================================================
+
+export const StoredAttachmentSchema = z.object({
+  type: z.literal('image'),
+  path: z.string(),
+  mimeType: z.string(),
+})
+export type StoredAttachment = z.infer<typeof StoredAttachmentSchema>
+
+export const UsageSchema = z.object({
+  inputTokens: z.number().optional(),
+  outputTokens: z.number().optional(),
+  totalTokens: z.number().optional(),
+  reasoningTokens: z.number().optional(),
+  cachedInputTokens: z.number().optional(),
+})
+export type Usage = z.infer<typeof UsageSchema>
+
+export const StoredMessageEventSchema = z.object({
+  id: z.string(),
+  role: z.enum(['user', 'assistant', 'system']).optional(),
+  content: z.string().optional(),
+  reasoning: z.string().optional(),
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
+  deleted: z.boolean().optional(),
+  parentId: z.string().nullable(),
+  attachments: z.array(StoredAttachmentSchema).optional(),
+  modelId: z.string(),
+  providerId: z.string(),
+  usage: UsageSchema.optional(),
+})
+export type StoredMessageEvent = z.infer<typeof StoredMessageEventSchema>
+
+export const StoredThreadMetaEventSchema = z.object({
+  type: z.literal('thread_meta'),
+  activePath: z.array(z.string()),
+  updatedAt: z.string(),
+})
+export type StoredThreadMetaEvent = z.infer<typeof StoredThreadMetaEventSchema>
+
+export const ThreadEventSchema = z.union([
   StoredMessageEventSchema,
   StoredThreadMetaEventSchema,
-  ThreadEventSchema,
-  BranchInfoSchema,
-} from './storage.schema'
-
-// ============================================================================
-// TYPE EXPORTS (derived from Zod schemas)
-// ============================================================================
-
-export type StoredFavorite = z.infer<typeof StoredFavoriteSchema>
-export type StoredSettings = z.infer<typeof StoredSettingsSchema>
-export type StoredModelFilter = z.infer<typeof StoredModelFilterSchema>
-export type StoredProvider = z.infer<typeof StoredProviderSchema>
-export type StoredModelCache = z.infer<typeof StoredModelCacheSchema>
-export type StoredModel = z.infer<typeof StoredModelSchema>
-export type StoredThreadIndex = z.infer<typeof StoredThreadIndexSchema>
-export type StoredThread = z.infer<typeof StoredThreadSchema>
-export type StoredAttachment = z.infer<typeof StoredAttachmentSchema>
-export type StoredMessageEvent = z.infer<typeof StoredMessageEventSchema>
-export type StoredThreadMetaEvent = z.infer<typeof StoredThreadMetaEventSchema>
+])
 export type ThreadEvent = z.infer<typeof ThreadEventSchema>
+
+// ============================================================================
+// BRANCH INFO SCHEMAS
+// ============================================================================
+
+export const BranchInfoSchema = z.object({
+  parentId: z.string().nullable(),
+  branches: z.array(z.string()),
+  currentIndex: z.number(),
+})
 export type BranchInfo = z.infer<typeof BranchInfoSchema>
+
+export const ReduceResultSchema = z.object({
+  messages: z.array(StoredMessageEventSchema),
+  branchPoints: z.array(BranchInfoSchema),
+})
 
 // ============================================================================
 // PATH MANAGEMENT

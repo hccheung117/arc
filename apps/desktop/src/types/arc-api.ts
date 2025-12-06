@@ -10,35 +10,86 @@
  * - Rule 3 (Push): Main → Renderer event subscription
  */
 
-import type { z } from 'zod'
+import { z } from 'zod'
 import type { Message, MessageContextMenuAction } from './messages'
+import { MessageRoleSchema } from './messages'
 import type { ConversationSummary, ContextMenuAction } from './conversations'
 import type { Model } from './models'
-import type {
-  ArcImportEvent,
-  ProfileInfo,
-  ProfileInstallResult,
-  ProfilesEvent,
-} from './arc-file'
-import {
-  ConversationPatchSchema,
-  AttachmentInputSchema,
-  CreateMessageInputSchema,
-  CreateBranchInputSchema,
-  ChatOptionsSchema,
-  ConversationSchema,
-  BranchInfoSchema,
-  ChatResponseSchema,
-} from './arc-api.schema'
+import type { ArcImportEvent, ProfileInfo, ProfileInstallResult, ProfilesEvent } from './arc-file'
+
+// ============================================================================
+// IPC INPUT SCHEMAS
+// ============================================================================
+
+export const ConversationPatchSchema = z.object({
+  title: z.string().optional(),
+  pinned: z.boolean().optional(),
+})
+export type ConversationPatch = z.infer<typeof ConversationPatchSchema>
+
+export const AttachmentInputSchema = z.object({
+  type: z.literal('image'),
+  data: z.string(),
+  mimeType: z.string(),
+  name: z.string().optional(),
+})
+export type AttachmentInput = z.infer<typeof AttachmentInputSchema>
+
+export const CreateMessageInputSchema = z.object({
+  role: MessageRoleSchema,
+  content: z.string(),
+  parentId: z.string().nullable(),
+  attachments: z.array(AttachmentInputSchema).optional(),
+  modelId: z.string(),
+  providerId: z.string(),
+})
+export type CreateMessageInput = z.infer<typeof CreateMessageInputSchema>
+
+export const CreateBranchInputSchema = z.object({
+  parentId: z.string().nullable(),
+  content: z.string(),
+  attachments: z.array(AttachmentInputSchema).optional(),
+  modelId: z.string(),
+  providerId: z.string(),
+})
+export type CreateBranchInput = z.infer<typeof CreateBranchInputSchema>
+
+export const ChatOptionsSchema = z.object({
+  model: z.string(),
+})
+export type ChatOptions = z.infer<typeof ChatOptionsSchema>
+
+// ============================================================================
+// RESPONSE SCHEMAS
+// ============================================================================
+
+export const ConversationSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  pinned: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+export type Conversation = z.infer<typeof ConversationSchema>
+
+export const BranchInfoSchema = z.object({
+  parentId: z.string().nullable(),
+  branches: z.array(z.string()),
+  currentIndex: z.number(),
+})
+export type BranchInfo = z.infer<typeof BranchInfoSchema>
+
+export const ChatResponseSchema = z.object({
+  streamId: z.string(),
+})
+export type ChatResponse = z.infer<typeof ChatResponseSchema>
+
+// ============================================================================
+// ADDITIONAL TYPES
+// ============================================================================
 
 /** Cleanup function returned by event subscriptions */
 export type Unsubscribe = () => void
-
-/** Full conversation entity (returned by update operations) */
-export type Conversation = z.infer<typeof ConversationSchema>
-
-/** Partial update payload for conversations */
-export type ConversationPatch = z.infer<typeof ConversationPatchSchema>
 
 /** Conversation lifecycle events (Rule 3: Push) */
 export type ConversationEvent =
@@ -46,23 +97,11 @@ export type ConversationEvent =
   | { type: 'updated'; conversation: Conversation }
   | { type: 'deleted'; id: string }
 
-/** Attachment input payload (base64 encoded for IPC transport) */
-export type AttachmentInput = z.infer<typeof AttachmentInputSchema>
-
-/** Message creation payload */
-export type CreateMessageInput = z.infer<typeof CreateMessageInputSchema>
-
-/** Branch info for UI navigation */
-export type BranchInfo = z.infer<typeof BranchInfoSchema>
-
 /** Result of listing messages with branch info */
 export interface ListMessagesResult {
   messages: Message[]
   branchPoints: BranchInfo[]
 }
-
-/** Create branch payload (for edit flow) */
-export type CreateBranchInput = z.infer<typeof CreateBranchInputSchema>
 
 /** Create branch result */
 export interface CreateBranchResult {
@@ -76,12 +115,6 @@ export interface SwitchBranchResult {
   branchPoints: BranchInfo[]
 }
 
-/** AI chat options */
-export type ChatOptions = z.infer<typeof ChatOptionsSchema>
-
-/** AI chat response with stream handle */
-export type ChatResponse = z.infer<typeof ChatResponseSchema>
-
 /** AI stream events (IPC-safe: error is string, not Error object) */
 export type AIStreamEvent =
   | { type: 'delta'; streamId: string; chunk: string }
@@ -91,6 +124,10 @@ export type AIStreamEvent =
 
 /** Models cache update events (Rule 3: Push) */
 export type ModelsEvent = { type: 'updated' }
+
+// ============================================================================
+// ArcAPI INTERFACE
+// ============================================================================
 
 /**
  * ArcAPI - The IPC surface for renderer process

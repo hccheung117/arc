@@ -21,7 +21,7 @@ import {
   CreateMessageInputSchema,
   CreateBranchInputSchema,
   ChatOptionsSchema,
-} from '@arc-types/arc-api.schema'
+} from '@arc-types/arc-api'
 import type { ArcImportEvent } from '@arc-types/arc-file'
 import type { ConversationSummary, ContextMenuAction } from '@arc-types/conversations'
 import type { Message, MessageContextMenuAction } from '@arc-types/messages'

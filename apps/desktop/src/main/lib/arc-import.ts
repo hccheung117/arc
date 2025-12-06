@@ -6,8 +6,7 @@
  */
 
 import { ZodError } from 'zod'
-import { ArcFileSchema } from '@arc-types/arc-file.schema'
-import { ARC_FILE_VERSION, type ArcFile } from '@arc-types/arc-file'
+import { ArcFileSchema, ARC_FILE_VERSION, type ArcFile } from '@arc-types/arc-file'
 
 export interface ValidationResult {
   valid: boolean
