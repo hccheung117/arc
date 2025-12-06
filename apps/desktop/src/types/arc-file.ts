@@ -20,6 +20,7 @@ export interface ArcFileProvider {
   baseUrl?: string // Optional custom endpoint
   apiKey?: string // Optional API key (plain text in file)
   modelFilter?: ArcModelFilter // Optional model visibility filter
+  modelAliases?: Record<string, string> // Optional model id -> display name overrides
 }
 
 /** Root .arc file structure */

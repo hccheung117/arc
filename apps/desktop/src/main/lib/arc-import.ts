@@ -92,6 +92,17 @@ export function validateArcFile(content: string): ValidationResult {
         }
       }
     }
+
+    if (p.modelAliases !== undefined) {
+      if (typeof p.modelAliases !== 'object' || p.modelAliases === null || Array.isArray(p.modelAliases)) {
+        return { valid: false, error: 'Provider modelAliases must be an object' }
+      }
+      for (const [key, value] of Object.entries(p.modelAliases)) {
+        if (typeof key !== 'string' || typeof value !== 'string') {
+          return { valid: false, error: 'Provider modelAliases must map string keys to string values' }
+        }
+      }
+    }
   }
 
   const arcFile = parsed as ArcFile

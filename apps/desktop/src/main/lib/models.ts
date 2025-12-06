@@ -45,6 +45,7 @@ interface RuntimeProvider {
   apiKey?: string
   baseUrl?: string
   modelFilter?: StoredModelFilter
+  modelAliases?: Record<string, string>
 }
 
 /**
@@ -90,6 +91,7 @@ function toRuntimeProvider(provider: ArcFileProvider, index: number): RuntimePro
     apiKey: provider.apiKey,
     baseUrl: provider.baseUrl,
     modelFilter: provider.modelFilter,
+    modelAliases: provider.modelAliases,
   }
 }
 
@@ -171,9 +173,11 @@ export async function getModels(): Promise<Model[]> {
     })
     .map((model) => {
       const provider = providersById.get(model.providerId)!
+      // Priority: alias > cached name > id
+      const displayName = provider.modelAliases?.[model.id] ?? model.name ?? model.id
       return {
         id: model.id,
-        name: model.name,
+        name: displayName,
         provider: {
           id: provider.id,
           name: formatProviderName(provider.type),
