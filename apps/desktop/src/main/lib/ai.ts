@@ -1,6 +1,6 @@
 import * as fs from 'fs/promises'
 import type { Message } from '@arc-types/messages'
-import { modelsFile, settingsFile } from '@main/storage'
+import { modelsFile } from '@main/storage'
 import { getAttachmentPath } from './attachments'
 import { loggingFetch } from './http-logger'
 import { getMessages, insertAssistantMessage } from './messages'
@@ -212,19 +212,7 @@ export async function startChatStream(
     const { messages: conversationMessages } = await getMessages(conversationId)
 
     const providerId = await getModelProvider(modelId)
-    const config = await getProviderConfig(providerId)
-    const settings = await settingsFile().read()
-    const provider = settings.providers.find((p) => p.id === providerId)
-
-    if (!provider) {
-      throw new Error(`Provider ${providerId} not found`)
-    }
-
-    const providerConfig: ProviderConfig = {
-      type: provider.type,
-      apiKey: config.apiKey,
-      baseUrl: config.baseUrl,
-    }
+    const providerConfig = await getProviderConfig(providerId)
 
     // Get the parent ID (last message in the conversation)
     const lastMessage = conversationMessages[conversationMessages.length - 1]

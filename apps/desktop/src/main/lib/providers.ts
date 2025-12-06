@@ -1,48 +1,48 @@
 import { settingsFile, type StoredFavorite } from '@main/storage'
+import { getActiveProfile } from './profiles'
 
-export async function updateProviderConfig(
-  providerId: string,
-  config: { apiKey?: string; baseUrl?: string },
-): Promise<void> {
-  await settingsFile().update((settings) => {
-    const provider = settings.providers.find((p) => p.id === providerId)
-    if (!provider) {
-      throw new Error(`Provider ${providerId} not found`)
-    }
-
-    // Update fields if provided
-    if (config.apiKey !== undefined) {
-      provider.apiKey = config.apiKey
-    }
-    if (config.baseUrl !== undefined) {
-      provider.baseUrl = config.baseUrl
-    }
-
-    return settings
-  })
+/**
+ * Parse provider index from runtime ID (profile-provider-{index}).
+ */
+function parseProviderIndex(providerId: string): number {
+  const match = providerId.match(/^profile-provider-(\d+)$/)
+  if (!match) {
+    throw new Error(`Invalid provider ID format: ${providerId}`)
+  }
+  return parseInt(match[1], 10)
 }
 
+/**
+ * Get provider config from active profile.
+ * Provider ID format: profile-provider-{index}
+ */
 export async function getProviderConfig(providerId: string): Promise<{
+  type: string
   apiKey: string | null
   baseUrl: string | null
 }> {
-  const settings = await settingsFile().read()
-  const provider = settings.providers.find((p) => p.id === providerId)
+  const profile = await getActiveProfile()
+  if (!profile) {
+    throw new Error('No active profile')
+  }
+
+  const index = parseProviderIndex(providerId)
+  const provider = profile.providers[index]
 
   if (!provider) {
-    throw new Error(`Provider ${providerId} not found`)
+    throw new Error(`Provider index ${index} not found in active profile`)
   }
 
   return {
+    type: provider.type,
     apiKey: provider.apiKey ?? null,
-    baseUrl: provider.baseUrl,
+    baseUrl: provider.baseUrl ?? null,
   }
 }
 
 /**
  * Generic config get handler.
  * Routes key patterns to appropriate config sources.
- * Currently supports: "provider:{providerId}"
  */
 export async function getConfig<T = unknown>(key: string): Promise<T | null> {
   if (key.startsWith('provider:')) {
@@ -62,14 +62,11 @@ export async function getConfig<T = unknown>(key: string): Promise<T | null> {
 /**
  * Generic config set handler.
  * Routes key patterns to appropriate config updaters.
- * Currently supports: "provider:{providerId}"
+ * Note: Provider configs are read-only (come from arc files).
  */
 export async function setConfig<T = unknown>(key: string, value: T): Promise<void> {
   if (key.startsWith('provider:')) {
-    const providerId = key.slice('provider:'.length)
-    const config = value as { apiKey?: string; baseUrl?: string }
-    await updateProviderConfig(providerId, config)
-    return
+    throw new Error('Provider configs are read-only (managed via arc files)')
   }
 
   if (key === 'favorites') {

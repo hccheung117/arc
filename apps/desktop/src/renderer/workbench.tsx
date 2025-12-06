@@ -14,12 +14,12 @@ export function WorkbenchWindow() {
 
   const handleImport = useCallback(async (filePath: string) => {
     try {
-      const result = await window.arc.import.file(filePath)
-      const msg = `Imported ${result.providersAdded} new, updated ${result.providersUpdated} existing providers`
+      const result = await window.arc.profiles.install(filePath)
+      const msg = `Installed profile: ${result.name} (${result.providerCount} providers)`
       setImportMessage(msg)
       setTimeout(() => setImportMessage(null), 4000)
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Import failed'
+      const msg = error instanceof Error ? error.message : 'Install failed'
       setImportMessage(`Error: ${msg}`)
       setTimeout(() => setImportMessage(null), 4000)
     }
@@ -30,16 +30,13 @@ export function WorkbenchWindow() {
     onDrop: handleImport,
   })
 
-  // Subscribe to import events (for dock drops)
+  // Subscribe to profile events (for dock drops)
   useEffect(() => {
-    const cleanup = window.arc.import.onEvent((event) => {
-      if (event.type === 'success') {
-        const { result } = event
-        const msg = `Imported ${result.providersAdded} new, updated ${result.providersUpdated} existing providers`
+    const cleanup = window.arc.profiles.onEvent((event) => {
+      if (event.type === 'installed') {
+        const { profile } = event
+        const msg = `Installed profile: ${profile.name} (${profile.providerCount} providers)`
         setImportMessage(msg)
-        setTimeout(() => setImportMessage(null), 4000)
-      } else if (event.type === 'error') {
-        setImportMessage(`Error: ${event.error}`)
         setTimeout(() => setImportMessage(null), 4000)
       }
     })
@@ -51,8 +48,8 @@ export function WorkbenchWindow() {
       <DropOverlay
         isVisible={isDragging}
         icon={FileDown}
-        title="Drop to import configuration"
-        description="Release to import providers from .arc file"
+        title="Drop to install profile"
+        description="Release to install .arc profile"
       />
 
       <WorkbenchSidebar

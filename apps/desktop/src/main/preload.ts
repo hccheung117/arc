@@ -9,7 +9,7 @@ import type {
   AIStreamEvent,
   ModelsEvent,
 } from '@arc-types/arc-api'
-import type { ArcImportEvent } from '@arc-types/arc-file'
+import type { ArcImportEvent, ProfilesEvent } from '@arc-types/arc-file'
 
 /**
  * IPC Preload Module
@@ -93,6 +93,24 @@ const arc: ArcAPI = {
       ipcRenderer.invoke('arc:ui:showThreadContextMenu', isPinned),
     showMessageContextMenu: (content: string, hasEditOption: boolean) =>
       ipcRenderer.invoke('arc:ui:showMessageContextMenu', content, hasEditOption),
+  },
+
+  profiles: {
+    list: () => ipcRenderer.invoke('arc:profiles:list'),
+
+    getActive: () => ipcRenderer.invoke('arc:profiles:getActive'),
+
+    install: (filePath: string) => ipcRenderer.invoke('arc:profiles:install', filePath),
+
+    uninstall: (profileId: string) => ipcRenderer.invoke('arc:profiles:uninstall', profileId),
+
+    activate: (profileId: string | null) => ipcRenderer.invoke('arc:profiles:activate', profileId),
+
+    onEvent: (callback: (event: ProfilesEvent) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, data: ProfilesEvent) => callback(data)
+      ipcRenderer.on('arc:profiles:event', listener)
+      return () => ipcRenderer.removeListener('arc:profiles:event', listener)
+    },
   },
 
   import: {

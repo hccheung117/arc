@@ -1,8 +1,30 @@
-import { modelsFile, settingsFile, type StoredProvider, type StoredModel } from '@main/storage'
+import { modelsFile, type StoredModel, type StoredModelFilter } from '@main/storage'
 import type { Model } from '@arc-types/models'
 import { loggingFetch } from './http-logger'
+import { getActiveProfile } from './profiles'
+import type { ArcFileProvider } from '@arc-types/arc-file'
 
 const OPENAI_DEFAULT_BASE_URL = 'https://api.openai.com/v1'
+
+/**
+ * Tests if a model ID matches a glob pattern (supports * wildcard).
+ */
+function matchesGlob(value: string, pattern: string): boolean {
+  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&')
+  const regex = new RegExp('^' + escaped.replace(/\*/g, '.*') + '$')
+  return regex.test(value)
+}
+
+/**
+ * Applies a model filter to determine visibility.
+ * Returns true if the model should be shown, false if hidden.
+ */
+function passesFilter(modelId: string, filter: StoredModelFilter | undefined): boolean {
+  if (!filter || filter.rules.length === 0) return true
+
+  const matches = filter.rules.some((rule) => matchesGlob(modelId, rule))
+  return filter.mode === 'allow' ? matches : !matches
+}
 
 interface OpenAIModel {
   id: string
@@ -16,10 +38,19 @@ interface OpenAIModelsResponse {
   data: OpenAIModel[]
 }
 
+/** Provider with runtime ID for model fetching */
+interface RuntimeProvider {
+  id: string // profile-provider-{index}
+  type: string
+  apiKey?: string
+  baseUrl?: string
+  modelFilter?: StoredModelFilter
+}
+
 /**
  * Fetches models from an OpenAI-compatible provider.
  */
-async function fetchOpenAIModels(provider: StoredProvider): Promise<StoredModel[]> {
+async function fetchOpenAIModels(provider: RuntimeProvider): Promise<StoredModel[]> {
   const baseUrl = provider.baseUrl || OPENAI_DEFAULT_BASE_URL
   const endpoint = `${baseUrl}/models`
 
@@ -42,29 +73,50 @@ async function fetchOpenAIModels(provider: StoredProvider): Promise<StoredModel[
   const now = new Date().toISOString()
 
   return data.data.map((m) => ({
-      id: m.id,
-      providerId: provider.id,
-      name: m.id,
-      fetchedAt: now,
-    }))
+    id: m.id,
+    providerId: provider.id,
+    name: m.id,
+    fetchedAt: now,
+  }))
 }
 
 /**
- * Fetches models from all providers and updates the cache.
- * Returns true if models were updated.
+ * Converts ArcFileProvider to RuntimeProvider with index-based ID.
+ */
+function toRuntimeProvider(provider: ArcFileProvider, index: number): RuntimeProvider {
+  return {
+    id: `profile-provider-${index}`,
+    type: provider.type,
+    apiKey: provider.apiKey,
+    baseUrl: provider.baseUrl,
+    modelFilter: provider.modelFilter,
+  }
+}
+
+/**
+ * Fetches models from all providers in the active profile.
+ * Returns true if models were updated, false if no profile active.
  */
 export async function fetchAllModels(): Promise<boolean> {
-  const settings = await settingsFile().read()
+  const profile = await getActiveProfile()
 
-  if (settings.providers.length === 0) {
-    console.log('[models] No providers configured, skipping fetch')
-    return false
+  if (!profile) {
+    console.log('[models] No active profile, clearing cache')
+    await modelsFile().write({ models: [] })
+    return true
   }
 
+  if (profile.providers.length === 0) {
+    console.log('[models] Active profile has no providers, clearing cache')
+    await modelsFile().write({ models: [] })
+    return true
+  }
+
+  const runtimeProviders = profile.providers.map(toRuntimeProvider)
   const allModels: StoredModel[] = []
 
   const results = await Promise.allSettled(
-    settings.providers.map((provider) => fetchOpenAIModels(provider))
+    runtimeProviders.map((provider) => fetchOpenAIModels(provider))
   )
 
   for (const result of results) {
@@ -75,11 +127,6 @@ export async function fetchAllModels(): Promise<boolean> {
     }
   }
 
-  if (allModels.length === 0) {
-    console.log('[models] No models fetched')
-    return false
-  }
-
   await modelsFile().write({ models: allModels })
   console.log(`[models] Cache updated with ${allModels.length} model(s)`)
 
@@ -87,26 +134,41 @@ export async function fetchAllModels(): Promise<boolean> {
 }
 
 /**
+ * Formats provider type to display name.
+ */
+function formatProviderName(type: string): string {
+  const names: Record<string, string> = {
+    openai: 'OpenAI',
+  }
+  return names[type] || type.charAt(0).toUpperCase() + type.slice(1)
+}
+
+/**
  * Returns the list of available models by joining the models cache
- * with provider information from settings.
- *
- * This performs an in-memory JOIN equivalent to the previous SQL query.
+ * with provider information from the active profile.
  */
 export async function getModels(): Promise<Model[]> {
-  // Read both storage files
-  const [modelsCache, settings] = await Promise.all([
-    modelsFile().read(),
-    settingsFile().read(),
-  ])
+  const [modelsCache, profile] = await Promise.all([modelsFile().read(), getActiveProfile()])
 
-  // Build provider lookup map for efficient joins
+  if (!profile) {
+    return []
+  }
+
+  // Build provider lookup map: profile-provider-{index} -> RuntimeProvider
   const providersById = new Map(
-    settings.providers.map((p) => [p.id, p]),
+    profile.providers.map((p, i) => {
+      const runtime = toRuntimeProvider(p, i)
+      return [runtime.id, runtime] as const
+    })
   )
 
-  // Join models with providers (in-memory)
+  // Join models with providers and apply filters
   return modelsCache.models
-    .filter((model) => providersById.has(model.providerId))
+    .filter((model) => {
+      const provider = providersById.get(model.providerId)
+      if (!provider) return false
+      return passesFilter(model.id, provider.modelFilter)
+    })
     .map((model) => {
       const provider = providersById.get(model.providerId)!
       return {
@@ -114,7 +176,7 @@ export async function getModels(): Promise<Model[]> {
         name: model.name,
         provider: {
           id: provider.id,
-          name: provider.name,
+          name: formatProviderName(provider.type),
           type: 'openai',
         },
       }

@@ -34,8 +34,14 @@ export interface StoredFavorite {
 }
 
 export interface StoredSettings {
-  providers: StoredProvider[]
-  favorites?: StoredFavorite[]
+  activeProfileId: string | null
+  favorites: StoredFavorite[]
+}
+
+/** Model filter configuration for provider */
+export interface StoredModelFilter {
+  mode: 'allow' | 'deny'
+  rules: string[]
 }
 
 export interface StoredProvider {
@@ -44,6 +50,7 @@ export interface StoredProvider {
   type: string // 'openai' | 'anthropic' | 'ollama' etc.
   apiKey: string | null // Encrypted using safeStorage
   baseUrl: string | null
+  modelFilter?: StoredModelFilter // Optional model visibility filter
 }
 
 /**
@@ -207,7 +214,7 @@ export function getMessagesDir(): string {
  */
 export function settingsFile(): JsonFile<StoredSettings> {
   const filePath = path.join(getDataDir(), 'settings.json')
-  const defaultValue: StoredSettings = { providers: [], favorites: [] }
+  const defaultValue: StoredSettings = { activeProfileId: null, favorites: [] }
   return new JsonFile(filePath, defaultValue)
 }
 

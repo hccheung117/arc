@@ -13,7 +13,12 @@
 import type { Message, MessageRole, MessageContextMenuAction } from './messages'
 import type { ConversationSummary, ContextMenuAction } from './conversations'
 import type { Model } from './models'
-import type { ArcImportResult, ArcImportEvent } from './arc-file'
+import type {
+  ArcImportEvent,
+  ProfileInfo,
+  ProfileInstallResult,
+  ProfilesEvent,
+} from './arc-file'
 
 /** Cleanup function returned by event subscriptions */
 export type Unsubscribe = () => void
@@ -204,10 +209,31 @@ export interface ArcAPI {
     showMessageContextMenu(content: string, hasEditOption: boolean): Promise<MessageContextMenuAction>
   }
 
-  /** .arc file import operations */
+  /** Profile management operations */
+  profiles: {
+    /** List installed profiles (Rule 2: Two-Way) */
+    list(): Promise<ProfileInfo[]>
+
+    /** Get active profile ID (Rule 2: Two-Way) */
+    getActive(): Promise<string | null>
+
+    /** Install a profile from file path (Rule 2: Two-Way) */
+    install(filePath: string): Promise<ProfileInstallResult>
+
+    /** Uninstall a profile (Rule 2: Two-Way) */
+    uninstall(profileId: string): Promise<void>
+
+    /** Activate a profile (Rule 2: Two-Way) */
+    activate(profileId: string | null): Promise<void>
+
+    /** Subscribe to profile lifecycle events (Rule 3: Push) */
+    onEvent(callback: (event: ProfilesEvent) => void): Unsubscribe
+  }
+
+  /** .arc file import operations (Legacy - redirects to profiles) */
   import: {
     /** Import .arc file from path (Rule 2: Two-Way) */
-    file(filePath: string): Promise<ArcImportResult>
+    file(filePath: string): Promise<ProfileInstallResult>
 
     /** Subscribe to import events (Rule 3: Push) */
     onEvent(callback: (event: ArcImportEvent) => void): Unsubscribe

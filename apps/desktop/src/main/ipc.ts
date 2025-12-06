@@ -15,7 +15,7 @@ import type {
   ChatOptions,
   ChatResponse,
 } from '@arc-types/arc-api'
-import type { ArcImportResult, ArcImportEvent } from '@arc-types/arc-file'
+import type { ArcImportEvent } from '@arc-types/arc-file'
 import type { ConversationSummary, ContextMenuAction } from '@arc-types/conversations'
 import type { Message, MessageContextMenuAction } from '@arc-types/messages'
 import type { Model } from '@arc-types/models'
@@ -30,7 +30,15 @@ import { startChatStream, cancelStream } from './lib/ai'
 import { getConfig, setConfig } from './lib/providers'
 import { threadIndexFile, type StoredThread } from './storage'
 import { showThreadContextMenu, showMessageContextMenu } from './lib/ui'
-import { validateArcFile, importArcFile } from './lib/arc-import'
+import {
+  installProfile,
+  uninstallProfile,
+  activateProfile,
+  listProfiles,
+  getActiveProfileId,
+  type ProfileInfo,
+  type ProfileInstallResult,
+} from './lib/profiles'
 import { getAttachmentPath } from './lib/attachments'
 
 /**
@@ -265,7 +273,90 @@ export function registerUIHandlers(ipcMain: IpcMain): void {
 }
 
 // ============================================================================
-// IMPORT HANDLERS
+// PROFILES HANDLERS
+// ============================================================================
+
+export type ProfilesEvent =
+  | { type: 'installed'; profile: ProfileInstallResult }
+  | { type: 'uninstalled'; profileId: string }
+  | { type: 'activated'; profileId: string | null }
+
+export function emitProfilesEvent(event: ProfilesEvent): void {
+  broadcast('arc:profiles:event', event)
+}
+
+async function handleProfilesList(): Promise<ProfileInfo[]> {
+  return listProfiles()
+}
+
+async function handleProfilesGetActive(): Promise<string | null> {
+  return getActiveProfileId()
+}
+
+async function handleProfilesInstall(
+  _event: IpcMainInvokeEvent,
+  filePath: string
+): Promise<ProfileInstallResult> {
+  console.log(`[arc:profiles] Install request: ${filePath}`)
+  const content = await readFile(filePath, 'utf-8')
+
+  const result = await installProfile(content)
+  emitProfilesEvent({ type: 'installed', profile: result })
+
+  // Auto-activate the installed profile
+  await activateProfile(result.id)
+  emitProfilesEvent({ type: 'activated', profileId: result.id })
+
+  // Trigger background model fetch after activation
+  fetchAllModels()
+    .then((updated) => {
+      if (updated) emitModelsEvent({ type: 'updated' })
+    })
+    .catch((err) => console.error('[models] Background fetch failed:', err))
+
+  return result
+}
+
+async function handleProfilesUninstall(
+  _event: IpcMainInvokeEvent,
+  profileId: string
+): Promise<void> {
+  await uninstallProfile(profileId)
+  emitProfilesEvent({ type: 'uninstalled', profileId })
+
+  // Trigger model refresh (may now be empty if this was active)
+  fetchAllModels()
+    .then((updated) => {
+      if (updated) emitModelsEvent({ type: 'updated' })
+    })
+    .catch((err) => console.error('[models] Background fetch failed:', err))
+}
+
+async function handleProfilesActivate(
+  _event: IpcMainInvokeEvent,
+  profileId: string | null
+): Promise<void> {
+  await activateProfile(profileId)
+  emitProfilesEvent({ type: 'activated', profileId })
+
+  // Trigger model refresh after activation
+  fetchAllModels()
+    .then((updated) => {
+      if (updated) emitModelsEvent({ type: 'updated' })
+    })
+    .catch((err) => console.error('[models] Background fetch failed:', err))
+}
+
+export function registerProfilesHandlers(ipcMain: IpcMain): void {
+  ipcMain.handle('arc:profiles:list', handleProfilesList)
+  ipcMain.handle('arc:profiles:getActive', handleProfilesGetActive)
+  ipcMain.handle('arc:profiles:install', handleProfilesInstall)
+  ipcMain.handle('arc:profiles:uninstall', handleProfilesUninstall)
+  ipcMain.handle('arc:profiles:activate', handleProfilesActivate)
+}
+
+// ============================================================================
+// IMPORT HANDLERS (Legacy - redirects to profiles)
 // ============================================================================
 
 export function emitImportEvent(event: ArcImportEvent): void {
@@ -275,28 +366,9 @@ export function emitImportEvent(event: ArcImportEvent): void {
 async function handleImportFile(
   _event: IpcMainInvokeEvent,
   filePath: string
-): Promise<ArcImportResult> {
-  console.log(`[arc:import] IPC request: ${filePath}`)
-  const content = await readFile(filePath, 'utf-8')
-
-  const validation = validateArcFile(content)
-  if (!validation.valid || !validation.data) {
-    const error = validation.error || 'Unknown validation error'
-    emitImportEvent({ type: 'error', error })
-    throw new Error(error)
-  }
-
-  const result = await importArcFile(validation.data)
-  emitImportEvent({ type: 'success', result })
-
-  // Trigger background model fetch after successful import
-  fetchAllModels()
-    .then((updated) => {
-      if (updated) emitModelsEvent({ type: 'updated' })
-    })
-    .catch((err) => console.error('[models] Background fetch failed:', err))
-
-  return result
+): Promise<ProfileInstallResult> {
+  // Redirect to profile install
+  return handleProfilesInstall(_event, filePath)
 }
 
 export function registerImportHandlers(ipcMain: IpcMain): void {
@@ -338,6 +410,7 @@ export function registerArcHandlers(ipcMain: IpcMain): void {
   registerAIHandlers(ipcMain)
   registerConfigHandlers(ipcMain)
   registerUIHandlers(ipcMain)
+  registerProfilesHandlers(ipcMain)
   registerImportHandlers(ipcMain)
   registerUtilsHandlers(ipcMain)
 }

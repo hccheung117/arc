@@ -2,8 +2,8 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import started from 'electron-squirrel-startup';
-import { registerArcHandlers, emitImportEvent, emitModelsEvent } from './ipc';
-import { validateArcFile, importArcFile } from './lib/arc-import';
+import { registerArcHandlers, emitProfilesEvent, emitModelsEvent } from './ipc';
+import { installProfile, activateProfile } from './lib/profiles';
 import { fetchAllModels } from './lib/models';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -74,31 +74,25 @@ app.on('open-file', async (event, filePath) => {
     return;
   }
 
-  console.log(`[arc:import] Dock drop: ${filePath}`);
+  console.log(`[arc:profiles] Dock drop: ${filePath}`);
 
   try {
     const content = await readFile(filePath, 'utf-8');
-    const validation = validateArcFile(content);
+    const result = await installProfile(content);
+    emitProfilesEvent({ type: 'installed', profile: result });
 
-    if (!validation.valid || !validation.data) {
-      emitImportEvent({
-        type: 'error',
-        error: validation.error || 'Invalid .arc file',
-      });
-      return;
-    }
+    // Auto-activate the installed profile
+    await activateProfile(result.id);
+    emitProfilesEvent({ type: 'activated', profileId: result.id });
 
-    const result = await importArcFile(validation.data);
-    emitImportEvent({ type: 'success', result });
-
-    // Trigger background model fetch after dock drop import
+    // Trigger background model fetch after activation
     fetchAllModels()
       .then((updated) => {
         if (updated) emitModelsEvent({ type: 'updated' });
       })
       .catch((err) => console.error('[models] Background fetch failed:', err));
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : 'Import failed';
-    emitImportEvent({ type: 'error', error: errorMsg });
+    const errorMsg = error instanceof Error ? error.message : 'Install failed';
+    console.error(`[arc:profiles] Dock drop failed: ${errorMsg}`);
   }
 });
