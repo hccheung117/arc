@@ -20,7 +20,7 @@ import type { ArcFile, ProfileInfo, ProfileInstallResult } from '@arc-types/arc-
 export type { ProfileInfo, ProfileInstallResult }
 
 function getProfilesDir(): string {
-  return path.join(app.getPath('userData'), 'data', 'profiles')
+  return path.join(app.getPath('userData'), 'arcfs', 'profiles')
 }
 
 function getProfilePath(profileId: string): string {

@@ -5,7 +5,7 @@
  * Images are stored in per-thread directories alongside the message log.
  *
  * Storage layout:
- * userData/data/messages/
+ * userData/arcfs/messages/
  * ├── {threadId}.jsonl          # Message log
  * ├── {threadId}/               # Attachments folder
  * │   ├── {messageId}-0.png     # Naming: ID + Index

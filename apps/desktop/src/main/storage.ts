@@ -26,7 +26,7 @@ import { JsonLog } from './arcfs/json-log'
  * Stores user-configured AI providers and preferences.
  * Written atomically via JsonFile.
  *
- * Location: data/settings.json
+ * Location: arcfs/settings.json
  */
 export interface StoredFavorite {
   providerId: string
@@ -59,7 +59,7 @@ export interface StoredProvider {
  * Stores the latest list of available models fetched from providers.
  * Can be regenerated; safe to delete.
  *
- * Location: data/models.cache.json
+ * Location: arcfs/models.cache.json
  */
 export interface StoredModelCache {
   models: StoredModel[]
@@ -79,7 +79,7 @@ export interface StoredModel {
  * High-level metadata for all threads to power Sidebar and navigation.
  * Loaded entirely into memory on startup for instant UI rendering.
  *
- * Location: data/messages/index.json
+ * Location: arcfs/messages/index.json
  */
 export interface StoredThreadIndex {
   threads: StoredThread[]
@@ -113,7 +113,7 @@ export interface StoredThread {
  * The reducer supports merging multiple events with the same ID for future
  * extensibility (e.g., message edits), but AI streaming does NOT use this pattern.
  *
- * Location: data/messages/{threadId}.jsonl
+ * Location: arcfs/messages/{threadId}.jsonl
  */
 /** Stored attachment reference (path only, no data URL) */
 export interface StoredAttachment {
@@ -186,11 +186,11 @@ export interface BranchInfo {
  * Returns the root data directory path.
  * Platform-specific via Electron's app.getPath('userData').
  *
- * Example (macOS): ~/Library/Application Support/arc/data/
+ * Example (macOS): ~/Library/Application Support/arc/arcfs/
  */
 function getDataDir(): string {
   const userDataPath = app.getPath('userData')
-  return path.join(userDataPath, 'data')
+  return path.join(userDataPath, 'arcfs')
 }
 
 /**
