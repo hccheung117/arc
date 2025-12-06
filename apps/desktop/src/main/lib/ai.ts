@@ -1,5 +1,3 @@
-import { createOpenAI } from '@ai-sdk/openai'
-import { streamText, type CoreMessage, type LanguageModel } from 'ai'
 import * as fs from 'fs/promises'
 import type { Message } from '@arc-types/messages'
 import { modelsFile, settingsFile } from '@main/storage'
@@ -7,6 +5,14 @@ import { getAttachmentPath } from './attachments'
 import { loggingFetch } from './http-logger'
 import { getMessages, insertAssistantMessage } from './messages'
 import { getProviderConfig } from './providers'
+import type {
+  ChatMessage,
+  ChatCompletionRequest,
+  NormalizedUsage,
+  APIErrorResponse,
+  ChatCompletionChunk,
+} from './openai-types'
+import { parseSSEStream } from './sse-stream'
 
 export interface ProviderConfig {
   type: string
@@ -24,45 +30,35 @@ export interface StreamCallbacks {
 const activeStreams = new Map<string, AbortController>()
 
 /**
- * Create an AI SDK language model for the given provider configuration
+ * Convert database messages to OpenAI Chat API format.
+ * Handles multimodal content with base64-encoded images.
  */
-export function createProviderModel(
-  config: ProviderConfig,
-  modelId: string,
-): LanguageModel {
-  return createOpenAI({
-    ...(config.apiKey && { apiKey: config.apiKey }),
-    ...(config.baseUrl && { baseURL: config.baseUrl }),
-    fetch: loggingFetch,
-  }).chat(modelId)
-}
-
-/**
- * Convert database messages to AI SDK CoreMessage format.
- * Handles multimodal content when user messages have image attachments.
- * Only user role supports multimodal content in the AI SDK.
- *
- * Reads attachment files as Buffer directly - AI SDK accepts Buffer without
- * base64 encoding overhead.
- */
-export async function toCoreMessages(
+export async function toOpenAIMessages(
   messages: Message[],
   conversationId: string,
-): Promise<CoreMessage[]> {
+): Promise<ChatMessage[]> {
   return Promise.all(
-    messages.map(async (message): Promise<CoreMessage> => {
+    messages.map(async (message): Promise<ChatMessage> => {
       // Only user messages can have multimodal content
       if (message.role === 'user' && message.attachments?.length) {
         const imageParts = await Promise.all(
-          message.attachments.map(async (att) => ({
-            type: 'image' as const,
-            image: await fs.readFile(getAttachmentPath(conversationId, att.path)),
-            mediaType: att.mimeType,
-          })),
+          message.attachments.map(async (att) => {
+            const buffer = await fs.readFile(getAttachmentPath(conversationId, att.path))
+            const base64 = buffer.toString('base64')
+            return {
+              type: 'image_url' as const,
+              image_url: {
+                url: `data:${att.mimeType};base64,${base64}`,
+              },
+            }
+          }),
         )
         return {
           role: 'user',
-          content: [...imageParts, { type: 'text' as const, text: message.content }],
+          content: [
+            ...imageParts,
+            { type: 'text' as const, text: message.content },
+          ],
         }
       }
 
@@ -90,50 +86,104 @@ export async function getModelProvider(modelId: string): Promise<string> {
 }
 
 /**
- * Stream chat completion with the AI provider (low-level)
+ * Normalize API usage to storage format.
  */
-export async function streamChatCompletion(
+function normalizeUsage(usage: ChatCompletionChunk['usage']): NormalizedUsage {
+  if (!usage) {
+    return { inputTokens: 0, outputTokens: 0, totalTokens: 0 }
+  }
+  return {
+    inputTokens: usage.prompt_tokens,
+    outputTokens: usage.completion_tokens,
+    totalTokens: usage.total_tokens,
+    reasoningTokens: usage.completion_tokens_details?.reasoning_tokens,
+  }
+}
+
+/**
+ * Stream chat completion via REST API with SSE.
+ */
+async function streamChatCompletion(
   providerConfig: ProviderConfig,
   modelId: string,
-  messages: CoreMessage[],
+  messages: ChatMessage[],
+  callbacks: {
+    onDelta: (chunk: string) => void
+    onReasoning: (chunk: string) => void
+  },
   signal?: AbortSignal,
-) {
-  const endpoint = `${providerConfig.baseUrl || 'https://api.openai.com/v1'}/chat/completions`
-  const temperature = 0
-  const reasoningEffort = 'high'
-  console.log(`[API] POST ${endpoint} ${modelId} (${messages.length} msgs) temp=${temperature} reasoning=${reasoningEffort}`)
+): Promise<NormalizedUsage> {
+  const baseUrl = providerConfig.baseUrl || 'https://api.openai.com/v1'
+  const endpoint = `${baseUrl}/chat/completions`
 
-  const model = createProviderModel(providerConfig, modelId)
-
-  try {
-    const result = streamText({
-      model,
-      messages,
-      abortSignal: signal,
-      temperature,
-      providerOptions: {
-        openai: { reasoningEffort },
-      },
-    })
-
-    return result
-  } catch (error) {
-    if (error instanceof Error) {
-      const apiError = error as Error & { statusCode?: number; responseBody?: string }
-      if (apiError.statusCode) {
-        console.error(`[API] ${apiError.statusCode} ${apiError.responseBody || error.message}`)
-      } else {
-        console.error(`[API] Error: ${error.message}`)
-      }
-    }
-    throw error
+  const requestBody: ChatCompletionRequest = {
+    model: modelId,
+    messages,
+    stream: true,
+    temperature: 0,
+    thinking: { reasoning_effort: 'high' },
   }
+
+  console.log(`[API] POST ${endpoint} ${modelId} (${messages.length} msgs)`)
+
+  const response = await loggingFetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(providerConfig.apiKey && { Authorization: `Bearer ${providerConfig.apiKey}` }),
+    },
+    body: JSON.stringify(requestBody),
+    signal,
+  })
+
+  if (!response.ok) {
+    let errorMessage = `HTTP ${response.status}: ${response.statusText}`
+    try {
+      const errorBody = (await response.json()) as APIErrorResponse
+      if (errorBody.error?.message) {
+        errorMessage = errorBody.error.message
+      }
+    } catch {
+      // Use default error message
+    }
+    throw new Error(errorMessage)
+  }
+
+  if (!response.body) {
+    throw new Error('Response body is null')
+  }
+
+  let usage: NormalizedUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 }
+  let reasoningStarted = false
+
+  for await (const chunk of parseSSEStream(response.body)) {
+    const delta = chunk.choices[0]?.delta
+
+    if (delta?.reasoning_content) {
+      if (!reasoningStarted) {
+        console.log('[AI] Reasoning started')
+        reasoningStarted = true
+      }
+      callbacks.onReasoning(delta.reasoning_content)
+    }
+
+    if (delta?.content) {
+      callbacks.onDelta(delta.content)
+    }
+
+    // Capture usage from final chunk
+    if (chunk.usage) {
+      usage = normalizeUsage(chunk.usage)
+    }
+  }
+
+  return usage
 }
 
 /**
  * Start AI chat stream with callbacks.
  * This is the high-level streaming function that handles the full flow:
- * fetch messages → get provider config → stream → save result.
+ * fetch messages -> get provider config -> stream -> save result.
  *
  * MEMORY-ONLY STREAMING STRATEGY:
  * ------------------------------
@@ -143,19 +193,17 @@ export async function streamChatCompletion(
  * - On completion, a single atomic write persists the full message
  *
  * Crash behavior:
- * - Crash during streaming → no storage corruption, user retries cleanly
- * - Crash after completion → full message is persisted
+ * - Crash during streaming -> no storage corruption, user retries cleanly
+ * - Crash after completion -> full message is persisted
  *
  * This design treats AI output as "disposable until complete" while
  * treating user input as "precious from the start".
- *
- * @returns streamId for tracking/cancellation
  */
 export async function startChatStream(
   streamId: string,
   conversationId: string,
   modelId: string,
-  callbacks: StreamCallbacks
+  callbacks: StreamCallbacks,
 ): Promise<void> {
   const abortController = new AbortController()
   activeStreams.set(streamId, abortController)
@@ -182,39 +230,30 @@ export async function startChatStream(
     const lastMessage = conversationMessages[conversationMessages.length - 1]
     const parentId = lastMessage?.id ?? null
 
-    const coreMessages = await toCoreMessages(conversationMessages, conversationId)
-    const result = await streamChatCompletion(
-      providerConfig,
-      modelId,
-      coreMessages,
-      abortController.signal,
-    )
+    const openAIMessages = await toOpenAIMessages(conversationMessages, conversationId)
 
     // MEMORY-ONLY ACCUMULATORS
     // These hold streaming data that will be written atomically on completion.
     // If the stream fails or is cancelled, this data is discarded—by design.
     let fullContent = ''
     let fullReasoning = ''
-    let reasoningStarted = false
 
-    for await (const part of result.fullStream) {
-      if (part.type === 'reasoning-delta') {
-        if (!reasoningStarted) {
-          console.log(`[AI] Reasoning started`)
-          reasoningStarted = true
-        }
-        fullReasoning += part.text
-        callbacks.onReasoning(part.text)
-      } else if (part.type === 'text-delta') {
-        if (reasoningStarted && fullContent === '') {
-          console.log(`[AI] Reasoning complete (${fullReasoning.length} chars), response started`)
-        }
-        fullContent += part.text
-        callbacks.onDelta(part.text)
-      }
-    }
-
-    const usage = await result.usage
+    const usage = await streamChatCompletion(
+      providerConfig,
+      modelId,
+      openAIMessages,
+      {
+        onDelta: (chunk) => {
+          fullContent += chunk
+          callbacks.onDelta(chunk)
+        },
+        onReasoning: (chunk) => {
+          fullReasoning += chunk
+          callbacks.onReasoning(chunk)
+        },
+      },
+      abortController.signal,
+    )
 
     const assistantMessage = await insertAssistantMessage(
       conversationId,

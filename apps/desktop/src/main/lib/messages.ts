@@ -1,5 +1,5 @@
 import { createId } from '@paralleldrive/cuid2'
-import type { LanguageModelUsage } from 'ai'
+import type { NormalizedUsage } from './openai-types'
 import type { Message, MessageRole, MessageAttachment } from '@arc-types/messages'
 import type { AttachmentInput } from '@arc-types/arc-api'
 import {
@@ -191,7 +191,7 @@ export async function insertAssistantMessage(
   parentId: string | null,
   modelId: string,
   providerId: string,
-  usage: LanguageModelUsage,
+  usage: NormalizedUsage,
 ): Promise<Message> {
   const now = new Date().toISOString()
   const messageId = createId()
