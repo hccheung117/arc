@@ -11,22 +11,101 @@ if (started) {
   app.quit();
 }
 
+const isDev = Boolean(MAIN_WINDOW_VITE_DEV_SERVER_URL);
+
 const buildAppMenu = () => {
-  if (process.platform !== 'darwin') {
-    Menu.setApplicationMenu(null);
-    return;
+  const viewSubmenu: Electron.MenuItemConstructorOptions[] = [
+    { role: 'togglefullscreen' },
+  ];
+
+  if (isDev) {
+    viewSubmenu.push(
+      { type: 'separator' },
+      {
+        role: 'toggleDevTools',
+        accelerator: process.platform === 'darwin' ? 'Command+Alt+I' : 'Control+Shift+I',
+      },
+    );
   }
 
-  Menu.setApplicationMenu(Menu.buildFromTemplate([
+  if (process.platform === 'darwin') {
+    return Menu.buildFromTemplate([
+      {
+        label: app.name,
+        submenu: [
+          { role: 'about' },
+          { type: 'separator' },
+          { role: 'hide' },
+          { role: 'hideOthers' },
+          { role: 'unhide' },
+          { type: 'separator' },
+          { role: 'quit' },
+        ],
+      },
+      {
+        label: 'File',
+        submenu: [{ role: 'close' }],
+      },
+      {
+        label: 'Edit',
+        submenu: [
+          { role: 'undo' },
+          { role: 'redo' },
+          { type: 'separator' },
+          { role: 'cut' },
+          { role: 'copy' },
+          { role: 'paste' },
+          { role: 'selectAll' },
+        ],
+      },
+      {
+        label: 'View',
+        submenu: viewSubmenu,
+      },
+      {
+        label: 'Window',
+        submenu: [
+          { role: 'minimize' },
+          { role: 'zoom' },
+          { role: 'close' },
+        ],
+      },
+    ]);
+  }
+
+  return Menu.buildFromTemplate([
     {
-      label: app.name,
+      label: 'File',
       submenu: [
-        { role: 'about' },
+        { role: 'close' },
         { type: 'separator' },
         { role: 'quit' },
       ],
     },
-  ]));
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' },
+      ],
+    },
+    {
+      label: 'View',
+      submenu: viewSubmenu,
+    },
+    {
+      label: 'Window',
+      submenu: [
+        { role: 'minimize' },
+        { role: 'close' },
+      ],
+    },
+  ]);
 };
 
 const createWindow = () => {
@@ -35,10 +114,14 @@ const createWindow = () => {
     height: 600,
     minWidth: 700,
     minHeight: 550,
+    autoHideMenuBar: process.platform !== 'darwin',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
     },
   });
+
+  const appMenu = buildAppMenu();
+  Menu.setApplicationMenu(appMenu);
 
   // Load renderer: dev server in development, file in production
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
@@ -49,6 +132,10 @@ const createWindow = () => {
     );
   }
 
+  if (process.platform !== 'darwin') {
+    mainWindow.setMenuBarVisibility(false);
+  }
+
   return mainWindow;
 };
 
@@ -56,7 +143,6 @@ const createWindow = () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.on('ready', () => {
-  buildAppMenu();
   createWindow();
   registerArcHandlers(ipcMain);
 
