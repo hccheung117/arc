@@ -1,6 +1,6 @@
 import eslint from "@eslint/js";
 import tseslint from "typescript-eslint";
-import importPlugin from "eslint-plugin-import";
+import { importX } from "eslint-plugin-import-x";
 import globals from "globals";
 
 export default tseslint.config(
@@ -19,11 +19,10 @@ export default tseslint.config(
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
+  importX.flatConfigs.recommended,
+  importX.flatConfigs.typescript,
   {
     files: ["**/*.{ts,tsx}"],
-    plugins: {
-      import: importPlugin,
-    },
     languageOptions: {
       globals: {
         ...globals.browser,
@@ -35,24 +34,14 @@ export default tseslint.config(
       },
     },
     settings: {
-      "import/resolver": {
+      "import-x/resolver": {
         typescript: {
           project: "./tsconfig.json",
         },
       },
-      // Mark electron as external (plugin:import/electron equivalent)
-      "import/core-modules": ["electron"],
+      "import-x/core-modules": ["electron"],
     },
     rules: {
-      // plugin:import/recommended rules
-      "import/no-unresolved": "error",
-      "import/named": "error",
-      "import/default": "error",
-      "import/namespace": "error",
-      "import/export": "error",
-      "import/no-named-as-default": "warn",
-      "import/no-named-as-default-member": "warn",
-      "import/no-duplicates": "warn",
       // Custom rules
       "no-restricted-imports": [
         "error",
