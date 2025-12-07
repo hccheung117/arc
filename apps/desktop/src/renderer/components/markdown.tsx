@@ -1,8 +1,6 @@
 import { memo, useEffect, useId, useState, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import remarkMath from 'remark-math'
-import rehypeKatex from 'rehype-katex'
 import { Check, Copy } from 'lucide-react'
 
 interface MarkdownProps {
@@ -176,8 +174,7 @@ export const Markdown = memo(function Markdown({ children }: MarkdownProps) {
      */
     <div className="prose max-w-none dark:prose-invert">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex]}
+        remarkPlugins={[remarkGfm]}
         components={{
           // Unwrap default pre so we can handle it in CodeBlock
           pre: ({ children }) => <>{children}</>,
