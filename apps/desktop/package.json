@@ -11,7 +11,8 @@
     "package": "electron-forge package",
     "make": "electron-forge make",
     "publish": "electron-forge publish",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "release": "node scripts/release.mjs"
   },
   "keywords": [],
   "license": "MIT",

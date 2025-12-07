@@ -14,6 +14,7 @@
     "make": "npm run make -w apps/desktop",
     "publish": "npm run publish -w apps/desktop",
     "lint": "npm run lint -w apps/desktop",
+    "release": "npm run release -w apps/desktop --",
     "db:dev": "npm run db:dev -w apps/desktop",
     "db:release": "npm run db:release -w apps/desktop"
   }
