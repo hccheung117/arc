@@ -19,6 +19,7 @@ Our hierarchy prevents churn and maintains a unified voice:
 - Optimize for readability first; performance or novelty comes later.
 - When uncertain, choose the option that future readers will understand fastest.
 - **Never consider backward compatibility.** We're in rapid prototyping—always aim for the best design and avoid compromises driven by legacy concerns.
+- **Never carry tech debt.** Fix it now or don't ship it. Debt compounds faster than velocity—every shortcut becomes a tax on future work.
 
 ## Documentation & Best Practices
 
