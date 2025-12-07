@@ -208,11 +208,37 @@ Explicitly add `select-text cursor-text` to elements where users need to select 
 
 If a UI state needs to be preserved across sessions, persist it in the renderer using IndexedDB.
 
-## 3. IPC Communication
+## 3. Logging
+
+The app uses a two-tier logging system designed for clarity without flooding.
+
+### 3.1. Architecture
+
+| Environment | `info`/`warn` | `error` |
+|-------------|---------------|---------|
+| **Dev** | Console output | Console output |
+| **Prod** | No-op (silent) | File: `userData/error.log` |
+
+### 3.2. Guidelines
+
+- **One log per operation**, not per step
+- **Errors only in prod** — info/warn are dev-only for debugging
+- **Concise messages** — include context without verbosity: `logger.error('models', 'Fetch failed', err)`
+- **No logging in loops** — aggregate or sample if needed
+- **No state transition logs** — removed auto-scroll debug logs entirely
+
+### 3.3. File Rotation
+
+Production error logs rotate automatically:
+- Location: `userData/error.log`
+- Max size: 5MB
+- On startup: if > 5MB, rename to `error.old.log` and start fresh
+
+## 4. IPC Communication
 
 Three patterns govern all IPC communication. Choose based on direction and response requirements.
 
-### 3.1. One-Way (Renderer to Main)
+### 4.1. One-Way (Renderer to Main)
 
 **When to use:** Fire-and-forget commands where the renderer does not need a response.
 
@@ -238,7 +264,7 @@ ipcMain.on('set-title', (_event, title: string) => {
 window.api.setTitle('New Title')
 ```
 
-### 3.2. Two-Way (Renderer to Main with Response)
+### 4.2. Two-Way (Renderer to Main with Response)
 
 **When to use:** Request/response operations where the renderer awaits a result.
 
@@ -265,7 +291,7 @@ ipcMain.handle('dialog:openFile', async () => {
 const filePath = await window.api.openFile()
 ```
 
-### 3.3. Push (Main to Renderer)
+### 4.3. Push (Main to Renderer)
 
 **When to use:** Main process initiates communication to push updates or events.
 

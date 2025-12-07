@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { logger } from '@renderer/lib/logger'
 import { ScrollArea } from '@renderer/components/ui/scroll-area'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
 import { Composer, type ComposerRef } from './composer'
@@ -222,7 +223,7 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
           }
         }
       } else if (event.type === 'error') {
-        console.error(`[UI] Stream error: ${event.error}`)
+        logger.error('ui', `Stream error: ${event.error}`)
         setStreamingMessage(null)
         setActiveStreamId(null)
         setError(event.error)
@@ -343,7 +344,7 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
         isThinking: false,
       })
     } catch (err) {
-      console.error(`[UI] Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      logger.error('ui', 'Send message failed', err as Error)
       setStreamingMessage(null)
       setActiveStreamId(null)
       setError(err instanceof Error ? err.message : 'An error occurred while sending message')

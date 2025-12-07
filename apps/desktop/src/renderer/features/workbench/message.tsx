@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react"
+import { logger } from "@renderer/lib/logger"
 import { BotMessageSquare, Copy, Check, Pencil } from "lucide-react"
 import { Button } from "@renderer/components/ui/button"
 import { Markdown } from "@renderer/components/markdown"
@@ -35,7 +36,7 @@ function AttachmentImage({
       )
       await window.arc.utils.openFile(absolutePath)
     } catch (err) {
-      console.error('Failed to open attachment:', err)
+      logger.error('ui', 'Failed to open attachment', err as Error)
     }
   }, [conversationId, attachment.path])
 
@@ -109,18 +110,18 @@ export function Message({ message, isThinking, onEdit, isEditing, branchInfo, on
     
     // Safety check for API availability (in case of version mismatch/hot-reload lag)
     if (!window.arc.ui?.showMessageContextMenu) {
-      console.warn('Context menu API not available')
+      logger.warn('ui', 'Context menu API not available')
       return
     }
 
     try {
       const result = await window.arc.ui.showMessageContextMenu(message.content, !!onEdit)
-      
+
       if (result === 'edit' && onEdit) {
         onEdit(message.content)
       }
     } catch (err) {
-      console.error('Failed to show context menu:', err)
+      logger.error('ui', 'Failed to show context menu', err as Error)
     }
   }, [message.content, onEdit])
 

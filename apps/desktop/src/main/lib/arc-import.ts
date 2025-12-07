@@ -18,13 +18,10 @@ export interface ValidationResult {
  * Validates .arc file content against the schema.
  */
 export function validateArcFile(content: string): ValidationResult {
-  console.log('[arc:validate] Validating file content')
-
   let parsed: unknown
   try {
     parsed = JSON.parse(content)
   } catch {
-    console.log('[arc:validate] Failed: Invalid JSON')
     return { valid: false, error: 'Invalid JSON format' }
   }
 
@@ -38,14 +35,12 @@ export function validateArcFile(content: string): ValidationResult {
       }
     }
 
-    console.log(`[arc:validate] Passed: ${arcFile.name} (${arcFile.providers.length} provider(s))`)
     return { valid: true, data: arcFile }
   } catch (error) {
     if (error instanceof ZodError) {
       const issue = error.issues[0]
       const path = issue.path.join('.')
       const message = path ? `${path}: ${issue.message}` : issue.message
-      console.log(`[arc:validate] Failed: ${message}`)
       return { valid: false, error: message }
     }
     throw error

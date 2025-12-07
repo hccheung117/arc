@@ -117,6 +117,11 @@ const arc: ArcAPI = {
     getAttachmentPath: (conversationId: string, relativePath: string) =>
       ipcRenderer.invoke('arc:utils:getAttachmentPath', conversationId, relativePath),
   },
+
+  log: {
+    error: (tag: string, message: string, stack?: string) =>
+      ipcRenderer.send('arc:log:error', tag, message, stack),
+  },
 }
 
 contextBridge.exposeInMainWorld('arc', arc)

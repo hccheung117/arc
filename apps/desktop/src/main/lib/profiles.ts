@@ -16,6 +16,7 @@ import writeFileAtomic from 'write-file-atomic'
 import { settingsFile } from '@main/storage'
 import { validateArcFile } from './arc-import'
 import type { ArcFile, ProfileInfo, ProfileInstallResult } from '@arc-types/arc-file'
+import { logger } from './logger'
 
 export type { ProfileInfo, ProfileInstallResult }
 
@@ -44,7 +45,7 @@ export async function installProfile(content: string): Promise<ProfileInstallRes
 
   await writeFileAtomic(getProfilePath(arcFile.id), content, { encoding: 'utf-8' })
 
-  console.log(`[profiles] Installed profile: ${arcFile.name} (${arcFile.id})`)
+  logger.info('profiles', `Installed: ${arcFile.name} (${arcFile.id})`)
 
   return {
     id: arcFile.id,
@@ -69,7 +70,7 @@ export async function uninstallProfile(profileId: string): Promise<void> {
     activeProfileId: settings.activeProfileId === profileId ? null : settings.activeProfileId,
   }))
 
-  console.log(`[profiles] Uninstalled profile: ${profileId}`)
+  logger.info('profiles', `Uninstalled: ${profileId}`)
 }
 
 /**
@@ -90,7 +91,7 @@ export async function activateProfile(profileId: string | null): Promise<void> {
     activeProfileId: profileId,
   }))
 
-  console.log(`[profiles] Activated profile: ${profileId ?? 'none'}`)
+  logger.info('profiles', `Activated: ${profileId ?? 'none'}`)
 }
 
 /**

@@ -4,6 +4,7 @@ import { loggingFetch } from './http-logger'
 import { getActiveProfile } from './profiles'
 import type { ArcFileProvider } from '@arc-types/arc-file'
 import { generateProviderId } from './provider-id'
+import { logger } from './logger'
 
 const OPENAI_DEFAULT_BASE_URL = 'https://api.openai.com/v1'
 
@@ -56,8 +57,6 @@ async function fetchOpenAIModels(provider: RuntimeProvider): Promise<StoredModel
   const baseUrl = provider.baseUrl || OPENAI_DEFAULT_BASE_URL
   const endpoint = `${baseUrl}/models`
 
-  console.log(`[models] Fetching from ${endpoint}`)
-
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
@@ -103,14 +102,7 @@ function toRuntimeProvider(provider: ArcFileProvider): RuntimeProvider {
 export async function fetchAllModels(): Promise<boolean> {
   const profile = await getActiveProfile()
 
-  if (!profile) {
-    console.log('[models] No active profile, clearing cache')
-    await modelsFile().write({ models: [] })
-    return true
-  }
-
-  if (profile.providers.length === 0) {
-    console.log('[models] Active profile has no providers, clearing cache')
+  if (!profile || profile.providers.length === 0) {
     await modelsFile().write({ models: [] })
     return true
   }
@@ -126,12 +118,12 @@ export async function fetchAllModels(): Promise<boolean> {
     if (result.status === 'fulfilled') {
       allModels.push(...result.value)
     } else {
-      console.error('[models] Provider fetch failed:', result.reason)
+      logger.error('models', 'Provider fetch failed', result.reason as Error)
     }
   }
 
   await modelsFile().write({ models: allModels })
-  console.log(`[models] Cache updated with ${allModels.length} model(s)`)
+  logger.info('models', `Cache updated with ${allModels.length} model(s)`)
 
   return true
 }

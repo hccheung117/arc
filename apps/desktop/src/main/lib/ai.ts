@@ -13,6 +13,7 @@ import type {
   ChatCompletionChunk,
 } from './openai-types'
 import { parseSSEStream } from './sse-stream'
+import { logger } from './logger'
 
 export interface ProviderConfig {
   type: string
@@ -154,16 +155,11 @@ async function streamChatCompletion(
   }
 
   let usage: NormalizedUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 }
-  let reasoningStarted = false
 
   for await (const chunk of parseSSEStream(response.body)) {
     const delta = chunk.choices[0]?.delta
 
     if (delta?.reasoning_content) {
-      if (!reasoningStarted) {
-        console.log('[AI] Reasoning started')
-        reasoningStarted = true
-      }
       callbacks.onReasoning(delta.reasoning_content)
     }
 
@@ -259,7 +255,7 @@ export async function startChatStream(
     }
 
     const errorMsg = error instanceof Error ? error.message : 'Unknown error'
-    console.error(`[arc:ai:chat] Stream error: ${errorMsg}`)
+    logger.error('chat', `Stream error: ${errorMsg}`)
     callbacks.onError(errorMsg)
   } finally {
     activeStreams.delete(streamId)

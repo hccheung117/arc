@@ -42,9 +42,6 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 
 const BOTTOM_THRESHOLD = 50
 
-// Debug logging - enabled in development, disabled in production
-const DEBUG = process.env.NODE_ENV !== 'production'
-
 interface UseAutoScrollReturn {
   isAtBottom: boolean
   scrollToBottom: () => void
@@ -86,17 +83,7 @@ export function useAutoScroll(
       }
 
       // User scroll: mode changes based on where they landed
-      const wasManual = isManualModeRef.current
       isManualModeRef.current = !nearBottom
-
-      if (DEBUG) {
-        if (wasManual && nearBottom) {
-          console.log('[AutoScroll] MANUAL → FOLLOW (user reached bottom)')
-        } else if (!wasManual && !nearBottom) {
-          console.log(`[AutoScroll] FOLLOW → MANUAL (user scrolled up, dist=${Math.round(distanceFromBottom)}px)`)
-        }
-      }
-
       setIsAtBottom(nearBottom)
     }
 
@@ -114,10 +101,6 @@ export function useAutoScroll(
     isManualModeRef.current = false
     viewport.scrollTop = viewport.scrollHeight
     setIsAtBottom(true)
-
-    if (DEBUG) {
-      console.log(`[AutoScroll] CHAT_CHANGE → FOLLOW (chatId=${chatId?.slice(0, 8)})`)
-    }
   }, [viewport, chatId])
 
   /**
@@ -144,10 +127,6 @@ export function useAutoScroll(
    */
   const scrollToBottom = useCallback(() => {
     if (!viewport) return
-
-    if (DEBUG) {
-      console.log('[AutoScroll] BUTTON → FOLLOW')
-    }
 
     isProgrammaticScrollRef.current = true
     isManualModeRef.current = false

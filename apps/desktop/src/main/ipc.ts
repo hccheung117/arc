@@ -26,6 +26,7 @@ import type { ConversationSummary, ContextMenuAction } from '@arc-types/conversa
 import type { Message, MessageContextMenuAction } from '@arc-types/messages'
 import type { Model } from '@arc-types/models'
 import { validatedArgs } from './ipc-validation'
+import { logRendererError, logger } from './lib/logger'
 import {
   getConversationSummaries,
   updateConversation,
@@ -209,7 +210,7 @@ async function handleAIChat(conversationId: string, options: ChatOptions): Promi
     onError: (error) => emitAIStreamEvent({ type: 'error', streamId, error }),
   }).catch((error) => {
     const errorMsg = error instanceof Error ? error.message : 'Unknown streaming error'
-    console.error(`[arc:ai:chat] Error: ${errorMsg}`)
+    logger.error('chat', errorMsg, error as Error)
     emitAIStreamEvent({ type: 'error', streamId, error: errorMsg })
   })
 
@@ -302,7 +303,7 @@ async function handleProfilesGetActive(): Promise<string | null> {
 }
 
 async function handleProfilesInstall(filePath: string): Promise<ProfileInstallResult> {
-  console.log(`[arc:profiles] Install request: ${filePath}`)
+  logger.info('profiles', `Install request: ${filePath}`)
   const content = await readFile(filePath, 'utf-8')
 
   const result = await installProfile(content)
@@ -315,7 +316,7 @@ async function handleProfilesInstall(filePath: string): Promise<ProfileInstallRe
     .then((updated) => {
       if (updated) emitModelsEvent({ type: 'updated' })
     })
-    .catch((err) => console.error('[models] Background fetch failed:', err))
+    .catch((err) => logger.error('models', 'Background fetch failed', err as Error))
 
   return result
 }
@@ -328,7 +329,7 @@ async function handleProfilesUninstall(profileId: string): Promise<void> {
     .then((updated) => {
       if (updated) emitModelsEvent({ type: 'updated' })
     })
-    .catch((err) => console.error('[models] Background fetch failed:', err))
+    .catch((err) => logger.error('models', 'Background fetch failed', err as Error))
 }
 
 async function handleProfilesActivate(profileId: string | null): Promise<void> {
@@ -339,7 +340,7 @@ async function handleProfilesActivate(profileId: string | null): Promise<void> {
     .then((updated) => {
       if (updated) emitModelsEvent({ type: 'updated' })
     })
-    .catch((err) => console.error('[models] Background fetch failed:', err))
+    .catch((err) => logger.error('models', 'Background fetch failed', err as Error))
 }
 
 export function registerProfilesHandlers(ipcMain: IpcMain): void {
@@ -376,6 +377,20 @@ export function registerImportHandlers(ipcMain: IpcMain): void {
     'arc:import:file',
     validatedArgs(z.tuple([z.string()]), handleImportFile)
   )
+}
+
+// ============================================================================
+// LOGGING HANDLERS
+// ============================================================================
+
+function handleLogError(tag: string, message: string, stack?: string): void {
+  logRendererError(tag, message, stack)
+}
+
+export function registerLoggingHandlers(ipcMain: IpcMain): void {
+  ipcMain.on('arc:log:error', (_event, tag: string, message: string, stack?: string) => {
+    handleLogError(tag, message, stack)
+  })
 }
 
 // ============================================================================
@@ -418,4 +433,5 @@ export function registerArcHandlers(ipcMain: IpcMain): void {
   registerProfilesHandlers(ipcMain)
   registerImportHandlers(ipcMain)
   registerUtilsHandlers(ipcMain)
+  registerLoggingHandlers(ipcMain)
 }

@@ -5,6 +5,7 @@ import started from 'electron-squirrel-startup';
 import { registerArcHandlers, emitProfilesEvent, emitModelsEvent } from './ipc';
 import { installProfile, activateProfile } from './lib/profiles';
 import { fetchAllModels } from './lib/models';
+import { logger } from './lib/logger';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -151,7 +152,7 @@ app.on('ready', () => {
     .then((updated) => {
       if (updated) emitModelsEvent({ type: 'updated' });
     })
-    .catch((err) => console.error('[models] Startup fetch failed:', err));
+    .catch((err) => logger.error('models', 'Startup fetch failed', err as Error));
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common
@@ -180,7 +181,7 @@ app.on('open-file', async (event, filePath) => {
     return;
   }
 
-  console.log(`[arc:profiles] Dock drop: ${filePath}`);
+  logger.info('profiles', `Dock drop: ${filePath}`);
 
   try {
     const content = await readFile(filePath, 'utf-8');
@@ -196,9 +197,8 @@ app.on('open-file', async (event, filePath) => {
       .then((updated) => {
         if (updated) emitModelsEvent({ type: 'updated' });
       })
-      .catch((err) => console.error('[models] Background fetch failed:', err));
+      .catch((err) => logger.error('models', 'Background fetch failed', err as Error));
   } catch (error) {
-    const errorMsg = error instanceof Error ? error.message : 'Install failed';
-    console.error(`[arc:profiles] Dock drop failed: ${errorMsg}`);
+    logger.error('profiles', 'Dock drop failed', error as Error);
   }
 });

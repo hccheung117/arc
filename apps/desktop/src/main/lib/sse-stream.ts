@@ -11,6 +11,7 @@
  */
 
 import type { ChatCompletionChunk } from './openai-types'
+import { logger } from './logger'
 
 /**
  * Parses a single SSE line into a ChatCompletionChunk.
@@ -35,7 +36,7 @@ function parseSSELine(line: string): ChatCompletionChunk | null {
   try {
     return JSON.parse(payload) as ChatCompletionChunk
   } catch {
-    console.warn('[SSE] Failed to parse chunk:', payload)
+    logger.warn('sse', `Failed to parse chunk: ${payload.slice(0, 100)}`)
     return null
   }
 }

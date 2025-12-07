@@ -2,6 +2,7 @@ import { appendFile, mkdir, readFile, unlink } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import type { z } from 'zod'
 import type { IJsonLog } from './types'
+import { logger } from '@main/lib/logger'
 
 /**
  * Append-only log persistence engine for Stream archetype.
@@ -68,7 +69,7 @@ export class JsonLog<T> implements IJsonLog<T> {
       }
 
       // Log other errors but don't throw
-      console.warn(`Failed to delete ${this.filePath}:`, error)
+      logger.warn('storage', `Failed to delete ${this.filePath}`)
     }
   }
 }

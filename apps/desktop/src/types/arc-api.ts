@@ -247,6 +247,12 @@ export interface ArcAPI {
     /** Get absolute path for an attachment */
     getAttachmentPath(conversationId: string, relativePath: string): Promise<string>
   }
+
+  /** Logging utilities (Rule 1: One-Way) */
+  log: {
+    /** Send error to main process for file logging in production */
+    error(tag: string, message: string, stack?: string): void
+  }
 }
 
 declare global {

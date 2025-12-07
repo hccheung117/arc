@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
+import { logger } from '@renderer/lib/logger'
 
 interface UseFileDropOptions {
   /** File extension to accept (e.g., '.arc') */
@@ -61,7 +62,7 @@ export function useFileDrop({ extension, onDrop }: UseFileDropOptions): UseFileD
 
       // Use Electron's webUtils to get file path (contextIsolation-safe)
       const filePath = window.arc.utils.getFilePath(file)
-      console.log(`[arc:import] File dropped: ${filePath}`)
+      logger.info('import', `File dropped: ${filePath}`)
       if (filePath) {
         onDrop(filePath)
       }
