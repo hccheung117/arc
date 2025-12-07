@@ -32,8 +32,8 @@ const measureTextWidth = (() => {
     if (!canvas) {
       canvas = document.createElement('canvas')
       ctx = canvas.getContext('2d')!
-      // Match text-label: 15px with system font stack from globals.css
-      ctx.font = '15px ui-sans-serif, system-ui, sans-serif'
+      // Match text-sm: 14px with system font stack from globals.css
+      ctx.font = '14px ui-sans-serif, system-ui, sans-serif'
     }
     return ctx!.measureText(text).width
   }
@@ -222,20 +222,20 @@ export function ModelSelector({
       >
         <div className="flex items-center gap-2 p-2 border-b border-border">
           <div className="relative flex-1">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <Search className="absolute left-2 top-2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <Input
               placeholder="Search models..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 h-9"
+              className="pl-8 h-8 text-sm"
               autoFocus
             />
           </div>
-          <div className="flex items-center bg-muted/50 rounded-lg p-1 h-9 shrink-0">
+          <div className="flex items-center bg-muted/50 rounded-lg p-1 h-8 shrink-0">
             <button
               onClick={() => setShowFavorites(false)}
               className={cn(
-                'px-3 py-1 text-meta font-medium rounded-md transition-all',
+                'px-3 py-1 text-xs font-medium rounded-md transition-all',
                 !showFavorites
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
@@ -246,7 +246,7 @@ export function ModelSelector({
             <button
               onClick={() => setShowFavorites(true)}
               className={cn(
-                'px-3 py-1 text-meta font-medium rounded-md transition-all',
+                'px-3 py-1 text-xs font-medium rounded-md transition-all',
                 showFavorites
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
@@ -302,7 +302,7 @@ export function ModelSelector({
                             onClick={() => handleModelSelect(model)}
                           >
                             <div className="flex-1 min-w-0">
-                              <div className="text-label truncate" title={model.name}>
+                              <div className="text-sm truncate" title={model.name}>
                                 {model.name}
                               </div>
                             </div>
