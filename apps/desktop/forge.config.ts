@@ -14,7 +14,7 @@ const config: ForgeConfig = {
   rebuildConfig: {},
   makers: [
     new MakerSquirrel({}),
-    new MakerZIP({}, ['darwin']),
+    new MakerZIP({}, ['darwin', 'win32']),
     new MakerRpm({}),
     new MakerDeb({}),
   ],
@@ -50,7 +50,8 @@ const config: ForgeConfig = {
       [FuseV1Options.EnableCookieEncryption]: true,
       [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
       [FuseV1Options.EnableNodeCliInspectArguments]: false,
-      [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
+      // Requires code signing to work; disabled until release signing is configured
+      [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: false,
       [FuseV1Options.OnlyLoadAppFromAsar]: true,
     }),
   ],

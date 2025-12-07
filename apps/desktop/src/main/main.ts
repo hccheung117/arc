@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu } from 'electron';
 import path from 'node:path';
 import { readFile } from 'node:fs/promises';
 import started from 'electron-squirrel-startup';
@@ -11,8 +11,25 @@ if (started) {
   app.quit();
 }
 
+const buildAppMenu = () => {
+  if (process.platform !== 'darwin') {
+    Menu.setApplicationMenu(null);
+    return;
+  }
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    {
+      label: app.name,
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { role: 'quit' },
+      ],
+    },
+  ]));
+};
+
 const createWindow = () => {
-  // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
@@ -23,7 +40,7 @@ const createWindow = () => {
     },
   });
 
-  // and load the index.html of the app.
+  // Load renderer: dev server in development, file in production
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
@@ -31,14 +48,17 @@ const createWindow = () => {
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
     );
   }
+
+  return mainWindow;
 };
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.on('ready', () => {
-  registerArcHandlers(ipcMain);
+  buildAppMenu();
   createWindow();
+  registerArcHandlers(ipcMain);
 
   // Background model fetch on startup
   fetchAllModels()

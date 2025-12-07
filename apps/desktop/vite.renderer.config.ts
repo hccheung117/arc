@@ -12,4 +12,9 @@ export default defineConfig({
       '@arc-types': path.resolve(__dirname, './src/types'),
     },
   },
+  build: {
+    // Output to project root .vite/ (Electron Forge expects renderer here, not in src/.vite/)
+    outDir: path.resolve(__dirname, '.vite/renderer/main_window'),
+    emptyDir: true,
+  },
 });
