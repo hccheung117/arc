@@ -3,6 +3,7 @@ import type { Model } from '@arc-types/models'
 import { loggingFetch } from './http-logger'
 import { getActiveProfile } from './profiles'
 import type { ArcFileProvider } from '@arc-types/arc-file'
+import { generateProviderId } from './provider-id'
 
 const OPENAI_DEFAULT_BASE_URL = 'https://api.openai.com/v1'
 
@@ -38,9 +39,9 @@ interface OpenAIModelsResponse {
   data: OpenAIModel[]
 }
 
-/** Provider with runtime ID for model fetching */
+/** Provider with stable content-based ID for model fetching */
 interface RuntimeProvider {
-  id: string // profile-provider-{index}
+  id: string // 8-char SHA-256 hash of type|apiKey|baseUrl
   type: string
   apiKey?: string
   baseUrl?: string
@@ -82,11 +83,11 @@ async function fetchOpenAIModels(provider: RuntimeProvider): Promise<StoredModel
 }
 
 /**
- * Converts ArcFileProvider to RuntimeProvider with index-based ID.
+ * Converts ArcFileProvider to RuntimeProvider with stable content-based ID.
  */
-function toRuntimeProvider(provider: ArcFileProvider, index: number): RuntimeProvider {
+function toRuntimeProvider(provider: ArcFileProvider): RuntimeProvider {
   return {
-    id: `profile-provider-${index}`,
+    id: generateProviderId(provider),
     type: provider.type,
     apiKey: provider.apiKey,
     baseUrl: provider.baseUrl,
@@ -147,10 +148,10 @@ export async function getModels(): Promise<Model[]> {
     return []
   }
 
-  // Build provider lookup map: profile-provider-{index} -> RuntimeProvider
+  // Build provider lookup map: stable ID -> RuntimeProvider
   const providersById = new Map(
-    profile.providers.map((p, i) => {
-      const runtime = toRuntimeProvider(p, i)
+    profile.providers.map((p) => {
+      const runtime = toRuntimeProvider(p)
       return [runtime.id, runtime] as const
     })
   )

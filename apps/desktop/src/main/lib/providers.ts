@@ -1,20 +1,9 @@
 import { settingsFile, type StoredFavorite } from '@main/storage'
 import { getActiveProfile } from './profiles'
+import { generateProviderId } from './provider-id'
 
 /**
- * Parse provider index from runtime ID (profile-provider-{index}).
- */
-function parseProviderIndex(providerId: string): number {
-  const match = providerId.match(/^profile-provider-(\d+)$/)
-  if (!match) {
-    throw new Error(`Invalid provider ID format: ${providerId}`)
-  }
-  return parseInt(match[1], 10)
-}
-
-/**
- * Get provider config from active profile.
- * Provider ID format: profile-provider-{index}
+ * Get provider config from active profile by stable content-based ID.
  */
 export async function getProviderConfig(providerId: string): Promise<{
   type: string
@@ -26,11 +15,9 @@ export async function getProviderConfig(providerId: string): Promise<{
     throw new Error('No active profile')
   }
 
-  const index = parseProviderIndex(providerId)
-  const provider = profile.providers[index]
-
+  const provider = profile.providers.find((p) => generateProviderId(p) === providerId)
   if (!provider) {
-    throw new Error(`Provider index ${index} not found in active profile`)
+    throw new Error(`Provider ${providerId} not found in active profile`)
   }
 
   return {
