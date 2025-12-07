@@ -122,18 +122,6 @@ export const StoredMessageEventSchema = z.object({
 })
 export type StoredMessageEvent = z.infer<typeof StoredMessageEventSchema>
 
-export const StoredThreadMetaEventSchema = z.object({
-  type: z.literal('thread_meta'),
-  activePath: z.array(z.string()),
-  updatedAt: z.string(),
-})
-export type StoredThreadMetaEvent = z.infer<typeof StoredThreadMetaEventSchema>
-
-export const ThreadEventSchema = z.union([
-  StoredMessageEventSchema,
-  StoredThreadMetaEventSchema,
-])
-export type ThreadEvent = z.infer<typeof ThreadEventSchema>
 
 // ============================================================================
 // BRANCH INFO SCHEMAS
@@ -228,9 +216,9 @@ export function threadIndexFile(): JsonFile<StoredThreadIndex> {
  *
  * @param threadId - The thread ID (cuid2)
  */
-export function messageLogFile(threadId: string): JsonLog<ThreadEvent> {
+export function messageLogFile(threadId: string): JsonLog<StoredMessageEvent> {
   const filePath = path.join(getMessagesDir(), `${threadId}.jsonl`)
-  return new JsonLog(filePath, ThreadEventSchema)
+  return new JsonLog(filePath, StoredMessageEventSchema)
 }
 
 // ============================================================================
@@ -238,40 +226,29 @@ export function messageLogFile(threadId: string): JsonLog<ThreadEvent> {
 // ============================================================================
 
 /**
- * Type guard to distinguish message events from meta events.
- */
-function isMessageEvent(event: ThreadEvent): event is StoredMessageEvent {
-  return !('type' in event)
-}
-
-/**
- * Result of reducing thread events with branching support.
+ * Result of reducing message events with branching support.
  */
 export interface ReduceResult {
-  messages: StoredMessageEvent[] // Messages along the active path
-  branchPoints: BranchInfo[] // Points where conversation diverges
+  messages: StoredMessageEvent[] // All valid messages (tree structure via parentId)
+  branchPoints: BranchInfo[] // All points where conversation diverges
 }
 
 /**
- * Reduces thread events into the active message path and branch information.
+ * Reduces message events into a flat list with branch information.
  *
  * Strategy:
- * 1. Merge message events by ID (existing behavior)
+ * 1. Merge message events by ID (handle updates)
  * 2. Build a tree using parentId relationships
- * 3. Extract the active path from the latest meta event (or default to first branch)
- * 4. Compute branch points for UI navigation
+ * 3. Return all valid messages (renderer handles path selection)
+ * 4. Compute all branch points in the tree
  *
- * @param events - Array of thread events from the log file
- * @returns Messages along active path + branch point information
+ * @param events - Array of message events from the log file
+ * @returns All messages + all branch points in tree
  */
-export function reduceMessageEvents(events: ThreadEvent[]): ReduceResult {
-  // Separate message events from meta events
-  const messageEvents = events.filter(isMessageEvent)
-  const metaEvents = events.filter((e): e is StoredThreadMetaEvent => !isMessageEvent(e))
-
+export function reduceMessageEvents(events: StoredMessageEvent[]): ReduceResult {
   // Merge message events by ID
   const messagesById = new Map<string, StoredMessageEvent>()
-  for (const event of messageEvents) {
+  for (const event of events) {
     const existing = messagesById.get(event.id)
     if (existing) {
       messagesById.set(event.id, { ...existing, ...event })
@@ -283,119 +260,50 @@ export function reduceMessageEvents(events: ThreadEvent[]): ReduceResult {
   // Filter deleted messages
   const validMessages = Array.from(messagesById.values()).filter((msg) => !msg.deleted)
 
-  // Build children map: parentId -> child messages (sorted by createdAt)
-  const childrenMap = new Map<string | null, StoredMessageEvent[]>()
+  // Build children map: parentId -> child message IDs (sorted by createdAt)
+  const childrenMap = new Map<string | null, string[]>()
   for (const msg of validMessages) {
     const parentId = msg.parentId
     if (!childrenMap.has(parentId)) {
       childrenMap.set(parentId, [])
     }
-    childrenMap.get(parentId)!.push(msg)
+    childrenMap.get(parentId)!.push(msg.id)
   }
 
   // Sort children by createdAt at each level
-  for (const children of childrenMap.values()) {
-    children.sort((a, b) => {
-      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0
-      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+  for (const [parentId, childIds] of childrenMap.entries()) {
+    childIds.sort((a, b) => {
+      const msgA = messagesById.get(a)
+      const msgB = messagesById.get(b)
+      const timeA = msgA?.createdAt ? new Date(msgA.createdAt).getTime() : 0
+      const timeB = msgB?.createdAt ? new Date(msgB.createdAt).getTime() : 0
       return timeA - timeB
     })
+    childrenMap.set(parentId, childIds)
   }
 
-  // Get active path from latest meta event, or compute default (follow first child)
-  // Then extend to leaf to include messages added after the meta event was created
-  const latestMeta = metaEvents.length > 0 ? metaEvents[metaEvents.length - 1] : null
-  let activePath: string[]
-  if (latestMeta?.activePath && latestMeta.activePath.length > 0) {
-    activePath = extendPathToLeaf(latestMeta.activePath, childrenMap)
-  } else {
-    activePath = computeDefaultPath(childrenMap)
-  }
+  // Compute all branch points in the tree (any parent with multiple children)
+  const branchPoints = computeAllBranchPoints(childrenMap)
 
-  // Extract messages along active path
-  const activeMessages = activePath
-    .map((id) => messagesById.get(id))
-    .filter((m): m is StoredMessageEvent => m !== undefined && !m.deleted)
-
-  // Compute branch points for UI
-  const branchPoints = computeBranchPoints(activePath, childrenMap)
-
-  return { messages: activeMessages, branchPoints }
+  return { messages: validMessages, branchPoints }
 }
 
 /**
- * Computes the default path by following the first (oldest) child at each level.
+ * Computes all branch points in the tree.
+ * A branch point exists where a parent has multiple children.
+ * Note: currentIndex is set to 0 (default) - renderer manages active selection.
  */
-function computeDefaultPath(
-  childrenMap: Map<string | null, StoredMessageEvent[]>,
-): string[] {
-  const path: string[] = []
-  let currentParent: string | null = null
-
-  while (true) {
-    const children = childrenMap.get(currentParent)
-    if (!children || children.length === 0) break
-
-    const next = children[0] // Take oldest child
-    path.push(next.id)
-    currentParent = next.id
-  }
-
-  return path
-}
-
-/**
- * Extends a stored path to the leaf by following the first (oldest) child at each level.
- * This ensures new messages added after a branch switch are included in the active path.
- */
-function extendPathToLeaf(
-  storedPath: string[],
-  childrenMap: Map<string | null, StoredMessageEvent[]>,
-): string[] {
-  const path = [...storedPath]
-  let currentParent = path[path.length - 1]
-
-  while (true) {
-    const children = childrenMap.get(currentParent)
-    if (!children || children.length === 0) break
-
-    const next = children[0] // Follow oldest child
-    path.push(next.id)
-    currentParent = next.id
-  }
-
-  return path
-}
-
-/**
- * Computes branch points along the active path.
- * A branch point exists where a message has multiple children.
- */
-function computeBranchPoints(
-  activePath: string[],
-  childrenMap: Map<string | null, StoredMessageEvent[]>,
+function computeAllBranchPoints(
+  childrenMap: Map<string | null, string[]>,
 ): BranchInfo[] {
   const branchPoints: BranchInfo[] = []
 
-  // Check root level (null parent)
-  const rootChildren = childrenMap.get(null) ?? []
-  if (rootChildren.length > 1) {
-    branchPoints.push({
-      parentId: null,
-      branches: rootChildren.map((c) => c.id),
-      currentIndex: rootChildren.findIndex((c) => c.id === activePath[0]),
-    })
-  }
-
-  // Check each message in active path for multiple children
-  for (const msgId of activePath) {
-    const children = childrenMap.get(msgId) ?? []
+  for (const [parentId, children] of childrenMap.entries()) {
     if (children.length > 1) {
-      const activeChildId = activePath[activePath.indexOf(msgId) + 1]
       branchPoints.push({
-        parentId: msgId,
-        branches: children.map((c) => c.id),
-        currentIndex: children.findIndex((c) => c.id === activeChildId),
+        parentId,
+        branches: children,
+        currentIndex: 0, // Default to first branch; renderer manages selection
       })
     }
   }

@@ -204,6 +204,10 @@ Explicitly add `select-text cursor-text` to elements where users need to select 
 - Error messages and toasts (users may need to copy error details)
 - Code blocks (already handled by the Markdown component)
 
+### 2.7. UI State Persistence
+
+If a UI state needs to be preserved across sessions, persist it in the renderer using IndexedDB.
+
 ## 3. IPC Communication
 
 Three patterns govern all IPC communication. Choose based on direction and response requirements.

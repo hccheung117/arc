@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { ScrollArea } from '@renderer/components/ui/scroll-area'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
 import { Composer, type ComposerRef } from './composer'
@@ -6,9 +6,11 @@ import { EmptyState } from './empty-state'
 import { Message } from './message'
 import { ModelSelector } from './model-selector'
 import type { Model } from '@arc-types/models'
+import type { Message as MessageType } from '@arc-types/messages'
 import type { AttachmentInput, BranchInfo } from '@arc-types/arc-api'
 import { getModels, onModelsEvent } from '@renderer/lib/models'
-import { getMessages, createMessage, createBranch, switchBranch, startAIChat, stopAIChat, onAIEvent } from '@renderer/lib/messages'
+import { getMessages, createMessage, createBranch, startAIChat, stopAIChat, onAIEvent } from '@renderer/lib/messages'
+import { getBranchSelections, setBranchSelection } from '@renderer/lib/ui-state-db'
 import type { ChatThread } from './chat-thread'
 import { createDraftThread } from './chat-thread'
 import type { ThreadAction } from './use-chat-threads'
@@ -38,8 +40,12 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
   const [activeStreamId, setActiveStreamId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
-  const [branchPoints, setBranchPoints] = useState<BranchInfo[]>([])
   const composerRef = useRef<ComposerRef>(null)
+
+  // All messages for the current thread (full tree)
+  const [allMessages, setAllMessages] = useState<MessageType[]>([])
+  // Branch selections from IndexedDB: parentId (or 'root') -> selected branch index
+  const [branchSelections, setBranchSelections] = useState<Record<string, number>>({})
 
   // State for scroll viewport element to enable smart auto-scroll
   // Using state (not ref) ensures effects re-run when element mounts
@@ -48,7 +54,63 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
 
   // Find the active thread
   const activeThread = threads.find((t) => t.id === activeThreadId)
-  const messages = activeThread?.messages || []
+
+  // Compute display messages and branch points from all messages + selections
+  const { displayMessages, branchPoints } = useMemo(() => {
+    if (allMessages.length === 0) {
+      return { displayMessages: [] as MessageType[], branchPoints: [] as BranchInfo[] }
+    }
+
+    // Build children map: parentId -> child messages (sorted by createdAt)
+    const childrenMap = new Map<string | null, MessageType[]>()
+    for (const msg of allMessages) {
+      const parentId = msg.parentId ?? null
+      if (!childrenMap.has(parentId)) {
+        childrenMap.set(parentId, [])
+      }
+      childrenMap.get(parentId)!.push(msg)
+    }
+
+    // Sort children by createdAt
+    for (const children of childrenMap.values()) {
+      children.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    }
+
+    // Walk the tree following selections
+    const path: MessageType[] = []
+    const points: BranchInfo[] = []
+    let currentParentId: string | null = null
+
+    while (true) {
+      const children = childrenMap.get(currentParentId)
+      if (!children || children.length === 0) break
+
+      // Check if this is a branch point
+      if (children.length > 1) {
+        const selectionKey = currentParentId ?? 'root'
+        // Default to latest branch (last index) when no saved selection
+        const selectedIndex = branchSelections[selectionKey] ?? (children.length - 1)
+        const clampedIndex = Math.min(selectedIndex, children.length - 1)
+
+        points.push({
+          parentId: currentParentId,
+          branches: children.map((c) => c.id),
+          currentIndex: clampedIndex,
+        })
+
+        path.push(children[clampedIndex])
+        currentParentId = children[clampedIndex].id
+      } else {
+        path.push(children[0])
+        currentParentId = children[0].id
+      }
+    }
+
+    return { displayMessages: path, branchPoints: points }
+  }, [allMessages, branchSelections])
+
+  // Use display messages for rendering
+  const messages = displayMessages
 
   // Persist model selection to localStorage
   useEffect(() => {
@@ -97,23 +159,22 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
     return unsubscribe
   }, [])
 
-  // Load messages when thread is selected
+  // Load messages and branch selections when thread is selected
   useEffect(() => {
     if (!activeThread) {
-      setBranchPoints([])
+      setAllMessages([])
+      setBranchSelections({})
       return
     }
+
+    // Load branch selections from IndexedDB
+    getBranchSelections(activeThread.id).then(setBranchSelections)
 
     // Only fetch if messages haven't been loaded yet and it's not a fresh draft
     // (Drafts start with 0 messages anyway, but persisted threads might need hydration)
     if (activeThread.messages.length === 0 && activeThread.status !== 'draft') {
-      getMessages(activeThread.id).then(({ messages: fetchedMessages, branchPoints: fetchedBranchPoints }) => {
-        onThreadUpdate({
-          type: 'UPDATE_MESSAGES',
-          id: activeThread.id,
-          messages: fetchedMessages,
-        })
-        setBranchPoints(fetchedBranchPoints)
+      getMessages(activeThread.id).then(({ messages: fetchedMessages }) => {
+        setAllMessages(fetchedMessages)
       })
     }
   }, [activeThreadId, activeThread?.status])
@@ -145,15 +206,12 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
         setStreamingMessage(null)
         setActiveStreamId(null)
 
+        // Add to allMessages for local branch state management
+        setAllMessages((prev) => [...prev, event.message])
+
         // Find thread by matching ID
         const thread = threads.find((t) => t.id === event.message.conversationId)
         if (thread) {
-          onThreadUpdate({
-            type: 'ADD_MESSAGE',
-            id: thread.id,
-            message: event.message,
-          })
-          
           // If it was a draft or streaming, mark as persisted now
           if (thread.status !== 'persisted') {
             onThreadUpdate({
@@ -195,14 +253,16 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
           attachments,
         )
 
-        // Reload messages to get the new active path
-        const { messages: updatedMessages, branchPoints: updatedBranchPoints } = await getMessages(activeThread.id)
-        onThreadUpdate({
-          type: 'UPDATE_MESSAGES',
-          id: activeThread.id,
-          messages: updatedMessages,
-        })
-        setBranchPoints(updatedBranchPoints)
+        // Reload all messages
+        const { messages: updatedMessages } = await getMessages(activeThread.id)
+        setAllMessages(updatedMessages)
+
+        // Auto-select the new branch (latest at this parent)
+        const selectionKey = parentId ?? 'root'
+        const childrenAtParent = updatedMessages.filter((m) => m.parentId === parentId)
+        const newBranchIndex = childrenAtParent.length - 1
+        setBranchSelections((prev) => ({ ...prev, [selectionKey]: newBranchIndex }))
+        setBranchSelection(activeThread.id, parentId, newBranchIndex)
 
         // Clear editing state before starting AI
         setEditingMessageId(null)
@@ -261,11 +321,8 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
         attachments,
       )
 
-      onThreadUpdate({
-        type: 'ADD_MESSAGE',
-        id: threadId,
-        message: userMessage,
-      })
+      // Add to allMessages for local branch state management
+      setAllMessages((prev) => [...prev, userMessage])
 
       // Start streaming - thread status update handled by reducer/effects if needed
       // or we can explicitly set to streaming here
@@ -315,27 +372,16 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
     composerRef.current?.setMessage('')
   }, [])
 
-  const handleBranchSwitch = useCallback(async (branchParentId: string | null, index: number) => {
+  const handleBranchSwitch = useCallback((branchParentId: string | null, index: number) => {
     if (!activeThread) return
 
-    try {
-      const { messages: newMessages, branchPoints: newBranchPoints } = await switchBranch(
-        activeThread.id,
-        branchParentId,
-        index,
-      )
+    // Update local state immediately
+    const key = branchParentId ?? 'root'
+    setBranchSelections((prev) => ({ ...prev, [key]: index }))
 
-      onThreadUpdate({
-        type: 'UPDATE_MESSAGES',
-        id: activeThread.id,
-        messages: newMessages,
-      })
-      setBranchPoints(newBranchPoints)
-    } catch (err) {
-      console.error(`[UI] Branch switch error: ${err instanceof Error ? err.message : 'Unknown error'}`)
-      setError(err instanceof Error ? err.message : 'Failed to switch branch')
-    }
-  }, [activeThread, onThreadUpdate])
+    // Persist to IndexedDB (fire-and-forget)
+    setBranchSelection(activeThread.id, branchParentId, index)
+  }, [activeThread])
 
   return (
     <TooltipProvider>
@@ -408,6 +454,7 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
                       conversationId: activeThread.id,
                       createdAt: new Date().toISOString(),
                       updatedAt: new Date().toISOString(),
+                      parentId: messages.length > 0 ? messages[messages.length - 1].id : null,
                     }}
                     isThinking={streamingMessage.isThinking}
                     onEdit={(content) => handleEditMessage(content, streamingMessage.id)}

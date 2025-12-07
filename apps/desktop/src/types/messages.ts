@@ -36,6 +36,7 @@ export const MessageSchema = z.object({
   reasoning: z.string().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
+  parentId: z.string().nullable(),
   error: z.instanceof(Error).optional(),
   attachments: z.array(MessageAttachmentSchema).optional(),
 })

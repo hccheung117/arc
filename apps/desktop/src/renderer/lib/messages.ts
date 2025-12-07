@@ -6,7 +6,6 @@ import type {
   Unsubscribe,
   ListMessagesResult,
   CreateBranchResult,
-  SwitchBranchResult,
 } from '@arc-types/arc-api'
 
 export async function getMessages(conversationId: string): Promise<ListMessagesResult> {
@@ -47,14 +46,6 @@ export async function createBranch(
     modelId,
     providerId,
   })
-}
-
-export async function switchBranch(
-  conversationId: string,
-  branchParentId: string | null,
-  targetBranchIndex: number,
-): Promise<SwitchBranchResult> {
-  return window.arc.messages.switchBranch(conversationId, branchParentId, targetBranchIndex)
 }
 
 export async function startAIChat(conversationId: string, model: string): Promise<ChatResponse> {

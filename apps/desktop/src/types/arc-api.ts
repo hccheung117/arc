@@ -109,12 +109,6 @@ export interface CreateBranchResult {
   branchPoints: BranchInfo[]
 }
 
-/** Switch branch result */
-export interface SwitchBranchResult {
-  messages: Message[]
-  branchPoints: BranchInfo[]
-}
-
 /** AI stream events (IPC-safe: error is string, not Error object) */
 export type AIStreamEvent =
   | { type: 'delta'; streamId: string; chunk: string }
@@ -168,16 +162,6 @@ export interface ArcAPI {
      * Used for "edit and regenerate" flow - creates new branch, preserves old conversation.
      */
     createBranch(conversationId: string, input: CreateBranchInput): Promise<CreateBranchResult>
-
-    /**
-     * Switch to a different branch (Rule 2: Two-Way)
-     * Returns messages along the new active path.
-     */
-    switchBranch(
-      conversationId: string,
-      branchParentId: string | null,
-      targetBranchIndex: number,
-    ): Promise<SwitchBranchResult>
   }
 
   /** Model resource operations */

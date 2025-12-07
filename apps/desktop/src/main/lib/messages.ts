@@ -8,7 +8,6 @@ import {
   reduceMessageEvents,
   type StoredMessageEvent,
   type StoredAttachment,
-  type StoredThreadMetaEvent,
   type BranchInfo,
 } from '@main/storage'
 import { writeAttachment, readAttachment } from './attachments'
@@ -64,6 +63,7 @@ export async function toMessage(
     reasoning: event.reasoning,
     createdAt: event.createdAt!,
     updatedAt: event.updatedAt ?? event.createdAt!,
+    parentId: event.parentId,
     attachments,
   }
 }
@@ -278,21 +278,6 @@ export async function createBranch(
   }
   await messageLogFile(conversationId).append(event)
 
-  // Update active path to include this new message
-  const events = await messageLogFile(conversationId).read()
-
-  // Compute path to parent, then add new message
-  const pathToParent = parentId ? getPathToMessage(events, parentId) : []
-  const newActivePath = [...pathToParent, messageId]
-
-  // Persist new active path
-  const metaEvent: StoredThreadMetaEvent = {
-    type: 'thread_meta',
-    activePath: newActivePath,
-    updatedAt: now,
-  }
-  await messageLogFile(conversationId).append(metaEvent)
-
   // Update thread timestamp
   await threadIndexFile().update((index) => {
     const thread = index.threads.find((t) => t.id === conversationId)
@@ -309,118 +294,4 @@ export async function createBranch(
   const { branchPoints: updatedBranchPoints } = reduceMessageEvents(updatedEvents)
 
   return { message, branchPoints: updatedBranchPoints }
-}
-
-/**
- * Result of switchBranch operation.
- */
-export interface SwitchBranchResult {
-  messages: Message[]
-  branchPoints: BranchInfo[]
-}
-
-/**
- * Switches to a different branch at a given branch point.
- *
- * @param conversationId - The thread ID
- * @param branchParentId - The message where branching occurs (null for root)
- * @param targetBranchIndex - Which branch to switch to (0-indexed)
- * @returns Updated messages along new active path + branch points
- */
-export async function switchBranch(
-  conversationId: string,
-  branchParentId: string | null,
-  targetBranchIndex: number,
-): Promise<SwitchBranchResult> {
-  const now = new Date().toISOString()
-
-  const events = await messageLogFile(conversationId).read()
-  const { branchPoints } = reduceMessageEvents(events)
-
-  // Find the branch point
-  const branchInfo = branchPoints.find((b) => b.parentId === branchParentId)
-  if (!branchInfo || targetBranchIndex >= branchInfo.branches.length) {
-    throw new Error('Invalid branch selection')
-  }
-
-  // Get the path to the branch parent
-  const pathToParent = branchParentId ? getPathToMessage(events, branchParentId) : []
-
-  // Get the selected branch's first message and follow to leaf
-  const selectedBranchFirstMsg = branchInfo.branches[targetBranchIndex]
-  const pathFromBranch = getPathFromMessage(events, selectedBranchFirstMsg)
-
-  const newActivePath = [...pathToParent, ...pathFromBranch]
-
-  // Persist new active path
-  const metaEvent: StoredThreadMetaEvent = {
-    type: 'thread_meta',
-    activePath: newActivePath,
-    updatedAt: now,
-  }
-  await messageLogFile(conversationId).append(metaEvent)
-
-  // Return updated view
-  const updatedEvents = await messageLogFile(conversationId).read()
-  const { messages: reducedMessages, branchPoints: updatedBranchPoints } =
-    reduceMessageEvents(updatedEvents)
-
-  const messages = await Promise.all(
-    reducedMessages.map((m) => toMessage(m, conversationId)),
-  )
-
-  return { messages, branchPoints: updatedBranchPoints }
-}
-
-/**
- * Helper: Get path from root to a specific message.
- */
-function getPathToMessage(events: import('@main/storage').ThreadEvent[], targetId: string): string[] {
-  const { messages } = reduceMessageEvents(events)
-
-  // Build parent map
-  const parentMap = new Map<string, string | null>()
-  for (const msg of messages) {
-    parentMap.set(msg.id, msg.parentId)
-  }
-
-  // Walk backwards from target to root
-  const path: string[] = []
-  let current: string | null = targetId
-  while (current) {
-    path.unshift(current)
-    current = parentMap.get(current) ?? null
-  }
-
-  return path
-}
-
-/**
- * Helper: Get path from a message to its leaf (following first child at each level).
- */
-function getPathFromMessage(events: import('@main/storage').ThreadEvent[], startMsgId: string): string[] {
-  const { messages } = reduceMessageEvents(events)
-
-  // Build children map
-  const childrenMap = new Map<string | null, string[]>()
-  for (const msg of messages) {
-    const parentId = msg.parentId
-    if (!childrenMap.has(parentId)) {
-      childrenMap.set(parentId, [])
-    }
-    childrenMap.get(parentId)!.push(msg.id)
-  }
-
-  // Follow first child from startMsgId
-  const path: string[] = [startMsgId]
-  let current = startMsgId
-
-  while (true) {
-    const children = childrenMap.get(current)
-    if (!children || children.length === 0) break
-    path.push(children[0])
-    current = children[0]
-  }
-
-  return path
 }

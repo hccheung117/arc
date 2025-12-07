@@ -12,7 +12,6 @@ import type {
   CreateBranchInput,
   ListMessagesResult,
   CreateBranchResult,
-  SwitchBranchResult,
   ChatOptions,
   ChatResponse,
 } from '@arc-types/arc-api'
@@ -32,7 +31,7 @@ import {
   updateConversation,
   deleteConversation,
 } from './lib/conversations'
-import { getMessages, createMessage, createBranch, switchBranch } from './lib/messages'
+import { getMessages, createMessage, createBranch } from './lib/messages'
 import { getModels, fetchAllModels } from './lib/models'
 import { startChatStream, cancelStream } from './lib/ai'
 import { getConfig, setConfig } from './lib/providers'
@@ -163,14 +162,6 @@ async function handleMessagesCreateBranch(
   )
 }
 
-async function handleMessagesSwitchBranch(
-  conversationId: string,
-  branchParentId: string | null,
-  targetBranchIndex: number,
-): Promise<SwitchBranchResult> {
-  return switchBranch(conversationId, branchParentId, targetBranchIndex)
-}
-
 export function registerMessagesHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(
     'arc:messages:list',
@@ -183,13 +174,6 @@ export function registerMessagesHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(
     'arc:messages:createBranch',
     validatedArgs(z.tuple([z.string(), CreateBranchInputSchema]), handleMessagesCreateBranch)
-  )
-  ipcMain.handle(
-    'arc:messages:switchBranch',
-    validatedArgs(
-      z.tuple([z.string(), z.string().nullable(), z.number()]),
-      handleMessagesSwitchBranch
-    )
   )
 }
 

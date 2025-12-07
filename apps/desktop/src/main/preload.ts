@@ -43,18 +43,6 @@ const arc: ArcAPI = {
 
     createBranch: (conversationId: string, input: CreateBranchInput) =>
       ipcRenderer.invoke('arc:messages:createBranch', conversationId, input),
-
-    switchBranch: (
-      conversationId: string,
-      branchParentId: string | null,
-      targetBranchIndex: number,
-    ) =>
-      ipcRenderer.invoke(
-        'arc:messages:switchBranch',
-        conversationId,
-        branchParentId,
-        targetBranchIndex,
-      ),
   },
 
   models: {
