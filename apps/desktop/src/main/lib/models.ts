@@ -50,10 +50,17 @@ interface RuntimeProvider {
   modelAliases?: Record<string, string>
 }
 
+/** Intermediate type for raw fetched model data before filtering/aliasing */
+interface RawFetchedModel {
+  id: string
+  fetchedAt: string
+}
+
 /**
  * Fetches models from an OpenAI-compatible provider.
+ * Returns raw model data for processing by fetchAllModels().
  */
-async function fetchOpenAIModels(provider: RuntimeProvider): Promise<StoredModel[]> {
+async function fetchOpenAIModels(provider: RuntimeProvider): Promise<RawFetchedModel[]> {
   const baseUrl = provider.baseUrl || OPENAI_DEFAULT_BASE_URL
   const endpoint = `${baseUrl}/models`
 
@@ -75,8 +82,6 @@ async function fetchOpenAIModels(provider: RuntimeProvider): Promise<StoredModel
 
   return data.data.map((m) => ({
     id: m.id,
-    providerId: provider.id,
-    name: m.id,
     fetchedAt: now,
   }))
 }
@@ -97,7 +102,8 @@ function toRuntimeProvider(provider: ArcFileProvider): RuntimeProvider {
 
 /**
  * Fetches models from all providers in the active profile.
- * Returns true if models were updated, false if no profile active.
+ * Applies modelFilter and modelAliases before caching, making the cache
+ * the single source of truth for the renderer.
  */
 export async function fetchAllModels(): Promise<boolean> {
   const profile = await getActiveProfile()
@@ -114,9 +120,24 @@ export async function fetchAllModels(): Promise<boolean> {
     runtimeProviders.map((provider) => fetchOpenAIModels(provider))
   )
 
-  for (const result of results) {
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i]
+    const provider = runtimeProviders[i]
+
     if (result.status === 'fulfilled') {
-      allModels.push(...result.value)
+      // Apply filter and aliases at cache time
+      const filteredModels = result.value
+        .filter((m) => passesFilter(m.id, provider.modelFilter))
+        .map((m) => ({
+          id: m.id,
+          name: provider.modelAliases?.[m.id] ?? m.id,
+          providerId: provider.id,
+          providerName: profile.name,
+          providerType: 'openai' as const,
+          fetchedAt: m.fetchedAt,
+        }))
+
+      allModels.push(...filteredModels)
     } else {
       logger.error('models', 'Provider fetch failed', result.reason as Error)
     }
@@ -130,43 +151,19 @@ export async function fetchAllModels(): Promise<boolean> {
 
 
 /**
- * Returns the list of available models by joining the models cache
- * with provider information from the active profile.
+ * Returns the list of available models from cache.
+ * Cache is pre-filtered and aliased by fetchAllModels(), so this is a simple read.
  */
 export async function getModels(): Promise<Model[]> {
-  const [modelsCache, profile] = await Promise.all([modelsFile().read(), getActiveProfile()])
+  const modelsCache = await modelsFile().read()
 
-  if (!profile) {
-    return []
-  }
-
-  // Build provider lookup map: stable ID -> RuntimeProvider
-  const providersById = new Map(
-    profile.providers.map((p) => {
-      const runtime = toRuntimeProvider(p)
-      return [runtime.id, runtime] as const
-    })
-  )
-
-  // Join models with providers and apply filters
-  return modelsCache.models
-    .filter((model) => {
-      const provider = providersById.get(model.providerId)
-      if (!provider) return false
-      return passesFilter(model.id, provider.modelFilter)
-    })
-    .map((model) => {
-      const provider = providersById.get(model.providerId)!
-      // Priority: alias > cached name > id
-      const displayName = provider.modelAliases?.[model.id] ?? model.name ?? model.id
-      return {
-        id: model.id,
-        name: displayName,
-        provider: {
-          id: provider.id,
-          name: profile.name,
-          type: 'openai',
-        },
-      }
-    })
+  return modelsCache.models.map((m) => ({
+    id: m.id,
+    name: m.name,
+    provider: {
+      id: m.providerId,
+      name: m.providerName,
+      type: m.providerType,
+    },
+  }))
 }

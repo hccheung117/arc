@@ -55,8 +55,10 @@ export type StoredProvider = z.infer<typeof StoredProviderSchema>
 
 export const StoredModelSchema = z.object({
   id: z.string(),
-  providerId: z.string(),
   name: z.string(),
+  providerId: z.string(),
+  providerName: z.string(),
+  providerType: z.literal('openai'),
   contextWindow: z.number().optional(),
   fetchedAt: z.string(),
 })
