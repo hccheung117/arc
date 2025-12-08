@@ -62,44 +62,46 @@ export const logger = {
   },
 
   /**
-   * Warning-level log. Dev only.
+   * Warning-level log. Console in dev, console + file in prod.
    */
   warn(tag: string, message: string): void {
-    if (isDev) {
-      console.warn(`[${tag}] ${message}`)
+    console.warn(`[${tag}] ${message}`)
+    if (!isDev) {
+      writeToFile('WARN', tag, message)
     }
   },
 
   /**
-   * Error-level log. Console in dev, file in prod.
+   * Error-level log. Console in dev, console + file in prod.
    */
   error(tag: string, message: string, err?: Error): void {
     const stack = err?.stack
 
-    if (isDev) {
-      if (stack) {
-        console.error(`[${tag}] ${message}\n${stack}`)
-      } else {
-        console.error(`[${tag}] ${message}`)
-      }
+    if (stack) {
+      console.error(`[${tag}] ${message}\n${stack}`)
     } else {
+      console.error(`[${tag}] ${message}`)
+    }
+
+    if (!isDev) {
       writeToFile('ERROR', tag, message, stack)
     }
   },
 }
 
 /**
- * Write a renderer error to the log file.
- * Called via IPC from the renderer process in production.
+ * Write a renderer error to the log.
+ * Console in dev, console + file in prod.
+ * Called via IPC from the renderer process.
  */
 export function logRendererError(tag: string, message: string, stack?: string): void {
-  if (isDev) {
-    if (stack) {
-      console.error(`[renderer:${tag}] ${message}\n${stack}`)
-    } else {
-      console.error(`[renderer:${tag}] ${message}`)
-    }
+  if (stack) {
+    console.error(`[renderer:${tag}] ${message}\n${stack}`)
   } else {
+    console.error(`[renderer:${tag}] ${message}`)
+  }
+
+  if (!isDev) {
     writeToFile('ERROR', `renderer:${tag}`, message, stack)
   }
 }
