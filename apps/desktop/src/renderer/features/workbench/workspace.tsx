@@ -7,10 +7,10 @@ import { EmptyState } from './empty-state'
 import { Message } from './message'
 import { ModelSelector } from './model-selector'
 import type { Model } from '@arc-types/models'
-import type { Message as MessageType } from '@arc-types/messages'
+import type { Message as MessageType, MessageRole } from '@arc-types/messages'
 import type { AttachmentInput, BranchInfo } from '@arc-types/arc-api'
 import { getModels, onModelsEvent } from '@renderer/lib/models'
-import { getMessages, createMessage, createBranch, startAIChat, stopAIChat, onAIEvent } from '@renderer/lib/messages'
+import { getMessages, createMessage, createBranch, updateMessage, startAIChat, stopAIChat, onAIEvent } from '@renderer/lib/messages'
 import { getBranchSelections, setBranchSelection } from '@renderer/lib/ui-state-db'
 import type { ChatThread } from './chat-thread'
 import { createDraftThread } from './chat-thread'
@@ -34,13 +34,18 @@ interface StreamingMessage {
   isThinking: boolean
 }
 
+interface EditingState {
+  messageId: string
+  role: MessageRole
+}
+
 export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThreadChange }: WorkspaceProps) {
   const [models, setModels] = useState<Model[]>([])
   const [selectedModel, setSelectedModel] = useState<Model | null>(null)
   const [streamingMessage, setStreamingMessage] = useState<StreamingMessage | null>(null)
   const [activeStreamId, setActiveStreamId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null)
+  const [editingState, setEditingState] = useState<EditingState | null>(null)
   const composerRef = useRef<ComposerRef>(null)
 
   // All messages for the current thread (full tree)
@@ -239,10 +244,23 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
     setError(null)
 
     try {
-      // EDITING FLOW: Create new branch (preserves old conversation)
-      if (editingMessageId !== null && activeThread) {
-        // Find the parent message (message BEFORE the one being edited)
-        const editIndex = messages.findIndex((m) => m.id === editingMessageId)
+      // EDITING FLOW
+      if (editingState !== null && activeThread) {
+        // ASSISTANT MESSAGE EDIT: Update in place, no regeneration
+        if (editingState.role === 'assistant') {
+          await updateMessage(activeThread.id, editingState.messageId, content)
+
+          // Reload messages to reflect the update
+          const { messages: updatedMessages } = await getMessages(activeThread.id)
+          setAllMessages(updatedMessages)
+
+          // Clear editing state
+          setEditingState(null)
+          return
+        }
+
+        // USER MESSAGE EDIT: Create new branch (preserves old conversation)
+        const editIndex = messages.findIndex((m) => m.id === editingState.messageId)
         const parentId = editIndex > 0 ? messages[editIndex - 1].id : null
 
         await createBranch(
@@ -266,7 +284,7 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
         setBranchSelection(activeThread.id, parentId, newBranchIndex)
 
         // Clear editing state before starting AI
-        setEditingMessageId(null)
+        setEditingState(null)
 
         // Start streaming for AI response
         onThreadUpdate({
@@ -350,7 +368,7 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
       setError(err instanceof Error ? err.message : 'An error occurred while sending message')
     } finally {
       // Always clear editing state after sending
-      setEditingMessageId(null)
+      setEditingState(null)
     }
   }
 
@@ -362,14 +380,14 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
     }
   }, [activeStreamId])
 
-  const handleEditMessage = useCallback((content: string, messageId: string) => {
-    setEditingMessageId(messageId)
+  const handleEditMessage = useCallback((content: string, messageId: string, role: MessageRole) => {
+    setEditingState({ messageId, role })
     composerRef.current?.setMessage(content)
     composerRef.current?.focus()
   }, [])
 
   const handleCancelEdit = useCallback(() => {
-    setEditingMessageId(null)
+    setEditingState(null)
     composerRef.current?.setMessage('')
   }, [])
 
@@ -440,8 +458,8 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
                     <Message
                       key={message.id}
                       message={message}
-                      onEdit={(content) => handleEditMessage(content, message.id)}
-                      isEditing={editingMessageId === message.id}
+                      onEdit={(content) => handleEditMessage(content, message.id, message.role)}
+                      isEditing={editingState?.messageId === message.id}
                       branchInfo={branchInfo}
                       onBranchSwitch={(targetIndex) => handleBranchSwitch(parentId, targetIndex)}
                     />
@@ -458,8 +476,8 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
                       parentId: messages.length > 0 ? messages[messages.length - 1].id : null,
                     }}
                     isThinking={streamingMessage.isThinking}
-                    onEdit={(content) => handleEditMessage(content, streamingMessage.id)}
-                    isEditing={editingMessageId === streamingMessage.id}
+                    onEdit={(content) => handleEditMessage(content, streamingMessage.id, 'assistant')}
+                    isEditing={editingState?.messageId === streamingMessage.id}
                   />
                 )}
               </div>
@@ -509,12 +527,12 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
               {error}
             </div>
           )}
-          <Composer 
-            ref={composerRef} 
-            onSend={handleSendMessage} 
-            onStop={handleStopStreaming} 
+          <Composer
+            ref={composerRef}
+            onSend={handleSendMessage}
+            onStop={handleStopStreaming}
             isStreaming={activeStreamId !== null}
-            isEditing={editingMessageId !== null}
+            isEditing={editingState !== null}
             onCancelEdit={handleCancelEdit}
           />
         </div>

@@ -5,6 +5,7 @@ import type {
   ConversationEvent,
   CreateMessageInput,
   CreateBranchInput,
+  UpdateMessageInput,
   ChatOptions,
   AIStreamEvent,
   ModelsEvent,
@@ -43,6 +44,9 @@ const arc: ArcAPI = {
 
     createBranch: (conversationId: string, input: CreateBranchInput) =>
       ipcRenderer.invoke('arc:messages:createBranch', conversationId, input),
+
+    update: (conversationId: string, messageId: string, input: UpdateMessageInput) =>
+      ipcRenderer.invoke('arc:messages:update', conversationId, messageId, input),
   },
 
   models: {

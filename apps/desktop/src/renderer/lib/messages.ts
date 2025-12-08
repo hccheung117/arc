@@ -48,6 +48,14 @@ export async function createBranch(
   })
 }
 
+export async function updateMessage(
+  conversationId: string,
+  messageId: string,
+  content: string,
+): Promise<Message> {
+  return window.arc.messages.update(conversationId, messageId, { content })
+}
+
 export async function startAIChat(conversationId: string, model: string): Promise<ChatResponse> {
   return window.arc.ai.chat(conversationId, { model })
 }

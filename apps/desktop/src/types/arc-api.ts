@@ -54,6 +54,11 @@ export const CreateBranchInputSchema = z.object({
 })
 export type CreateBranchInput = z.infer<typeof CreateBranchInputSchema>
 
+export const UpdateMessageInputSchema = z.object({
+  content: z.string(),
+})
+export type UpdateMessageInput = z.infer<typeof UpdateMessageInputSchema>
+
 export const ChatOptionsSchema = z.object({
   model: z.string(),
 })
@@ -162,6 +167,12 @@ export interface ArcAPI {
      * Used for "edit and regenerate" flow - creates new branch, preserves old conversation.
      */
     createBranch(conversationId: string, input: CreateBranchInput): Promise<CreateBranchResult>
+
+    /**
+     * Update an existing message's content (Rule 2: Two-Way)
+     * Used for editing assistant messages in place without regeneration.
+     */
+    update(conversationId: string, messageId: string, input: UpdateMessageInput): Promise<Message>
   }
 
   /** Model resource operations */

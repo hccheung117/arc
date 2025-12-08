@@ -10,6 +10,7 @@ import type {
   AIStreamEvent,
   CreateMessageInput,
   CreateBranchInput,
+  UpdateMessageInput,
   ListMessagesResult,
   CreateBranchResult,
   ChatOptions,
@@ -19,6 +20,7 @@ import {
   ConversationPatchSchema,
   CreateMessageInputSchema,
   CreateBranchInputSchema,
+  UpdateMessageInputSchema,
   ChatOptionsSchema,
 } from '@arc-types/arc-api'
 import type { ArcImportEvent } from '@arc-types/arc-file'
@@ -32,7 +34,7 @@ import {
   updateConversation,
   deleteConversation,
 } from './lib/conversations'
-import { getMessages, createMessage, createBranch } from './lib/messages'
+import { getMessages, createMessage, createBranch, updateMessage } from './lib/messages'
 import { getModels, fetchAllModels } from './lib/models'
 import { startChatStream, cancelStream } from './lib/ai'
 import { getConfig, setConfig } from './lib/providers'
@@ -163,6 +165,14 @@ async function handleMessagesCreateBranch(
   )
 }
 
+async function handleMessagesUpdate(
+  conversationId: string,
+  messageId: string,
+  input: UpdateMessageInput,
+): Promise<Message> {
+  return updateMessage(conversationId, messageId, input.content)
+}
+
 export function registerMessagesHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(
     'arc:messages:list',
@@ -175,6 +185,10 @@ export function registerMessagesHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(
     'arc:messages:createBranch',
     validatedArgs(z.tuple([z.string(), CreateBranchInputSchema]), handleMessagesCreateBranch)
+  )
+  ipcMain.handle(
+    'arc:messages:update',
+    validatedArgs(z.tuple([z.string(), z.string(), UpdateMessageInputSchema]), handleMessagesUpdate)
   )
 }
 

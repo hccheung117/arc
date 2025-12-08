@@ -63,7 +63,7 @@ export async function toMessage(
     reasoning: event.reasoning,
     createdAt: event.createdAt!,
     updatedAt: event.updatedAt ?? event.createdAt!,
-    parentId: event.parentId,
+    parentId: event.parentId ?? null,
     attachments,
   }
 }
@@ -294,4 +294,48 @@ export async function createBranch(
   const { branchPoints: updatedBranchPoints } = reduceMessageEvents(updatedEvents)
 
   return { message, branchPoints: updatedBranchPoints }
+}
+
+/**
+ * Updates an existing message's content.
+ * Uses event sourcing: appends a partial event that gets merged by reduceMessageEvents.
+ *
+ * Intended for editing assistant messages in place without regeneration.
+ *
+ * @param conversationId - The thread ID
+ * @param messageId - The message ID to update
+ * @param content - New content for the message
+ * @returns The updated message
+ */
+export async function updateMessage(
+  conversationId: string,
+  messageId: string,
+  content: string,
+): Promise<Message> {
+  const now = new Date().toISOString()
+
+  // Append partial update event - reduceMessageEvents merges by ID
+  const event: StoredMessageEvent = {
+    id: messageId,
+    content,
+    updatedAt: now,
+  }
+  await messageLogFile(conversationId).append(event)
+
+  // Update thread timestamp in index
+  await threadIndexFile().update((index) => {
+    const thread = index.threads.find((t) => t.id === conversationId)
+    if (thread) {
+      thread.updatedAt = now
+    }
+    return index
+  })
+
+  // Re-read to get the merged message
+  const { messages } = await getMessages(conversationId)
+  const updated = messages.find((m) => m.id === messageId)
+  if (!updated) {
+    throw new Error(`Message ${messageId} not found after update`)
+  }
+  return updated
 }

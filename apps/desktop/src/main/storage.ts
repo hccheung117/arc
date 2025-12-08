@@ -114,10 +114,11 @@ export const StoredMessageEventSchema = z.object({
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
   deleted: z.boolean().optional(),
-  parentId: z.string().nullable(),
+  // Optional for partial update events (event sourcing merges by ID)
+  parentId: z.string().nullable().optional(),
   attachments: z.array(StoredAttachmentSchema).optional(),
-  modelId: z.string(),
-  providerId: z.string(),
+  modelId: z.string().optional(),
+  providerId: z.string().optional(),
   usage: UsageSchema.optional(),
 })
 export type StoredMessageEvent = z.infer<typeof StoredMessageEventSchema>
@@ -263,7 +264,8 @@ export function reduceMessageEvents(events: StoredMessageEvent[]): ReduceResult 
   // Build children map: parentId -> child message IDs (sorted by createdAt)
   const childrenMap = new Map<string | null, string[]>()
   for (const msg of validMessages) {
-    const parentId = msg.parentId
+    // Normalize undefined to null for consistent map keys
+    const parentId = msg.parentId ?? null
     if (!childrenMap.has(parentId)) {
       childrenMap.set(parentId, [])
     }
