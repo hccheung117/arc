@@ -1,5 +1,6 @@
 import { memo, useEffect, useId, useState, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
+import remarkBreaks from 'remark-breaks'
 import remarkGfm from 'remark-gfm'
 import { Check, Copy } from 'lucide-react'
 
@@ -174,7 +175,7 @@ export const Markdown = memo(function Markdown({ children }: MarkdownProps) {
      */
     <div className="prose max-w-none dark:prose-invert">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, remarkBreaks]}
         components={{
           // Unwrap default pre so we can handle it in CodeBlock
           pre: ({ children }) => <>{children}</>,
