@@ -104,7 +104,6 @@ export function ModelSelector({
   useEffect(() => {
     window.arc.config.get<StoredFavorite[]>('favorites').then((saved) => {
       if (saved && saved.length > 0) {
-        // Filter out invalid entries (e.g., from old string[] format or corrupted data)
         const validFavorites = saved.filter(
           (f) =>
             f &&
@@ -117,15 +116,21 @@ export function ModelSelector({
         if (validFavorites.length > 0) {
           const keys = validFavorites.map((f) => favoriteKey(f.providerId, f.modelId))
           setFavorites(new Set(keys))
-          setShowFavorites(true)
+
+          // Only show favorites tab if at least one favorite matches available models
+          const hasMatchingFavorites = models.some((m) =>
+            keys.includes(favoriteKey(m.provider.id, m.id))
+          )
+          if (hasMatchingFavorites) {
+            setShowFavorites(true)
+          }
         }
-        // Clean up invalid entries by re-saving
         if (validFavorites.length !== saved.length) {
           window.arc.config.set('favorites', validFavorites)
         }
       }
     })
-  }, [])
+  }, [models])
 
   const toggleFavorite = (model: Model) => {
     const key = favoriteKey(model.provider.id, model.id)
