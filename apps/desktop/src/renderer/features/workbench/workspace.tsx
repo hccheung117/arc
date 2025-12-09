@@ -1,22 +1,16 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
-import { logger } from '@renderer/lib/logger'
-import { ScrollArea } from '@renderer/components/ui/scroll-area'
+import { useEffect, useState } from 'react'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
-import { Composer, type ComposerRef } from './composer'
 import { EmptyState } from './empty-state'
-import { Message } from './message'
 import { ModelSelector } from './model-selector'
+import { ChatView } from './chat-view'
 import type { Model } from '@arc-types/models'
-import type { Message as MessageType, MessageRole } from '@arc-types/messages'
-import type { AttachmentInput, BranchInfo } from '@arc-types/arc-api'
+import type { AttachmentInput } from '@arc-types/arc-api'
 import { getModels, onModelsEvent } from '@renderer/lib/models'
-import { getMessages, createMessage, createBranch, updateMessage, startAIChat, stopAIChat, onAIEvent } from '@renderer/lib/messages'
-import { getBranchSelections, setBranchSelection } from '@renderer/lib/ui-state-db'
+import { createMessage, startAIChat } from '@renderer/lib/messages'
 import type { ChatThread } from './chat-thread'
 import { createDraftThread } from './chat-thread'
 import type { ThreadAction } from './use-chat-threads'
-import { useAutoScroll } from './use-auto-scroll'
-import { ChevronDown } from 'lucide-react'
+import { Composer } from './composer'
 
 interface WorkspaceProps {
   threads: ChatThread[]
@@ -25,98 +19,38 @@ interface WorkspaceProps {
   onActiveThreadChange: (threadId: string) => void
 }
 
-interface StreamingMessage {
-  id: string
-  role: 'assistant'
-  content: string
-  reasoning: string
-  status: 'streaming'
-  isThinking: boolean
-}
+/**
+ * Maximum number of ChatView instances to keep mounted.
+ * Recent chats stay in memory for quick switching; older ones unmount.
+ */
+const MAX_MOUNTED = 5
 
-interface EditingState {
-  messageId: string
-  role: MessageRole
-}
-
+/**
+ * Workspace: Thin orchestrator for chat instances
+ *
+ * Manages:
+ * - Model selection (shared across all chats)
+ * - LRU-based GC for ChatView instances
+ * - New chat flow (empty state -> draft creation)
+ *
+ * Each mounted ChatView is an independent "process" with isolated state.
+ */
 export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThreadChange }: WorkspaceProps) {
+  // Shared state: model selection
   const [models, setModels] = useState<Model[]>([])
   const [selectedModel, setSelectedModel] = useState<Model | null>(null)
-  const [streamingMessage, setStreamingMessage] = useState<StreamingMessage | null>(null)
-  const [activeStreamId, setActiveStreamId] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [editingState, setEditingState] = useState<EditingState | null>(null)
-  const composerRef = useRef<ComposerRef>(null)
 
-  // All messages for the current thread (full tree)
-  const [allMessages, setAllMessages] = useState<MessageType[]>([])
-  // Branch selections from IndexedDB: parentId (or 'root') -> selected branch index
-  const [branchSelections, setBranchSelections] = useState<Record<string, number>>({})
+  // LRU tracking for GC: most recently accessed thread IDs
+  const [accessOrder, setAccessOrder] = useState<string[]>([])
 
-  // State for scroll viewport element to enable smart auto-scroll
-  // Using state (not ref) ensures effects re-run when element mounts
-  const [viewport, setViewport] = useState<HTMLDivElement | null>(null)
-  const { isAtBottom, scrollToBottom } = useAutoScroll(viewport, streamingMessage?.content, activeThreadId)
-
-  // Find the active thread
-  const activeThread = threads.find((t) => t.id === activeThreadId)
-
-  // Compute display messages and branch points from all messages + selections
-  const { displayMessages, branchPoints } = useMemo(() => {
-    if (allMessages.length === 0) {
-      return { displayMessages: [] as MessageType[], branchPoints: [] as BranchInfo[] }
-    }
-
-    // Build children map: parentId -> child messages (sorted by createdAt)
-    const childrenMap = new Map<string | null, MessageType[]>()
-    for (const msg of allMessages) {
-      const parentId = msg.parentId ?? null
-      if (!childrenMap.has(parentId)) {
-        childrenMap.set(parentId, [])
-      }
-      childrenMap.get(parentId)!.push(msg)
-    }
-
-    // Sort children by createdAt
-    for (const children of childrenMap.values()) {
-      children.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-    }
-
-    // Walk the tree following selections
-    const path: MessageType[] = []
-    const points: BranchInfo[] = []
-    let currentParentId: string | null = null
-
-    while (true) {
-      const children = childrenMap.get(currentParentId)
-      if (!children || children.length === 0) break
-
-      // Check if this is a branch point
-      if (children.length > 1) {
-        const selectionKey = currentParentId ?? 'root'
-        // Default to latest branch (last index) when no saved selection
-        const selectedIndex = branchSelections[selectionKey] ?? (children.length - 1)
-        const clampedIndex = Math.min(selectedIndex, children.length - 1)
-
-        points.push({
-          parentId: currentParentId,
-          branches: children.map((c) => c.id),
-          currentIndex: clampedIndex,
-        })
-
-        path.push(children[clampedIndex])
-        currentParentId = children[clampedIndex].id
-      } else {
-        path.push(children[0])
-        currentParentId = children[0].id
-      }
-    }
-
-    return { displayMessages: path, branchPoints: points }
-  }, [allMessages, branchSelections])
-
-  // Use display messages for rendering
-  const messages = displayMessages
+  // Update access order when switching chats (LRU)
+  useEffect(() => {
+    if (!activeThreadId) return
+    setAccessOrder((prev) => {
+      const filtered = prev.filter((id) => id !== activeThreadId)
+      return [activeThreadId, ...filtered]
+    })
+  }, [activeThreadId])
 
   // Persist model selection to localStorage
   useEffect(() => {
@@ -125,37 +59,30 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
     }
   }, [selectedModel])
 
+  // Fetch and subscribe to model updates
   useEffect(() => {
     const fetchModels = () => {
       getModels().then((fetchedModels) => {
         setModels(fetchedModels)
-        
+
         setSelectedModel((prev) => {
-          if (prev) {
-            // Optional: Verify the selected model still exists in the new list
-            // For now, we keep the selection to avoid disruption
-            return prev
-          }
+          if (prev) return prev
 
           if (fetchedModels.length > 0) {
-            // Try to restore last selection from localStorage
             const savedModelId = localStorage.getItem('arc:selectedModelId')
             const savedModel = savedModelId
               ? fetchedModels.find((m) => m.id === savedModelId)
               : null
-            // Use saved model if found, otherwise default to first available
             return savedModel || fetchedModels[0]
           }
-          
+
           return null
         })
       })
     }
 
-    // Initial fetch
     fetchModels()
 
-    // Listen for model updates from backend
     const unsubscribe = onModelsEvent((event) => {
       if (event.type === 'updated') {
         fetchModels()
@@ -165,242 +92,53 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
     return unsubscribe
   }, [])
 
-  // Load messages and branch selections when thread is selected
-  useEffect(() => {
-    if (!activeThread) {
-      setAllMessages([])
-      setBranchSelections({})
-      return
-    }
+  // Determine which threads to keep mounted (LRU eviction)
+  // Always include activeThreadId to avoid flash of empty content
+  const mountedIds = new Set([
+    ...(activeThreadId ? [activeThreadId] : []),
+    ...accessOrder.slice(0, MAX_MOUNTED - 1), // -1 to account for active
+  ])
 
-    // Load branch selections from IndexedDB
-    getBranchSelections(activeThread.id).then(setBranchSelections)
-
-    // Only fetch if messages haven't been loaded yet and it's not a fresh draft
-    // (Drafts start with 0 messages anyway, but persisted threads might need hydration)
-    if (activeThread.messages.length === 0 && activeThread.status !== 'draft') {
-      getMessages(activeThread.id).then(({ messages: fetchedMessages }) => {
-        setAllMessages(fetchedMessages)
-      })
-    }
-  }, [activeThreadId, activeThread?.status])
-
-  // Set up streaming event listeners
-  useEffect(() => {
-    const cleanup = onAIEvent((event) => {
-      if (event.streamId !== activeStreamId) return
-
-      if (event.type === 'reasoning') {
-        setStreamingMessage((prev) => ({
-          id: prev?.id || `streaming-${Date.now()}`,
-          role: 'assistant',
-          content: prev?.content || '',
-          reasoning: (prev?.reasoning || '') + event.chunk,
-          status: 'streaming',
-          isThinking: true,
-        }))
-      } else if (event.type === 'delta') {
-        setStreamingMessage((prev) => ({
-          id: prev?.id || `streaming-${Date.now()}`,
-          role: 'assistant',
-          content: (prev?.content || '') + event.chunk,
-          reasoning: prev?.reasoning || '',
-          status: 'streaming',
-          isThinking: false,
-        }))
-      } else if (event.type === 'complete') {
-        setStreamingMessage(null)
-        setActiveStreamId(null)
-
-        // Add to allMessages for local branch state management
-        setAllMessages((prev) => [...prev, event.message])
-
-        // Find thread by matching ID
-        const thread = threads.find((t) => t.id === event.message.conversationId)
-        if (thread) {
-          // If it was a draft or streaming, mark as persisted now
-          if (thread.status !== 'persisted') {
-            onThreadUpdate({
-              type: 'UPDATE_STATUS',
-              id: thread.id,
-              status: 'persisted',
-            })
-          }
-        }
-      } else if (event.type === 'error') {
-        logger.error('ui', `Stream error: ${event.error}`)
-        setStreamingMessage(null)
-        setActiveStreamId(null)
-        setError(event.error)
-      }
-    })
-
-    return cleanup
-  }, [activeStreamId, threads, onThreadUpdate])
-
-  const handleSendMessage = async (content: string, attachments?: AttachmentInput[]) => {
+  // Handler for new chat creation (from empty state)
+  // Creates the draft, first message, and starts AI response before switching
+  const handleNewChatMessage = async (content: string, attachments?: AttachmentInput[]) => {
     if (!selectedModel) return
 
-    setError(null)
+    // Create draft thread
+    const draft = createDraftThread()
+    const threadId = draft.id
 
-    try {
-      // EDITING FLOW
-      if (editingState !== null && activeThread) {
-        // ASSISTANT MESSAGE EDIT: Update in place, no regeneration
-        if (editingState.role === 'assistant') {
-          await updateMessage(activeThread.id, editingState.messageId, content)
+    onThreadUpdate({
+      type: 'CREATE_DRAFT',
+      id: threadId,
+    })
 
-          // Reload messages to reflect the update
-          const { messages: updatedMessages } = await getMessages(activeThread.id)
-          setAllMessages(updatedMessages)
+    // Create the first user message
+    await createMessage(
+      threadId,
+      'user',
+      content,
+      null, // no parent for first message
+      selectedModel.id,
+      selectedModel.provider.id,
+      attachments,
+    )
 
-          // Clear editing state
-          setEditingState(null)
-          return
-        }
+    // Start AI response
+    onThreadUpdate({
+      type: 'UPDATE_STATUS',
+      id: threadId,
+      status: 'streaming',
+    })
 
-        // USER MESSAGE EDIT: Create new branch (preserves old conversation)
-        const editIndex = messages.findIndex((m) => m.id === editingState.messageId)
-        const parentId = editIndex > 0 ? messages[editIndex - 1].id : null
+    const { streamId } = await startAIChat(threadId, selectedModel.id)
 
-        await createBranch(
-          activeThread.id,
-          parentId,
-          content,
-          selectedModel.id,
-          selectedModel.provider.id,
-          attachments,
-        )
+    // Store the active stream info for ChatView to pick up
+    sessionStorage.setItem('arc:activeStream', JSON.stringify({ threadId, streamId }))
 
-        // Reload all messages
-        const { messages: updatedMessages } = await getMessages(activeThread.id)
-        setAllMessages(updatedMessages)
-
-        // Auto-select the new branch (latest at this parent)
-        const selectionKey = parentId ?? 'root'
-        const childrenAtParent = updatedMessages.filter((m) => m.parentId === parentId)
-        const newBranchIndex = childrenAtParent.length - 1
-        setBranchSelections((prev) => ({ ...prev, [selectionKey]: newBranchIndex }))
-        setBranchSelection(activeThread.id, parentId, newBranchIndex)
-
-        // Clear editing state before starting AI
-        setEditingState(null)
-
-        // Start streaming for AI response
-        onThreadUpdate({
-          type: 'UPDATE_STATUS',
-          id: activeThread.id,
-          status: 'streaming',
-        })
-
-        const { streamId } = await startAIChat(activeThread.id, selectedModel.id)
-        setActiveStreamId(streamId)
-        setStreamingMessage({
-          id: `streaming-${streamId}`,
-          role: 'assistant',
-          content: '',
-          reasoning: '',
-          status: 'streaming',
-          isThinking: false,
-        })
-
-        return
-      }
-
-      // NORMAL FLOW: Create new message
-      let threadId: string
-
-      if (activeThreadId === null) {
-        // Create new thread with unified ID
-        const thread = createDraftThread()
-        threadId = thread.id
-
-        onThreadUpdate({
-          type: 'CREATE_DRAFT',
-          id: threadId,
-        })
-
-        onActiveThreadChange(threadId)
-      } else {
-        threadId = activeThreadId
-        if (!activeThread) return
-      }
-
-      // Get parent ID (last message in current conversation)
-      const lastMessage = messages[messages.length - 1]
-      const parentId = lastMessage?.id ?? null
-
-      const userMessage = await createMessage(
-        threadId,
-        'user',
-        content,
-        parentId,
-        selectedModel.id,
-        selectedModel.provider.id,
-        attachments,
-      )
-
-      // Add to allMessages for local branch state management
-      setAllMessages((prev) => [...prev, userMessage])
-
-      // Start streaming - thread status update handled by reducer/effects if needed
-      // or we can explicitly set to streaming here
-      onThreadUpdate({
-        type: 'UPDATE_STATUS',
-        id: threadId,
-        status: 'streaming',
-      })
-
-      const { streamId } = await startAIChat(threadId, selectedModel.id)
-      setActiveStreamId(streamId)
-      setStreamingMessage({
-        id: `streaming-${streamId}`,
-        role: 'assistant',
-        content: '',
-        reasoning: '',
-        status: 'streaming',
-        isThinking: false,
-      })
-    } catch (err) {
-      logger.error('ui', 'Send message failed', err as Error)
-      setStreamingMessage(null)
-      setActiveStreamId(null)
-      setError(err instanceof Error ? err.message : 'An error occurred while sending message')
-    } finally {
-      // Always clear editing state after sending
-      setEditingState(null)
-    }
+    // Switch to the new thread - ChatView will mount and pick up the stream
+    onActiveThreadChange(threadId)
   }
-
-  const handleStopStreaming = useCallback(() => {
-    if (activeStreamId) {
-      stopAIChat(activeStreamId)
-      setStreamingMessage(null)
-      setActiveStreamId(null)
-    }
-  }, [activeStreamId])
-
-  const handleEditMessage = useCallback((content: string, messageId: string, role: MessageRole) => {
-    setEditingState({ messageId, role })
-    composerRef.current?.setMessage(content)
-    composerRef.current?.focus()
-  }, [])
-
-  const handleCancelEdit = useCallback(() => {
-    setEditingState(null)
-    composerRef.current?.setMessage('')
-  }, [])
-
-  const handleBranchSwitch = useCallback((branchParentId: string | null, index: number) => {
-    if (!activeThread) return
-
-    // Update local state immediately
-    const key = branchParentId ?? 'root'
-    setBranchSelections((prev) => ({ ...prev, [key]: index }))
-
-    // Persist to IndexedDB (fire-and-forget)
-    setBranchSelection(activeThread.id, branchParentId, index)
-  }, [activeThread])
 
   return (
     <TooltipProvider>
@@ -413,129 +151,44 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate, onActiveThr
           />
         </header>
 
-        {messages.length === 0 && !streamingMessage ? (
-          <div className="flex flex-1 min-h-0 items-center justify-center">
-            <EmptyState />
-          </div>
-        ) : (
-          /**
-           * Message List Scroll Container
-           *
-           * ## Auto-Scroll Behavior
-           *
-           * This ScrollArea implements smart auto-scroll for AI streaming:
-           *
-           * | User Position | AI Streaming | Behavior                       |
-           * |---------------|--------------|--------------------------------|
-           * | At bottom     | Yes          | Auto-scroll follows content    |
-           * | Scrolled up   | Yes          | No scroll, show "↓" button     |
-           * | At bottom     | No           | Static, no auto-scroll         |
-           * | Scrolled up   | No           | Static, no button              |
-           *
-           * The viewportRef is passed to useAutoScroll hook which:
-           * 1. Attaches scroll listener to detect position
-           * 2. Triggers scrollToBottom when content updates (if at bottom)
-           * 3. Returns isAtBottom for button visibility
-           *
-           * ## Why viewportRef on ScrollArea?
-           *
-           * Radix ScrollArea wraps content in a Viewport element that handles
-           * actual scrolling. We need direct access to this element's scroll
-           * properties (scrollTop, scrollHeight, clientHeight) to implement
-           * position detection.
-           *
-           * @see use-auto-scroll.ts for detailed behavior documentation
-           */
-          <div className="relative flex-1 min-h-0">
-            <ScrollArea className="h-full" onViewportMount={setViewport}>
-              <div className="min-h-full p-6">
-                {messages.map((message, index) => {
-                  // Branch info for this message: check if it was edited (has siblings)
-                  // For the first message, check parentId === null; otherwise check the previous message
-                  const parentId = index === 0 ? null : messages[index - 1].id
-                  const branchInfo = branchPoints.find((bp) => bp.parentId === parentId)
-                  return (
-                    <Message
-                      key={message.id}
-                      message={message}
-                      onEdit={(content) => handleEditMessage(content, message.id, message.role)}
-                      isEditing={editingState?.messageId === message.id}
-                      branchInfo={branchInfo}
-                      onBranchSwitch={(targetIndex) => handleBranchSwitch(parentId, targetIndex)}
-                    />
-                  )
-                })}
-                {streamingMessage && activeThread && (
-                  <Message
-                    key={streamingMessage.id}
-                    message={{
-                      ...streamingMessage,
-                      conversationId: activeThread.id,
-                      createdAt: new Date().toISOString(),
-                      updatedAt: new Date().toISOString(),
-                      parentId: messages.length > 0 ? messages[messages.length - 1].id : null,
-                    }}
-                    isThinking={streamingMessage.isThinking}
-                    onEdit={(content) => handleEditMessage(content, streamingMessage.id, 'assistant')}
-                    isEditing={editingState?.messageId === streamingMessage.id}
-                  />
-                )}
-              </div>
-            </ScrollArea>
-
-            {/**
-             * Scroll-to-Bottom Button
-             *
-             * Appears when:
-             * 1. AI is streaming (!isAtBottom && activeStreamId)
-             * 2. User has scrolled up to read previous content
-             *
-             * Purpose:
-             * - Provides a quick way to return to "watching" mode
-             * - Visual indicator that new content is appearing below
-             * - Clicking scrolls to bottom AND re-engages auto-scroll
-             *
-             * Design decisions:
-             * - Positioned above composer to avoid obscuring input
-             * - Uses subtle styling to not distract from content
-             * - Only shows during streaming (not for static content)
-             *   because scrolling up in a static conversation is normal reading
-             *
-             * @see use-auto-scroll.ts for the underlying scroll logic
-             */}
-            {!isAtBottom && activeStreamId && (
-              <button
-                onClick={scrollToBottom}
-                className="absolute bottom-4 right-6 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-opacity hover:bg-primary/90"
-                aria-label="Scroll to bottom"
-              >
-                <ChevronDown className="h-4 w-4" />
-              </button>
-            )}
+        {/* New chat empty state */}
+        {activeThreadId === null && (
+          <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
+            <div className="flex flex-1 min-h-0 items-center justify-center">
+              <EmptyState />
+            </div>
+            <div className="shrink-0">
+              <Composer
+                onSend={handleNewChatMessage}
+                onStop={() => {}}
+                isStreaming={false}
+                isEditing={false}
+                onCancelEdit={() => {}}
+              />
+            </div>
           </div>
         )}
 
-        <div className="shrink-0">
-          {/**
-           * Typography: Error messages use text-label (15px) to match form controls
-           * and maintain consistency with other interactive UI elements.
-           *
-           * @see tailwind.config.js - Typography scale definition
-           */}
-          {error && (
-            <div className="mx-4 mb-2 rounded-md bg-destructive/10 px-3 py-2 text-label text-destructive select-text cursor-text">
-              {error}
+        {/* Mounted ChatView instances */}
+        {threads.map((thread) => {
+          const shouldMount = mountedIds.has(thread.id)
+          const isVisible = thread.id === activeThreadId
+
+          if (!shouldMount) return null
+
+          return (
+            <div
+              key={thread.id}
+              className={`flex-1 min-h-0 ${isVisible ? '' : 'hidden'}`}
+            >
+              <ChatView
+                thread={thread}
+                selectedModel={selectedModel}
+                onThreadUpdate={onThreadUpdate}
+              />
             </div>
-          )}
-          <Composer
-            ref={composerRef}
-            onSend={handleSendMessage}
-            onStop={handleStopStreaming}
-            isStreaming={activeStreamId !== null}
-            isEditing={editingState !== null}
-            onCancelEdit={handleCancelEdit}
-          />
-        </div>
+          )
+        })}
       </div>
     </TooltipProvider>
   )
