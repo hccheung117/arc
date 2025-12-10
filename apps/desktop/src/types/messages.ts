@@ -39,6 +39,8 @@ export const MessageSchema = z.object({
   parentId: z.string().nullable(),
   error: z.instanceof(Error).optional(),
   attachments: z.array(MessageAttachmentSchema).optional(),
+  modelId: z.string().optional(),
+  providerId: z.string().optional(),
 })
 export type Message = z.infer<typeof MessageSchema>
 

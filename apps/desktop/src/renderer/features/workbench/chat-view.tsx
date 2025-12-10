@@ -3,6 +3,8 @@ import { logger } from '@renderer/lib/logger'
 import { ScrollArea } from '@renderer/components/ui/scroll-area'
 import { Composer, type ComposerRef } from './composer'
 import { Message } from './message'
+import { ModelSelector } from './model-selector'
+import { EmptyState } from './empty-state'
 import type { Model } from '@arc-types/models'
 import type { Message as MessageType, MessageRole } from '@arc-types/messages'
 import type { AttachmentInput, BranchInfo } from '@arc-types/arc-api'
@@ -15,7 +17,7 @@ import { ChevronDown } from 'lucide-react'
 
 interface ChatViewProps {
   thread: ChatThread
-  selectedModel: Model | null
+  models: Model[]
   onThreadUpdate: (action: ThreadAction) => void
 }
 
@@ -37,6 +39,7 @@ interface EditingState {
  * ChatView: Isolated per-chat component
  *
  * Each ChatView instance manages its own:
+ * - Model selection (initialized from last message's model)
  * - Streaming state (streamingMessage, activeStreamId)
  * - Messages and branch selections
  * - Error and editing state
@@ -44,8 +47,9 @@ interface EditingState {
  * This isolation ensures chats are independent "processes" that don't
  * leak state when switching between them.
  */
-export function ChatView({ thread, selectedModel, onThreadUpdate }: ChatViewProps) {
+export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
   // Per-chat isolated state
+  const [selectedModel, setSelectedModel] = useState<Model | null>(null)
   const [streamingMessage, setStreamingMessage] = useState<StreamingMessage | null>(null)
   const [activeStreamId, setActiveStreamId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -145,11 +149,26 @@ export function ChatView({ thread, selectedModel, onThreadUpdate }: ChatViewProp
       }
     }
 
-    // Fetch messages (including any just created)
+    // Fetch messages and initialize model from last message
     getMessages(thread.id).then(({ messages: fetchedMessages }) => {
       setAllMessages(fetchedMessages)
+
+      // Initialize model from last message, fallback to localStorage default
+      const lastMessage = fetchedMessages[fetchedMessages.length - 1]
+      if (lastMessage?.modelId) {
+        const model = models.find((m) => m.id === lastMessage.modelId)
+        if (model) {
+          setSelectedModel(model)
+          return
+        }
+      }
+
+      // Fallback: use localStorage default or first model
+      const savedId = localStorage.getItem('arc:selectedModelId')
+      const savedModel = savedId ? models.find((m) => m.id === savedId) : null
+      setSelectedModel(savedModel || models[0] || null)
     })
-  }, [thread.id])
+  }, [thread.id, models])
 
   // Set up streaming event listeners for THIS chat's stream
   useEffect(() => {
@@ -343,11 +362,18 @@ export function ChatView({ thread, selectedModel, onThreadUpdate }: ChatViewProp
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
+      {/* Per-chat header with model selector */}
+      <header className="flex h-14 items-center border-b border-sidebar-border px-6 shrink-0">
+        <ModelSelector
+          selectedModel={selectedModel}
+          onModelSelect={setSelectedModel}
+          models={models}
+        />
+      </header>
+
       {messages.length === 0 && !streamingMessage ? (
         <div className="flex flex-1 min-h-0 items-center justify-center">
-          <div className="text-center text-muted-foreground">
-            <p className="text-body">Start a conversation</p>
-          </div>
+          <EmptyState />
         </div>
       ) : (
         <div className="relative flex-1 min-h-0">

@@ -65,6 +65,8 @@ export async function toMessage(
     updatedAt: event.updatedAt ?? event.createdAt!,
     parentId: event.parentId ?? null,
     attachments,
+    modelId: event.modelId,
+    providerId: event.providerId,
   }
 }
 

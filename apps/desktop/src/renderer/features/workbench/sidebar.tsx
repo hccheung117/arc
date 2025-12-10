@@ -9,6 +9,7 @@ import {
   SidebarRail,
 } from '@renderer/components/ui/sidebar'
 import { SidebarList } from './sidebar-list'
+import { createDraftThread } from './chat-thread'
 import type { ChatThread } from './chat-thread'
 import type { ThreadAction } from './use-chat-threads'
 import type { Dispatch } from 'react'
@@ -67,7 +68,15 @@ export function WorkbenchSidebar({ threads, activeThreadId, onThreadSelect, disp
   return (
     <Sidebar className="p-2 bg-sidebar">
       <SidebarHeader style={{ paddingTop: `${trafficLightInsets.top}px` }} className="p-0 pt-0 pb-3 bg-sidebar">
-        <Button className="w-full justify-start gap-2" variant="outline" onClick={() => onThreadSelect(null)}>
+        <Button
+          className="w-full justify-start gap-2"
+          variant="outline"
+          onClick={() => {
+            const draft = createDraftThread()
+            dispatch({ type: 'CREATE_DRAFT', id: draft.id })
+            onThreadSelect(draft.id)
+          }}
+        >
           <PenSquare className="h-4 w-4" />
           New Chat
         </Button>

@@ -4,6 +4,7 @@ import { SidebarProvider, SidebarInset } from '@renderer/components/ui/sidebar'
 import { WorkbenchSidebar } from '@renderer/features/workbench/sidebar'
 import { Workspace } from '@renderer/features/workbench/workspace'
 import { useChatThreads } from '@renderer/features/workbench/use-chat-threads'
+import { createDraftThread } from '@renderer/features/workbench/chat-thread'
 import { DropOverlay } from '@renderer/components/drop-overlay'
 import { useFileDrop } from '@renderer/hooks/use-file-drop'
 
@@ -11,6 +12,15 @@ export function WorkbenchWindow() {
   const { threads, dispatch } = useChatThreads()
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
   const [importMessage, setImportMessage] = useState<string | null>(null)
+
+  // Auto-create draft thread on startup
+  useEffect(() => {
+    if (activeThreadId !== null) return
+
+    const draft = createDraftThread()
+    dispatch({ type: 'CREATE_DRAFT', id: draft.id })
+    setActiveThreadId(draft.id)
+  }, [activeThreadId, dispatch])
 
   const handleImport = useCallback(async (filePath: string) => {
     try {
@@ -64,7 +74,6 @@ export function WorkbenchWindow() {
             threads={threads}
             activeThreadId={activeThreadId}
             onThreadUpdate={dispatch}
-            onActiveThreadChange={setActiveThreadId}
           />
         </div>
       </SidebarInset>

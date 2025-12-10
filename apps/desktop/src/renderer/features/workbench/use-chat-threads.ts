@@ -34,7 +34,9 @@ function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[]
     case 'HYDRATE': {
       // Convert database conversations to UI threads
       const hydratedThreads = action.conversations.map(hydrateFromConversation)
-      return hydratedThreads
+      // Preserve existing draft threads (not yet persisted to database)
+      const existingDrafts = state.filter((t) => t.status === 'draft')
+      return [...existingDrafts, ...hydratedThreads]
     }
 
     case 'ADD_MESSAGE': {
