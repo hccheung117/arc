@@ -1,113 +1,17 @@
-import { app, BrowserWindow, ipcMain, Menu } from 'electron';
+import {app, BrowserWindow, ipcMain, Menu} from 'electron';
+import {buildAppMenu} from './menu';
 import path from 'node:path';
-import { readFile } from 'node:fs/promises';
+import {readFile} from 'node:fs/promises';
 import started from 'electron-squirrel-startup';
-import { registerArcHandlers, emitProfilesEvent, emitModelsEvent } from './ipc';
-import { installProfile, activateProfile } from './lib/profiles';
-import { fetchAllModels } from './lib/models';
-import { logger } from './lib/logger';
+import {emitModelsEvent, emitProfilesEvent, registerArcHandlers} from './ipc';
+import {activateProfile, installProfile} from './lib/profiles';
+import {fetchAllModels} from './lib/models';
+import {logger} from './lib/logger';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
   app.quit();
 }
-
-const isDev = Boolean(MAIN_WINDOW_VITE_DEV_SERVER_URL);
-
-const buildAppMenu = () => {
-  const viewSubmenu: Electron.MenuItemConstructorOptions[] = [
-    { role: 'togglefullscreen' },
-  ];
-
-  if (isDev) {
-    viewSubmenu.push(
-      { type: 'separator' },
-      {
-        role: 'toggleDevTools',
-        accelerator: process.platform === 'darwin' ? 'Command+Alt+I' : 'Control+Shift+I',
-      },
-    );
-  }
-
-  if (process.platform === 'darwin') {
-    return Menu.buildFromTemplate([
-      {
-        label: app.name,
-        submenu: [
-          { role: 'about' },
-          { type: 'separator' },
-          { role: 'hide' },
-          { role: 'hideOthers' },
-          { role: 'unhide' },
-          { type: 'separator' },
-          { role: 'quit' },
-        ],
-      },
-      {
-        label: 'File',
-        submenu: [{ role: 'close' }],
-      },
-      {
-        label: 'Edit',
-        submenu: [
-          { role: 'undo' },
-          { role: 'redo' },
-          { type: 'separator' },
-          { role: 'cut' },
-          { role: 'copy' },
-          { role: 'paste' },
-          { role: 'selectAll' },
-        ],
-      },
-      {
-        label: 'View',
-        submenu: viewSubmenu,
-      },
-      {
-        label: 'Window',
-        submenu: [
-          { role: 'minimize' },
-          { role: 'zoom' },
-          { role: 'close' },
-        ],
-      },
-    ]);
-  }
-
-  return Menu.buildFromTemplate([
-    {
-      label: 'File',
-      submenu: [
-        { role: 'close' },
-        { type: 'separator' },
-        { role: 'quit' },
-      ],
-    },
-    {
-      label: 'Edit',
-      submenu: [
-        { role: 'undo' },
-        { role: 'redo' },
-        { type: 'separator' },
-        { role: 'cut' },
-        { role: 'copy' },
-        { role: 'paste' },
-        { role: 'selectAll' },
-      ],
-    },
-    {
-      label: 'View',
-      submenu: viewSubmenu,
-    },
-    {
-      label: 'Window',
-      submenu: [
-        { role: 'minimize' },
-        { role: 'close' },
-      ],
-    },
-  ]);
-};
 
 const createWindow = () => {
   const mainWindow = new BrowserWindow({
