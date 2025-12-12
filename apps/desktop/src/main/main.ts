@@ -22,7 +22,9 @@ import {app, BrowserWindow, ipcMain, Menu} from 'electron';
 import {buildAppMenu} from './menu';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
-import {registerArcHandlers} from './ipc';
+import {registerDataHandlers} from './ipc/data';
+import {registerAIHandlers} from './ipc/ai';
+import {registerSystemHandlers} from './ipc/system';
 import {handleProfileFileOpen} from './lib/profiles';
 import {initModels} from './lib/models';
 
@@ -72,7 +74,9 @@ app.on('window-all-closed', () => {
 // Some APIs can only be used after this event occurs.
 app.on('ready', () => {
   createWindow();
-  registerArcHandlers(ipcMain);
+  registerDataHandlers(ipcMain);
+  registerAIHandlers(ipcMain);
+  registerSystemHandlers(ipcMain);
   initModels();
 });
 

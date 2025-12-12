@@ -18,7 +18,7 @@ import { validateArcFile } from './arc-import'
 import type { ArcFile, ProfileInfo, ProfileInstallResult } from '@arc-types/arc-file'
 import { logger } from './logger'
 import { fetchAllModels } from './models'
-import { emitProfilesEvent, emitModelsEvent } from '@main/ipc'
+import { emitProfilesEvent, emitModelsEvent } from './ipc'
 
 export type { ProfileInfo, ProfileInstallResult }
 

@@ -10,7 +10,7 @@ import type {
   AIStreamEvent,
   ModelsEvent,
 } from '@arc-types/arc-api'
-import type { ArcImportEvent, ProfilesEvent } from '@arc-types/arc-file'
+import type { ProfilesEvent } from '@arc-types/arc-file'
 
 /**
  * IPC Preload Module
@@ -19,7 +19,7 @@ import type { ArcImportEvent, ProfilesEvent } from '@arc-types/arc-file'
  * This file runs in Electron's preload context and must remain browser-safe.
  */
 
-const arc: ArcAPI = {
+const arcAPI: ArcAPI = {
   conversations: {
     list: () => ipcRenderer.invoke('arc:conversations:list'),
 
@@ -105,16 +105,6 @@ const arc: ArcAPI = {
     },
   },
 
-  import: {
-    file: (filePath: string) => ipcRenderer.invoke('arc:import:file', filePath),
-
-    onEvent: (callback: (event: ArcImportEvent) => void) => {
-      const listener = (_event: Electron.IpcRendererEvent, data: ArcImportEvent) => callback(data)
-      ipcRenderer.on('arc:import:event', listener)
-      return () => ipcRenderer.removeListener('arc:import:event', listener)
-    },
-  },
-
   utils: {
     getFilePath: (file: File) => webUtils.getPathForFile(file),
     openFile: (filePath: string) => ipcRenderer.invoke('arc:utils:openFile', filePath),
@@ -128,4 +118,4 @@ const arc: ArcAPI = {
   },
 }
 
-contextBridge.exposeInMainWorld('arc', arc)
+contextBridge.exposeInMainWorld('arc', arcAPI)

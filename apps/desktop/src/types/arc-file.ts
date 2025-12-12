@@ -32,20 +32,6 @@ export const ArcFileSchema = z.object({
 })
 export type ArcFile = z.infer<typeof ArcFileSchema>
 
-export const ArcImportResultSchema = z.object({
-  success: z.boolean(),
-  providersAdded: z.number(),
-  providersUpdated: z.number(),
-  errors: z.array(z.string()),
-})
-export type ArcImportResult = z.infer<typeof ArcImportResultSchema>
-
-export const ArcImportEventSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('success'), result: ArcImportResultSchema }),
-  z.object({ type: z.literal('error'), error: z.string() }),
-])
-export type ArcImportEvent = z.infer<typeof ArcImportEventSchema>
-
 export const ProfileInfoSchema = z.object({
   id: z.string(),
   name: z.string(),

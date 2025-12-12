@@ -15,7 +15,7 @@ import type { Message, MessageContextMenuAction } from './messages'
 import { MessageRoleSchema } from './messages'
 import type { ConversationSummary, ContextMenuAction } from './conversations'
 import type { Model } from './models'
-import type { ArcImportEvent, ProfileInfo, ProfileInstallResult, ProfilesEvent } from './arc-file'
+import type { ProfileInfo, ProfileInstallResult, ProfilesEvent } from './arc-file'
 
 // ============================================================================
 // IPC INPUT SCHEMAS
@@ -236,15 +236,6 @@ export interface ArcAPI {
 
     /** Subscribe to profile lifecycle events (Rule 3: Push) */
     onEvent(callback: (event: ProfilesEvent) => void): Unsubscribe
-  }
-
-  /** .arc file import operations (Legacy - redirects to profiles) */
-  import: {
-    /** Import .arc file from path (Rule 2: Two-Way) */
-    file(filePath: string): Promise<ProfileInstallResult>
-
-    /** Subscribe to import events (Rule 3: Push) */
-    onEvent(callback: (event: ArcImportEvent) => void): Unsubscribe
   }
 
   /** Electron utilities exposed to renderer */

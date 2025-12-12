@@ -1,5 +1,5 @@
 import { modelsFile, type StoredModel, type StoredModelFilter } from '@main/storage'
-import { emitModelsEvent } from '@main/ipc'
+import { emitModelsEvent } from './ipc'
 import type { Model } from '@arc-types/models'
 import { loggingFetch } from './http-logger'
 import { getActiveProfile } from './profiles'
