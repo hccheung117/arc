@@ -1,4 +1,5 @@
 import { modelsFile, type StoredModel, type StoredModelFilter } from '@main/storage'
+import { emitModelsEvent } from '@main/ipc'
 import type { Model } from '@arc-types/models'
 import { loggingFetch } from './http-logger'
 import { getActiveProfile } from './profiles'
@@ -166,4 +167,17 @@ export async function getModels(): Promise<Model[]> {
       type: m.providerType,
     },
   }))
+}
+
+/**
+ * Initialize models on app startup.
+ * Fetches all models and emits update event if changes detected.
+ */
+export async function initModels(): Promise<void> {
+  try {
+    const updated = await fetchAllModels()
+    if (updated) emitModelsEvent({ type: 'updated' })
+  } catch (err) {
+    logger.error('models', 'Startup fetch failed', err as Error)
+  }
 }

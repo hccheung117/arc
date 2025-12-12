@@ -17,6 +17,8 @@ import { settingsFile } from '@main/storage'
 import { validateArcFile } from './arc-import'
 import type { ArcFile, ProfileInfo, ProfileInstallResult } from '@arc-types/arc-file'
 import { logger } from './logger'
+import { fetchAllModels } from './models'
+import { emitProfilesEvent, emitModelsEvent } from '@main/ipc'
 
 export type { ProfileInfo, ProfileInstallResult }
 
@@ -154,4 +156,34 @@ export async function listProfiles(): Promise<ProfileInfo[]> {
   }
 
   return profiles
+}
+
+/**
+ * Handle .arc file opened via dock drop or file association.
+ * Installs, activates, and triggers model refresh.
+ */
+export async function handleProfileFileOpen(filePath: string): Promise<void> {
+  if (path.extname(filePath).toLowerCase() !== '.arc') {
+    return
+  }
+
+  logger.info('profiles', `File open: ${filePath}`)
+
+  try {
+    const content = await fs.readFile(filePath, 'utf-8')
+    const result = await installProfile(content)
+    emitProfilesEvent({ type: 'installed', profile: result })
+
+    await activateProfile(result.id)
+    emitProfilesEvent({ type: 'activated', profileId: result.id })
+
+    // Background model fetch after activation
+    fetchAllModels()
+      .then((updated) => {
+        if (updated) emitModelsEvent({ type: 'updated' })
+      })
+      .catch((err) => logger.error('models', 'Background fetch failed', err as Error))
+  } catch (error) {
+    logger.error('profiles', 'File open failed', error as Error)
+  }
 }
