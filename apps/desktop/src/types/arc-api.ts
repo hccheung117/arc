@@ -11,9 +11,9 @@
  */
 
 import { z } from 'zod'
-import type { Message, MessageContextMenuAction } from './messages'
+import type { Message } from './messages'
 import { MessageRoleSchema } from './messages'
-import type { ConversationSummary, ContextMenuAction } from './conversations'
+import type { ConversationSummary } from './conversations'
 import type { Model } from './models'
 import type { ProfileInfo, ProfileInstallResult, ProfilesEvent } from './arc-file'
 
@@ -210,11 +210,18 @@ export interface ArcAPI {
 
   /** Native UI operations */
   ui: {
-    /** Show thread context menu (Rule 2: Two-Way) */
-    showThreadContextMenu(isPinned: boolean): Promise<ContextMenuAction>
+    /**
+     * Show thread context menu (Rule 2: Two-Way)
+     * Data operations (delete, togglePin) are executed in main process.
+     * Returns 'rename' for UI-only action, or null otherwise.
+     */
+    showThreadContextMenu(threadId: string, isPinned: boolean): Promise<'rename' | null>
 
-    /** Show message context menu (Rule 2: Two-Way) */
-    showMessageContextMenu(content: string, hasEditOption: boolean): Promise<MessageContextMenuAction>
+    /**
+     * Show message context menu (Rule 2: Two-Way)
+     * Returns the selected action for caller to handle side effects.
+     */
+    showMessageContextMenu(hasEditOption: boolean): Promise<'copy' | 'edit' | null>
   }
 
   /** Profile management operations */

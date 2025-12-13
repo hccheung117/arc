@@ -15,10 +15,5 @@ export const ConversationSummarySchema = z.object({
 })
 export type ConversationSummary = z.infer<typeof ConversationSummarySchema>
 
-export const ContextMenuActionSchema = z.union([
-  z.literal('rename'),
-  z.literal('delete'),
-  z.literal('togglePin'),
-  z.null(),
-])
+export const ContextMenuActionSchema = z.union([z.literal('rename'), z.null()])
 export type ContextMenuAction = z.infer<typeof ContextMenuActionSchema>

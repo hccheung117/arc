@@ -4,7 +4,6 @@ import { z } from 'zod'
 import type {
   Conversation,
   ConversationPatch,
-  ConversationEvent,
   CreateMessageInput,
   CreateBranchInput,
   UpdateMessageInput,
@@ -40,15 +39,11 @@ import {
 } from '../lib/profile'
 import { fetchAllModels } from '../lib/models'
 import { logger } from '../lib/logger'
-import { broadcast, validatedArgs, emitModelsEvent, emitProfilesEvent } from '../lib/ipc'
+import { validatedArgs, emitModelsEvent, emitProfilesEvent, emitConversationEvent } from '../lib/ipc'
 
 // ============================================================================
 // CONVERSATIONS
 // ============================================================================
-
-function emitConversationEvent(event: ConversationEvent): void {
-  broadcast('arc:conversations:event', event)
-}
 
 function storedThreadToConversation(thread: StoredThread): Conversation {
   return {

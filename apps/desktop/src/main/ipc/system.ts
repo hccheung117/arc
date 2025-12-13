@@ -1,8 +1,6 @@
 import type { IpcMain } from 'electron'
 import { shell } from 'electron'
 import { z } from 'zod'
-import type { ContextMenuAction } from '@arc-types/conversations'
-import type { MessageContextMenuAction } from '@arc-types/messages'
 import { logRendererError } from '../lib/logger'
 import { getConfig, setConfig } from '../lib/profile'
 import { showThreadContextMenu, showMessageContextMenu } from '../lib/ui'
@@ -33,25 +31,27 @@ function registerConfigHandlers(ipcMain: IpcMain): void {
 // UI
 // ============================================================================
 
-async function handleUIShowThreadContextMenu(isPinned: boolean): Promise<ContextMenuAction> {
-  return showThreadContextMenu(isPinned)
+async function handleUIShowThreadContextMenu(
+  threadId: string,
+  isPinned: boolean
+): Promise<'rename' | null> {
+  return showThreadContextMenu(threadId, isPinned)
 }
 
 async function handleUIShowMessageContextMenu(
-  content: string,
   hasEditOption: boolean
-): Promise<MessageContextMenuAction> {
-  return showMessageContextMenu(content, hasEditOption)
+): Promise<'copy' | 'edit' | null> {
+  return showMessageContextMenu(hasEditOption)
 }
 
 function registerUIHandlers(ipcMain: IpcMain): void {
   ipcMain.handle(
     'arc:ui:showThreadContextMenu',
-    validatedArgs(z.tuple([z.boolean()]), handleUIShowThreadContextMenu)
+    validatedArgs(z.tuple([z.string(), z.boolean()]), handleUIShowThreadContextMenu)
   )
   ipcMain.handle(
     'arc:ui:showMessageContextMenu',
-    validatedArgs(z.tuple([z.string(), z.boolean()]), handleUIShowMessageContextMenu)
+    validatedArgs(z.tuple([z.boolean()]), handleUIShowMessageContextMenu)
   )
 }
 

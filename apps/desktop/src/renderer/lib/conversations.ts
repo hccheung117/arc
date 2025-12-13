@@ -1,4 +1,4 @@
-import type { ConversationSummary, ContextMenuAction } from '@arc-types/conversations'
+import type { ConversationSummary } from '@arc-types/conversations'
 import type { Conversation, ConversationPatch, ConversationEvent, Unsubscribe } from '@arc-types/arc-api'
 
 export async function getConversationSummaries(): Promise<ConversationSummary[]> {
@@ -17,14 +17,17 @@ export async function renameConversation(conversationId: string, title: string):
   await window.arc.conversations.update(conversationId, { title })
 }
 
-export async function toggleConversationPin(conversationId: string, pinned: boolean): Promise<void> {
-  await window.arc.conversations.update(conversationId, { pinned })
-}
-
 export function onConversationEvent(callback: (event: ConversationEvent) => void): Unsubscribe {
   return window.arc.conversations.onEvent(callback)
 }
 
-export async function showThreadContextMenu(currentPinnedState: boolean): Promise<ContextMenuAction> {
-  return window.arc.ui.showThreadContextMenu(currentPinnedState)
+/**
+ * Shows thread context menu. Data actions (delete, togglePin) are handled in main.
+ * Returns 'rename' for UI-only action, or null otherwise.
+ */
+export async function showThreadContextMenu(
+  threadId: string,
+  isPinned: boolean
+): Promise<'rename' | null> {
+  return window.arc.ui.showThreadContextMenu(threadId, isPinned)
 }

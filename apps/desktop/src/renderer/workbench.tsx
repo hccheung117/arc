@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { FileDown } from 'lucide-react'
 import { SidebarProvider, SidebarInset } from '@renderer/components/ui/sidebar'
 import { WorkbenchSidebar } from '@renderer/features/workbench/sidebar'
@@ -7,11 +7,14 @@ import { useChatThreads } from '@renderer/features/workbench/use-chat-threads'
 import { createDraftThread } from '@renderer/features/workbench/chat-thread'
 import { DropOverlay } from '@renderer/components/drop-overlay'
 import { useFileDrop } from '@renderer/hooks/use-file-drop'
+import { onConversationEvent } from '@renderer/lib/conversations'
 
 export function WorkbenchWindow() {
   const { threads, dispatch } = useChatThreads()
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
   const [importMessage, setImportMessage] = useState<string | null>(null)
+  const activeThreadIdRef = useRef(activeThreadId)
+  activeThreadIdRef.current = activeThreadId
 
   // Auto-create draft thread on startup
   useEffect(() => {
@@ -21,6 +24,15 @@ export function WorkbenchWindow() {
     dispatch({ type: 'CREATE_DRAFT', id: draft.id })
     setActiveThreadId(draft.id)
   }, [activeThreadId, dispatch])
+
+  // Deselect active thread if it's deleted (from context menu or elsewhere)
+  useEffect(() => {
+    return onConversationEvent((event) => {
+      if (event.type === 'deleted' && event.id === activeThreadIdRef.current) {
+        setActiveThreadId(null)
+      }
+    })
+  }, [])
 
   const handleImport = useCallback(async (filePath: string) => {
     try {

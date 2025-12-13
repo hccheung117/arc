@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { MessageSquare, MoreHorizontal } from 'lucide-react'
 import { SidebarMenuItem, SidebarMenuButton, SidebarMenuAction } from '@renderer/components/ui/sidebar'
 import type { ChatThread } from './chat-thread'
-import { showThreadContextMenu, deleteConversation, renameConversation, toggleConversationPin } from '@renderer/lib/conversations'
+import { showThreadContextMenu, renameConversation } from '@renderer/lib/conversations'
 import type { Dispatch } from 'react'
 import type { ThreadAction } from './use-chat-threads'
 
@@ -29,14 +29,12 @@ export function SidebarItem({ thread, isActive, onSelect, dispatch }: SidebarIte
     e.preventDefault()
     e.stopPropagation()
 
-    const action = await showThreadContextMenu(thread.isPinned)
+    // Data actions (delete, togglePin) are handled in main process.
+    // State updates come via event listener in use-chat-threads.ts.
+    const action = await showThreadContextMenu(thread.id, thread.isPinned)
 
     if (action === 'rename') {
       startRenaming()
-    } else if (action === 'delete') {
-      handleDelete()
-    } else if (action === 'togglePin') {
-      handleTogglePin()
     }
   }
 
@@ -61,20 +59,6 @@ export function SidebarItem({ thread, isActive, onSelect, dispatch }: SidebarIte
   const handleCancelRename = () => {
     setIsRenaming(false)
     setRenameValue(thread.title)
-  }
-
-  const handleDelete = async () => {
-    await deleteConversation(thread.id)
-    dispatch({ type: 'DELETE_THREAD', id: thread.id })
-    if (isActive) {
-      onSelect('') // Deselect if active
-    }
-  }
-
-  const handleTogglePin = async () => {
-    const newPinnedState = !thread.isPinned
-    await toggleConversationPin(thread.id, newPinnedState)
-    dispatch({ type: 'TOGGLE_PIN', id: thread.id, isPinned: newPinnedState })
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

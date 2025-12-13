@@ -35,6 +35,15 @@ export function emitProfilesEvent(event: ProfilesEvent): void {
   broadcast('arc:profiles:event', event)
 }
 
+export type ConversationEvent =
+  | { type: 'created'; conversation: { id: string; title: string; pinned: boolean; createdAt: string; updatedAt: string } }
+  | { type: 'updated'; conversation: { id: string; title: string; pinned: boolean; createdAt: string; updatedAt: string } }
+  | { type: 'deleted'; id: string }
+
+export function emitConversationEvent(event: ConversationEvent): void {
+  broadcast('arc:conversations:event', event)
+}
+
 /**
  * Wraps an IPC handler with Zod schema validation for multiple arguments.
  */

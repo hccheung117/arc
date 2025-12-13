@@ -1,80 +1,95 @@
-import { Menu, clipboard } from 'electron'
-import type { ContextMenuAction } from '@arc-types/conversations'
-import type { MessageContextMenuAction } from '@arc-types/messages'
+import {Menu} from 'electron'
+import {deleteConversation, updateConversation} from './messages'
+import {emitConversationEvent} from './ipc'
+
+// ============================================================================
+// GENERIC CONTEXT MENU FACTORY
+// ============================================================================
+
+type MenuItem<T extends string> =
+  | { label: string; action: T }
+  | { type: 'separator' }
 
 /**
- * Shows a native context menu for thread/conversation actions.
- * Returns the selected action or null if cancelled.
+ * Creates and shows a native context menu, returning the selected action.
+ * Resolves to null if the menu is dismissed without selection.
  */
-export function showThreadContextMenu(currentPinnedState: boolean): Promise<ContextMenuAction> {
+function createContextMenu<T extends string>(items: MenuItem<T>[]): Promise<T | null> {
   return new Promise((resolve) => {
-    const menu = Menu.buildFromTemplate([
-      {
-        label: 'Rename',
-        click: () => resolve('rename'),
-      },
-      {
-        label: currentPinnedState ? 'Unpin' : 'Pin',
-        click: () => resolve('togglePin'),
-      },
-      { type: 'separator' },
-      {
-        label: 'Delete',
-        click: () => resolve('delete'),
-      },
-    ])
+    let resolved = false
 
-    // Resolve with null if menu is closed without selection
+    const menu = Menu.buildFromTemplate(items.map((item) =>
+        'type' in item
+            ? {type: 'separator' as const}
+            : {
+              label: item.label,
+              click: () => {
+                resolved = true
+                resolve(item.action)
+              },
+            }
+    ))
+
     menu.once('menu-will-close', () => {
-      // Use setImmediate to ensure click handlers have a chance to resolve first
-      setImmediate(() => resolve(null))
+      // Delay resolution to allow click handlers to fire first (macOS timing issue)
+      setTimeout(() => {
+        if (!resolved) resolve(null)
+      }, 100)
     })
 
     menu.popup()
   })
 }
 
+// ============================================================================
+// THREAD CONTEXT MENU
+// ============================================================================
+
+/**
+ * Shows a native context menu for thread/conversation actions.
+ * Data operations (delete, togglePin) are executed directly in main process.
+ * Returns 'rename' for UI-only action, or null if no action needed.
+ */
+export async function showThreadContextMenu(
+  threadId: string,
+  isPinned: boolean
+): Promise<'rename' | null> {
+  const action = await createContextMenu([
+    { label: 'Rename', action: 'rename' as const },
+    { label: isPinned ? 'Unpin' : 'Pin', action: 'togglePin' as const },
+    { type: 'separator' },
+    { label: 'Delete', action: 'delete' as const },
+  ])
+
+  if (action === 'delete') {
+    await deleteConversation(threadId)
+    emitConversationEvent({ type: 'deleted', id: threadId })
+    return null
+  }
+
+  if (action === 'togglePin') {
+    const conversation = await updateConversation(threadId, { pinned: !isPinned })
+    emitConversationEvent({ type: 'updated', conversation })
+    return null
+  }
+
+  return action
+}
+
+// ============================================================================
+// MESSAGE CONTEXT MENU
+// ============================================================================
+
 /**
  * Shows a native context menu for message actions.
- * Returns the selected action or null if cancelled.
+ * Returns the selected action, leaving side effects to the caller.
  */
-export function showMessageContextMenu(content: string, hasEditOption: boolean): Promise<MessageContextMenuAction> {
-  return new Promise((resolve) => {
-    let actionTaken = false
+export function showMessageContextMenu(hasEditOption: boolean): Promise<'copy' | 'edit' | null> {
+  const items: MenuItem<'copy' | 'edit'>[] = [{ label: 'Copy', action: 'copy' }]
 
-    const template: Electron.MenuItemConstructorOptions[] = [
-      {
-        label: 'Copy',
-        click: () => {
-          actionTaken = true
-          clipboard.writeText(content)
-          resolve('copy')
-        },
-      },
-    ]
+  if (hasEditOption) {
+    items.push({ label: 'Edit', action: 'edit' })
+  }
 
-    if (hasEditOption) {
-      template.push({
-        label: 'Edit',
-        click: () => {
-          actionTaken = true
-          resolve('edit')
-        },
-      })
-    }
-
-    const menu = Menu.buildFromTemplate(template)
-
-    // Resolve with null if menu is closed without selection
-    menu.once('menu-will-close', () => {
-      // Delay resolution to allow click handlers to fire first (macOS timing issue)
-      setTimeout(() => {
-        if (!actionTaken) {
-          resolve(null)
-        }
-      }, 100)
-    })
-
-    menu.popup()
-  })
+  return createContextMenu(items)
 }

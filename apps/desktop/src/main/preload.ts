@@ -81,10 +81,10 @@ const arcAPI: ArcAPI = {
   },
 
   ui: {
-    showThreadContextMenu: (isPinned: boolean) =>
-      ipcRenderer.invoke('arc:ui:showThreadContextMenu', isPinned),
-    showMessageContextMenu: (content: string, hasEditOption: boolean) =>
-      ipcRenderer.invoke('arc:ui:showMessageContextMenu', content, hasEditOption),
+    showThreadContextMenu: (threadId: string, isPinned: boolean) =>
+      ipcRenderer.invoke('arc:ui:showThreadContextMenu', threadId, isPinned),
+    showMessageContextMenu: (hasEditOption: boolean) =>
+      ipcRenderer.invoke('arc:ui:showMessageContextMenu', hasEditOption),
   },
 
   profiles: {

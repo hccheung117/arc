@@ -107,7 +107,7 @@ export function Message({ message, isThinking, onEdit, isEditing, branchInfo, on
   const handleContextMenu = useCallback(async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    
+
     // Safety check for API availability (in case of version mismatch/hot-reload lag)
     if (!window.arc.ui?.showMessageContextMenu) {
       logger.warn('ui', 'Context menu API not available')
@@ -115,9 +115,11 @@ export function Message({ message, isThinking, onEdit, isEditing, branchInfo, on
     }
 
     try {
-      const result = await window.arc.ui.showMessageContextMenu(message.content, !!onEdit)
+      const result = await window.arc.ui.showMessageContextMenu(!!onEdit)
 
-      if (result === 'edit' && onEdit) {
+      if (result === 'copy') {
+        navigator.clipboard.writeText(message.content)
+      } else if (result === 'edit' && onEdit) {
         onEdit(message.content)
       }
     } catch (err) {
