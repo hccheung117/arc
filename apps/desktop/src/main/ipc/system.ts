@@ -5,54 +5,46 @@ import { rendererError } from '../lib/logger'
 import { getConfig, setConfig } from '../lib/profile'
 import { showThreadContextMenu, showMessageContextMenu } from '../lib/ui'
 import { getAttachmentPath } from '../lib/messages'
-import { validatedArgs } from '../lib/ipc'
+import { validated } from '../lib/ipc'
 
 // ============================================================================
 // CONFIG
 // ============================================================================
 
-async function handleConfigGet<T = unknown>(key: string): Promise<T | null> {
-  return getConfig<T>(key)
-}
+const handleConfigGet = validated([z.string()], async (key) => {
+  return getConfig(key)
+})
 
-async function handleConfigSet<T = unknown>(key: string, value: T): Promise<void> {
+const handleConfigSet = validated([z.string(), z.unknown()], async (key, value) => {
   await setConfig(key, value)
-}
+})
 
 function registerConfigHandlers(ipcMain: IpcMain): void {
-  ipcMain.handle('arc:config:get', validatedArgs(z.tuple([z.string()]), handleConfigGet))
-  ipcMain.handle(
-    'arc:config:set',
-    validatedArgs(z.tuple([z.string(), z.unknown()]), handleConfigSet)
-  )
+  ipcMain.handle('arc:config:get', handleConfigGet)
+  ipcMain.handle('arc:config:set', handleConfigSet)
 }
 
 // ============================================================================
 // UI
 // ============================================================================
 
-async function handleUIShowThreadContextMenu(
-  threadId: string,
-  isPinned: boolean
-): Promise<'rename' | null> {
-  return showThreadContextMenu(threadId, isPinned)
-}
+const handleUIShowThreadContextMenu = validated(
+  [z.string(), z.boolean()],
+  async (threadId, isPinned): Promise<'rename' | null> => {
+    return showThreadContextMenu(threadId, isPinned)
+  }
+)
 
-async function handleUIShowMessageContextMenu(
-  hasEditOption: boolean
-): Promise<'copy' | 'edit' | null> {
-  return showMessageContextMenu(hasEditOption)
-}
+const handleUIShowMessageContextMenu = validated(
+  [z.boolean()],
+  async (hasEditOption): Promise<'copy' | 'edit' | null> => {
+    return showMessageContextMenu(hasEditOption)
+  }
+)
 
 function registerUIHandlers(ipcMain: IpcMain): void {
-  ipcMain.handle(
-    'arc:ui:showThreadContextMenu',
-    validatedArgs(z.tuple([z.string(), z.boolean()]), handleUIShowThreadContextMenu)
-  )
-  ipcMain.handle(
-    'arc:ui:showMessageContextMenu',
-    validatedArgs(z.tuple([z.boolean()]), handleUIShowMessageContextMenu)
-  )
+  ipcMain.handle('arc:ui:showThreadContextMenu', handleUIShowThreadContextMenu)
+  ipcMain.handle('arc:ui:showMessageContextMenu', handleUIShowMessageContextMenu)
 }
 
 // ============================================================================
@@ -73,23 +65,20 @@ function registerLoggingHandlers(ipcMain: IpcMain): void {
 // UTILS
 // ============================================================================
 
-async function handleUtilsOpenFile(filePath: string): Promise<void> {
+const handleUtilsOpenFile = validated([z.string()], async (filePath) => {
   await shell.openPath(filePath)
-}
+})
 
-async function handleUtilsGetAttachmentPath(
-  conversationId: string,
-  relativePath: string
-): Promise<string> {
-  return getAttachmentPath(conversationId, relativePath)
-}
+const handleUtilsGetAttachmentPath = validated(
+  [z.string(), z.string()],
+  async (conversationId, relativePath) => {
+    return getAttachmentPath(conversationId, relativePath)
+  }
+)
 
 function registerUtilsHandlers(ipcMain: IpcMain): void {
-  ipcMain.handle('arc:utils:openFile', validatedArgs(z.tuple([z.string()]), handleUtilsOpenFile))
-  ipcMain.handle(
-    'arc:utils:getAttachmentPath',
-    validatedArgs(z.tuple([z.string(), z.string()]), handleUtilsGetAttachmentPath)
-  )
+  ipcMain.handle('arc:utils:openFile', handleUtilsOpenFile)
+  ipcMain.handle('arc:utils:getAttachmentPath', handleUtilsGetAttachmentPath)
 }
 
 // ============================================================================

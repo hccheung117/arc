@@ -25,8 +25,21 @@ import {
   type ProfileInstallResult,
 } from '@arc-types/arc-file'
 import { info, error } from './logger'
-import { fetchAllModels } from './models'
-import { emitProfilesEvent, emitModelsEvent } from './ipc'
+import { fetchAllModels, emitModelsEvent } from './models'
+import { broadcast } from './ipc'
+
+// ============================================================================
+// PROFILES EVENTS
+// ============================================================================
+
+export type ProfilesEvent =
+  | { type: 'installed'; profile: ProfileInstallResult }
+  | { type: 'uninstalled'; profileId: string }
+  | { type: 'activated'; profileId: string | null }
+
+export function emitProfilesEvent(event: ProfilesEvent): void {
+  broadcast('arc:profiles:event', event)
+}
 
 export type { ProfileInfo, ProfileInstallResult }
 

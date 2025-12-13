@@ -1,9 +1,19 @@
 import { modelsFile, type StoredModel, type StoredModelFilter } from '@main/storage'
-import { emitModelsEvent } from './ipc'
 import type { Model } from '@arc-types/models'
 import type { ArcFileProvider } from '@arc-types/arc-file'
+import { broadcast } from './ipc'
 import { info, error, logFetch } from './logger'
 import { getActiveProfile, generateProviderId } from './profile'
+
+// ============================================================================
+// MODELS EVENTS
+// ============================================================================
+
+export type ModelsEvent = { type: 'updated' }
+
+export function emitModelsEvent(event: ModelsEvent): void {
+  broadcast('arc:models:event', event)
+}
 
 const OPENAI_DEFAULT_BASE_URL = 'https://api.openai.com/v1'
 

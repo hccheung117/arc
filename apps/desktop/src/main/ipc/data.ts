@@ -37,9 +37,11 @@ import {
   type ProfileInfo,
   type ProfileInstallResult,
 } from '../lib/profile'
-import { fetchAllModels } from '../lib/models'
+import { fetchAllModels, emitModelsEvent } from '../lib/models'
 import { info, error } from '../lib/logger'
-import { validatedArgs, emitModelsEvent, emitProfilesEvent, emitConversationEvent } from '../lib/ipc'
+import { validated } from '../lib/ipc'
+import { emitProfilesEvent } from '../lib/profile'
+import { emitConversationEvent } from '../lib/messages'
 
 // ============================================================================
 // CONVERSATIONS
@@ -59,99 +61,80 @@ async function handleConversationsList(): Promise<ConversationSummary[]> {
   return getConversationSummaries()
 }
 
-async function handleConversationsUpdate(
-  id: string,
-  patch: ConversationPatch
-): Promise<Conversation> {
-  const conversation = await updateConversation(id, patch)
-  emitConversationEvent({ type: 'updated', conversation })
-  return conversation
-}
+const handleConversationsUpdate = validated(
+  [z.string(), ConversationPatchSchema],
+  async (id, patch): Promise<Conversation> => {
+    const conversation = await updateConversation(id, patch)
+    emitConversationEvent({ type: 'updated', conversation })
+    return conversation
+  }
+)
 
-async function handleConversationsDelete(id: string): Promise<void> {
+const handleConversationsDelete = validated([z.string()], async (id) => {
   await deleteConversation(id)
   emitConversationEvent({ type: 'deleted', id })
-}
+})
 
 function registerConversationsHandlers(ipcMain: IpcMain): void {
   ipcMain.handle('arc:conversations:list', handleConversationsList)
-  ipcMain.handle(
-    'arc:conversations:update',
-    validatedArgs(z.tuple([z.string(), ConversationPatchSchema]), handleConversationsUpdate)
-  )
-  ipcMain.handle(
-    'arc:conversations:delete',
-    validatedArgs(z.tuple([z.string()]), handleConversationsDelete)
-  )
+  ipcMain.handle('arc:conversations:update', handleConversationsUpdate)
+  ipcMain.handle('arc:conversations:delete', handleConversationsDelete)
 }
 
 // ============================================================================
 // MESSAGES
 // ============================================================================
 
-async function handleMessagesList(conversationId: string): Promise<ListMessagesResult> {
+const handleMessagesList = validated([z.string()], async (conversationId): Promise<ListMessagesResult> => {
   return getMessages(conversationId)
-}
+})
 
-async function handleMessagesCreate(
-  conversationId: string,
-  input: CreateMessageInput
-): Promise<Message> {
-  const { message, threadWasCreated } = await createMessage(conversationId, input)
+const handleMessagesCreate = validated(
+  [z.string(), CreateMessageInputSchema],
+  async (conversationId, input): Promise<Message> => {
+    const { message, threadWasCreated } = await createMessage(conversationId, input)
 
-  if (threadWasCreated) {
-    const index = await threadIndexFile().read()
-    const thread = index.threads.find((t) => t.id === conversationId)
-    if (thread) {
-      emitConversationEvent({
-        type: 'created',
-        conversation: storedThreadToConversation(thread),
-      })
+    if (threadWasCreated) {
+      const index = await threadIndexFile().read()
+      const thread = index.threads.find((t) => t.id === conversationId)
+      if (thread) {
+        emitConversationEvent({
+          type: 'created',
+          conversation: storedThreadToConversation(thread),
+        })
+      }
     }
+
+    return message
   }
+)
 
-  return message
-}
+const handleMessagesCreateBranch = validated(
+  [z.string(), CreateBranchInputSchema],
+  async (conversationId, input): Promise<CreateBranchResult> => {
+    return createBranch(
+      conversationId,
+      input.parentId,
+      input.content,
+      input.attachments,
+      input.modelId,
+      input.providerId
+    )
+  }
+)
 
-async function handleMessagesCreateBranch(
-  conversationId: string,
-  input: CreateBranchInput
-): Promise<CreateBranchResult> {
-  return createBranch(
-    conversationId,
-    input.parentId,
-    input.content,
-    input.attachments,
-    input.modelId,
-    input.providerId
-  )
-}
-
-async function handleMessagesUpdate(
-  conversationId: string,
-  messageId: string,
-  input: UpdateMessageInput
-): Promise<Message> {
-  return updateMessage(conversationId, messageId, input.content)
-}
+const handleMessagesUpdate = validated(
+  [z.string(), z.string(), UpdateMessageInputSchema],
+  async (conversationId, messageId, input): Promise<Message> => {
+    return updateMessage(conversationId, messageId, input.content)
+  }
+)
 
 function registerMessagesHandlers(ipcMain: IpcMain): void {
-  ipcMain.handle(
-    'arc:messages:list',
-    validatedArgs(z.tuple([z.string()]), handleMessagesList)
-  )
-  ipcMain.handle(
-    'arc:messages:create',
-    validatedArgs(z.tuple([z.string(), CreateMessageInputSchema]), handleMessagesCreate)
-  )
-  ipcMain.handle(
-    'arc:messages:createBranch',
-    validatedArgs(z.tuple([z.string(), CreateBranchInputSchema]), handleMessagesCreateBranch)
-  )
-  ipcMain.handle(
-    'arc:messages:update',
-    validatedArgs(z.tuple([z.string(), z.string(), UpdateMessageInputSchema]), handleMessagesUpdate)
-  )
+  ipcMain.handle('arc:messages:list', handleMessagesList)
+  ipcMain.handle('arc:messages:create', handleMessagesCreate)
+  ipcMain.handle('arc:messages:createBranch', handleMessagesCreateBranch)
+  ipcMain.handle('arc:messages:update', handleMessagesUpdate)
 }
 
 // ============================================================================
@@ -166,7 +149,7 @@ async function handleProfilesGetActive(): Promise<string | null> {
   return getActiveProfileId()
 }
 
-async function handleProfilesInstall(filePath: string): Promise<ProfileInstallResult> {
+const handleProfilesInstall = validated([z.string()], async (filePath): Promise<ProfileInstallResult> => {
   info('profiles', `Install request: ${filePath}`)
   const content = await readFile(filePath, 'utf-8')
 
@@ -183,9 +166,9 @@ async function handleProfilesInstall(filePath: string): Promise<ProfileInstallRe
     .catch((err) => error('models', 'Background fetch failed', err as Error))
 
   return result
-}
+})
 
-async function handleProfilesUninstall(profileId: string): Promise<void> {
+const handleProfilesUninstall = validated([z.string()], async (profileId) => {
   await uninstallProfile(profileId)
   emitProfilesEvent({ type: 'uninstalled', profileId })
 
@@ -194,9 +177,9 @@ async function handleProfilesUninstall(profileId: string): Promise<void> {
       if (updated) emitModelsEvent({ type: 'updated' })
     })
     .catch((err) => error('models', 'Background fetch failed', err as Error))
-}
+})
 
-async function handleProfilesActivate(profileId: string | null): Promise<void> {
+const handleProfilesActivate = validated([z.string().nullable()], async (profileId) => {
   await activateProfile(profileId)
   emitProfilesEvent({ type: 'activated', profileId })
 
@@ -205,23 +188,14 @@ async function handleProfilesActivate(profileId: string | null): Promise<void> {
       if (updated) emitModelsEvent({ type: 'updated' })
     })
     .catch((err) => error('models', 'Background fetch failed', err as Error))
-}
+})
 
 function registerProfilesHandlers(ipcMain: IpcMain): void {
   ipcMain.handle('arc:profiles:list', handleProfilesList)
   ipcMain.handle('arc:profiles:getActive', handleProfilesGetActive)
-  ipcMain.handle(
-    'arc:profiles:install',
-    validatedArgs(z.tuple([z.string()]), handleProfilesInstall)
-  )
-  ipcMain.handle(
-    'arc:profiles:uninstall',
-    validatedArgs(z.tuple([z.string()]), handleProfilesUninstall)
-  )
-  ipcMain.handle(
-    'arc:profiles:activate',
-    validatedArgs(z.tuple([z.string().nullable()]), handleProfilesActivate)
-  )
+  ipcMain.handle('arc:profiles:install', handleProfilesInstall)
+  ipcMain.handle('arc:profiles:uninstall', handleProfilesUninstall)
+  ipcMain.handle('arc:profiles:activate', handleProfilesActivate)
 }
 
 // ============================================================================

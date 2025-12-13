@@ -1,6 +1,5 @@
 import {Menu} from 'electron'
-import {deleteConversation, updateConversation} from './messages'
-import {emitConversationEvent} from './ipc'
+import {deleteConversation, updateConversation, emitConversationEvent} from './messages'
 
 // ============================================================================
 // GENERIC CONTEXT MENU FACTORY

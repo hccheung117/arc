@@ -31,6 +31,20 @@ import {
   type StoredThread,
   type BranchInfo,
 } from '@main/storage'
+import { broadcast } from './ipc'
+
+// ============================================================================
+// CONVERSATION EVENTS
+// ============================================================================
+
+export type ConversationEvent =
+  | { type: 'created'; conversation: { id: string; title: string; pinned: boolean; createdAt: string; updatedAt: string } }
+  | { type: 'updated'; conversation: { id: string; title: string; pinned: boolean; createdAt: string; updatedAt: string } }
+  | { type: 'deleted'; id: string }
+
+export function emitConversationEvent(event: ConversationEvent): void {
+  broadcast('arc:conversations:event', event)
+}
 
 // ============================================================================
 // ATTACHMENT I/O
