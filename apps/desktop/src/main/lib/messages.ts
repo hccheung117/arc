@@ -1,5 +1,5 @@
 import { createId } from '@paralleldrive/cuid2'
-import type { NormalizedUsage } from './openai-types'
+import type { NormalizedUsage } from './ai'
 import type { Message, MessageRole, MessageAttachment } from '@arc-types/messages'
 import type { AttachmentInput } from '@arc-types/arc-api'
 import {

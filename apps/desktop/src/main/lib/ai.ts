@@ -5,15 +5,70 @@ import { getAttachmentPath } from './attachments'
 import { loggingFetch } from './http-logger'
 import { getMessages, insertAssistantMessage } from './messages'
 import { getProviderConfig } from './providers'
-import type {
-  ChatMessage,
-  ChatCompletionRequest,
-  NormalizedUsage,
-  APIErrorResponse,
-  ChatCompletionChunk,
-} from './openai-types'
-import { parseSSEStream } from './sse-stream'
+import { parseSSEStream, type ChatCompletionChunk } from './sse-stream'
 import { logger } from './logger'
+
+// ============================================================================
+// CHAT COMPLETION REQUEST TYPES
+// ============================================================================
+
+/** Text content part for multimodal messages */
+interface TextContentPart {
+  type: 'text'
+  text: string
+}
+
+/** Image content part with base64 data URL */
+interface ImageContentPart {
+  type: 'image_url'
+  image_url: {
+    url: string // data:image/png;base64,... or https://...
+  }
+}
+
+/** Union of content part types */
+type ContentPart = TextContentPart | ImageContentPart
+
+/** Chat message with role and content (simple or multimodal) */
+interface ChatMessage {
+  role: 'user' | 'assistant' | 'system'
+  content: string | ContentPart[]
+}
+
+/** Reasoning/thinking configuration */
+interface ThinkingConfig {
+  reasoning_effort: 'low' | 'medium' | 'high'
+}
+
+/** Chat completion request payload */
+interface ChatCompletionRequest {
+  model: string
+  messages: ChatMessage[]
+  stream: boolean
+  temperature?: number
+  thinking?: ThinkingConfig
+}
+
+// ============================================================================
+// INTERNAL TYPES
+// ============================================================================
+
+/** Unified usage format matching storage schema */
+export interface NormalizedUsage {
+  inputTokens: number
+  outputTokens: number
+  totalTokens: number
+  reasoningTokens?: number
+}
+
+/** API error response */
+interface APIErrorResponse {
+  error: {
+    message: string
+    type: string
+    code: string | null
+  }
+}
 
 export interface ProviderConfig {
   type: string

@@ -10,8 +10,45 @@
  * - Stream ends with "data: [DONE]"
  */
 
-import type { ChatCompletionChunk } from './openai-types'
 import { logger } from './logger'
+
+// ============================================================================
+// SSE RESPONSE TYPES
+// ============================================================================
+
+/** Delta content in a streaming chunk */
+export interface StreamDelta {
+  role?: 'assistant'
+  content?: string | null
+  reasoning_content?: string | null
+}
+
+/** Choice in a streaming response */
+export interface StreamChoice {
+  index: number
+  delta: StreamDelta
+  finish_reason?: 'stop' | 'length' | 'content_filter' | null
+}
+
+/** Token usage statistics (appears in final chunk) */
+export interface TokenUsage {
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  completion_tokens_details?: {
+    reasoning_tokens?: number
+  }
+}
+
+/** Streaming chunk response */
+export interface ChatCompletionChunk {
+  id: string
+  object: 'chat.completion.chunk'
+  created: number
+  model: string
+  choices: StreamChoice[]
+  usage?: TokenUsage
+}
 
 /**
  * Parses a single SSE line into a ChatCompletionChunk.
