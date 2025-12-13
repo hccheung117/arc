@@ -1,7 +1,7 @@
 import * as fs from 'fs/promises'
 import type { Message } from '@arc-types/messages'
 import { modelsFile } from '@main/storage'
-import { logger, loggingFetch } from './logger'
+import { warn, error, logFetch } from './logger'
 import { getAttachmentPath, getMessages, insertAssistantMessage } from './messages'
 import { getProviderConfig } from './profile'
 
@@ -63,7 +63,7 @@ function parseSSELine(line: string): ChatCompletionChunk | null {
   try {
     return JSON.parse(payload) as ChatCompletionChunk
   } catch {
-    logger.warn('sse', `Failed to parse chunk: ${payload.slice(0, 100)}`)
+    warn('sse', `Failed to parse chunk: ${payload.slice(0, 100)}`)
     return null
   }
 }
@@ -279,7 +279,7 @@ async function streamChatCompletion(
 
   console.log(`[API] POST ${endpoint} ${modelId} (${messages.length} msgs)`)
 
-  const response = await loggingFetch(endpoint, {
+  const response = await logFetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -401,13 +401,13 @@ export async function startChatStream(
       usage,
     )
     callbacks.onComplete(assistantMessage)
-  } catch (error) {
-    if ((error as Error).name === 'AbortError') {
+  } catch (err) {
+    if ((err as Error).name === 'AbortError') {
       return
     }
 
-    const errorMsg = error instanceof Error ? error.message : 'Unknown error'
-    logger.error('chat', `Stream error: ${errorMsg}`)
+    const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+    error('chat', `Stream error: ${errorMsg}`)
     callbacks.onError(errorMsg)
   } finally {
     activeStreams.delete(streamId)

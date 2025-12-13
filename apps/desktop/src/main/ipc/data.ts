@@ -38,7 +38,7 @@ import {
   type ProfileInstallResult,
 } from '../lib/profile'
 import { fetchAllModels } from '../lib/models'
-import { logger } from '../lib/logger'
+import { info, error } from '../lib/logger'
 import { validatedArgs, emitModelsEvent, emitProfilesEvent, emitConversationEvent } from '../lib/ipc'
 
 // ============================================================================
@@ -167,7 +167,7 @@ async function handleProfilesGetActive(): Promise<string | null> {
 }
 
 async function handleProfilesInstall(filePath: string): Promise<ProfileInstallResult> {
-  logger.info('profiles', `Install request: ${filePath}`)
+  info('profiles', `Install request: ${filePath}`)
   const content = await readFile(filePath, 'utf-8')
 
   const result = await installProfile(content)
@@ -180,7 +180,7 @@ async function handleProfilesInstall(filePath: string): Promise<ProfileInstallRe
     .then((updated) => {
       if (updated) emitModelsEvent({ type: 'updated' })
     })
-    .catch((err) => logger.error('models', 'Background fetch failed', err as Error))
+    .catch((err) => error('models', 'Background fetch failed', err as Error))
 
   return result
 }
@@ -193,7 +193,7 @@ async function handleProfilesUninstall(profileId: string): Promise<void> {
     .then((updated) => {
       if (updated) emitModelsEvent({ type: 'updated' })
     })
-    .catch((err) => logger.error('models', 'Background fetch failed', err as Error))
+    .catch((err) => error('models', 'Background fetch failed', err as Error))
 }
 
 async function handleProfilesActivate(profileId: string | null): Promise<void> {
@@ -204,7 +204,7 @@ async function handleProfilesActivate(profileId: string | null): Promise<void> {
     .then((updated) => {
       if (updated) emitModelsEvent({ type: 'updated' })
     })
-    .catch((err) => logger.error('models', 'Background fetch failed', err as Error))
+    .catch((err) => error('models', 'Background fetch failed', err as Error))
 }
 
 function registerProfilesHandlers(ipcMain: IpcMain): void {

@@ -1,7 +1,7 @@
 import type { IpcMain } from 'electron'
 import { shell } from 'electron'
 import { z } from 'zod'
-import { logRendererError } from '../lib/logger'
+import { rendererError } from '../lib/logger'
 import { getConfig, setConfig } from '../lib/profile'
 import { showThreadContextMenu, showMessageContextMenu } from '../lib/ui'
 import { getAttachmentPath } from '../lib/messages'
@@ -60,7 +60,7 @@ function registerUIHandlers(ipcMain: IpcMain): void {
 // ============================================================================
 
 function handleLogError(tag: string, message: string, stack?: string): void {
-  logRendererError(tag, message, stack)
+  rendererError(tag, message, stack)
 }
 
 function registerLoggingHandlers(ipcMain: IpcMain): void {

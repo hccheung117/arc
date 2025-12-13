@@ -6,7 +6,7 @@ import { ChatOptionsSchema } from '@arc-types/arc-api'
 import type { Model } from '@arc-types/models'
 import { getModels } from '../lib/models'
 import { startChatStream, cancelStream } from '../lib/ai'
-import { logger } from '../lib/logger'
+import { error } from '../lib/logger'
 import { validatedArgs, emitAIStreamEvent } from '../lib/ipc'
 
 // ============================================================================
@@ -33,9 +33,9 @@ async function handleAIChat(conversationId: string, options: ChatOptions): Promi
     onReasoning: (chunk) => emitAIStreamEvent({ type: 'reasoning', streamId, chunk }),
     onComplete: (message) => emitAIStreamEvent({ type: 'complete', streamId, message }),
     onError: (error) => emitAIStreamEvent({ type: 'error', streamId, error }),
-  }).catch((error) => {
-    const errorMsg = error instanceof Error ? error.message : 'Unknown streaming error'
-    logger.error('chat', errorMsg, error as Error)
+  }).catch((err) => {
+    const errorMsg = err instanceof Error ? err.message : 'Unknown streaming error'
+    error('chat', errorMsg, err as Error)
     emitAIStreamEvent({ type: 'error', streamId, error: errorMsg })
   })
 

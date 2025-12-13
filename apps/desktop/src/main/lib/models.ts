@@ -2,7 +2,7 @@ import { modelsFile, type StoredModel, type StoredModelFilter } from '@main/stor
 import { emitModelsEvent } from './ipc'
 import type { Model } from '@arc-types/models'
 import type { ArcFileProvider } from '@arc-types/arc-file'
-import { logger, loggingFetch } from './logger'
+import { info, error, logFetch } from './logger'
 import { getActiveProfile, generateProviderId } from './profile'
 
 const OPENAI_DEFAULT_BASE_URL = 'https://api.openai.com/v1'
@@ -70,7 +70,7 @@ async function fetchOpenAIModels(provider: RuntimeProvider): Promise<RawFetchedM
     headers['Authorization'] = `Bearer ${provider.apiKey}`
   }
 
-  const response = await loggingFetch(endpoint, { headers })
+  const response = await logFetch(endpoint, { headers })
 
   if (!response.ok) {
     throw new Error(`Failed to fetch models: ${response.status} ${response.statusText}`)
@@ -138,12 +138,12 @@ export async function fetchAllModels(): Promise<boolean> {
 
       allModels.push(...filteredModels)
     } else {
-      logger.error('models', 'Provider fetch failed', result.reason as Error)
+      error('models', 'Provider fetch failed', result.reason as Error)
     }
   }
 
   await modelsFile().write({ models: allModels })
-  logger.info('models', `Cache updated with ${allModels.length} model(s)`)
+  info('models', `Cache updated with ${allModels.length} model(s)`)
 
   return true
 }
@@ -176,6 +176,6 @@ export async function initModels(): Promise<void> {
     const updated = await fetchAllModels()
     if (updated) emitModelsEvent({ type: 'updated' })
   } catch (err) {
-    logger.error('models', 'Startup fetch failed', err as Error)
+    error('models', 'Startup fetch failed', err as Error)
   }
 }

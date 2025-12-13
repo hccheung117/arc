@@ -24,7 +24,7 @@ import {
   type ProfileInfo,
   type ProfileInstallResult,
 } from '@arc-types/arc-file'
-import { logger } from './logger'
+import { info, error } from './logger'
 import { fetchAllModels } from './models'
 import { emitProfilesEvent, emitModelsEvent } from './ipc'
 
@@ -115,7 +115,7 @@ export async function installProfile(content: string): Promise<ProfileInstallRes
 
   await writeFileAtomic(getProfilePath(arcFile.id), content, { encoding: 'utf-8' })
 
-  logger.info('profiles', `Installed: ${arcFile.name} (${arcFile.id})`)
+  info('profiles', `Installed: ${arcFile.name} (${arcFile.id})`)
 
   return {
     id: arcFile.id,
@@ -140,7 +140,7 @@ export async function uninstallProfile(profileId: string): Promise<void> {
     activeProfileId: settings.activeProfileId === profileId ? null : settings.activeProfileId,
   }))
 
-  logger.info('profiles', `Uninstalled: ${profileId}`)
+  info('profiles', `Uninstalled: ${profileId}`)
 }
 
 /**
@@ -161,7 +161,7 @@ export async function activateProfile(profileId: string | null): Promise<void> {
     activeProfileId: profileId,
   }))
 
-  logger.info('profiles', `Activated: ${profileId ?? 'none'}`)
+  info('profiles', `Activated: ${profileId ?? 'none'}`)
 }
 
 /**
@@ -235,7 +235,7 @@ export async function handleProfileFileOpen(filePath: string): Promise<void> {
     return
   }
 
-  logger.info('profiles', `File open: ${filePath}`)
+  info('profiles', `File open: ${filePath}`)
 
   try {
     const content = await fs.readFile(filePath, 'utf-8')
@@ -250,9 +250,9 @@ export async function handleProfileFileOpen(filePath: string): Promise<void> {
       .then((updated) => {
         if (updated) emitModelsEvent({ type: 'updated' })
       })
-      .catch((err) => logger.error('models', 'Background fetch failed', err as Error))
-  } catch (error) {
-    logger.error('profiles', 'File open failed', error as Error)
+      .catch((err) => error('models', 'Background fetch failed', err as Error))
+  } catch (err) {
+    error('profiles', 'File open failed', err as Error)
   }
 }
 

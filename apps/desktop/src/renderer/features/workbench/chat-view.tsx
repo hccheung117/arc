@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
-import { logger } from '@renderer/lib/logger'
+import { error } from '@renderer/lib/logger'
 import { ScrollArea } from '@renderer/components/ui/scroll-area'
 import { Composer, type ComposerRef } from './composer'
 import { Message } from './message'
@@ -52,7 +52,7 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
   const [selectedModel, setSelectedModel] = useState<Model | null>(null)
   const [streamingMessage, setStreamingMessage] = useState<StreamingMessage | null>(null)
   const [activeStreamId, setActiveStreamId] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [editingState, setEditingState] = useState<EditingState | null>(null)
   const composerRef = useRef<ComposerRef>(null)
 
@@ -210,10 +210,10 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
           })
         }
       } else if (event.type === 'error') {
-        logger.error('ui', `Stream error: ${event.error}`)
+        error('ui', `Stream error: ${event.error}`)
         setStreamingMessage(null)
         setActiveStreamId(null)
-        setError(event.error)
+        setErrorMessage(event.error)
       }
     })
 
@@ -232,7 +232,7 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
   const handleSendMessage = async (content: string, attachments?: AttachmentInput[]) => {
     if (!selectedModel) return
 
-    setError(null)
+    setErrorMessage(null)
 
     try {
       // EDITING FLOW
@@ -326,10 +326,10 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
         isThinking: false,
       })
     } catch (err) {
-      logger.error('ui', 'Send message failed', err as Error)
+      error('ui', 'Send message failed', err as Error)
       setStreamingMessage(null)
       setActiveStreamId(null)
-      setError(err instanceof Error ? err.message : 'An error occurred while sending message')
+      setErrorMessage(err instanceof Error ? err.message : 'An error occurred while sending message')
     } finally {
       setEditingState(null)
     }
@@ -424,9 +424,9 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
       )}
 
       <div className="shrink-0">
-        {error && (
+        {errorMessage && (
           <div className="mx-4 mb-2 rounded-md bg-destructive/10 px-3 py-2 text-label text-destructive select-text cursor-text">
-            {error}
+            {errorMessage}
           </div>
         )}
         <Composer
