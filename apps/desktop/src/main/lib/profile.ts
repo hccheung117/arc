@@ -1,5 +1,5 @@
 /**
- * Profile Manager
+ * Profile & Provider Management
  *
  * Handles installation, activation, and removal of arc profiles.
  * Profiles are complete, isolated provider configurations.
@@ -9,18 +9,86 @@
  * Arc files are self-describing with embedded id and name.
  */
 
+import { createHash } from 'crypto'
 import { app } from 'electron'
 import * as fs from 'fs/promises'
 import * as path from 'path'
 import writeFileAtomic from 'write-file-atomic'
-import { settingsFile } from '@main/storage'
-import { validateArcFile } from './arc-import'
-import type { ArcFile, ProfileInfo, ProfileInstallResult } from '@arc-types/arc-file'
+import { ZodError } from 'zod'
+import { settingsFile, type StoredFavorite } from '@main/storage'
+import {
+  ArcFileSchema,
+  ARC_FILE_VERSION,
+  type ArcFile,
+  type ArcFileProvider,
+  type ProfileInfo,
+  type ProfileInstallResult,
+} from '@arc-types/arc-file'
 import { logger } from './logger'
 import { fetchAllModels } from './models'
 import { emitProfilesEvent, emitModelsEvent } from './ipc'
 
 export type { ProfileInfo, ProfileInstallResult }
+
+// ============================================================================
+// PROVIDER ID
+// ============================================================================
+
+/**
+ * Generates a stable provider ID from provider properties.
+ * SHA-256 hash of type|apiKey|baseUrl ensures same config = same ID.
+ */
+export function generateProviderId(provider: ArcFileProvider): string {
+  const input = `${provider.type}|${provider.apiKey ?? ''}|${provider.baseUrl ?? ''}`
+  return createHash('sha256').update(input).digest('hex').slice(0, 8)
+}
+
+// ============================================================================
+// ARC FILE VALIDATION
+// ============================================================================
+
+export interface ValidationResult {
+  valid: boolean
+  data?: ArcFile
+  error?: string
+}
+
+/**
+ * Validates .arc file content against the schema.
+ */
+export function validateArcFile(content: string): ValidationResult {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(content)
+  } catch {
+    return { valid: false, error: 'Invalid JSON format' }
+  }
+
+  try {
+    const arcFile = ArcFileSchema.parse(parsed)
+
+    if (arcFile.version > ARC_FILE_VERSION) {
+      return {
+        valid: false,
+        error: `Unsupported version ${arcFile.version}. Maximum supported: ${ARC_FILE_VERSION}`,
+      }
+    }
+
+    return { valid: true, data: arcFile }
+  } catch (error) {
+    if (error instanceof ZodError) {
+      const issue = error.issues[0]
+      const path = issue.path.join('.')
+      const message = path ? `${path}: ${issue.message}` : issue.message
+      return { valid: false, error: message }
+    }
+    throw error
+  }
+}
+
+// ============================================================================
+// PROFILE MANAGEMENT
+// ============================================================================
 
 function getProfilesDir(): string {
   return path.join(app.getPath('userData'), 'arcfs', 'profiles')
@@ -185,5 +253,72 @@ export async function handleProfileFileOpen(filePath: string): Promise<void> {
       .catch((err) => logger.error('models', 'Background fetch failed', err as Error))
   } catch (error) {
     logger.error('profiles', 'File open failed', error as Error)
+  }
+}
+
+// ============================================================================
+// PROVIDER CONFIG
+// ============================================================================
+
+/**
+ * Get provider config from active profile by stable content-based ID.
+ */
+export async function getProviderConfig(providerId: string): Promise<{
+  type: string
+  apiKey: string | null
+  baseUrl: string | null
+}> {
+  const profile = await getActiveProfile()
+  if (!profile) {
+    throw new Error('No active profile')
+  }
+
+  const provider = profile.providers.find((p) => generateProviderId(p) === providerId)
+  if (!provider) {
+    throw new Error(`Provider ${providerId} not found in active profile`)
+  }
+
+  return {
+    type: provider.type,
+    apiKey: provider.apiKey ?? null,
+    baseUrl: provider.baseUrl ?? null,
+  }
+}
+
+/**
+ * Generic config get handler.
+ * Routes key patterns to appropriate config sources.
+ */
+export async function getConfig<T = unknown>(key: string): Promise<T | null> {
+  if (key.startsWith('provider:')) {
+    const providerId = key.slice('provider:'.length)
+    const config = await getProviderConfig(providerId)
+    return config as T
+  }
+
+  if (key === 'favorites') {
+    const settings = await settingsFile().read()
+    return (settings.favorites ?? []) as T
+  }
+
+  return null
+}
+
+/**
+ * Generic config set handler.
+ * Routes key patterns to appropriate config updaters.
+ * Note: Provider configs are read-only (come from arc files).
+ */
+export async function setConfig<T = unknown>(key: string, value: T): Promise<void> {
+  if (key.startsWith('provider:')) {
+    throw new Error('Provider configs are read-only (managed via arc files)')
+  }
+
+  if (key === 'favorites') {
+    const favorites = value as StoredFavorite[]
+    await settingsFile().update((settings) => ({
+      ...settings,
+      favorites,
+    }))
   }
 }

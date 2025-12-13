@@ -23,8 +23,11 @@ import {
   getConversationSummaries,
   updateConversation,
   deleteConversation,
-} from '../lib/conversations'
-import { getMessages, createMessage, createBranch, updateMessage } from '../lib/messages'
+  getMessages,
+  createMessage,
+  createBranch,
+  updateMessage,
+} from '../lib/messages'
 import { threadIndexFile, type StoredThread } from '../storage'
 import {
   installProfile,
@@ -34,7 +37,7 @@ import {
   getActiveProfileId,
   type ProfileInfo,
   type ProfileInstallResult,
-} from '../lib/profiles'
+} from '../lib/profile'
 import { fetchAllModels } from '../lib/models'
 import { logger } from '../lib/logger'
 import { broadcast, validatedArgs, emitModelsEvent, emitProfilesEvent } from '../lib/ipc'

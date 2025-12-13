@@ -1,11 +1,9 @@
 import { modelsFile, type StoredModel, type StoredModelFilter } from '@main/storage'
 import { emitModelsEvent } from './ipc'
 import type { Model } from '@arc-types/models'
-import { loggingFetch } from './http-logger'
-import { getActiveProfile } from './profiles'
 import type { ArcFileProvider } from '@arc-types/arc-file'
-import { generateProviderId } from './provider-id'
-import { logger } from './logger'
+import { logger, loggingFetch } from './logger'
+import { getActiveProfile, generateProviderId } from './profile'
 
 const OPENAI_DEFAULT_BASE_URL = 'https://api.openai.com/v1'
 

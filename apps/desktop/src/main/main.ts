@@ -25,7 +25,7 @@ import started from 'electron-squirrel-startup';
 import {registerDataHandlers} from './ipc/data';
 import {registerAIHandlers} from './ipc/ai';
 import {registerSystemHandlers} from './ipc/system';
-import {handleProfileFileOpen} from './lib/profiles';
+import {handleProfileFileOpen} from './lib/profile';
 import {initModels} from './lib/models';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.

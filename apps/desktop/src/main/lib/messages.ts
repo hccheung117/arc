@@ -1,16 +1,251 @@
+/**
+ * Conversation & Message Management
+ *
+ * Handles all conversation data persistence:
+ * - Thread CRUD (create, read, update, delete)
+ * - Message operations with event sourcing
+ * - Attachment file I/O
+ *
+ * Storage layout:
+ * userData/arcfs/messages/
+ * ├── {threadId}.jsonl          # Message log (event sourced)
+ * ├── {threadId}/               # Attachments folder
+ * │   ├── {messageId}-0.png
+ * │   └── {messageId}-1.jpg
+ */
+
+import * as fs from 'fs/promises'
+import * as path from 'path'
 import { createId } from '@paralleldrive/cuid2'
 import type { NormalizedUsage } from './ai'
 import type { Message, MessageRole, MessageAttachment } from '@arc-types/messages'
-import type { AttachmentInput } from '@arc-types/arc-api'
+import type { ConversationSummary } from '@arc-types/conversations'
+import type { Conversation, ConversationPatch, AttachmentInput } from '@arc-types/arc-api'
 import {
+  getMessagesDir,
   messageLogFile,
   threadIndexFile,
   reduceMessageEvents,
   type StoredMessageEvent,
   type StoredAttachment,
+  type StoredThread,
   type BranchInfo,
 } from '@main/storage'
-import { writeAttachment, readAttachment } from './attachments'
+
+// ============================================================================
+// ATTACHMENT I/O
+// ============================================================================
+
+/**
+ * Maps MIME type to file extension.
+ */
+function getExtension(mimeType: string): string {
+  const mimeToExt: Record<string, string> = {
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/gif': 'gif',
+    'image/webp': 'webp',
+  }
+  return mimeToExt[mimeType] || 'png'
+}
+
+/**
+ * Returns the absolute path to a thread's attachment directory.
+ */
+function getThreadAttachmentsDir(threadId: string): string {
+  return path.join(getMessagesDir(), threadId)
+}
+
+/**
+ * Ensures the thread's attachment directory exists.
+ */
+async function ensureAttachmentsDir(threadId: string): Promise<void> {
+  const dir = getThreadAttachmentsDir(threadId)
+  await fs.mkdir(dir, { recursive: true })
+}
+
+/**
+ * Writes an attachment to disk.
+ */
+async function writeAttachment(
+  threadId: string,
+  messageId: string,
+  index: number,
+  data: string,
+  mimeType: string,
+): Promise<StoredAttachment> {
+  await ensureAttachmentsDir(threadId)
+
+  const ext = getExtension(mimeType)
+  const filename = `${messageId}-${index}.${ext}`
+  const relativePath = filename
+  const absolutePath = path.join(getThreadAttachmentsDir(threadId), filename)
+
+  const buffer = Buffer.from(data, 'base64')
+  await fs.writeFile(absolutePath, buffer)
+
+  return {
+    type: 'image',
+    path: relativePath,
+    mimeType,
+  }
+}
+
+/**
+ * Reads an attachment from disk and returns it as a data URL.
+ */
+async function readAttachment(
+  threadId: string,
+  relativePath: string,
+  mimeType: string,
+): Promise<string> {
+  const absolutePath = path.join(getThreadAttachmentsDir(threadId), relativePath)
+  const buffer = await fs.readFile(absolutePath)
+  const base64 = buffer.toString('base64')
+  return `data:${mimeType};base64,${base64}`
+}
+
+/**
+ * Returns the absolute file path for an attachment.
+ * Used for reading attachment content for API calls.
+ */
+export function getAttachmentPath(threadId: string, relativePath: string): string {
+  return path.join(getThreadAttachmentsDir(threadId), relativePath)
+}
+
+/**
+ * Deletes all attachments for a thread.
+ */
+async function deleteThreadAttachments(threadId: string): Promise<void> {
+  const dir = getThreadAttachmentsDir(threadId)
+  try {
+    await fs.rm(dir, { recursive: true, force: true })
+  } catch {
+    // Directory may not exist, ignore
+  }
+}
+
+// ============================================================================
+// CONVERSATION (THREAD) OPERATIONS
+// ============================================================================
+
+/**
+ * Converts a StoredThread to a Conversation entity.
+ */
+export function toConversation(thread: StoredThread): Conversation {
+  return {
+    id: thread.id,
+    title: thread.title ?? 'New Chat',
+    pinned: thread.pinned,
+    createdAt: thread.createdAt,
+    updatedAt: thread.updatedAt,
+  }
+}
+
+/**
+ * Returns all conversation summaries for the sidebar.
+ * Threads are sorted by last update time (most recent first).
+ */
+export async function getConversationSummaries(): Promise<ConversationSummary[]> {
+  const index = await threadIndexFile().read()
+
+  const sortedThreads = [...index.threads].sort((a, b) => {
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  })
+
+  return sortedThreads.map((thread) => ({
+    id: thread.id,
+    updatedAt: thread.updatedAt,
+    createdAt: thread.createdAt,
+    pinned: thread.pinned,
+    title: thread.title ?? 'New Chat',
+  }))
+}
+
+/**
+ * Updates a conversation with a partial patch.
+ */
+export async function updateConversation(
+  id: string,
+  patch: ConversationPatch,
+): Promise<Conversation> {
+  let updatedThread: StoredThread | undefined
+
+  await threadIndexFile().update((index) => {
+    const thread = index.threads.find((t) => t.id === id)
+    if (!thread) {
+      throw new Error(`Conversation not found: ${id}`)
+    }
+
+    const now = new Date().toISOString()
+    if (patch.title !== undefined) {
+      thread.title = patch.title
+      thread.renamed = true
+    }
+    if (patch.pinned !== undefined) {
+      thread.pinned = patch.pinned
+    }
+    thread.updatedAt = now
+
+    updatedThread = thread
+    return index
+  })
+
+  if (!updatedThread) {
+    throw new Error(`Failed to update conversation: ${id}`)
+  }
+
+  return toConversation(updatedThread)
+}
+
+/**
+ * Deletes a conversation and all its messages and attachments.
+ */
+export async function deleteConversation(conversationId: string): Promise<void> {
+  await threadIndexFile().update((index) => {
+    index.threads = index.threads.filter((t) => t.id !== conversationId)
+    return index
+  })
+
+  await messageLogFile(conversationId).delete()
+  await deleteThreadAttachments(conversationId)
+}
+
+/**
+ * Renames a conversation by setting a custom title.
+ * Marks the conversation as renamed so auto-generation doesn't override it.
+ */
+export async function renameConversation(conversationId: string, title: string): Promise<void> {
+  await threadIndexFile().update((index) => {
+    const thread = index.threads.find((t) => t.id === conversationId)
+    if (!thread) {
+      throw new Error(`Conversation not found: ${conversationId}`)
+    }
+    thread.title = title
+    thread.renamed = true
+    thread.updatedAt = new Date().toISOString()
+    return index
+  })
+}
+
+/**
+ * Toggles the pinned status of a conversation.
+ */
+export async function toggleConversationPin(conversationId: string, pinned: boolean): Promise<void> {
+  await threadIndexFile().update((index) => {
+    const thread = index.threads.find((t) => t.id === conversationId)
+    if (!thread) {
+      throw new Error(`Conversation not found: ${conversationId}`)
+    }
+    thread.pinned = pinned
+    thread.updatedAt = new Date().toISOString()
+    return index
+  })
+}
+
+// ============================================================================
+// MESSAGE OPERATIONS
+// ============================================================================
 
 /**
  * Generates a title from message content.
@@ -46,7 +281,6 @@ export async function toMessage(
   event: StoredMessageEvent,
   conversationId: string,
 ): Promise<Message> {
-  // Hydrate attachments with data URLs
   let attachments: MessageAttachment[] | undefined
   if (event.attachments?.length) {
     attachments = await Promise.all(
@@ -58,7 +292,7 @@ export async function toMessage(
     id: event.id,
     conversationId,
     role: event.role!,
-    status: 'complete', // All persisted messages are complete
+    status: 'complete',
     content: event.content!,
     reasoning: event.reasoning,
     createdAt: event.createdAt!,
@@ -94,10 +328,6 @@ export async function getMessages(conversationId: string): Promise<GetMessagesRe
 /**
  * Creates a new message by appending to the event log.
  * Implements lazy thread creation: adds thread to index on first message.
- *
- * This is the critical "message-first" operation that drives the entire system.
- *
- * @returns Object with message and wasCreated flag for event emission
  */
 export async function createMessage(
   conversationId: string,
@@ -113,7 +343,6 @@ export async function createMessage(
   const now = new Date().toISOString()
   const messageId = createId()
 
-  // Write attachments to disk and collect stored references
   let storedAttachments: StoredAttachment[] | undefined
   if (input.attachments?.length) {
     storedAttachments = await Promise.all(
@@ -123,7 +352,6 @@ export async function createMessage(
     )
   }
 
-  // Create the message event
   const event: StoredMessageEvent = {
     id: messageId,
     role: input.role,
@@ -135,16 +363,13 @@ export async function createMessage(
     providerId: input.providerId,
   }
 
-  // Append to message log (creates file if doesn't exist)
   await messageLogFile(conversationId).append(event)
 
-  // Lazily create thread in index if this is the first message
   let wasCreated = false
   await threadIndexFile().update((index) => {
     const existingThread = index.threads.find((t) => t.id === conversationId)
 
     if (!existingThread) {
-      // First message: create new thread entry with title from user message
       index.threads.push({
         id: conversationId,
         title: input.role === 'user' ? generateTitle(input.content) : null,
@@ -155,7 +380,6 @@ export async function createMessage(
       })
       wasCreated = true
     } else {
-      // Existing thread: update timestamp
       existingThread.updatedAt = now
     }
 
@@ -171,20 +395,8 @@ export async function createMessage(
  * Called ONLY after AI streaming completes successfully.
  *
  * ATOMIC WRITE GUARANTEE:
- * ----------------------
- * This function writes a single JSONL line containing all message data:
- * - content: The full response text
- * - reasoning: The full thinking/reasoning (if present)
- * - usage: Token counts from the AI SDK
- *
- * We deliberately avoid writing partial data during streaming. If the stream
- * fails or the app crashes mid-generation, no incomplete message is persisted.
- * This ensures users never see a message with reasoning but no answer.
- *
- * The transactional pattern:
- * 1. User message → persisted immediately (never lose user input)
- * 2. AI streaming → memory only (ephemeral UI deltas)
- * 3. AI complete → single atomic write (this function)
+ * This function writes a single JSONL line containing all message data.
+ * We deliberately avoid writing partial data during streaming.
  */
 export async function insertAssistantMessage(
   conversationId: string,
@@ -198,7 +410,6 @@ export async function insertAssistantMessage(
   const now = new Date().toISOString()
   const messageId = createId()
 
-  // Create the message event
   const event: StoredMessageEvent = {
     id: messageId,
     role: 'assistant',
@@ -211,10 +422,8 @@ export async function insertAssistantMessage(
     usage,
   }
 
-  // Append to message log
   await messageLogFile(conversationId).append(event)
 
-  // Update thread timestamp in index
   await threadIndexFile().update((index) => {
     const thread = index.threads.find((t) => t.id === conversationId)
     if (thread) {
@@ -236,15 +445,7 @@ export interface CreateBranchResult {
 
 /**
  * Creates a new branch by adding a message after a specific point.
- * Used for the "edit and regenerate" flow - preserves old conversation, creates new branch.
- *
- * @param conversationId - The thread ID
- * @param parentId - The message to branch from (null for root)
- * @param content - Content for the new message
- * @param attachments - Optional attachments
- * @param modelId - Model ID for the message
- * @param providerId - Provider ID for the message
- * @returns The new message and updated branch points
+ * Used for the "edit and regenerate" flow.
  */
 export async function createBranch(
   conversationId: string,
@@ -257,7 +458,6 @@ export async function createBranch(
   const now = new Date().toISOString()
   const messageId = createId()
 
-  // Write attachments if provided
   let storedAttachments: StoredAttachment[] | undefined
   if (attachments?.length) {
     storedAttachments = await Promise.all(
@@ -267,7 +467,6 @@ export async function createBranch(
     )
   }
 
-  // Create new message event with parentId
   const event: StoredMessageEvent = {
     id: messageId,
     role: 'user',
@@ -280,7 +479,6 @@ export async function createBranch(
   }
   await messageLogFile(conversationId).append(event)
 
-  // Update thread timestamp
   await threadIndexFile().update((index) => {
     const thread = index.threads.find((t) => t.id === conversationId)
     if (thread) {
@@ -291,7 +489,6 @@ export async function createBranch(
 
   const message = await toMessage(event, conversationId)
 
-  // Re-read to get updated branch points
   const updatedEvents = await messageLogFile(conversationId).read()
   const { branchPoints: updatedBranchPoints } = reduceMessageEvents(updatedEvents)
 
@@ -301,13 +498,6 @@ export async function createBranch(
 /**
  * Updates an existing message's content.
  * Uses event sourcing: appends a partial event that gets merged by reduceMessageEvents.
- *
- * Intended for editing assistant messages in place without regeneration.
- *
- * @param conversationId - The thread ID
- * @param messageId - The message ID to update
- * @param content - New content for the message
- * @returns The updated message
  */
 export async function updateMessage(
   conversationId: string,
@@ -316,7 +506,6 @@ export async function updateMessage(
 ): Promise<Message> {
   const now = new Date().toISOString()
 
-  // Append partial update event - reduceMessageEvents merges by ID
   const event: StoredMessageEvent = {
     id: messageId,
     content,
@@ -324,7 +513,6 @@ export async function updateMessage(
   }
   await messageLogFile(conversationId).append(event)
 
-  // Update thread timestamp in index
   await threadIndexFile().update((index) => {
     const thread = index.threads.find((t) => t.id === conversationId)
     if (thread) {
@@ -333,7 +521,6 @@ export async function updateMessage(
     return index
   })
 
-  // Re-read to get the merged message
   const { messages } = await getMessages(conversationId)
   const updated = messages.find((m) => m.id === messageId)
   if (!updated) {

@@ -1,12 +1,109 @@
 import * as fs from 'fs/promises'
 import type { Message } from '@arc-types/messages'
 import { modelsFile } from '@main/storage'
-import { getAttachmentPath } from './attachments'
-import { loggingFetch } from './http-logger'
-import { getMessages, insertAssistantMessage } from './messages'
-import { getProviderConfig } from './providers'
-import { parseSSEStream, type ChatCompletionChunk } from './sse-stream'
-import { logger } from './logger'
+import { logger, loggingFetch } from './logger'
+import { getAttachmentPath, getMessages, insertAssistantMessage } from './messages'
+import { getProviderConfig } from './profile'
+
+// ============================================================================
+// SSE RESPONSE TYPES
+// ============================================================================
+
+/** Delta content in a streaming chunk */
+interface StreamDelta {
+  role?: 'assistant'
+  content?: string | null
+  reasoning_content?: string | null
+}
+
+/** Choice in a streaming response */
+interface StreamChoice {
+  index: number
+  delta: StreamDelta
+  finish_reason?: 'stop' | 'length' | 'content_filter' | null
+}
+
+/** Token usage statistics (appears in final chunk) */
+interface TokenUsage {
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  completion_tokens_details?: {
+    reasoning_tokens?: number
+  }
+}
+
+/** Streaming chunk response */
+interface ChatCompletionChunk {
+  id: string
+  object: 'chat.completion.chunk'
+  created: number
+  model: string
+  choices: StreamChoice[]
+  usage?: TokenUsage
+}
+
+// ============================================================================
+// SSE PARSING
+// ============================================================================
+
+/**
+ * Parses a single SSE line into a ChatCompletionChunk.
+ * Returns null for empty lines, [DONE], or invalid JSON.
+ */
+function parseSSELine(line: string): ChatCompletionChunk | null {
+  const trimmed = line.trim()
+
+  if (!trimmed) return null
+  if (!trimmed.startsWith('data:')) return null
+
+  const payload = trimmed.slice(5).trim()
+  if (payload === '[DONE]') return null
+
+  try {
+    return JSON.parse(payload) as ChatCompletionChunk
+  } catch {
+    logger.warn('sse', `Failed to parse chunk: ${payload.slice(0, 100)}`)
+    return null
+  }
+}
+
+/**
+ * Async generator that yields ChatCompletionChunk from a ReadableStream.
+ * Handles UTF-8 decoding and buffering partial lines across chunk boundaries.
+ */
+async function* parseSSEStream(
+  stream: ReadableStream<Uint8Array>,
+): AsyncGenerator<ChatCompletionChunk> {
+  const reader = stream.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+
+      if (done) {
+        if (buffer.trim()) {
+          const chunk = parseSSELine(buffer)
+          if (chunk) yield chunk
+        }
+        break
+      }
+
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+
+      for (const line of lines) {
+        const chunk = parseSSELine(line)
+        if (chunk) yield chunk
+      }
+    }
+  } finally {
+    reader.releaseLock()
+  }
+}
 
 // ============================================================================
 // CHAT COMPLETION REQUEST TYPES

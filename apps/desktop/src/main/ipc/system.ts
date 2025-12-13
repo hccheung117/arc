@@ -4,9 +4,9 @@ import { z } from 'zod'
 import type { ContextMenuAction } from '@arc-types/conversations'
 import type { MessageContextMenuAction } from '@arc-types/messages'
 import { logRendererError } from '../lib/logger'
-import { getConfig, setConfig } from '../lib/providers'
+import { getConfig, setConfig } from '../lib/profile'
 import { showThreadContextMenu, showMessageContextMenu } from '../lib/ui'
-import { getAttachmentPath } from '../lib/attachments'
+import { getAttachmentPath } from '../lib/messages'
 import { validatedArgs } from '../lib/ipc'
 
 // ============================================================================
