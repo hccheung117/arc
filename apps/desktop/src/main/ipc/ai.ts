@@ -1,13 +1,29 @@
+/**
+ * AI IPC Handlers
+ *
+ * Orchestration layer for AI streaming operations.
+ * Composes building blocks from lib/ modules.
+ */
+
 import type { IpcMain } from 'electron'
 import { createId } from '@paralleldrive/cuid2'
 import { z } from 'zod'
-import type { ChatOptions, ChatResponse, AIStreamEvent } from '@arc-types/arc-api'
+import type { ChatResponse, AIStreamEvent } from '@arc-types/arc-api'
 import { ChatOptionsSchema } from '@arc-types/arc-api'
 import type { Model } from '@arc-types/models'
+import type { Message } from '@arc-types/messages'
 import { getModels } from '../lib/models'
-import { startChatStream, cancelStream } from '../lib/ai'
-import { error } from '../lib/logger'
-import { validated, broadcast } from '../lib/ipc'
+import { streamChatCompletion, toOpenAIMessages, getModelProvider, type NormalizedUsage } from '../lib/ai'
+import { getMessages, insertAssistantMessage } from '../lib/messages'
+import { getProviderConfig } from '../lib/profile'
+import { error } from '../infra/logger'
+import { validated, broadcast } from '../infra/ipc'
+
+// ============================================================================
+// STREAM STATE
+// ============================================================================
+
+const activeStreams = new Map<string, AbortController>()
 
 // ============================================================================
 // AI STREAM EVENTS
@@ -18,7 +34,103 @@ function emitAIStreamEvent(event: AIStreamEvent): void {
 }
 
 // ============================================================================
-// MODELS
+// STREAMING ORCHESTRATION
+// ============================================================================
+
+interface StreamCallbacks {
+  onDelta: (chunk: string) => void
+  onReasoning: (chunk: string) => void
+  onComplete: (message: Message) => void
+  onError: (error: string) => void
+}
+
+/**
+ * Orchestrates AI chat streaming.
+ * Composes: messages → profile → ai → messages
+ *
+ * MEMORY-ONLY STREAMING STRATEGY:
+ * Reasoning and content are accumulated in memory during streaming.
+ * Storage is NOT touched until streaming completes successfully.
+ * On completion, a single atomic write persists the full message.
+ */
+async function executeStream(
+  streamId: string,
+  conversationId: string,
+  modelId: string,
+  callbacks: StreamCallbacks,
+): Promise<void> {
+  const abortController = new AbortController()
+  activeStreams.set(streamId, abortController)
+
+  try {
+    const { messages: conversationMessages } = await getMessages(conversationId)
+
+    const providerId = await getModelProvider(modelId)
+    const providerConfig = await getProviderConfig(providerId)
+
+    // Get the parent ID (last message in the conversation)
+    const lastMessage = conversationMessages[conversationMessages.length - 1]
+    const parentId = lastMessage?.id ?? null
+
+    const openAIMessages = await toOpenAIMessages(conversationMessages, conversationId)
+
+    // Memory-only accumulators - written atomically on completion
+    let fullContent = ''
+    let fullReasoning = ''
+
+    const usage = await streamChatCompletion(
+      providerConfig,
+      modelId,
+      openAIMessages,
+      {
+        onDelta: (chunk) => {
+          fullContent += chunk
+          callbacks.onDelta(chunk)
+        },
+        onReasoning: (chunk) => {
+          fullReasoning += chunk
+          callbacks.onReasoning(chunk)
+        },
+      },
+      abortController.signal,
+    )
+
+    const assistantMessage = await insertAssistantMessage(
+      conversationId,
+      fullContent,
+      fullReasoning || undefined,
+      parentId,
+      modelId,
+      providerId,
+      usage as NormalizedUsage,
+    )
+    callbacks.onComplete(assistantMessage)
+  } catch (err) {
+    if ((err as Error).name === 'AbortError') {
+      return
+    }
+
+    const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+    error('chat', `Stream error: ${errorMsg}`)
+    callbacks.onError(errorMsg)
+  } finally {
+    activeStreams.delete(streamId)
+  }
+}
+
+/**
+ * Cancel an active AI stream.
+ */
+function cancelStream(streamId: string): void {
+  const controller = activeStreams.get(streamId)
+  if (controller) {
+    controller.abort()
+    activeStreams.delete(streamId)
+  }
+}
+
+// ============================================================================
+// MODELS HANDLERS
 // ============================================================================
 
 async function handleModelsList(): Promise<Model[]> {
@@ -30,7 +142,7 @@ function registerModelsHandlers(ipcMain: IpcMain): void {
 }
 
 // ============================================================================
-// AI STREAMING
+// AI STREAMING HANDLERS
 // ============================================================================
 
 const handleAIChat = validated(
@@ -38,11 +150,11 @@ const handleAIChat = validated(
   async (conversationId, options): Promise<ChatResponse> => {
     const streamId = createId()
 
-    startChatStream(streamId, conversationId, options.model, {
+    executeStream(streamId, conversationId, options.model, {
       onDelta: (chunk) => emitAIStreamEvent({ type: 'delta', streamId, chunk }),
       onReasoning: (chunk) => emitAIStreamEvent({ type: 'reasoning', streamId, chunk }),
       onComplete: (message) => emitAIStreamEvent({ type: 'complete', streamId, message }),
-      onError: (error) => emitAIStreamEvent({ type: 'error', streamId, error }),
+      onError: (err) => emitAIStreamEvent({ type: 'error', streamId, error: err }),
     }).catch((err) => {
       const errorMsg = err instanceof Error ? err.message : 'Unknown streaming error'
       error('chat', errorMsg, err as Error)

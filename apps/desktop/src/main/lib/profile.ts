@@ -9,24 +9,21 @@
  * Arc files are self-describing with embedded id and name.
  */
 
-import { createHash } from 'crypto'
 import { app } from 'electron'
 import * as fs from 'fs/promises'
 import * as path from 'path'
 import writeFileAtomic from 'write-file-atomic'
 import { ZodError } from 'zod'
-import { settingsFile, type StoredFavorite } from '@main/storage'
+import { settingsFile, generateProviderId, type StoredFavorite } from '@main/infra/storage'
 import {
   ArcFileSchema,
   ARC_FILE_VERSION,
   type ArcFile,
-  type ArcFileProvider,
   type ProfileInfo,
   type ProfileInstallResult,
 } from '@arc-types/arc-file'
-import { info, error } from './logger'
-import { fetchAllModels, emitModelsEvent } from './models'
-import { broadcast } from './ipc'
+import { info } from '@main/infra/logger'
+import { broadcast } from '@main/infra/ipc'
 
 // ============================================================================
 // PROFILES EVENTS
@@ -42,19 +39,6 @@ export function emitProfilesEvent(event: ProfilesEvent): void {
 }
 
 export type { ProfileInfo, ProfileInstallResult }
-
-// ============================================================================
-// PROVIDER ID
-// ============================================================================
-
-/**
- * Generates a stable provider ID from provider properties.
- * SHA-256 hash of type|apiKey|baseUrl ensures same config = same ID.
- */
-export function generateProviderId(provider: ArcFileProvider): string {
-  const input = `${provider.type}|${provider.apiKey ?? ''}|${provider.baseUrl ?? ''}`
-  return createHash('sha256').update(input).digest('hex').slice(0, 8)
-}
 
 // ============================================================================
 // ARC FILE VALIDATION
@@ -237,36 +221,6 @@ export async function listProfiles(): Promise<ProfileInfo[]> {
   }
 
   return profiles
-}
-
-/**
- * Handle .arc file opened via dock drop or file association.
- * Installs, activates, and triggers model refresh.
- */
-export async function handleProfileFileOpen(filePath: string): Promise<void> {
-  if (path.extname(filePath).toLowerCase() !== '.arc') {
-    return
-  }
-
-  info('profiles', `File open: ${filePath}`)
-
-  try {
-    const content = await fs.readFile(filePath, 'utf-8')
-    const result = await installProfile(content)
-    emitProfilesEvent({ type: 'installed', profile: result })
-
-    await activateProfile(result.id)
-    emitProfilesEvent({ type: 'activated', profileId: result.id })
-
-    // Background model fetch after activation
-    fetchAllModels()
-      .then((updated) => {
-        if (updated) emitModelsEvent({ type: 'updated' })
-      })
-      .catch((err) => error('models', 'Background fetch failed', err as Error))
-  } catch (err) {
-    error('profiles', 'File open failed', err as Error)
-  }
 }
 
 // ============================================================================

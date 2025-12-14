@@ -1,9 +1,15 @@
-import { modelsFile, type StoredModel, type StoredModelFilter } from '@main/storage'
+/**
+ * Model Cache Management
+ *
+ * Building blocks for fetching and caching AI models.
+ * Pure domain logic - no orchestration.
+ */
+
+import { modelsFile, generateProviderId, type StoredModel, type StoredModelFilter } from '@main/infra/storage'
 import type { Model } from '@arc-types/models'
-import type { ArcFileProvider } from '@arc-types/arc-file'
-import { broadcast } from './ipc'
-import { info, error, logFetch } from './logger'
-import { getActiveProfile, generateProviderId } from './profile'
+import type { ArcFile, ArcFileProvider } from '@arc-types/arc-file'
+import { broadcast } from '@main/infra/ipc'
+import { info, error, logFetch } from '@main/infra/logger'
 
 // ============================================================================
 // MODELS EVENTS
@@ -15,27 +21,11 @@ export function emitModelsEvent(event: ModelsEvent): void {
   broadcast('arc:models:event', event)
 }
 
+// ============================================================================
+// INTERNAL TYPES
+// ============================================================================
+
 const OPENAI_DEFAULT_BASE_URL = 'https://api.openai.com/v1'
-
-/**
- * Tests if a model ID matches a glob pattern (supports * wildcard).
- */
-function matchesGlob(value: string, pattern: string): boolean {
-  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&')
-  const regex = new RegExp('^' + escaped.replace(/\*/g, '.*') + '$')
-  return regex.test(value)
-}
-
-/**
- * Applies a model filter to determine visibility.
- * Returns true if the model should be shown, false if hidden.
- */
-function passesFilter(modelId: string, filter: StoredModelFilter | undefined): boolean {
-  if (!filter || filter.rules.length === 0) return true
-
-  const matches = filter.rules.some((rule) => matchesGlob(modelId, rule))
-  return filter.mode === 'allow' ? matches : !matches
-}
 
 interface OpenAIModel {
   id: string
@@ -65,9 +55,33 @@ interface RawFetchedModel {
   fetchedAt: string
 }
 
+// ============================================================================
+// HELPERS
+// ============================================================================
+
+/**
+ * Tests if a model ID matches a glob pattern (supports * wildcard).
+ */
+function matchesGlob(value: string, pattern: string): boolean {
+  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&')
+  const regex = new RegExp('^' + escaped.replace(/\*/g, '.*') + '$')
+  return regex.test(value)
+}
+
+/**
+ * Applies a model filter to determine visibility.
+ * Returns true if the model should be shown, false if hidden.
+ */
+function passesFilter(modelId: string, filter: StoredModelFilter | undefined): boolean {
+  if (!filter || filter.rules.length === 0) return true
+
+  const matches = filter.rules.some((rule) => matchesGlob(modelId, rule))
+  return filter.mode === 'allow' ? matches : !matches
+}
+
 /**
  * Fetches models from an OpenAI-compatible provider.
- * Returns raw model data for processing by fetchAllModels().
+ * Returns raw model data for processing.
  */
 async function fetchOpenAIModels(provider: RuntimeProvider): Promise<RawFetchedModel[]> {
   const baseUrl = provider.baseUrl || OPENAI_DEFAULT_BASE_URL
@@ -109,14 +123,18 @@ function toRuntimeProvider(provider: ArcFileProvider): RuntimeProvider {
   }
 }
 
-/**
- * Fetches models from all providers in the active profile.
- * Applies modelFilter and modelAliases before caching, making the cache
- * the single source of truth for the renderer.
- */
-export async function fetchAllModels(): Promise<boolean> {
-  const profile = await getActiveProfile()
+// ============================================================================
+// BUILDING BLOCKS
+// ============================================================================
 
+/**
+ * Fetches models from all providers in the given profile and updates cache.
+ * Applies modelFilter and modelAliases before caching.
+ *
+ * @param profile - The active profile, or null to clear the cache
+ * @returns true when cache was updated
+ */
+export async function fetchModelsForProfile(profile: ArcFile | null): Promise<boolean> {
   if (!profile || profile.providers.length === 0) {
     await modelsFile().write({ models: [] })
     return true
@@ -158,10 +176,9 @@ export async function fetchAllModels(): Promise<boolean> {
   return true
 }
 
-
 /**
  * Returns the list of available models from cache.
- * Cache is pre-filtered and aliased by fetchAllModels(), so this is a simple read.
+ * Cache is pre-filtered and aliased by fetchModelsForProfile().
  */
 export async function getModels(): Promise<Model[]> {
   const modelsCache = await modelsFile().read()
@@ -175,17 +192,4 @@ export async function getModels(): Promise<Model[]> {
       type: m.providerType,
     },
   }))
-}
-
-/**
- * Initialize models on app startup.
- * Fetches all models and emits update event if changes detected.
- */
-export async function initModels(): Promise<void> {
-  try {
-    const updated = await fetchAllModels()
-    if (updated) emitModelsEvent({ type: 'updated' })
-  } catch (err) {
-    error('models', 'Startup fetch failed', err as Error)
-  }
 }

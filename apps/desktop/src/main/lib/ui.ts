@@ -1,5 +1,11 @@
-import {Menu} from 'electron'
-import {deleteConversation, updateConversation, emitConversationEvent} from './messages'
+/**
+ * Native UI Building Blocks
+ *
+ * Pure utilities for creating native menus.
+ * Returns selected actions without executing side effects.
+ */
+
+import { Menu } from 'electron'
 
 // ============================================================================
 // GENERIC CONTEXT MENU FACTORY
@@ -19,7 +25,7 @@ function createContextMenu<T extends string>(items: MenuItem<T>[]): Promise<T | 
 
     const menu = Menu.buildFromTemplate(items.map((item) =>
         'type' in item
-            ? {type: 'separator' as const}
+            ? { type: 'separator' as const }
             : {
               label: item.label,
               click: () => {
@@ -44,47 +50,33 @@ function createContextMenu<T extends string>(items: MenuItem<T>[]): Promise<T | 
 // THREAD CONTEXT MENU
 // ============================================================================
 
+export type ThreadMenuAction = 'rename' | 'togglePin' | 'delete'
+
 /**
  * Shows a native context menu for thread/conversation actions.
- * Data operations (delete, togglePin) are executed directly in main process.
- * Returns 'rename' for UI-only action, or null if no action needed.
+ * Returns the selected action, leaving side effects to the caller.
  */
-export async function showThreadContextMenu(
-  threadId: string,
-  isPinned: boolean
-): Promise<'rename' | null> {
-  const action = await createContextMenu([
-    { label: 'Rename', action: 'rename' as const },
-    { label: isPinned ? 'Unpin' : 'Pin', action: 'togglePin' as const },
+export function showThreadContextMenu(isPinned: boolean): Promise<ThreadMenuAction | null> {
+  return createContextMenu<ThreadMenuAction>([
+    { label: 'Rename', action: 'rename' },
+    { label: isPinned ? 'Unpin' : 'Pin', action: 'togglePin' },
     { type: 'separator' },
-    { label: 'Delete', action: 'delete' as const },
+    { label: 'Delete', action: 'delete' },
   ])
-
-  if (action === 'delete') {
-    await deleteConversation(threadId)
-    emitConversationEvent({ type: 'deleted', id: threadId })
-    return null
-  }
-
-  if (action === 'togglePin') {
-    const conversation = await updateConversation(threadId, { pinned: !isPinned })
-    emitConversationEvent({ type: 'updated', conversation })
-    return null
-  }
-
-  return action
 }
 
 // ============================================================================
 // MESSAGE CONTEXT MENU
 // ============================================================================
 
+export type MessageMenuAction = 'copy' | 'edit'
+
 /**
  * Shows a native context menu for message actions.
  * Returns the selected action, leaving side effects to the caller.
  */
-export function showMessageContextMenu(hasEditOption: boolean): Promise<'copy' | 'edit' | null> {
-  const items: MenuItem<'copy' | 'edit'>[] = [{ label: 'Copy', action: 'copy' }]
+export function showMessageContextMenu(hasEditOption: boolean): Promise<MessageMenuAction | null> {
+  const items: MenuItem<MessageMenuAction>[] = [{ label: 'Copy', action: 'copy' }]
 
   if (hasEditOption) {
     items.push({ label: 'Edit', action: 'edit' })

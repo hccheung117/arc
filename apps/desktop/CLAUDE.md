@@ -33,6 +33,20 @@ Three patterns based on direction and response requirements:
 | Two-way | Renderer → Main with response | `ipcRenderer.invoke()` / `ipcMain.handle()` |
 | Push | Main → Renderer | `webContents.send()` / `ipcRenderer.on()` |
 
+### Three-layer architecture
+
+**Layers**
+
+- `ipc/` → orchestration (composes domain libs, emits events)
+- `lib/` → domain libs (business logic, each independent)
+- `infra/` → foundation (logger, ipc utils, storage, paths)
+
+**Import rules:**
+
+- `infra/` → no imports from `lib/` or `ipc/`
+- `lib/` → only imports from `infra/` (not other libs)
+- `ipc/` → imports from `lib/` and `infra/`
+
 ## UI Philosophy
 
 ### Native Desktop Feel

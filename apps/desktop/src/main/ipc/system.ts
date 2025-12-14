@@ -1,11 +1,19 @@
+/**
+ * System IPC Handlers
+ *
+ * Orchestration layer for config, UI, logging, and utility operations.
+ * Composes building blocks from lib/ modules.
+ */
+
 import type { IpcMain } from 'electron'
 import { shell } from 'electron'
 import { z } from 'zod'
-import { rendererError } from '../lib/logger'
+import { rendererError } from '../infra/logger'
+import { getAttachmentPath } from '../infra/storage'
 import { getConfig, setConfig } from '../lib/profile'
-import { showThreadContextMenu, showMessageContextMenu } from '../lib/ui'
-import { getAttachmentPath } from '../lib/messages'
-import { validated } from '../lib/ipc'
+import { showThreadContextMenu, showMessageContextMenu, type ThreadMenuAction, type MessageMenuAction } from '../lib/ui'
+import { deleteConversation, updateConversation, emitConversationEvent } from '../lib/messages'
+import { validated } from '../infra/ipc'
 
 // ============================================================================
 // CONFIG
@@ -25,19 +33,38 @@ function registerConfigHandlers(ipcMain: IpcMain): void {
 }
 
 // ============================================================================
-// UI
+// UI - CONTEXT MENUS
 // ============================================================================
 
+/**
+ * Shows thread context menu and executes the selected action.
+ * Returns 'rename' for UI-only action, or null if action was handled.
+ */
 const handleUIShowThreadContextMenu = validated(
   [z.string(), z.boolean()],
   async (threadId, isPinned): Promise<'rename' | null> => {
-    return showThreadContextMenu(threadId, isPinned)
+    const action = await showThreadContextMenu(isPinned)
+
+    if (action === 'delete') {
+      await deleteConversation(threadId)
+      emitConversationEvent({ type: 'deleted', id: threadId })
+      return null
+    }
+
+    if (action === 'togglePin') {
+      const conversation = await updateConversation(threadId, { pinned: !isPinned })
+      emitConversationEvent({ type: 'updated', conversation })
+      return null
+    }
+
+    // 'rename' is returned to renderer for UI handling
+    return action
   }
 )
 
 const handleUIShowMessageContextMenu = validated(
   [z.boolean()],
-  async (hasEditOption): Promise<'copy' | 'edit' | null> => {
+  async (hasEditOption): Promise<MessageMenuAction | null> => {
     return showMessageContextMenu(hasEditOption)
   }
 )

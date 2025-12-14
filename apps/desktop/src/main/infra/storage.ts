@@ -11,11 +11,13 @@
  * - Format abstraction: Business logic is agnostic to JSON vs JSONL
  */
 
+import { createHash } from 'crypto'
 import { app } from 'electron'
 import * as path from 'path'
 import { z } from 'zod'
-import { JsonFile } from './arcfs/json-file'
-import { JsonLog } from './arcfs/json-log'
+import type { ArcFileProvider } from '@arc-types/arc-file'
+import { JsonFile } from '../arcfs/json-file'
+import { JsonLog } from '../arcfs/json-log'
 
 // ============================================================================
 // SETTINGS SCHEMAS
@@ -159,10 +161,25 @@ function getDataDir(): string {
 
 /**
  * Path to the messages directory (contains index + logs).
- * Exported for use by attachments module.
  */
 export function getMessagesDir(): string {
   return path.join(getDataDir(), 'messages')
+}
+
+/**
+ * Returns the absolute file path for an attachment.
+ */
+export function getAttachmentPath(threadId: string, relativePath: string): string {
+  return path.join(getMessagesDir(), threadId, relativePath)
+}
+
+/**
+ * Generates a stable provider ID from provider properties.
+ * SHA-256 hash of type|apiKey|baseUrl ensures same config = same ID.
+ */
+export function generateProviderId(provider: ArcFileProvider): string {
+  const input = `${provider.type}|${provider.apiKey ?? ''}|${provider.baseUrl ?? ''}`
+  return createHash('sha256').update(input).digest('hex').slice(0, 8)
 }
 
 // ============================================================================

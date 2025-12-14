@@ -1,9 +1,14 @@
+/**
+ * AI Streaming Building Blocks
+ *
+ * Low-level utilities for OpenAI-compatible chat completions.
+ * Pure building blocks - no orchestration logic.
+ */
+
 import * as fs from 'fs/promises'
 import type { Message } from '@arc-types/messages'
-import { modelsFile } from '@main/storage'
-import { warn, error, logFetch } from './logger'
-import { getAttachmentPath, getMessages, insertAssistantMessage } from './messages'
-import { getProviderConfig } from './profile'
+import { modelsFile, getAttachmentPath } from '@main/infra/storage'
+import { warn, logFetch } from '@main/infra/logger'
 
 // ============================================================================
 // SSE RESPONSE TYPES
@@ -127,7 +132,7 @@ interface ImageContentPart {
 type ContentPart = TextContentPart | ImageContentPart
 
 /** Chat message with role and content (simple or multimodal) */
-interface ChatMessage {
+export interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
   content: string | ContentPart[]
 }
@@ -147,7 +152,7 @@ interface ChatCompletionRequest {
 }
 
 // ============================================================================
-// INTERNAL TYPES
+// EXPORTED TYPES
 // ============================================================================
 
 /** Unified usage format matching storage schema */
@@ -156,6 +161,13 @@ export interface NormalizedUsage {
   outputTokens: number
   totalTokens: number
   reasoningTokens?: number
+}
+
+/** Provider configuration for API calls */
+export interface ProviderConfig {
+  type: string
+  apiKey: string | null
+  baseUrl: string | null
 }
 
 /** API error response */
@@ -167,20 +179,9 @@ interface APIErrorResponse {
   }
 }
 
-export interface ProviderConfig {
-  type: string
-  apiKey: string | null
-  baseUrl: string | null
-}
-
-export interface StreamCallbacks {
-  onDelta: (chunk: string) => void
-  onReasoning: (chunk: string) => void
-  onComplete: (message: Message) => void
-  onError: (error: string) => void
-}
-
-const activeStreams = new Map<string, AbortController>()
+// ============================================================================
+// BUILDING BLOCKS
+// ============================================================================
 
 /**
  * Convert database messages to OpenAI Chat API format.
@@ -255,8 +256,9 @@ function normalizeUsage(usage: ChatCompletionChunk['usage']): NormalizedUsage {
 
 /**
  * Stream chat completion via REST API with SSE.
+ * Returns normalized usage statistics on completion.
  */
-async function streamChatCompletion(
+export async function streamChatCompletion(
   providerConfig: ProviderConfig,
   modelId: string,
   messages: ChatMessage[],
@@ -326,101 +328,4 @@ async function streamChatCompletion(
   }
 
   return usage
-}
-
-/**
- * Start AI chat stream with callbacks.
- * This is the high-level streaming function that handles the full flow:
- * fetch messages -> get provider config -> stream -> save result.
- *
- * MEMORY-ONLY STREAMING STRATEGY:
- * ------------------------------
- * Reasoning and content are accumulated in memory during streaming:
- * - UI receives real-time deltas via callbacks (ephemeral)
- * - Storage is NOT touched until streaming completes successfully
- * - On completion, a single atomic write persists the full message
- *
- * Crash behavior:
- * - Crash during streaming -> no storage corruption, user retries cleanly
- * - Crash after completion -> full message is persisted
- *
- * This design treats AI output as "disposable until complete" while
- * treating user input as "precious from the start".
- */
-export async function startChatStream(
-  streamId: string,
-  conversationId: string,
-  modelId: string,
-  callbacks: StreamCallbacks,
-): Promise<void> {
-  const abortController = new AbortController()
-  activeStreams.set(streamId, abortController)
-
-  try {
-    const { messages: conversationMessages } = await getMessages(conversationId)
-
-    const providerId = await getModelProvider(modelId)
-    const providerConfig = await getProviderConfig(providerId)
-
-    // Get the parent ID (last message in the conversation)
-    const lastMessage = conversationMessages[conversationMessages.length - 1]
-    const parentId = lastMessage?.id ?? null
-
-    const openAIMessages = await toOpenAIMessages(conversationMessages, conversationId)
-
-    // MEMORY-ONLY ACCUMULATORS
-    // These hold streaming data that will be written atomically on completion.
-    // If the stream fails or is cancelled, this data is discarded—by design.
-    let fullContent = ''
-    let fullReasoning = ''
-
-    const usage = await streamChatCompletion(
-      providerConfig,
-      modelId,
-      openAIMessages,
-      {
-        onDelta: (chunk) => {
-          fullContent += chunk
-          callbacks.onDelta(chunk)
-        },
-        onReasoning: (chunk) => {
-          fullReasoning += chunk
-          callbacks.onReasoning(chunk)
-        },
-      },
-      abortController.signal,
-    )
-
-    const assistantMessage = await insertAssistantMessage(
-      conversationId,
-      fullContent,
-      fullReasoning || undefined,
-      parentId,
-      modelId,
-      providerId,
-      usage,
-    )
-    callbacks.onComplete(assistantMessage)
-  } catch (err) {
-    if ((err as Error).name === 'AbortError') {
-      return
-    }
-
-    const errorMsg = err instanceof Error ? err.message : 'Unknown error'
-    error('chat', `Stream error: ${errorMsg}`)
-    callbacks.onError(errorMsg)
-  } finally {
-    activeStreams.delete(streamId)
-  }
-}
-
-/**
- * Cancel an active AI stream.
- */
-export function cancelStream(streamId: string): void {
-  const controller = activeStreams.get(streamId)
-  if (controller) {
-    controller.abort()
-    activeStreams.delete(streamId)
-  }
 }

@@ -17,7 +17,6 @@
 import * as fs from 'fs/promises'
 import * as path from 'path'
 import { createId } from '@paralleldrive/cuid2'
-import type { NormalizedUsage } from './ai'
 import type { Message, MessageRole, MessageAttachment } from '@arc-types/messages'
 import type { ConversationSummary } from '@arc-types/conversations'
 import type { Conversation, ConversationPatch, AttachmentInput } from '@arc-types/arc-api'
@@ -30,8 +29,9 @@ import {
   type StoredAttachment,
   type StoredThread,
   type BranchInfo,
-} from '@main/storage'
-import { broadcast } from './ipc'
+  type Usage,
+} from '@main/infra/storage'
+import { broadcast } from '@main/infra/ipc'
 
 // ============================================================================
 // CONVERSATION EVENTS
@@ -117,14 +117,6 @@ async function readAttachment(
   const buffer = await fs.readFile(absolutePath)
   const base64 = buffer.toString('base64')
   return `data:${mimeType};base64,${base64}`
-}
-
-/**
- * Returns the absolute file path for an attachment.
- * Used for reading attachment content for API calls.
- */
-export function getAttachmentPath(threadId: string, relativePath: string): string {
-  return path.join(getThreadAttachmentsDir(threadId), relativePath)
 }
 
 /**
@@ -419,7 +411,7 @@ export async function insertAssistantMessage(
   parentId: string | null,
   modelId: string,
   providerId: string,
-  usage: NormalizedUsage,
+  usage: Usage,
 ): Promise<Message> {
   const now = new Date().toISOString()
   const messageId = createId()

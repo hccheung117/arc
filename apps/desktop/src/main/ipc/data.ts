@@ -1,12 +1,16 @@
+/**
+ * Data IPC Handlers
+ *
+ * Orchestration layer for conversation, message, and profile operations.
+ * Composes building blocks from lib/ modules.
+ */
+
 import type { IpcMain } from 'electron'
 import { readFile } from 'node:fs/promises'
 import { z } from 'zod'
 import type {
   Conversation,
-  ConversationPatch,
   CreateMessageInput,
-  CreateBranchInput,
-  UpdateMessageInput,
   ListMessagesResult,
   CreateBranchResult,
 } from '@arc-types/arc-api'
@@ -26,36 +30,28 @@ import {
   createMessage,
   createBranch,
   updateMessage,
+  toConversation,
+  emitConversationEvent,
 } from '../lib/messages'
-import { threadIndexFile, type StoredThread } from '../storage'
+import { threadIndexFile } from '../infra/storage'
 import {
   installProfile,
   uninstallProfile,
   activateProfile,
   listProfiles,
   getActiveProfileId,
+  getActiveProfile,
+  emitProfilesEvent,
   type ProfileInfo,
   type ProfileInstallResult,
 } from '../lib/profile'
-import { fetchAllModels, emitModelsEvent } from '../lib/models'
-import { info, error } from '../lib/logger'
-import { validated } from '../lib/ipc'
-import { emitProfilesEvent } from '../lib/profile'
-import { emitConversationEvent } from '../lib/messages'
+import { fetchModelsForProfile, emitModelsEvent } from '../lib/models'
+import { info, error } from '../infra/logger'
+import { validated } from '../infra/ipc'
 
 // ============================================================================
 // CONVERSATIONS
 // ============================================================================
-
-function storedThreadToConversation(thread: StoredThread): Conversation {
-  return {
-    id: thread.id,
-    title: thread.title ?? 'New Chat',
-    pinned: thread.pinned,
-    createdAt: thread.createdAt,
-    updatedAt: thread.updatedAt,
-  }
-}
 
 async function handleConversationsList(): Promise<ConversationSummary[]> {
   return getConversationSummaries()
@@ -100,7 +96,7 @@ const handleMessagesCreate = validated(
       if (thread) {
         emitConversationEvent({
           type: 'created',
-          conversation: storedThreadToConversation(thread),
+          conversation: toConversation(thread),
         })
       }
     }
@@ -141,6 +137,20 @@ function registerMessagesHandlers(ipcMain: IpcMain): void {
 // PROFILES
 // ============================================================================
 
+/**
+ * Refreshes the model cache after profile changes.
+ * Background operation - errors are logged but not thrown.
+ */
+async function refreshModelsCache(): Promise<void> {
+  try {
+    const profile = await getActiveProfile()
+    const updated = await fetchModelsForProfile(profile)
+    if (updated) emitModelsEvent({ type: 'updated' })
+  } catch (err) {
+    error('models', 'Background fetch failed', err as Error)
+  }
+}
+
 async function handleProfilesList(): Promise<ProfileInfo[]> {
   return listProfiles()
 }
@@ -159,11 +169,8 @@ const handleProfilesInstall = validated([z.string()], async (filePath): Promise<
   await activateProfile(result.id)
   emitProfilesEvent({ type: 'activated', profileId: result.id })
 
-  fetchAllModels()
-    .then((updated) => {
-      if (updated) emitModelsEvent({ type: 'updated' })
-    })
-    .catch((err) => error('models', 'Background fetch failed', err as Error))
+  // Background model fetch after activation
+  refreshModelsCache()
 
   return result
 })
@@ -172,22 +179,16 @@ const handleProfilesUninstall = validated([z.string()], async (profileId) => {
   await uninstallProfile(profileId)
   emitProfilesEvent({ type: 'uninstalled', profileId })
 
-  fetchAllModels()
-    .then((updated) => {
-      if (updated) emitModelsEvent({ type: 'updated' })
-    })
-    .catch((err) => error('models', 'Background fetch failed', err as Error))
+  // Background model fetch after uninstall
+  refreshModelsCache()
 })
 
 const handleProfilesActivate = validated([z.string().nullable()], async (profileId) => {
   await activateProfile(profileId)
   emitProfilesEvent({ type: 'activated', profileId })
 
-  fetchAllModels()
-    .then((updated) => {
-      if (updated) emitModelsEvent({ type: 'updated' })
-    })
-    .catch((err) => error('models', 'Background fetch failed', err as Error))
+  // Background model fetch after activation
+  refreshModelsCache()
 })
 
 function registerProfilesHandlers(ipcMain: IpcMain): void {
