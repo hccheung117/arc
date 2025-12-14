@@ -37,15 +37,15 @@ Three patterns based on direction and response requirements:
 
 **Layers**
 
-- `ipc/` → orchestration (composes domain libs, emits events)
+- `app/` → orchestration (composes domain libs, emits events)
 - `lib/` → domain libs (business logic, each independent)
-- `infra/` → foundation (logger, ipc utils, storage, paths)
+- `foundation/` → foundation (logger, ipc utils, storage, paths)
 
 **Import rules:**
 
-- `infra/` → no imports from `lib/` or `ipc/`
-- `lib/` → only imports from `infra/` (not other libs)
-- `ipc/` → imports from `lib/` and `infra/`
+- `foundation/` → no imports from `lib/` or `app/`
+- `lib/` → only imports from `foundation/` (not other libs)
+- `app/` → imports from `lib/` and `foundation/`
 
 ## UI Philosophy
 

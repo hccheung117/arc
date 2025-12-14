@@ -7,8 +7,8 @@
 
 import * as fs from 'fs/promises'
 import type { Message } from '@arc-types/messages'
-import { modelsFile, getAttachmentPath } from '@main/infra/storage'
-import { warn, logFetch } from '@main/infra/logger'
+import { modelsFile, getAttachmentPath } from '@main/foundation/storage'
+import { warn, logFetch } from '@main/foundation/logger'
 
 // ============================================================================
 // SSE RESPONSE TYPES

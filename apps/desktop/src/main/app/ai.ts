@@ -16,8 +16,8 @@ import { getModels } from '../lib/models'
 import { streamChatCompletion, toOpenAIMessages, getModelProvider, type NormalizedUsage } from '../lib/ai'
 import { getMessages, insertAssistantMessage } from '../lib/messages'
 import { getProviderConfig } from '../lib/profile'
-import { error } from '../infra/logger'
-import { validated, broadcast } from '../infra/ipc'
+import { error } from '@main/foundation/logger'
+import { validated, broadcast } from '@main/foundation/ipc'
 
 // ============================================================================
 // STREAM STATE

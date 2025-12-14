@@ -2,7 +2,7 @@ import { appendFile, mkdir, readFile, unlink } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import type { z } from 'zod'
 import type { IJsonLog } from './types'
-import { warn } from '@main/infra/logger'
+import { warn } from '@main/foundation/logger'
 
 /**
  * Append-only log persistence engine for Stream archetype.

@@ -23,12 +23,12 @@ import path from 'node:path'
 import * as fs from 'fs/promises'
 import started from 'electron-squirrel-startup'
 import { buildAppMenu } from './menu'
-import { registerDataHandlers } from './ipc/data'
-import { registerAIHandlers } from './ipc/ai'
-import { registerSystemHandlers } from './ipc/system'
+import { registerDataHandlers } from '@main/app/data'
+import { registerAIHandlers } from '@main/app/ai'
+import { registerSystemHandlers } from '@main/app/system'
 import { installProfile, activateProfile, getActiveProfile, emitProfilesEvent } from './lib/profile'
 import { fetchModelsForProfile, emitModelsEvent } from './lib/models'
-import { info, error } from './infra/logger'
+import { info, error } from '@main/foundation/logger'
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {

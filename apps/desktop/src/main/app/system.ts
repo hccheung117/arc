@@ -8,12 +8,12 @@
 import type { IpcMain } from 'electron'
 import { shell } from 'electron'
 import { z } from 'zod'
-import { rendererError } from '../infra/logger'
-import { getAttachmentPath } from '../infra/storage'
+import { rendererError } from '@main/foundation/logger'
+import { getAttachmentPath } from '@main/foundation/storage'
 import { getConfig, setConfig } from '../lib/profile'
 import { showThreadContextMenu, showMessageContextMenu, type ThreadMenuAction, type MessageMenuAction } from '../lib/ui'
 import { deleteConversation, updateConversation, emitConversationEvent } from '../lib/messages'
-import { validated } from '../infra/ipc'
+import { validated } from '@main/foundation/ipc'
 
 // ============================================================================
 // CONFIG

@@ -14,7 +14,7 @@ import * as fs from 'fs/promises'
 import * as path from 'path'
 import writeFileAtomic from 'write-file-atomic'
 import { ZodError } from 'zod'
-import { settingsFile, generateProviderId, type StoredFavorite } from '@main/infra/storage'
+import { settingsFile, generateProviderId, type StoredFavorite } from '@main/foundation/storage'
 import {
   ArcFileSchema,
   ARC_FILE_VERSION,
@@ -22,8 +22,8 @@ import {
   type ProfileInfo,
   type ProfileInstallResult,
 } from '@arc-types/arc-file'
-import { info } from '@main/infra/logger'
-import { broadcast } from '@main/infra/ipc'
+import { info } from '@main/foundation/logger'
+import { broadcast } from '@main/foundation/ipc'
 
 // ============================================================================
 // PROFILES EVENTS

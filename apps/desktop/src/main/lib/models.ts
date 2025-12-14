@@ -5,11 +5,11 @@
  * Pure domain logic - no orchestration.
  */
 
-import { modelsFile, generateProviderId, type StoredModel, type StoredModelFilter } from '@main/infra/storage'
+import { modelsFile, generateProviderId, type StoredModel, type StoredModelFilter } from '@main/foundation/storage'
 import type { Model } from '@arc-types/models'
 import type { ArcFile, ArcFileProvider } from '@arc-types/arc-file'
-import { broadcast } from '@main/infra/ipc'
-import { info, error, logFetch } from '@main/infra/logger'
+import { broadcast } from '@main/foundation/ipc'
+import { info, error, logFetch } from '@main/foundation/logger'
 
 // ============================================================================
 // MODELS EVENTS

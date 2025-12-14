@@ -30,8 +30,8 @@ import {
   type StoredThread,
   type BranchInfo,
   type Usage,
-} from '@main/infra/storage'
-import { broadcast } from '@main/infra/ipc'
+} from '@main/foundation/storage'
+import { broadcast } from '@main/foundation/ipc'
 
 // ============================================================================
 // CONVERSATION EVENTS

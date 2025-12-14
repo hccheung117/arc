@@ -33,7 +33,7 @@ import {
   toConversation,
   emitConversationEvent,
 } from '../lib/messages'
-import { threadIndexFile } from '../infra/storage'
+import { threadIndexFile } from '@main/foundation/storage'
 import {
   installProfile,
   uninstallProfile,
@@ -46,8 +46,8 @@ import {
   type ProfileInstallResult,
 } from '../lib/profile'
 import { fetchModelsForProfile, emitModelsEvent } from '../lib/models'
-import { info, error } from '../infra/logger'
-import { validated } from '../infra/ipc'
+import { info, error } from '@main/foundation/logger'
+import { validated } from '@main/foundation/ipc'
 
 // ============================================================================
 // CONVERSATIONS
