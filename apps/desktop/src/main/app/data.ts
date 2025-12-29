@@ -10,7 +10,6 @@ import { readFile } from 'node:fs/promises'
 import { z } from 'zod'
 import type {
   Conversation,
-  CreateMessageInput,
   ListMessagesResult,
   CreateBranchResult,
 } from '@arc-types/arc-api'
@@ -32,8 +31,8 @@ import {
   updateMessage,
   toConversation,
   emitConversationEvent,
-} from '../lib/messages'
-import { threadIndexFile } from '@main/foundation/storage'
+} from '@main/lib/messages/operations'
+import { threadIndexFile } from '@main/lib/messages/storage'
 import {
   installProfile,
   uninstallProfile,
@@ -44,8 +43,8 @@ import {
   emitProfilesEvent,
   type ProfileInfo,
   type ProfileInstallResult,
-} from '../lib/profile'
-import { fetchModelsForProfile, emitModelsEvent } from '../lib/models'
+} from '@main/lib/profile/operations'
+import { fetchModelsForProfile, emitModelsEvent } from '@main/lib/models/operations'
 import { info, error } from '@main/foundation/logger'
 import { validated } from '@main/foundation/ipc'
 

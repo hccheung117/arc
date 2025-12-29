@@ -15,22 +15,19 @@
  */
 
 import * as fs from 'fs/promises'
-import * as path from 'path'
 import { createId } from '@paralleldrive/cuid2'
 import type { Message, MessageRole, MessageAttachment } from '@arc-types/messages'
 import type { ConversationSummary } from '@arc-types/conversations'
 import type { Conversation, ConversationPatch, AttachmentInput } from '@arc-types/arc-api'
-import {
-  getMessagesDir,
-  messageLogFile,
-  threadIndexFile,
-  reduceMessageEvents,
-  type StoredMessageEvent,
-  type StoredAttachment,
-  type StoredThread,
-  type BranchInfo,
-  type Usage,
-} from '@main/foundation/storage'
+import { messageLogFile, threadIndexFile, getThreadAttachmentsDir, getThreadAttachmentPath } from './storage'
+import { reduceMessageEvents } from './reducer'
+import type {
+  StoredMessageEvent,
+  StoredAttachment,
+  StoredThread,
+  BranchInfo,
+  Usage,
+} from './schemas'
 import { broadcast } from '@main/foundation/ipc'
 
 // ============================================================================
@@ -64,18 +61,10 @@ function getExtension(mimeType: string): string {
 }
 
 /**
- * Returns the absolute path to a thread's attachment directory.
- */
-function getThreadAttachmentsDir(threadId: string): string {
-  return path.join(getMessagesDir(), threadId)
-}
-
-/**
  * Ensures the thread's attachment directory exists.
  */
 async function ensureAttachmentsDir(threadId: string): Promise<void> {
-  const dir = getThreadAttachmentsDir(threadId)
-  await fs.mkdir(dir, { recursive: true })
+  await fs.mkdir(getThreadAttachmentsDir(threadId), { recursive: true })
 }
 
 /**
@@ -93,7 +82,7 @@ async function writeAttachment(
   const ext = getExtension(mimeType)
   const filename = `${messageId}-${index}.${ext}`
   const relativePath = filename
-  const absolutePath = path.join(getThreadAttachmentsDir(threadId), filename)
+  const absolutePath = getThreadAttachmentPath(threadId, filename)
 
   const buffer = Buffer.from(data, 'base64')
   await fs.writeFile(absolutePath, buffer)
@@ -113,7 +102,7 @@ async function readAttachment(
   relativePath: string,
   mimeType: string,
 ): Promise<string> {
-  const absolutePath = path.join(getThreadAttachmentsDir(threadId), relativePath)
+  const absolutePath = getThreadAttachmentPath(threadId, relativePath)
   const buffer = await fs.readFile(absolutePath)
   const base64 = buffer.toString('base64')
   return `data:${mimeType};base64,${base64}`
@@ -123,9 +112,8 @@ async function readAttachment(
  * Deletes all attachments for a thread.
  */
 async function deleteThreadAttachments(threadId: string): Promise<void> {
-  const dir = getThreadAttachmentsDir(threadId)
   try {
-    await fs.rm(dir, { recursive: true, force: true })
+    await fs.rm(getThreadAttachmentsDir(threadId), { recursive: true, force: true })
   } catch {
     // Directory may not exist, ignore
   }

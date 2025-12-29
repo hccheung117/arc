@@ -9,12 +9,13 @@
  * Arc files are self-describing with embedded id and name.
  */
 
-import { app } from 'electron'
 import * as fs from 'fs/promises'
 import * as path from 'path'
+import { createHash } from 'crypto'
 import writeFileAtomic from 'write-file-atomic'
 import { ZodError } from 'zod'
-import { settingsFile, generateProviderId, type StoredFavorite } from '@main/foundation/storage'
+import { settingsFile } from './storage'
+import type { StoredFavorite } from './schemas'
 import {
   ArcFileSchema,
   ARC_FILE_VERSION,
@@ -24,6 +25,7 @@ import {
 } from '@arc-types/arc-file'
 import { info } from '@main/foundation/logger'
 import { broadcast } from '@main/foundation/ipc'
+import { getProfilesDir, getProfilePath } from '@main/lib/arcfs/paths'
 
 // ============================================================================
 // PROFILES EVENTS
@@ -39,6 +41,28 @@ export function emitProfilesEvent(event: ProfilesEvent): void {
 }
 
 export type { ProfileInfo, ProfileInstallResult }
+
+// ============================================================================
+// PROVIDER ID GENERATION
+// ============================================================================
+
+/**
+ * Provider identity input for generating stable IDs.
+ */
+export interface ProviderIdentity {
+  type: string
+  apiKey?: string | null
+  baseUrl?: string | null
+}
+
+/**
+ * Generates a stable provider ID from provider properties.
+ * SHA-256 hash of type|apiKey|baseUrl ensures same config = same ID.
+ */
+export function generateProviderId(provider: ProviderIdentity): string {
+  const input = `${provider.type}|${provider.apiKey ?? ''}|${provider.baseUrl ?? ''}`
+  return createHash('sha256').update(input).digest('hex').slice(0, 8)
+}
 
 // ============================================================================
 // ARC FILE VALIDATION
@@ -86,14 +110,6 @@ export function validateArcFile(content: string): ValidationResult {
 // ============================================================================
 // PROFILE MANAGEMENT
 // ============================================================================
-
-function getProfilesDir(): string {
-  return path.join(app.getPath('userData'), 'arcfs', 'profiles')
-}
-
-function getProfilePath(profileId: string): string {
-  return path.join(getProfilesDir(), `${profileId}.arc`)
-}
 
 /**
  * Install a profile from file content.

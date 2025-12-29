@@ -1,8 +1,6 @@
 import { appendFile, mkdir, readFile, unlink } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import type { z } from 'zod'
-import type { IJsonLog } from './types'
-import { warn } from '@main/foundation/logger'
 
 /**
  * Append-only log persistence engine for Stream archetype.
@@ -24,7 +22,7 @@ import { warn } from '@main/foundation/logger'
  * await log.delete() // Remove the log file
  * ```
  */
-export class JsonLog<T> implements IJsonLog<T> {
+export class JsonLog<T> {
   constructor(
     private readonly filePath: string,
     private readonly schema: z.ZodType<T>
@@ -63,13 +61,11 @@ export class JsonLog<T> implements IJsonLog<T> {
     try {
       await unlink(this.filePath)
     } catch (error) {
-      // Silently succeed if file doesn't exist
+      // Silently succeed if file doesn't exist or other non-critical errors
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         return
       }
-
-      // Log other errors but don't throw
-      warn('storage', `Failed to delete ${this.filePath}`)
+      // Other errors are silently ignored - delete is best-effort
     }
   }
 }

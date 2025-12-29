@@ -26,8 +26,8 @@ import { buildAppMenu } from './menu'
 import { registerDataHandlers } from '@main/app/data'
 import { registerAIHandlers } from '@main/app/ai'
 import { registerSystemHandlers } from '@main/app/system'
-import { installProfile, activateProfile, getActiveProfile, emitProfilesEvent } from './lib/profile'
-import { fetchModelsForProfile, emitModelsEvent } from './lib/models'
+import { installProfile, activateProfile, getActiveProfile, emitProfilesEvent } from './lib/profile/operations'
+import { fetchModelsForProfile, emitModelsEvent } from './lib/models/operations'
 import { info, error } from '@main/foundation/logger'
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.

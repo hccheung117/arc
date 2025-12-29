@@ -5,7 +5,9 @@
  * Pure domain logic - no orchestration.
  */
 
-import { modelsFile, generateProviderId, type StoredModel, type StoredModelFilter } from '@main/foundation/storage'
+import { modelsFile } from './storage'
+import { generateProviderId } from '@main/lib/profile/operations'
+import type { StoredModel, StoredModelFilter } from './schemas'
 import type { Model } from '@arc-types/models'
 import type { ArcFile, ArcFileProvider } from '@arc-types/arc-file'
 import { broadcast } from '@main/foundation/ipc'

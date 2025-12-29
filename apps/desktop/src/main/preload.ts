@@ -108,8 +108,8 @@ const arcAPI: ArcAPI = {
   utils: {
     getFilePath: (file: File) => webUtils.getPathForFile(file),
     openFile: (filePath: string) => ipcRenderer.invoke('arc:utils:openFile', filePath),
-    getAttachmentPath: (conversationId: string, relativePath: string) =>
-      ipcRenderer.invoke('arc:utils:getAttachmentPath', conversationId, relativePath),
+    getThreadAttachmentPath: (conversationId: string, relativePath: string) =>
+      ipcRenderer.invoke('arc:utils:getThreadAttachmentPath', conversationId, relativePath),
   },
 
   log: {

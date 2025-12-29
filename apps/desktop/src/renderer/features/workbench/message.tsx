@@ -30,7 +30,7 @@ function AttachmentImage({
 
   const handleClick = useCallback(async () => {
     try {
-      const absolutePath = await window.arc.utils.getAttachmentPath(
+      const absolutePath = await window.arc.utils.getThreadAttachmentPath(
         conversationId,
         attachment.path
       )

@@ -7,7 +7,8 @@
 
 import * as fs from 'fs/promises'
 import type { Message } from '@arc-types/messages'
-import { modelsFile, getAttachmentPath } from '@main/foundation/storage'
+import { modelsFile } from './models/storage'
+import { getThreadAttachmentPath } from './arcfs/paths'
 import { warn, logFetch } from '@main/foundation/logger'
 
 // ============================================================================
@@ -197,7 +198,7 @@ export async function toOpenAIMessages(
       if (message.role === 'user' && message.attachments?.length) {
         const imageParts = await Promise.all(
           message.attachments.map(async (att) => {
-            const buffer = await fs.readFile(getAttachmentPath(conversationId, att.path))
+            const buffer = await fs.readFile(getThreadAttachmentPath(conversationId, att.path))
             const base64 = buffer.toString('base64')
             return {
               type: 'image_url' as const,

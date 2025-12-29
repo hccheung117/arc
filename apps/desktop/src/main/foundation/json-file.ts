@@ -2,7 +2,6 @@ import { mkdir, readFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import writeFileAtomic from 'write-file-atomic'
 import type { z } from 'zod'
-import type { IJsonFile } from './types'
 
 /**
  * Atomic file persistence engine for Config and Ledger archetypes.
@@ -20,7 +19,7 @@ import type { IJsonFile } from './types'
  * await settings.update(data => ({ ...data, locale: 'en' }))
  * ```
  */
-export class JsonFile<T> implements IJsonFile<T> {
+export class JsonFile<T> {
   constructor(
     private readonly filePath: string,
     private readonly defaultValue: T,

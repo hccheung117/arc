@@ -254,7 +254,7 @@ export interface ArcAPI {
     openFile(filePath: string): Promise<void>
 
     /** Get absolute path for an attachment */
-    getAttachmentPath(conversationId: string, relativePath: string): Promise<string>
+    getThreadAttachmentPath(conversationId: string, relativePath: string): Promise<string>
   }
 
   /** Logging utilities (Rule 1: One-Way) */

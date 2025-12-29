@@ -9,10 +9,10 @@ import type { IpcMain } from 'electron'
 import { shell } from 'electron'
 import { z } from 'zod'
 import { rendererError } from '@main/foundation/logger'
-import { getAttachmentPath } from '@main/foundation/storage'
-import { getConfig, setConfig } from '../lib/profile'
-import { showThreadContextMenu, showMessageContextMenu, type ThreadMenuAction, type MessageMenuAction } from '../lib/ui'
-import { deleteConversation, updateConversation, emitConversationEvent } from '../lib/messages'
+import { getThreadAttachmentPath } from '@main/lib/arcfs/paths'
+import { getConfig, setConfig } from '@main/lib/profile/operations'
+import { showThreadContextMenu, showMessageContextMenu, type MessageMenuAction } from '@main/lib/ui'
+import { deleteConversation, updateConversation, emitConversationEvent } from '@main/lib/messages/operations'
 import { validated } from '@main/foundation/ipc'
 
 // ============================================================================
@@ -99,13 +99,13 @@ const handleUtilsOpenFile = validated([z.string()], async (filePath) => {
 const handleUtilsGetAttachmentPath = validated(
   [z.string(), z.string()],
   async (conversationId, relativePath) => {
-    return getAttachmentPath(conversationId, relativePath)
+    return getThreadAttachmentPath(conversationId, relativePath)
   }
 )
 
 function registerUtilsHandlers(ipcMain: IpcMain): void {
   ipcMain.handle('arc:utils:openFile', handleUtilsOpenFile)
-  ipcMain.handle('arc:utils:getAttachmentPath', handleUtilsGetAttachmentPath)
+  ipcMain.handle('arc:utils:getThreadAttachmentPath', handleUtilsGetAttachmentPath)
 }
 
 // ============================================================================

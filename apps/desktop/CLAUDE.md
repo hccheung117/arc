@@ -14,6 +14,20 @@ The main process manages AI streaming through an event-based push model. Streami
 
 **Never persisted:** Partial responses, streaming progress, and temporary error states.
 
+#### Three-Layer Architecture
+
+**Layers**
+
+- `app/` → orchestration (composes domain libs, emits events)
+- `lib/` → domain libs (business logic, each independent)
+- `foundation/` → infrastructure only (logger, ipc utils, storage, paths)—**no domain knowledge**
+
+**Import rules:**
+
+- `foundation/` → no imports from `lib/` or `app/`
+- `lib/` → only imports from `foundation/` (not other libs)
+- `app/` → imports from `lib/` and `foundation/`
+
 ### Renderer Process
 
 Code organization follows a simple rule: shared code lives at the root level, feature-specific code lives in feature directories.
@@ -32,20 +46,6 @@ Three patterns based on direction and response requirements:
 | One-way | Renderer → Main | `ipcRenderer.send()` / `ipcMain.on()` |
 | Two-way | Renderer → Main with response | `ipcRenderer.invoke()` / `ipcMain.handle()` |
 | Push | Main → Renderer | `webContents.send()` / `ipcRenderer.on()` |
-
-### Three-layer architecture
-
-**Layers**
-
-- `app/` → orchestration (composes domain libs, emits events)
-- `lib/` → domain libs (business logic, each independent)
-- `foundation/` → foundation (logger, ipc utils, storage, paths)
-
-**Import rules:**
-
-- `foundation/` → no imports from `lib/` or `app/`
-- `lib/` → only imports from `foundation/` (not other libs)
-- `app/` → imports from `lib/` and `foundation/`
 
 ## UI Philosophy
 
