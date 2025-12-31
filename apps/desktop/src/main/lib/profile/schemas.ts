@@ -7,7 +7,15 @@
  */
 
 import { z } from 'zod'
-import { StoredModelFilterSchema } from '@main/lib/models/schemas'
+
+// ============================================================================
+// MODEL FILTER SCHEMA
+// ============================================================================
+
+const ModelFilterSchema = z.object({
+  mode: z.enum(['allow', 'deny']),
+  rules: z.array(z.string()),
+})
 
 // ============================================================================
 // FAVORITES SCHEMAS
@@ -39,6 +47,6 @@ export const StoredProviderSchema = z.object({
   type: z.string(),
   apiKey: z.string().nullable(),
   baseUrl: z.string().nullable(),
-  modelFilter: StoredModelFilterSchema.optional(),
+  modelFilter: ModelFilterSchema.optional(),
 })
 export type StoredProvider = z.infer<typeof StoredProviderSchema>

@@ -13,7 +13,7 @@ import type { ChatResponse, AIStreamEvent } from '@arc-types/arc-api'
 import { ChatOptionsSchema } from '@arc-types/arc-api'
 import type { Model } from '@arc-types/models'
 import type { Message as ArcMessage } from '@arc-types/messages'
-import { getModels, getModelProvider } from '@main/lib/models/operations'
+import { listModels, lookupModelProvider } from '@main/app/models'
 import { streamText } from '@main/lib/ai/stream'
 import type { Message, Usage } from '@main/lib/ai/types'
 import { getMessages, insertAssistantMessage } from '@main/lib/messages/operations'
@@ -104,7 +104,7 @@ async function executeStream(
   try {
     const { messages: conversationMessages } = await getMessages(conversationId)
 
-    const providerId = await getModelProvider(modelId)
+    const providerId = await lookupModelProvider(modelId)
     const providerConfig = await getProviderConfig(providerId)
 
     // Get the parent ID (last message in the conversation)
@@ -180,7 +180,7 @@ function cancelStream(streamId: string): void {
 // ============================================================================
 
 async function handleModelsList(): Promise<Model[]> {
-  return getModels()
+  return listModels()
 }
 
 function registerModelsHandlers(ipcMain: IpcMain): void {

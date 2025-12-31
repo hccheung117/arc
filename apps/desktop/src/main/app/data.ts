@@ -44,7 +44,7 @@ import {
   type ProfileInfo,
   type ProfileInstallResult,
 } from '@main/lib/profile/operations'
-import { fetchModelsForProfile, emitModelsEvent } from '@main/lib/models/operations'
+import { syncModels, emitModelsEvent } from '@main/app/models'
 import { info, error } from '@main/foundation/logger'
 import { validated } from '@main/foundation/ipc'
 
@@ -143,7 +143,7 @@ function registerMessagesHandlers(ipcMain: IpcMain): void {
 async function refreshModelsCache(): Promise<void> {
   try {
     const profile = await getActiveProfile()
-    const updated = await fetchModelsForProfile(profile)
+    const updated = await syncModels(profile)
     if (updated) emitModelsEvent({ type: 'updated' })
   } catch (err) {
     error('models', 'Background fetch failed', err as Error)

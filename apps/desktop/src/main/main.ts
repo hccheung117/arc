@@ -27,7 +27,7 @@ import { registerDataHandlers } from '@main/app/data'
 import { registerAIHandlers } from '@main/app/ai'
 import { registerSystemHandlers } from '@main/app/system'
 import { installProfile, activateProfile, getActiveProfile, emitProfilesEvent } from './lib/profile/operations'
-import { fetchModelsForProfile, emitModelsEvent } from './lib/models/operations'
+import { syncModels, emitModelsEvent } from '@main/app/models'
 import { info, error } from '@main/foundation/logger'
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -69,7 +69,7 @@ const createWindow = () => {
 async function initModels(): Promise<void> {
   try {
     const profile = await getActiveProfile()
-    const updated = await fetchModelsForProfile(profile)
+    const updated = await syncModels(profile)
     if (updated) emitModelsEvent({ type: 'updated' })
   } catch (err) {
     error('models', 'Startup fetch failed', err as Error)
@@ -97,7 +97,7 @@ async function handleProfileFileOpen(filePath: string): Promise<void> {
 
     // Background model fetch after activation
     const profile = await getActiveProfile()
-    fetchModelsForProfile(profile)
+    syncModels(profile)
       .then((updated) => {
         if (updated) emitModelsEvent({ type: 'updated' })
       })
