@@ -5,19 +5,58 @@
  * Composes building blocks from lib/ modules.
  */
 
+import * as fs from 'fs/promises'
 import type { IpcMain } from 'electron'
 import { createId } from '@paralleldrive/cuid2'
 import { z } from 'zod'
 import type { ChatResponse, AIStreamEvent } from '@arc-types/arc-api'
 import { ChatOptionsSchema } from '@arc-types/arc-api'
 import type { Model } from '@arc-types/models'
-import type { Message } from '@arc-types/messages'
-import { getModels } from '@main/lib/models/operations'
-import { streamChatCompletion, toOpenAIMessages, getModelProvider, type NormalizedUsage } from '@main/lib/ai'
+import type { Message as ArcMessage } from '@arc-types/messages'
+import { getModels, getModelProvider } from '@main/lib/models/operations'
+import { streamText } from '@main/lib/ai/stream'
+import type { Message, Usage } from '@main/lib/ai/types'
 import { getMessages, insertAssistantMessage } from '@main/lib/messages/operations'
 import { getProviderConfig } from '@main/lib/profile/operations'
+import { getThreadAttachmentPath } from '@main/lib/arcfs/paths'
 import { error } from '@main/foundation/logger'
 import { validated, broadcast } from '@main/foundation/ipc'
+
+// ============================================================================
+// MESSAGE CONVERSION
+// ============================================================================
+
+/**
+ * Convert Arc messages to AI library format.
+ * Handles multimodal content with base64-encoded images.
+ */
+async function convertToModelMessages(messages: ArcMessage[], conversationId: string): Promise<Message[]> {
+  return Promise.all(
+    messages.map(async (message): Promise<Message> => {
+      if (message.role === 'user' && message.attachments?.length) {
+        const imageParts = await Promise.all(
+          message.attachments.map(async (att) => {
+            const buffer = await fs.readFile(getThreadAttachmentPath(conversationId, att.path))
+            const base64 = buffer.toString('base64')
+            return {
+              type: 'image_url' as const,
+              image_url: { url: `data:${att.mimeType};base64,${base64}` },
+            }
+          }),
+        )
+        return {
+          role: 'user',
+          content: [...imageParts, { type: 'text' as const, text: message.content }],
+        }
+      }
+
+      return {
+        role: message.role as 'user' | 'assistant' | 'system',
+        content: message.content,
+      }
+    }),
+  )
+}
 
 // ============================================================================
 // STREAM STATE
@@ -40,7 +79,7 @@ function emitAIStreamEvent(event: AIStreamEvent): void {
 interface StreamCallbacks {
   onDelta: (chunk: string) => void
   onReasoning: (chunk: string) => void
-  onComplete: (message: Message) => void
+  onComplete: (message: ArcMessage) => void
   onError: (error: string) => void
 }
 
@@ -49,7 +88,7 @@ interface StreamCallbacks {
  * Composes: messages → profile → ai → messages
  *
  * MEMORY-ONLY STREAMING STRATEGY:
- * Reasoning and content are accumulated in memory during streaming.
+ * Content accumulates via the result object pattern.
  * Storage is NOT touched until streaming completes successfully.
  * On completion, a single atomic write persists the full message.
  */
@@ -72,28 +111,35 @@ async function executeStream(
     const lastMessage = conversationMessages[conversationMessages.length - 1]
     const parentId = lastMessage?.id ?? null
 
-    const openAIMessages = await toOpenAIMessages(conversationMessages, conversationId)
+    const modelMessages = await convertToModelMessages(conversationMessages, conversationId)
 
-    // Memory-only accumulators - written atomically on completion
+    const stream = streamText({
+      baseUrl: providerConfig.baseUrl ?? undefined,
+      apiKey: providerConfig.apiKey ?? undefined,
+      model: modelId,
+      messages: modelMessages,
+      signal: abortController.signal,
+    })
+
     let fullContent = ''
     let fullReasoning = ''
+    let usage: Usage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 }
 
-    const usage = await streamChatCompletion(
-      providerConfig,
-      modelId,
-      openAIMessages,
-      {
-        onDelta: (chunk) => {
-          fullContent += chunk
-          callbacks.onDelta(chunk)
-        },
-        onReasoning: (chunk) => {
-          fullReasoning += chunk
-          callbacks.onReasoning(chunk)
-        },
-      },
-      abortController.signal,
-    )
+    for await (const event of stream) {
+      switch (event.type) {
+        case 'content':
+          fullContent += event.delta
+          callbacks.onDelta(event.delta)
+          break
+        case 'reasoning':
+          fullReasoning += event.delta
+          callbacks.onReasoning(event.delta)
+          break
+        case 'usage':
+          usage = event.usage
+          break
+      }
+    }
 
     const assistantMessage = await insertAssistantMessage(
       conversationId,
@@ -102,7 +148,7 @@ async function executeStream(
       parentId,
       modelId,
       providerId,
-      usage as NormalizedUsage,
+      usage,
     )
     callbacks.onComplete(assistantMessage)
   } catch (err) {

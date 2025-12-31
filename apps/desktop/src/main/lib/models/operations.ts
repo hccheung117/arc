@@ -195,3 +195,18 @@ export async function getModels(): Promise<Model[]> {
     },
   }))
 }
+
+/**
+ * Get provider ID for a given model.
+ * Looks up the model in cache and returns its associated provider ID.
+ */
+export async function getModelProvider(modelId: string): Promise<string> {
+  const modelsCache = await modelsFile().read()
+  const model = modelsCache.models.find((m) => m.id === modelId)
+
+  if (!model) {
+    throw new Error(`Model ${modelId} not found`)
+  }
+
+  return model.providerId
+}
