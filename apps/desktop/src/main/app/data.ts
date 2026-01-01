@@ -9,9 +9,9 @@ import type { IpcMain } from 'electron'
 import { readFile } from 'node:fs/promises'
 import { z } from 'zod'
 import type { StoredThread, StoredMessageEvent, BranchInfo } from '@main/lib/messages/schemas'
-import { listThreads, removeThread } from '@main/lib/messages/threads'
+import { listThreads, emitThreadEvent, deleteThread, updateThread } from '@main/lib/messages/threads'
 import { appendMessage, readMessages } from '@main/lib/messages/operations'
-import { threadIndexFile, messageLogFile, deleteThreadAttachments } from '@main/lib/messages/storage'
+import { threadIndexFile } from '@main/lib/messages/storage'
 import {
   installProfile,
   uninstallProfile,
@@ -25,20 +25,7 @@ import {
 } from '@main/lib/profile/operations'
 import { syncModels, emitModelsEvent } from '@main/app/models'
 import { info, error } from '@main/foundation/logger'
-import { validated, broadcast } from '@main/foundation/ipc'
-
-// ============================================================================
-// THREAD EVENTS (app-layer, not lib)
-// ============================================================================
-
-type ThreadEvent =
-  | { type: 'created'; thread: StoredThread }
-  | { type: 'updated'; thread: StoredThread }
-  | { type: 'deleted'; id: string }
-
-function emitThreadEvent(event: ThreadEvent): void {
-  broadcast('arc:conversations:event', event)
-}
+import { validated } from '@main/foundation/ipc'
 
 // ============================================================================
 // IPC SCHEMAS (app-level input validation)
@@ -92,41 +79,12 @@ async function handleConversationsList(): Promise<StoredThread[]> {
 const handleConversationsUpdate = validated(
   [z.string(), ThreadPatchSchema],
   async (id, patch): Promise<StoredThread> => {
-    let updatedThread: StoredThread | undefined
-
-    await threadIndexFile().update((index) => {
-      const thread = index.threads.find((t) => t.id === id)
-      if (!thread) {
-        throw new Error(`Thread not found: ${id}`)
-      }
-
-      if (patch.title !== undefined) {
-        thread.title = patch.title
-        thread.renamed = true
-      }
-      if (patch.pinned !== undefined) {
-        thread.pinned = patch.pinned
-      }
-      thread.updatedAt = new Date().toISOString()
-
-      updatedThread = thread
-      return index
-    })
-
-    if (!updatedThread) {
-      throw new Error(`Failed to update thread: ${id}`)
-    }
-
-    emitThreadEvent({ type: 'updated', thread: updatedThread })
-    return updatedThread
+    return updateThread(id, patch)
   },
 )
 
 const handleConversationsDelete = validated([z.string()], async (id) => {
-  await threadIndexFile().update((index) => removeThread(index, id))
-  await messageLogFile(id).delete()
-  await deleteThreadAttachments(id)
-  emitThreadEvent({ type: 'deleted', id })
+  await deleteThread(id)
 })
 
 function registerConversationsHandlers(ipcMain: IpcMain): void {

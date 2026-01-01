@@ -1,12 +1,16 @@
 /**
  * Thread Operations
  *
- * Thread reads and index transformations.
- * Thread mutations (rename, pin) are app-layer workflows.
+ * Thread reads, transformations, and lifecycle operations.
  */
 
 import type { StoredThread, StoredThreadIndex } from './schemas'
-import { threadIndexFile } from './storage'
+import { threadIndexFile, messageLogFile, deleteThreadAttachments } from './storage'
+import { broadcast } from '@main/foundation/ipc'
+
+// ============================================================================
+// READS
+// ============================================================================
 
 /**
  * Returns all threads sorted by updatedAt (most recent first).
@@ -28,7 +32,7 @@ export async function threadExists(threadId: string): Promise<boolean> {
 }
 
 // ============================================================================
-// THREAD INDEX TRANSFORMERS
+// TRANSFORMERS
 // ============================================================================
 
 /**
@@ -39,4 +43,57 @@ export function removeThread(
   threadId: string,
 ): StoredThreadIndex {
   return { threads: index.threads.filter((t) => t.id !== threadId) }
+}
+
+// ============================================================================
+// EVENTS
+// ============================================================================
+
+export type ThreadEvent =
+  | { type: 'created'; thread: StoredThread }
+  | { type: 'updated'; thread: StoredThread }
+  | { type: 'deleted'; id: string }
+
+export function emitThreadEvent(event: ThreadEvent): void {
+  broadcast('arc:conversations:event', event)
+}
+
+// ============================================================================
+// MUTATIONS
+// ============================================================================
+
+export async function deleteThread(threadId: string): Promise<void> {
+  await threadIndexFile().update((index) => removeThread(index, threadId))
+  await messageLogFile(threadId).delete()
+  await deleteThreadAttachments(threadId)
+  emitThreadEvent({ type: 'deleted', id: threadId })
+}
+
+export interface ThreadPatch {
+  title?: string
+  pinned?: boolean
+}
+
+export async function updateThread(threadId: string, patch: ThreadPatch): Promise<StoredThread> {
+  let updatedThread: StoredThread | undefined
+
+  await threadIndexFile().update((index) => {
+    const thread = index.threads.find((t) => t.id === threadId)
+    if (!thread) throw new Error(`Thread not found: ${threadId}`)
+
+    if (patch.title !== undefined) {
+      thread.title = patch.title
+      thread.renamed = true
+    }
+    if (patch.pinned !== undefined) {
+      thread.pinned = patch.pinned
+    }
+    thread.updatedAt = new Date().toISOString()
+    updatedThread = thread
+    return index
+  })
+
+  if (!updatedThread) throw new Error(`Failed to update thread: ${threadId}`)
+  emitThreadEvent({ type: 'updated', thread: updatedThread })
+  return updatedThread
 }
