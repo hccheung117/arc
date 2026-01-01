@@ -6,7 +6,7 @@
  */
 
 import { JsonFile } from '@main/foundation/json-file'
-import { getSettingsPath } from '@main/lib/arcfs/paths'
+import { getSettingsPath } from '@main/foundation/paths'
 import {
   StoredSettingsSchema,
   type StoredSettings,

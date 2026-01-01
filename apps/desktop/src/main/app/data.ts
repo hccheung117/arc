@@ -20,12 +20,14 @@ import {
   getActiveProfileId,
   getActiveProfile,
   emitProfilesEvent,
+  generateProviderId,
   type ProfileInfo,
   type ProfileInstallResult,
 } from '@main/lib/profile/operations'
-import { syncModels, emitModelsEvent } from '@main/app/models'
+import { syncModels } from '@main/lib/models/sync'
+import { OPENAI_BASE_URL } from '@main/lib/ai/types'
 import { info, error } from '@main/foundation/logger'
-import { validated } from '@main/foundation/ipc'
+import { validated, broadcast } from '@main/foundation/ipc'
 
 // ============================================================================
 // IPC SCHEMAS (app-level input validation)
@@ -186,8 +188,16 @@ function registerMessagesHandlers(ipcMain: IpcMain): void {
 async function refreshModelsCache(): Promise<void> {
   try {
     const profile = await getActiveProfile()
-    const updated = await syncModels(profile)
-    if (updated) emitModelsEvent({ type: 'updated' })
+    const providers = profile?.providers.map((p) => ({
+      id: generateProviderId(p),
+      baseUrl: p.baseUrl ?? OPENAI_BASE_URL,
+      apiKey: p.apiKey ?? null,
+      filter: p.modelFilter ?? null,
+      aliases: p.modelAliases ?? null,
+      name: profile.name,
+    })) ?? []
+    const updated = await syncModels(providers)
+    if (updated) broadcast('arc:models:event', { type: 'updated' })
   } catch (err) {
     error('models', 'Background fetch failed', err as Error)
   }

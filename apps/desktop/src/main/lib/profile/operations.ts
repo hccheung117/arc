@@ -25,7 +25,7 @@ import {
 } from '@arc-types/arc-file'
 import { info } from '@main/foundation/logger'
 import { broadcast } from '@main/foundation/ipc'
-import { getProfilesDir, getProfilePath } from '@main/lib/arcfs/paths'
+import { getProfilesDir, getProfilePath } from '@main/foundation/paths'
 
 // ============================================================================
 // PROFILES EVENTS

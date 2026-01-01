@@ -26,8 +26,10 @@ import { buildAppMenu } from './menu'
 import { registerDataHandlers } from '@main/app/data'
 import { registerAIHandlers } from '@main/app/ai'
 import { registerSystemHandlers } from '@main/app/system'
-import { installProfile, activateProfile, getActiveProfile, emitProfilesEvent } from './lib/profile/operations'
-import { syncModels, emitModelsEvent } from '@main/app/models'
+import { installProfile, activateProfile, getActiveProfile, emitProfilesEvent, generateProviderId } from './lib/profile/operations'
+import { syncModels } from '@main/lib/models/sync'
+import { OPENAI_BASE_URL } from '@main/lib/ai/types'
+import { broadcast } from '@main/foundation/ipc'
 import { info, error } from '@main/foundation/logger'
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -69,8 +71,16 @@ const createWindow = () => {
 async function initModels(): Promise<void> {
   try {
     const profile = await getActiveProfile()
-    const updated = await syncModels(profile)
-    if (updated) emitModelsEvent({ type: 'updated' })
+    const providers = profile?.providers.map((p) => ({
+      id: generateProviderId(p),
+      baseUrl: p.baseUrl ?? OPENAI_BASE_URL,
+      apiKey: p.apiKey ?? null,
+      filter: p.modelFilter ?? null,
+      aliases: p.modelAliases ?? null,
+      name: profile.name,
+    })) ?? []
+    const updated = await syncModels(providers)
+    if (updated) broadcast('arc:models:event', { type: 'updated' })
   } catch (err) {
     error('models', 'Startup fetch failed', err as Error)
   }
@@ -97,9 +107,17 @@ async function handleProfileFileOpen(filePath: string): Promise<void> {
 
     // Background model fetch after activation
     const profile = await getActiveProfile()
-    syncModels(profile)
+    const providers = profile?.providers.map((p) => ({
+      id: generateProviderId(p),
+      baseUrl: p.baseUrl ?? OPENAI_BASE_URL,
+      apiKey: p.apiKey ?? null,
+      filter: p.modelFilter ?? null,
+      aliases: p.modelAliases ?? null,
+      name: profile.name,
+    })) ?? []
+    syncModels(providers)
       .then((updated) => {
-        if (updated) emitModelsEvent({ type: 'updated' })
+        if (updated) broadcast('arc:models:event', { type: 'updated' })
       })
       .catch((err) => error('models', 'Background fetch failed', err as Error))
   } catch (err) {

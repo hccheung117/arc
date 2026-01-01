@@ -26,7 +26,7 @@ import {
   getMessageLogPath,
   getThreadAttachmentsDir,
   getThreadAttachmentPath,
-} from '@main/lib/arcfs/paths'
+} from '@main/foundation/paths'
 import {
   StoredThreadIndexSchema,
   StoredMessageEventSchema,

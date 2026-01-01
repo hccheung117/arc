@@ -31,6 +31,23 @@ export interface ModelCache {
 }
 
 // ============================================================================
+// SYNC INPUT
+// ============================================================================
+
+/**
+ * Provider data for model sync.
+ * Caller provides pre-computed IDs — lib stays pure.
+ */
+export interface SyncProvider {
+  id: string
+  baseUrl: string
+  apiKey: string | null
+  filter: ModelFilter | null
+  aliases: Record<string, string> | null
+  name: string
+}
+
+// ============================================================================
 // FETCH INPUT
 // ============================================================================
 

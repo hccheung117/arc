@@ -28,6 +28,8 @@ The main process manages AI streaming through an event-based push model. Streami
 - `lib/` → only imports from `foundation/` (not other libs)
 - `app/` → imports from `lib/` and `foundation/`
 
+**Same-level imports are design smells** at any layer. When module A imports from sibling module B, the shared piece either belongs in a new third module they both depend on (if domain-specific), should be pushed down to a lower layer (if generic infrastructure), or should be provided by the caller (if the coupling is incidental). The fix is never to relocate the import—it's to redistribute logic so dependencies flow strictly downward.
+
 ### Renderer Process
 
 Code organization follows a simple rule: shared code lives at the root level, feature-specific code lives in feature directories.
