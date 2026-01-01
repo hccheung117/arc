@@ -9,14 +9,12 @@ import * as fs from 'fs/promises'
 import type { IpcMain } from 'electron'
 import { createId } from '@paralleldrive/cuid2'
 import { z } from 'zod'
-import type { ChatResponse, AIStreamEvent } from '@arc-types/arc-api'
-import { ChatOptionsSchema } from '@arc-types/arc-api'
 import type { Model } from '@arc-types/models'
-import type { Message as ArcMessage } from '@arc-types/messages'
 import { listModels, lookupModelProvider } from '@main/app/models'
 import { streamText } from '@main/lib/ai/stream'
 import type { Message, Usage } from '@main/lib/ai/types'
-import { getMessages, insertAssistantMessage } from '@main/lib/messages/operations'
+import type { StoredMessageEvent } from '@main/lib/messages/schemas'
+import { readMessages, appendMessage } from '@main/lib/messages/operations'
 import { getProviderConfig } from '@main/lib/profile/operations'
 import { getThreadAttachmentPath } from '@main/lib/arcfs/paths'
 import { error } from '@main/foundation/logger'
@@ -27,16 +25,16 @@ import { validated, broadcast } from '@main/foundation/ipc'
 // ============================================================================
 
 /**
- * Convert Arc messages to AI library format.
- * Handles multimodal content with base64-encoded images.
+ * Convert stored messages to AI library format.
+ * Handles multimodal content by loading attachments from disk.
  */
-async function convertToModelMessages(messages: ArcMessage[], conversationId: string): Promise<Message[]> {
+async function convertToModelMessages(messages: StoredMessageEvent[], threadId: string): Promise<Message[]> {
   return Promise.all(
     messages.map(async (message): Promise<Message> => {
       if (message.role === 'user' && message.attachments?.length) {
         const imageParts = await Promise.all(
           message.attachments.map(async (att) => {
-            const buffer = await fs.readFile(getThreadAttachmentPath(conversationId, att.path))
+            const buffer = await fs.readFile(getThreadAttachmentPath(threadId, att.path))
             const base64 = buffer.toString('base64')
             return {
               type: 'image_url' as const,
@@ -46,13 +44,13 @@ async function convertToModelMessages(messages: ArcMessage[], conversationId: st
         )
         return {
           role: 'user',
-          content: [...imageParts, { type: 'text' as const, text: message.content }],
+          content: [...imageParts, { type: 'text' as const, text: message.content! }],
         }
       }
 
       return {
         role: message.role as 'user' | 'assistant' | 'system',
-        content: message.content,
+        content: message.content!,
       }
     }),
   )
@@ -68,6 +66,12 @@ const activeStreams = new Map<string, AbortController>()
 // AI STREAM EVENTS
 // ============================================================================
 
+type AIStreamEvent =
+  | { type: 'delta'; streamId: string; chunk: string }
+  | { type: 'reasoning'; streamId: string; chunk: string }
+  | { type: 'complete'; streamId: string; message: StoredMessageEvent }
+  | { type: 'error'; streamId: string; error: string }
+
 function emitAIStreamEvent(event: AIStreamEvent): void {
   broadcast('arc:ai:event', event)
 }
@@ -79,7 +83,7 @@ function emitAIStreamEvent(event: AIStreamEvent): void {
 interface StreamCallbacks {
   onDelta: (chunk: string) => void
   onReasoning: (chunk: string) => void
-  onComplete: (message: ArcMessage) => void
+  onComplete: (message: StoredMessageEvent) => void
   onError: (error: string) => void
 }
 
@@ -102,7 +106,7 @@ async function executeStream(
   activeStreams.set(streamId, abortController)
 
   try {
-    const { messages: conversationMessages } = await getMessages(conversationId)
+    const { messages: conversationMessages } = await readMessages(conversationId)
 
     const providerId = await lookupModelProvider(modelId)
     const providerConfig = await getProviderConfig(providerId)
@@ -141,15 +145,17 @@ async function executeStream(
       }
     }
 
-    const assistantMessage = await insertAssistantMessage(
-      conversationId,
-      fullContent,
-      fullReasoning || undefined,
+    const { message: assistantMessage } = await appendMessage({
+      type: 'new',
+      threadId: conversationId,
+      role: 'assistant',
+      content: fullContent,
       parentId,
       modelId,
       providerId,
+      reasoning: fullReasoning || undefined,
       usage,
-    )
+    })
     callbacks.onComplete(assistantMessage)
   } catch (err) {
     if ((err as Error).name === 'AbortError') {
@@ -191,9 +197,13 @@ function registerModelsHandlers(ipcMain: IpcMain): void {
 // AI STREAMING HANDLERS
 // ============================================================================
 
+const ChatOptionsSchema = z.object({
+  model: z.string(),
+})
+
 const handleAIChat = validated(
   [z.string(), ChatOptionsSchema],
-  async (conversationId, options): Promise<ChatResponse> => {
+  async (conversationId, options): Promise<{ streamId: string }> => {
     const streamId = createId()
 
     executeStream(streamId, conversationId, options.model, {

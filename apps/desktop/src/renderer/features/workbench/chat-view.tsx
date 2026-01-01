@@ -239,7 +239,17 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
       if (editingState !== null) {
         // ASSISTANT MESSAGE EDIT: Update in place
         if (editingState.role === 'assistant') {
-          await updateMessage(thread.id, editingState.messageId, content)
+          const originalMessage = messages.find((m) => m.id === editingState.messageId)
+          if (!originalMessage?.modelId || !originalMessage?.providerId) {
+            throw new Error('Cannot edit message: missing model info')
+          }
+          await updateMessage(
+            thread.id,
+            editingState.messageId,
+            content,
+            originalMessage.modelId,
+            originalMessage.providerId,
+          )
 
           const { messages: updatedMessages } = await getMessages(thread.id)
           setAllMessages(updatedMessages)

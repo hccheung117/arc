@@ -12,8 +12,23 @@ import { rendererError } from '@main/foundation/logger'
 import { getThreadAttachmentPath } from '@main/lib/arcfs/paths'
 import { getConfig, setConfig } from '@main/lib/profile/operations'
 import { showThreadContextMenu, showMessageContextMenu, type MessageMenuAction } from '@main/lib/ui'
-import { deleteConversation, updateConversation, emitConversationEvent } from '@main/lib/messages/operations'
-import { validated } from '@main/foundation/ipc'
+import type { StoredThread } from '@main/lib/messages/schemas'
+import { threadIndexFile, messageLogFile, deleteThreadAttachments } from '@main/lib/messages/storage'
+import { removeThread } from '@main/lib/messages/threads'
+import { validated, broadcast } from '@main/foundation/ipc'
+
+// ============================================================================
+// THREAD EVENTS (app-layer)
+// ============================================================================
+
+type ThreadEvent =
+  | { type: 'created'; thread: StoredThread }
+  | { type: 'updated'; thread: StoredThread }
+  | { type: 'deleted'; id: string }
+
+function emitThreadEvent(event: ThreadEvent): void {
+  broadcast('arc:conversations:event', event)
+}
 
 // ============================================================================
 // CONFIG
@@ -46,20 +61,36 @@ const handleUIShowThreadContextMenu = validated(
     const action = await showThreadContextMenu(isPinned)
 
     if (action === 'delete') {
-      await deleteConversation(threadId)
-      emitConversationEvent({ type: 'deleted', id: threadId })
+      await threadIndexFile().update((index) => removeThread(index, threadId))
+      await messageLogFile(threadId).delete()
+      await deleteThreadAttachments(threadId)
+      emitThreadEvent({ type: 'deleted', id: threadId })
       return null
     }
 
     if (action === 'togglePin') {
-      const conversation = await updateConversation(threadId, { pinned: !isPinned })
-      emitConversationEvent({ type: 'updated', conversation })
+      let updatedThread: StoredThread | undefined
+
+      await threadIndexFile().update((index) => {
+        const thread = index.threads.find((t) => t.id === threadId)
+        if (!thread) {
+          throw new Error(`Thread not found: ${threadId}`)
+        }
+        thread.pinned = !isPinned
+        thread.updatedAt = new Date().toISOString()
+        updatedThread = thread
+        return index
+      })
+
+      if (updatedThread) {
+        emitThreadEvent({ type: 'updated', thread: updatedThread })
+      }
       return null
     }
 
     // 'rename' is returned to renderer for UI handling
     return action
-  }
+  },
 )
 
 const handleUIShowMessageContextMenu = validated(

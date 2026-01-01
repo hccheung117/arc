@@ -52,8 +52,18 @@ export async function updateMessage(
   conversationId: string,
   messageId: string,
   content: string,
+  modelId: string,
+  providerId: string,
+  attachments?: AttachmentInput[],
+  reasoning?: string,
 ): Promise<Message> {
-  return window.arc.messages.update(conversationId, messageId, { content })
+  return window.arc.messages.update(conversationId, messageId, {
+    content,
+    modelId,
+    providerId,
+    attachments,
+    reasoning,
+  })
 }
 
 export async function startAIChat(conversationId: string, model: string): Promise<ChatResponse> {

@@ -8,31 +8,10 @@
 import type { IpcMain } from 'electron'
 import { readFile } from 'node:fs/promises'
 import { z } from 'zod'
-import type {
-  Conversation,
-  ListMessagesResult,
-  CreateBranchResult,
-} from '@arc-types/arc-api'
-import {
-  ConversationPatchSchema,
-  CreateMessageInputSchema,
-  CreateBranchInputSchema,
-  UpdateMessageInputSchema,
-} from '@arc-types/arc-api'
-import type { ConversationSummary } from '@arc-types/conversations'
-import type { Message } from '@arc-types/messages'
-import {
-  getConversationSummaries,
-  updateConversation,
-  deleteConversation,
-  getMessages,
-  createMessage,
-  createBranch,
-  updateMessage,
-  toConversation,
-  emitConversationEvent,
-} from '@main/lib/messages/operations'
-import { threadIndexFile } from '@main/lib/messages/storage'
+import type { StoredThread, StoredMessageEvent, BranchInfo } from '@main/lib/messages/schemas'
+import { listThreads, removeThread } from '@main/lib/messages/threads'
+import { appendMessage, readMessages } from '@main/lib/messages/operations'
+import { threadIndexFile, messageLogFile, deleteThreadAttachments } from '@main/lib/messages/storage'
 import {
   installProfile,
   uninstallProfile,
@@ -46,28 +25,108 @@ import {
 } from '@main/lib/profile/operations'
 import { syncModels, emitModelsEvent } from '@main/app/models'
 import { info, error } from '@main/foundation/logger'
-import { validated } from '@main/foundation/ipc'
+import { validated, broadcast } from '@main/foundation/ipc'
+
+// ============================================================================
+// THREAD EVENTS (app-layer, not lib)
+// ============================================================================
+
+type ThreadEvent =
+  | { type: 'created'; thread: StoredThread }
+  | { type: 'updated'; thread: StoredThread }
+  | { type: 'deleted'; id: string }
+
+function emitThreadEvent(event: ThreadEvent): void {
+  broadcast('arc:conversations:event', event)
+}
+
+// ============================================================================
+// IPC SCHEMAS (app-level input validation)
+// ============================================================================
+
+const ThreadPatchSchema = z.object({
+  title: z.string().optional(),
+  pinned: z.boolean().optional(),
+})
+
+const AttachmentInputSchema = z.object({
+  type: z.literal('image'),
+  data: z.string(),
+  mimeType: z.string(),
+  name: z.string().optional(),
+})
+
+const CreateMessageInputSchema = z.object({
+  role: z.enum(['user', 'assistant', 'system']),
+  content: z.string(),
+  parentId: z.string().nullable(),
+  attachments: z.array(AttachmentInputSchema).optional(),
+  modelId: z.string(),
+  providerId: z.string(),
+})
+
+const CreateBranchInputSchema = z.object({
+  parentId: z.string().nullable(),
+  content: z.string(),
+  attachments: z.array(AttachmentInputSchema).optional(),
+  modelId: z.string(),
+  providerId: z.string(),
+})
+
+const UpdateMessageInputSchema = z.object({
+  content: z.string(),
+  modelId: z.string(),
+  providerId: z.string(),
+  attachments: z.array(AttachmentInputSchema).optional(),
+  reasoning: z.string().optional(),
+})
 
 // ============================================================================
 // CONVERSATIONS
 // ============================================================================
 
-async function handleConversationsList(): Promise<ConversationSummary[]> {
-  return getConversationSummaries()
+async function handleConversationsList(): Promise<StoredThread[]> {
+  return listThreads()
 }
 
 const handleConversationsUpdate = validated(
-  [z.string(), ConversationPatchSchema],
-  async (id, patch): Promise<Conversation> => {
-    const conversation = await updateConversation(id, patch)
-    emitConversationEvent({ type: 'updated', conversation })
-    return conversation
-  }
+  [z.string(), ThreadPatchSchema],
+  async (id, patch): Promise<StoredThread> => {
+    let updatedThread: StoredThread | undefined
+
+    await threadIndexFile().update((index) => {
+      const thread = index.threads.find((t) => t.id === id)
+      if (!thread) {
+        throw new Error(`Thread not found: ${id}`)
+      }
+
+      if (patch.title !== undefined) {
+        thread.title = patch.title
+        thread.renamed = true
+      }
+      if (patch.pinned !== undefined) {
+        thread.pinned = patch.pinned
+      }
+      thread.updatedAt = new Date().toISOString()
+
+      updatedThread = thread
+      return index
+    })
+
+    if (!updatedThread) {
+      throw new Error(`Failed to update thread: ${id}`)
+    }
+
+    emitThreadEvent({ type: 'updated', thread: updatedThread })
+    return updatedThread
+  },
 )
 
 const handleConversationsDelete = validated([z.string()], async (id) => {
-  await deleteConversation(id)
-  emitConversationEvent({ type: 'deleted', id })
+  await threadIndexFile().update((index) => removeThread(index, id))
+  await messageLogFile(id).delete()
+  await deleteThreadAttachments(id)
+  emitThreadEvent({ type: 'deleted', id })
 })
 
 function registerConversationsHandlers(ipcMain: IpcMain): void {
@@ -80,49 +139,75 @@ function registerConversationsHandlers(ipcMain: IpcMain): void {
 // MESSAGES
 // ============================================================================
 
-const handleMessagesList = validated([z.string()], async (conversationId): Promise<ListMessagesResult> => {
-  return getMessages(conversationId)
-})
+interface GetMessagesResult {
+  messages: StoredMessageEvent[]
+  branchPoints: BranchInfo[]
+}
+
+interface CreateBranchResult {
+  message: StoredMessageEvent
+  branchPoints: BranchInfo[]
+}
+
+const handleMessagesList = validated(
+  [z.string()],
+  async (conversationId): Promise<GetMessagesResult> => {
+    return readMessages(conversationId)
+  },
+)
 
 const handleMessagesCreate = validated(
   [z.string(), CreateMessageInputSchema],
-  async (conversationId, input): Promise<Message> => {
-    const { message, threadWasCreated } = await createMessage(conversationId, input)
+  async (conversationId, input): Promise<StoredMessageEvent> => {
+    const { message, threadCreated } = await appendMessage({
+      type: 'new',
+      threadId: conversationId,
+      ...input,
+    })
 
-    if (threadWasCreated) {
+    if (threadCreated) {
+      // Fetch the created thread for event emission
       const index = await threadIndexFile().read()
       const thread = index.threads.find((t) => t.id === conversationId)
       if (thread) {
-        emitConversationEvent({
-          type: 'created',
-          conversation: toConversation(thread),
-        })
+        emitThreadEvent({ type: 'created', thread })
       }
     }
 
     return message
-  }
+  },
 )
 
 const handleMessagesCreateBranch = validated(
   [z.string(), CreateBranchInputSchema],
   async (conversationId, input): Promise<CreateBranchResult> => {
-    return createBranch(
-      conversationId,
-      input.parentId,
-      input.content,
-      input.attachments,
-      input.modelId,
-      input.providerId
-    )
-  }
+    const { message } = await appendMessage({
+      type: 'new',
+      threadId: conversationId,
+      role: 'user',
+      content: input.content,
+      parentId: input.parentId,
+      attachments: input.attachments,
+      modelId: input.modelId,
+      providerId: input.providerId,
+    })
+
+    const { branchPoints } = await readMessages(conversationId)
+    return { message, branchPoints }
+  },
 )
 
 const handleMessagesUpdate = validated(
   [z.string(), z.string(), UpdateMessageInputSchema],
-  async (conversationId, messageId, input): Promise<Message> => {
-    return updateMessage(conversationId, messageId, input.content)
-  }
+  async (conversationId, messageId, input): Promise<StoredMessageEvent> => {
+    const { message } = await appendMessage({
+      type: 'edit',
+      threadId: conversationId,
+      messageId,
+      ...input,
+    })
+    return message
+  },
 )
 
 function registerMessagesHandlers(ipcMain: IpcMain): void {

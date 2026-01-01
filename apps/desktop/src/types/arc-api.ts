@@ -56,6 +56,10 @@ export type CreateBranchInput = z.infer<typeof CreateBranchInputSchema>
 
 export const UpdateMessageInputSchema = z.object({
   content: z.string(),
+  modelId: z.string(),
+  providerId: z.string(),
+  attachments: z.array(AttachmentInputSchema).optional(),
+  reasoning: z.string().optional(),
 })
 export type UpdateMessageInput = z.infer<typeof UpdateMessageInputSchema>
 
