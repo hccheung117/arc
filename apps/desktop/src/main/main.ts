@@ -15,22 +15,17 @@
  * - Direct IPC handler implementations
  *
  * If you're writing more than a one-liner in an event handler,
- * extract it to a lib/ module first.
+ * extract it to the appropriate layer (foundation/, lib/, or app/).
  */
 
 import { app, BrowserWindow, ipcMain, Menu } from 'electron'
 import path from 'node:path'
-import * as fs from 'fs/promises'
 import started from 'electron-squirrel-startup'
 import { buildAppMenu } from './menu'
 import { registerDataHandlers } from '@main/app/data'
 import { registerAIHandlers } from '@main/app/ai'
 import { registerSystemHandlers } from '@main/app/system'
-import { installProfile, activateProfile, getActiveProfile, emitProfilesEvent, generateProviderId } from './lib/profile/operations'
-import { syncModels } from '@main/lib/models/sync'
-import { OPENAI_BASE_URL } from '@main/lib/ai/types'
-import { broadcast } from '@main/foundation/ipc'
-import { info, error } from '@main/foundation/logger'
+import { initModels, handleProfileFileOpen } from '@main/app/lifecycle'
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -62,67 +57,6 @@ const createWindow = () => {
   }
 
   return mainWindow
-}
-
-/**
- * Initialize models on app startup.
- * Orchestrates: profile → models
- */
-async function initModels(): Promise<void> {
-  try {
-    const profile = await getActiveProfile()
-    const providers = profile?.providers.map((p) => ({
-      id: generateProviderId(p),
-      baseUrl: p.baseUrl ?? OPENAI_BASE_URL,
-      apiKey: p.apiKey ?? null,
-      filter: p.modelFilter ?? null,
-      aliases: p.modelAliases ?? null,
-      name: profile.name,
-    })) ?? []
-    const updated = await syncModels(providers)
-    if (updated) broadcast('arc:models:event', { type: 'updated' })
-  } catch (err) {
-    error('models', 'Startup fetch failed', err as Error)
-  }
-}
-
-/**
- * Handle .arc file opened via dock drop or file association.
- * Orchestrates: install → activate → fetch models
- */
-async function handleProfileFileOpen(filePath: string): Promise<void> {
-  if (path.extname(filePath).toLowerCase() !== '.arc') {
-    return
-  }
-
-  info('profiles', `File open: ${filePath}`)
-
-  try {
-    const content = await fs.readFile(filePath, 'utf-8')
-    const result = await installProfile(content)
-    emitProfilesEvent({ type: 'installed', profile: result })
-
-    await activateProfile(result.id)
-    emitProfilesEvent({ type: 'activated', profileId: result.id })
-
-    // Background model fetch after activation
-    const profile = await getActiveProfile()
-    const providers = profile?.providers.map((p) => ({
-      id: generateProviderId(p),
-      baseUrl: p.baseUrl ?? OPENAI_BASE_URL,
-      apiKey: p.apiKey ?? null,
-      filter: p.modelFilter ?? null,
-      aliases: p.modelAliases ?? null,
-      name: profile.name,
-    })) ?? []
-    syncModels(providers)
-      .then((updated) => {
-        if (updated) broadcast('arc:models:event', { type: 'updated' })
-      })
-      .catch((err) => error('models', 'Background fetch failed', err as Error))
-  } catch (err) {
-    error('profiles', 'File open failed', err as Error)
-  }
 }
 
 // Quit when all windows are closed, except on macOS. There, it's common
