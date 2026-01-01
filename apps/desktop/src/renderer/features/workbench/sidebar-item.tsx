@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { MessageSquare, MoreHorizontal } from 'lucide-react'
 import { SidebarMenuItem, SidebarMenuButton, SidebarMenuAction } from '@renderer/components/ui/sidebar'
 import type { ChatThread } from './chat-thread'
-import { showThreadContextMenu, renameConversation } from '@renderer/lib/conversations'
+import { showThreadContextMenu, renameThread } from '@renderer/lib/threads'
 import type { Dispatch } from 'react'
 import type { ThreadAction } from './use-chat-threads'
 
@@ -50,7 +50,7 @@ export function SidebarItem({ thread, isActive, onSelect, dispatch }: SidebarIte
       return
     }
 
-    await renameConversation(thread.id, renameValue)
+    await renameThread(thread.id, renameValue)
 
     dispatch({ type: 'RENAME_THREAD', id: thread.id, title: renameValue })
     setIsRenaming(false)

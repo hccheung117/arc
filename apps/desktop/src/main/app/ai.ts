@@ -98,7 +98,7 @@ interface StreamCallbacks {
  */
 async function executeStream(
   streamId: string,
-  conversationId: string,
+  threadId: string,
   modelId: string,
   callbacks: StreamCallbacks,
 ): Promise<void> {
@@ -106,16 +106,16 @@ async function executeStream(
   activeStreams.set(streamId, abortController)
 
   try {
-    const { messages: conversationMessages } = await readMessages(conversationId)
+    const { messages: threadMessages } = await readMessages(threadId)
 
     const providerId = await lookupModelProvider(modelId)
     const providerConfig = await getProviderConfig(providerId)
 
-    // Get the parent ID (last message in the conversation)
-    const lastMessage = conversationMessages[conversationMessages.length - 1]
+    // Get the parent ID (last message in the thread)
+    const lastMessage = threadMessages[threadMessages.length - 1]
     const parentId = lastMessage?.id ?? null
 
-    const modelMessages = await convertToModelMessages(conversationMessages, conversationId)
+    const modelMessages = await convertToModelMessages(threadMessages, threadId)
 
     const stream = streamText({
       baseUrl: providerConfig.baseUrl ?? undefined,
@@ -147,7 +147,7 @@ async function executeStream(
 
     const { message: assistantMessage } = await appendMessage({
       type: 'new',
-      threadId: conversationId,
+      threadId,
       role: 'assistant',
       content: fullContent,
       parentId,
@@ -203,10 +203,10 @@ const ChatOptionsSchema = z.object({
 
 const handleAIChat = validated(
   [z.string(), ChatOptionsSchema],
-  async (conversationId, options): Promise<{ streamId: string }> => {
+  async (threadId, options): Promise<{ streamId: string }> => {
     const streamId = createId()
 
-    executeStream(streamId, conversationId, options.model, {
+    executeStream(streamId, threadId, options.model, {
       onDelta: (chunk) => emitAIStreamEvent({ type: 'delta', streamId, chunk }),
       onReasoning: (chunk) => emitAIStreamEvent({ type: 'reasoning', streamId, chunk }),
       onComplete: (message) => emitAIStreamEvent({ type: 'complete', streamId, message }),

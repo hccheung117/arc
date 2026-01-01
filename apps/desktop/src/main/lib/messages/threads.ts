@@ -55,7 +55,7 @@ export type ThreadEvent =
   | { type: 'deleted'; id: string }
 
 export function emitThreadEvent(event: ThreadEvent): void {
-  broadcast('arc:conversations:event', event)
+  broadcast('arc:threads:event', event)
 }
 
 // ============================================================================

@@ -1,8 +1,8 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
   ArcAPI,
-  ConversationPatch,
-  ConversationEvent,
+  ThreadPatch,
+  ThreadEvent,
   CreateMessageInput,
   CreateBranchInput,
   UpdateMessageInput,
@@ -20,33 +20,33 @@ import type { ProfilesEvent } from '@arc-types/arc-file'
  */
 
 const arcAPI: ArcAPI = {
-  conversations: {
-    list: () => ipcRenderer.invoke('arc:conversations:list'),
+  threads: {
+    list: () => ipcRenderer.invoke('arc:threads:list'),
 
-    update: (id: string, patch: ConversationPatch) =>
-      ipcRenderer.invoke('arc:conversations:update', id, patch),
+    update: (id: string, patch: ThreadPatch) =>
+      ipcRenderer.invoke('arc:threads:update', id, patch),
 
-    delete: (id: string) => ipcRenderer.invoke('arc:conversations:delete', id),
+    delete: (id: string) => ipcRenderer.invoke('arc:threads:delete', id),
 
-    onEvent: (callback: (event: ConversationEvent) => void) => {
-      const listener = (_event: Electron.IpcRendererEvent, data: ConversationEvent) => callback(data)
-      ipcRenderer.on('arc:conversations:event', listener)
-      return () => ipcRenderer.removeListener('arc:conversations:event', listener)
+    onEvent: (callback: (event: ThreadEvent) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, data: ThreadEvent) => callback(data)
+      ipcRenderer.on('arc:threads:event', listener)
+      return () => ipcRenderer.removeListener('arc:threads:event', listener)
     },
   },
 
   messages: {
-    list: (conversationId: string) =>
-      ipcRenderer.invoke('arc:messages:list', conversationId),
+    list: (threadId: string) =>
+      ipcRenderer.invoke('arc:messages:list', threadId),
 
-    create: (conversationId: string, input: CreateMessageInput) =>
-      ipcRenderer.invoke('arc:messages:create', conversationId, input),
+    create: (threadId: string, input: CreateMessageInput) =>
+      ipcRenderer.invoke('arc:messages:create', threadId, input),
 
-    createBranch: (conversationId: string, input: CreateBranchInput) =>
-      ipcRenderer.invoke('arc:messages:createBranch', conversationId, input),
+    createBranch: (threadId: string, input: CreateBranchInput) =>
+      ipcRenderer.invoke('arc:messages:createBranch', threadId, input),
 
-    update: (conversationId: string, messageId: string, input: UpdateMessageInput) =>
-      ipcRenderer.invoke('arc:messages:update', conversationId, messageId, input),
+    update: (threadId: string, messageId: string, input: UpdateMessageInput) =>
+      ipcRenderer.invoke('arc:messages:update', threadId, messageId, input),
   },
 
   models: {
@@ -60,8 +60,8 @@ const arcAPI: ArcAPI = {
   },
 
   ai: {
-    chat: (conversationId: string, options: ChatOptions) =>
-      ipcRenderer.invoke('arc:ai:chat', conversationId, options),
+    chat: (threadId: string, options: ChatOptions) =>
+      ipcRenderer.invoke('arc:ai:chat', threadId, options),
 
     stop: (streamId: string) => ipcRenderer.invoke('arc:ai:stop', streamId),
 
@@ -72,12 +72,12 @@ const arcAPI: ArcAPI = {
     },
   },
 
-  config: {
+  settings: {
     get: <T = unknown>(key: string) =>
-      ipcRenderer.invoke('arc:config:get', key) as Promise<T | null>,
+      ipcRenderer.invoke('arc:settings:get', key) as Promise<T | null>,
 
     set: <T = unknown>(key: string, value: T) =>
-      ipcRenderer.invoke('arc:config:set', key, value),
+      ipcRenderer.invoke('arc:settings:set', key, value),
   },
 
   ui: {
@@ -108,8 +108,8 @@ const arcAPI: ArcAPI = {
   utils: {
     getFilePath: (file: File) => webUtils.getPathForFile(file),
     openFile: (filePath: string) => ipcRenderer.invoke('arc:utils:openFile', filePath),
-    getThreadAttachmentPath: (conversationId: string, relativePath: string) =>
-      ipcRenderer.invoke('arc:utils:getThreadAttachmentPath', conversationId, relativePath),
+    getThreadAttachmentPath: (threadId: string, relativePath: string) =>
+      ipcRenderer.invoke('arc:utils:getThreadAttachmentPath', threadId, relativePath),
   },
 
   log: {

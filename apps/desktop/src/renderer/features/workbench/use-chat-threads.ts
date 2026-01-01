@@ -1,15 +1,15 @@
 import { useReducer, useEffect } from 'react'
 import type { Message } from '@arc-types/messages'
-import type { ConversationSummary } from '@arc-types/conversations'
-import { getConversationSummaries, onConversationEvent } from '@renderer/lib/conversations'
-import { type ChatThread, createDraftThread, hydrateFromConversation } from './chat-thread'
+import type { ThreadSummary } from '@arc-types/threads'
+import { getThreadSummaries, onThreadEvent } from '@renderer/lib/threads'
+import { type ChatThread, createDraftThread, hydrateFromSummary } from './chat-thread'
 
 /**
  * Actions for managing ChatThread state
  */
 export type ThreadAction =
   | { type: 'CREATE_DRAFT'; id?: string }
-  | { type: 'HYDRATE'; conversations: ConversationSummary[] }
+  | { type: 'HYDRATE'; threads: ThreadSummary[] }
   | { type: 'ADD_MESSAGE'; id: string; message: Message }
   | { type: 'UPDATE_MESSAGES'; id: string; messages: Message[] }
   | { type: 'UPDATE_STATUS'; id: string; status: ChatThread['status'] }
@@ -32,8 +32,8 @@ function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[]
     }
 
     case 'HYDRATE': {
-      // Convert database conversations to UI threads
-      const hydratedThreads = action.conversations.map(hydrateFromConversation)
+      // Convert database threads to UI threads
+      const hydratedThreads = action.threads.map(hydrateFromSummary)
       // Preserve existing draft threads (not yet persisted to database)
       const existingDrafts = state.filter((t) => t.status === 'draft')
       return [...existingDrafts, ...hydratedThreads]
@@ -163,22 +163,22 @@ export function useChatThreads() {
 
   // Hydrate threads from database on mount
   useEffect(() => {
-    getConversationSummaries().then((conversations) => {
-      dispatch({ type: 'HYDRATE', conversations })
+    getThreadSummaries().then((threads) => {
+      dispatch({ type: 'HYDRATE', threads })
     })
   }, [])
 
-  // Subscribe to conversation events for sidebar reactivity
+  // Subscribe to thread events for sidebar reactivity
   useEffect(() => {
-    const unsubscribe = onConversationEvent((event) => {
+    const unsubscribe = onThreadEvent((event) => {
       switch (event.type) {
         case 'created':
         case 'updated':
           dispatch({
             type: 'UPDATE_THREAD_METADATA',
-            id: event.conversation.id,
-            title: event.conversation.title,
-            updatedAt: event.conversation.updatedAt,
+            id: event.thread.id,
+            title: event.thread.title,
+            updatedAt: event.thread.updatedAt,
           })
           break
         case 'deleted':

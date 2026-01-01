@@ -1,6 +1,6 @@
 import { createId } from '@paralleldrive/cuid2'
 import type { Message } from '@arc-types/messages'
-import type { ConversationSummary } from '@arc-types/conversations'
+import type { ThreadSummary } from '@arc-types/threads'
 
 /**
  * ChatThread: UI ViewModel for organizing messages
@@ -8,10 +8,10 @@ import type { ConversationSummary } from '@arc-types/conversations'
  * Uses cuid2 for stable IDs.
  *
  * This enables:
- * - Instant UI feedback (threads exist before database conversations)
+ * - Instant UI feedback (threads exist before database)
  * - Zero blinking (ID stability prevents re-renders)
- * - Lazy persistence (conversations created only when needed)
- * - Message-first UX (users interact with messages, not conversations)
+ * - Lazy persistence (threads created only when needed)
+ * - Message-first UX (users interact with messages, not threads)
  */
 export type ChatThread = {
   id: string // cuid2 - stable identifier for both UI and database
@@ -43,19 +43,19 @@ export function createDraftThread(): ChatThread {
 }
 
 /**
- * Hydrate a ChatThread from an existing database conversation
+ * Hydrate a ChatThread from an existing database thread
  *
- * Used on initial load to convert persisted conversations into UI threads.
+ * Used on initial load to convert persisted threads into UI threads.
  * Messages are lazy-loaded when the thread is selected.
  */
-export function hydrateFromConversation(conv: ConversationSummary): ChatThread {
+export function hydrateFromSummary(summary: ThreadSummary): ChatThread {
   return {
-    id: conv.id,
+    id: summary.id,
     messages: [],
     status: 'persisted',
-    title: conv.title,
-    createdAt: conv.createdAt || conv.updatedAt, // Fallback if createdAt is missing
-    updatedAt: conv.updatedAt,
-    isPinned: conv.pinned,
+    title: summary.title,
+    createdAt: summary.createdAt || summary.updatedAt,
+    updatedAt: summary.updatedAt,
+    isPinned: summary.pinned,
   }
 }

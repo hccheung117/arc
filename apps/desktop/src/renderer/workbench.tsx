@@ -7,7 +7,7 @@ import { useChatThreads } from '@renderer/features/workbench/use-chat-threads'
 import { createDraftThread } from '@renderer/features/workbench/chat-thread'
 import { DropOverlay } from '@renderer/components/drop-overlay'
 import { useFileDrop } from '@renderer/hooks/use-file-drop'
-import { onConversationEvent } from '@renderer/lib/conversations'
+import { onThreadEvent } from '@renderer/lib/threads'
 
 export function WorkbenchWindow() {
   const { threads, dispatch } = useChatThreads()
@@ -27,7 +27,7 @@ export function WorkbenchWindow() {
 
   // Deselect active thread if it's deleted (from context menu or elsewhere)
   useEffect(() => {
-    return onConversationEvent((event) => {
+    return onThreadEvent((event) => {
       if (event.type === 'deleted' && event.id === activeThreadIdRef.current) {
         setActiveThreadId(null)
       }

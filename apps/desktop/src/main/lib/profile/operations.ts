@@ -269,10 +269,10 @@ export async function getProviderConfig(providerId: string): Promise<{
 }
 
 /**
- * Generic config get handler.
- * Routes key patterns to appropriate config sources.
+ * Generic settings get handler.
+ * Routes key patterns to appropriate sources.
  */
-export async function getConfig<T = unknown>(key: string): Promise<T | null> {
+export async function getSetting<T = unknown>(key: string): Promise<T | null> {
   if (key.startsWith('provider:')) {
     const providerId = key.slice('provider:'.length)
     const config = await getProviderConfig(providerId)
@@ -288,11 +288,11 @@ export async function getConfig<T = unknown>(key: string): Promise<T | null> {
 }
 
 /**
- * Generic config set handler.
- * Routes key patterns to appropriate config updaters.
+ * Generic settings set handler.
+ * Routes key patterns to appropriate updaters.
  * Note: Provider configs are read-only (come from arc files).
  */
-export async function setConfig<T = unknown>(key: string, value: T): Promise<void> {
+export async function setSetting<T = unknown>(key: string, value: T): Promise<void> {
   if (key.startsWith('provider:')) {
     throw new Error('Provider configs are read-only (managed via arc files)')
   }

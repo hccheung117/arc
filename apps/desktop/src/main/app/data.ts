@@ -69,28 +69,28 @@ const UpdateMessageInputSchema = z.object({
 })
 
 // ============================================================================
-// CONVERSATIONS
+// THREADS
 // ============================================================================
 
-async function handleConversationsList(): Promise<StoredThread[]> {
+async function handleThreadsList(): Promise<StoredThread[]> {
   return listThreads()
 }
 
-const handleConversationsUpdate = validated(
+const handleThreadsUpdate = validated(
   [z.string(), ThreadPatchSchema],
   async (id, patch): Promise<StoredThread> => {
     return updateThread(id, patch)
   },
 )
 
-const handleConversationsDelete = validated([z.string()], async (id) => {
+const handleThreadsDelete = validated([z.string()], async (id) => {
   await deleteThread(id)
 })
 
-function registerConversationsHandlers(ipcMain: IpcMain): void {
-  ipcMain.handle('arc:conversations:list', handleConversationsList)
-  ipcMain.handle('arc:conversations:update', handleConversationsUpdate)
-  ipcMain.handle('arc:conversations:delete', handleConversationsDelete)
+function registerThreadsHandlers(ipcMain: IpcMain): void {
+  ipcMain.handle('arc:threads:list', handleThreadsList)
+  ipcMain.handle('arc:threads:update', handleThreadsUpdate)
+  ipcMain.handle('arc:threads:delete', handleThreadsDelete)
 }
 
 // ============================================================================
@@ -109,24 +109,24 @@ interface CreateBranchResult {
 
 const handleMessagesList = validated(
   [z.string()],
-  async (conversationId): Promise<GetMessagesResult> => {
-    return readMessages(conversationId)
+  async (threadId): Promise<GetMessagesResult> => {
+    return readMessages(threadId)
   },
 )
 
 const handleMessagesCreate = validated(
   [z.string(), CreateMessageInputSchema],
-  async (conversationId, input): Promise<StoredMessageEvent> => {
+  async (threadId, input): Promise<StoredMessageEvent> => {
     const { message, threadCreated } = await appendMessage({
       type: 'new',
-      threadId: conversationId,
+      threadId,
       ...input,
     })
 
     if (threadCreated) {
       // Fetch the created thread for event emission
       const index = await threadIndexFile().read()
-      const thread = index.threads.find((t) => t.id === conversationId)
+      const thread = index.threads.find((t) => t.id === threadId)
       if (thread) {
         emitThreadEvent({ type: 'created', thread })
       }
@@ -138,10 +138,10 @@ const handleMessagesCreate = validated(
 
 const handleMessagesCreateBranch = validated(
   [z.string(), CreateBranchInputSchema],
-  async (conversationId, input): Promise<CreateBranchResult> => {
+  async (threadId, input): Promise<CreateBranchResult> => {
     const { message } = await appendMessage({
       type: 'new',
-      threadId: conversationId,
+      threadId,
       role: 'user',
       content: input.content,
       parentId: input.parentId,
@@ -150,17 +150,17 @@ const handleMessagesCreateBranch = validated(
       providerId: input.providerId,
     })
 
-    const { branchPoints } = await readMessages(conversationId)
+    const { branchPoints } = await readMessages(threadId)
     return { message, branchPoints }
   },
 )
 
 const handleMessagesUpdate = validated(
   [z.string(), z.string(), UpdateMessageInputSchema],
-  async (conversationId, messageId, input): Promise<StoredMessageEvent> => {
+  async (threadId, messageId, input): Promise<StoredMessageEvent> => {
     const { message } = await appendMessage({
       type: 'edit',
-      threadId: conversationId,
+      threadId,
       messageId,
       ...input,
     })
@@ -246,7 +246,7 @@ function registerProfilesHandlers(ipcMain: IpcMain): void {
 // ============================================================================
 
 export function registerDataHandlers(ipcMain: IpcMain): void {
-  registerConversationsHandlers(ipcMain)
+  registerThreadsHandlers(ipcMain)
   registerMessagesHandlers(ipcMain)
   registerProfilesHandlers(ipcMain)
 }

@@ -10,26 +10,26 @@ import { shell } from 'electron'
 import { z } from 'zod'
 import { rendererError } from '@main/foundation/logger'
 import { getThreadAttachmentPath } from '@main/lib/arcfs/paths'
-import { getConfig, setConfig } from '@main/lib/profile/operations'
+import { getSetting, setSetting } from '@main/lib/profile/operations'
 import { showThreadContextMenu, showMessageContextMenu, type MessageMenuAction } from '@main/lib/ui'
 import { deleteThread, updateThread } from '@main/lib/messages/threads'
 import { validated } from '@main/foundation/ipc'
 
 // ============================================================================
-// CONFIG
+// SETTINGS
 // ============================================================================
 
-const handleConfigGet = validated([z.string()], async (key) => {
-  return getConfig(key)
+const handleSettingsGet = validated([z.string()], async (key) => {
+  return getSetting(key)
 })
 
-const handleConfigSet = validated([z.string(), z.unknown()], async (key, value) => {
-  await setConfig(key, value)
+const handleSettingsSet = validated([z.string(), z.unknown()], async (key, value) => {
+  await setSetting(key, value)
 })
 
-function registerConfigHandlers(ipcMain: IpcMain): void {
-  ipcMain.handle('arc:config:get', handleConfigGet)
-  ipcMain.handle('arc:config:set', handleConfigSet)
+function registerSettingsHandlers(ipcMain: IpcMain): void {
+  ipcMain.handle('arc:settings:get', handleSettingsGet)
+  ipcMain.handle('arc:settings:set', handleSettingsSet)
 }
 
 // ============================================================================
@@ -95,8 +95,8 @@ const handleUtilsOpenFile = validated([z.string()], async (filePath) => {
 
 const handleUtilsGetAttachmentPath = validated(
   [z.string(), z.string()],
-  async (conversationId, relativePath) => {
-    return getThreadAttachmentPath(conversationId, relativePath)
+  async (threadId, relativePath) => {
+    return getThreadAttachmentPath(threadId, relativePath)
   }
 )
 
@@ -110,7 +110,7 @@ function registerUtilsHandlers(ipcMain: IpcMain): void {
 // ============================================================================
 
 export function registerSystemHandlers(ipcMain: IpcMain): void {
-  registerConfigHandlers(ipcMain)
+  registerSettingsHandlers(ipcMain)
   registerUIHandlers(ipcMain)
   registerLoggingHandlers(ipcMain)
   registerUtilsHandlers(ipcMain)

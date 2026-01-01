@@ -13,7 +13,7 @@
 import { z } from 'zod'
 import type { Message } from './messages'
 import { MessageRoleSchema } from './messages'
-import type { ConversationSummary } from './conversations'
+import type { ThreadSummary } from './threads'
 import type { Model } from './models'
 import type { ProfileInfo, ProfileInstallResult, ProfilesEvent } from './arc-file'
 
@@ -21,11 +21,11 @@ import type { ProfileInfo, ProfileInstallResult, ProfilesEvent } from './arc-fil
 // IPC INPUT SCHEMAS
 // ============================================================================
 
-export const ConversationPatchSchema = z.object({
+export const ThreadPatchSchema = z.object({
   title: z.string().optional(),
   pinned: z.boolean().optional(),
 })
-export type ConversationPatch = z.infer<typeof ConversationPatchSchema>
+export type ThreadPatch = z.infer<typeof ThreadPatchSchema>
 
 export const AttachmentInputSchema = z.object({
   type: z.literal('image'),
@@ -72,14 +72,14 @@ export type ChatOptions = z.infer<typeof ChatOptionsSchema>
 // RESPONSE SCHEMAS
 // ============================================================================
 
-export const ConversationSchema = z.object({
+export const ThreadSchema = z.object({
   id: z.string(),
   title: z.string(),
   pinned: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
 })
-export type Conversation = z.infer<typeof ConversationSchema>
+export type Thread = z.infer<typeof ThreadSchema>
 
 export const BranchInfoSchema = z.object({
   parentId: z.string().nullable(),
@@ -100,10 +100,10 @@ export type ChatResponse = z.infer<typeof ChatResponseSchema>
 /** Cleanup function returned by event subscriptions */
 export type Unsubscribe = () => void
 
-/** Conversation lifecycle events (Rule 3: Push) */
-export type ConversationEvent =
-  | { type: 'created'; conversation: Conversation }
-  | { type: 'updated'; conversation: Conversation }
+/** Thread lifecycle events (Rule 3: Push) */
+export type ThreadEvent =
+  | { type: 'created'; thread: Thread }
+  | { type: 'updated'; thread: Thread }
   | { type: 'deleted'; id: string }
 
 /** Result of listing messages with branch info */
@@ -139,44 +139,44 @@ export type ModelsEvent = { type: 'updated' }
  * API with standard CRUD-like operations per resource.
  */
 export interface ArcAPI {
-  /** Conversation resource operations */
-  conversations: {
-    /** List all conversations (Rule 2: Two-Way) */
-    list(): Promise<ConversationSummary[]>
+  /** Thread resource operations */
+  threads: {
+    /** List all threads (Rule 2: Two-Way) */
+    list(): Promise<ThreadSummary[]>
 
-    /** Update conversation properties (Rule 2: Two-Way) */
-    update(id: string, patch: ConversationPatch): Promise<Conversation>
+    /** Update thread properties (Rule 2: Two-Way) */
+    update(id: string, patch: ThreadPatch): Promise<Thread>
 
-    /** Delete a conversation (Rule 2: Two-Way) */
+    /** Delete a thread (Rule 2: Two-Way) */
     delete(id: string): Promise<void>
 
-    /** Subscribe to conversation lifecycle events (Rule 3: Push) */
-    onEvent(callback: (event: ConversationEvent) => void): Unsubscribe
+    /** Subscribe to thread lifecycle events (Rule 3: Push) */
+    onEvent(callback: (event: ThreadEvent) => void): Unsubscribe
   }
 
   /** Message resource operations */
   messages: {
-    /** List messages for a conversation with branch info (Rule 2: Two-Way) */
-    list(conversationId: string): Promise<ListMessagesResult>
+    /** List messages for a thread with branch info (Rule 2: Two-Way) */
+    list(threadId: string): Promise<ListMessagesResult>
 
     /**
      * Create a new message (Rule 2: Two-Way)
-     * Auto-creates conversation if it doesn't exist, triggering a
-     * conversations.onEvent('created') event.
+     * Auto-creates thread if it doesn't exist, triggering a
+     * threads.onEvent('created') event.
      */
-    create(conversationId: string, input: CreateMessageInput): Promise<Message>
+    create(threadId: string, input: CreateMessageInput): Promise<Message>
 
     /**
      * Create a new branch (Rule 2: Two-Way)
-     * Used for "edit and regenerate" flow - creates new branch, preserves old conversation.
+     * Used for "edit and regenerate" flow - creates new branch, preserves old thread.
      */
-    createBranch(conversationId: string, input: CreateBranchInput): Promise<CreateBranchResult>
+    createBranch(threadId: string, input: CreateBranchInput): Promise<CreateBranchResult>
 
     /**
      * Update an existing message's content (Rule 2: Two-Way)
      * Used for editing assistant messages in place without regeneration.
      */
-    update(conversationId: string, messageId: string, input: UpdateMessageInput): Promise<Message>
+    update(threadId: string, messageId: string, input: UpdateMessageInput): Promise<Message>
   }
 
   /** Model resource operations */
@@ -194,7 +194,7 @@ export interface ArcAPI {
      * Start AI chat response stream (Rule 2: Two-Way)
      * Returns streamId for tracking. Listen to onEvent for streaming data.
      */
-    chat(conversationId: string, options: ChatOptions): Promise<ChatResponse>
+    chat(threadId: string, options: ChatOptions): Promise<ChatResponse>
 
     /** Cancel an active stream (Rule 2: Two-Way) */
     stop(streamId: string): Promise<void>
@@ -203,12 +203,12 @@ export interface ArcAPI {
     onEvent(callback: (event: AIStreamEvent) => void): Unsubscribe
   }
 
-  /** Configuration key-value store */
-  config: {
-    /** Get a configuration value (Rule 2: Two-Way) */
+  /** Settings key-value store */
+  settings: {
+    /** Get a setting value (Rule 2: Two-Way) */
     get<T = unknown>(key: string): Promise<T | null>
 
-    /** Set a configuration value (Rule 2: Two-Way) */
+    /** Set a setting value (Rule 2: Two-Way) */
     set<T = unknown>(key: string, value: T): Promise<void>
   }
 
@@ -258,7 +258,7 @@ export interface ArcAPI {
     openFile(filePath: string): Promise<void>
 
     /** Get absolute path for an attachment */
-    getThreadAttachmentPath(conversationId: string, relativePath: string): Promise<string>
+    getThreadAttachmentPath(threadId: string, relativePath: string): Promise<string>
   }
 
   /** Logging utilities (Rule 1: One-Way) */
