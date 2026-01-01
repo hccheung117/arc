@@ -7,9 +7,9 @@
 
 import { createId } from '@paralleldrive/cuid2'
 import type { AttachmentInput } from '@arc-types/arc-api'
-import type { StoredMessageEvent, StoredThread, BranchInfo, Usage } from './schemas'
+import type { StoredMessageEvent, StoredThread, StoredAttachment, BranchInfo, Usage } from './schemas'
 import { reduceMessageEvents } from './reducer'
-import { threadIndexFile, messageLogFile, writeAttachment } from './storage'
+import { threadIndexFile, messageLogFile, buildAttachment, writeAttachmentData } from './storage'
 
 // ============================================================================
 // PURE BUILDERS
@@ -120,19 +120,18 @@ export interface AppendMessageResult {
  *
  * - type: 'new' → creates message with new ID, may create thread
  * - type: 'edit' → appends edit event for existing message, touches thread
+ *
+ * Effect ordering: log append (source of truth) → thread index → attachment data.
+ * If attachment writes fail, the log entry and thread exist—recoverable state.
  */
 export async function appendMessage(input: AppendMessageInput): Promise<AppendMessageResult> {
   const isNew = input.type === 'new'
   const id = isNew ? createId() : input.messageId
   const timestamp = now()
 
-  // Write attachments (both new and edit can have them)
-  const attachments = input.attachments?.length
-    ? await Promise.all(
-        input.attachments.map((att, i) =>
-          writeAttachment(input.threadId, id, i, att.data, att.mimeType),
-        ),
-      )
+  // Build attachment metadata (pure—no disk writes yet)
+  const attachments: StoredAttachment[] | undefined = input.attachments?.length
+    ? input.attachments.map((att, i) => buildAttachment(id, i, att.mimeType))
     : undefined
 
   const event: StoredMessageEvent = {
@@ -150,7 +149,19 @@ export async function appendMessage(input: AppendMessageInput): Promise<AppendMe
 
   const title = isNew && input.role === 'user' ? generateTitle(input.content) : null
   const threadEffect = isNew ? ensureThread(title) : touchThread
+
+  // 1. Append to log first (source of truth)
   const result = await appendEventToLog(input.threadId, event, threadEffect)
+
+  // 2. Write attachment data after log is committed
+  if (input.attachments?.length && attachments) {
+    await Promise.all(
+      input.attachments.map((att, i) =>
+        writeAttachmentData(input.threadId, attachments[i].path, att.data),
+      ),
+    )
+  }
+
   return { message: result.event, threadCreated: result.threadCreated }
 }
 

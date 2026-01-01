@@ -81,36 +81,32 @@ async function ensureAttachmentsDir(threadId: string): Promise<void> {
 }
 
 /**
- * Writes an attachment to disk.
- *
- * @param threadId - The thread ID
- * @param messageId - The message ID (used in filename)
- * @param index - Attachment index within message
- * @param data - Base64-encoded file data
- * @param mimeType - MIME type of the file
- * @returns StoredAttachment with relative path
+ * Builds attachment metadata without writing to disk.
+ * Pure computation—no side effects.
  */
-export async function writeAttachment(
-  threadId: string,
+export function buildAttachment(
   messageId: string,
   index: number,
-  data: string,
   mimeType: string,
-): Promise<StoredAttachment> {
-  await ensureAttachmentsDir(threadId)
-
+): StoredAttachment {
   const ext = getExtension(mimeType)
   const filename = `${messageId}-${index}.${ext}`
-  const absolutePath = getThreadAttachmentPath(threadId, filename)
+  return { type: 'image', path: filename, mimeType }
+}
 
+/**
+ * Writes attachment data to disk.
+ * Effectful—call after log append to ensure source of truth exists first.
+ */
+export async function writeAttachmentData(
+  threadId: string,
+  filename: string,
+  data: string,
+): Promise<void> {
+  await ensureAttachmentsDir(threadId)
+  const absolutePath = getThreadAttachmentPath(threadId, filename)
   const buffer = Buffer.from(data, 'base64')
   await fs.writeFile(absolutePath, buffer)
-
-  return {
-    type: 'image',
-    path: filename,
-    mimeType,
-  }
 }
 
 /**
