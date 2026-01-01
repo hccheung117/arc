@@ -7,10 +7,8 @@
 import type { StreamOptions, StreamEvent, Usage, FinishReason } from './types'
 import { parseSSE, normalizeUsage, normalizeFinishReason } from './utils'
 
-const DEFAULT_BASE_URL = 'https://api.openai.com/v1'
-
 export async function* streamText(options: StreamOptions): AsyncGenerator<StreamEvent> {
-  const { baseUrl = DEFAULT_BASE_URL, apiKey, model, messages, temperature, reasoningEffort, signal } = options
+  const { baseUrl, apiKey, model, messages, temperature, reasoningEffort, signal } = options
 
   const body: Record<string, unknown> = {
     model,

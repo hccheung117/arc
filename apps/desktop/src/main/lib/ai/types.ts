@@ -4,6 +4,8 @@
  * Public types for OpenAI-compatible chat completions.
  */
 
+export const OPENAI_BASE_URL = 'https://api.openai.com/v1'
+
 // ============================================================================
 // INPUT
 // ============================================================================
@@ -26,7 +28,7 @@ export interface Message {
 }
 
 export interface StreamOptions {
-  baseUrl?: string
+  baseUrl: string
   apiKey?: string
   model: string
   messages: Message[]

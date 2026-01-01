@@ -7,18 +7,13 @@
 
 import { fetchModels, readCache, writeCache } from '@main/lib/models/fetch'
 import type { CachedModel } from '@main/lib/models/types'
+import { OPENAI_BASE_URL } from '@main/lib/ai/types'
 import { generateProviderId } from '@main/lib/profile/operations'
 import { getModelsCachePath } from '@main/lib/arcfs/paths'
 import { broadcast } from '@main/foundation/ipc'
 import { info, error } from '@main/foundation/logger'
 import type { ArcFile } from '@arc-types/arc-file'
 import type { Model } from '@arc-types/models'
-
-// ============================================================================
-// DEFAULTS
-// ============================================================================
-
-const OPENAI_BASE_URL = 'https://api.openai.com/v1'
 
 // ============================================================================
 // EVENTS

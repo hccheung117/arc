@@ -11,6 +11,7 @@ import { createId } from '@paralleldrive/cuid2'
 import { z } from 'zod'
 import type { Model } from '@arc-types/models'
 import { listModels, lookupModelProvider } from '@main/app/models'
+import { OPENAI_BASE_URL } from '@main/lib/ai/types'
 import { streamText } from '@main/lib/ai/stream'
 import type { Message, Usage } from '@main/lib/ai/types'
 import type { StoredMessageEvent } from '@main/lib/messages/schemas'
@@ -118,7 +119,7 @@ async function executeStream(
     const modelMessages = await convertToModelMessages(threadMessages, threadId)
 
     const stream = streamText({
-      baseUrl: providerConfig.baseUrl ?? undefined,
+      baseUrl: providerConfig.baseUrl ?? OPENAI_BASE_URL,
       apiKey: providerConfig.apiKey ?? undefined,
       model: modelId,
       messages: modelMessages,
