@@ -3,7 +3,7 @@ import type { Message } from '@arc-types/messages'
 import type { ThreadSummary } from '@arc-types/threads'
 import { getThreadSummaries, onThreadEvent } from '@renderer/lib/threads'
 import { clearBranchSelections } from '@renderer/lib/ui-state-db'
-import { type ChatThread, createDraftThread, hydrateFromSummary } from './chat-thread'
+import { type ChatThread, createDraftThread, hydrateFromSummary } from './thread'
 
 /**
  * Actions for managing ChatThread state

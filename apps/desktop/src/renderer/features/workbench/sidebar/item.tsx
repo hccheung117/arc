@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
 import { MessageSquare, MoreHorizontal } from 'lucide-react'
 import { SidebarMenuItem, SidebarMenuButton, SidebarMenuAction } from '@renderer/components/ui/sidebar'
-import type { ChatThread } from './chat-thread'
+import type { ChatThread } from '../chat/thread'
 import { showThreadContextMenu, renameThread } from '@renderer/lib/threads'
 import type { Dispatch } from 'react'
-import type { ThreadAction } from './use-chat-threads'
+import type { ThreadAction } from '../chat/use-threads'
 
 interface SidebarItemProps {
   thread: ChatThread

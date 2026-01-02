@@ -8,10 +8,10 @@ import {
   SidebarFooter,
   SidebarRail,
 } from '@renderer/components/ui/sidebar'
-import { SidebarList } from './sidebar-list'
-import { createDraftThread } from './chat-thread'
-import type { ChatThread } from './chat-thread'
-import type { ThreadAction } from './use-chat-threads'
+import { SidebarList } from './list'
+import { createDraftThread } from '../chat/thread'
+import type { ChatThread } from '../chat/thread'
+import type { ThreadAction } from '../chat/use-threads'
 import type { Dispatch } from 'react'
 
 const TRAFFIC_LIGHT_FALLBACK = { top: 0, left: 0 }

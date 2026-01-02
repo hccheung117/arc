@@ -3,8 +3,8 @@ import { warn, error } from "@renderer/lib/logger"
 import { BotMessageSquare, Copy, Check, Pencil } from "lucide-react"
 import { Button } from "@renderer/components/ui/button"
 import { Markdown } from "@renderer/components/markdown"
-import { ThinkingBlock } from "./thinking-block"
-import { BranchIndicator } from "./branch-indicator"
+import { ThinkingBlock } from "./message-thinking"
+import { BranchIndicator } from "./message-branch"
 import type { Message as MessageType, MessageAttachment } from '@arc-types/messages'
 import type { BranchInfo } from '@arc-types/arc-api'
 

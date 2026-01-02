@@ -1,8 +1,8 @@
 import { SidebarGroup, SidebarGroupLabel, SidebarGroupContent, SidebarMenu } from '@renderer/components/ui/sidebar'
-import { SidebarItem } from './sidebar-item'
-import type { ChatThread } from './chat-thread'
+import { SidebarItem } from './item'
+import type { ChatThread } from '../chat/thread'
 import type { Dispatch } from 'react'
-import type { ThreadAction } from './use-chat-threads'
+import type { ThreadAction } from '../chat/use-threads'
 
 interface SidebarListProps {
   threads: ChatThread[]
