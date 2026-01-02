@@ -9,9 +9,8 @@ import {
   SidebarRail,
 } from '@renderer/components/ui/sidebar'
 import { SidebarList } from './list'
-import { createDraftThread } from '../chat/thread'
-import type { ChatThread } from '../chat/thread'
-import type { ThreadAction } from '../chat/use-threads'
+import { createDraftThread, type ChatThread } from '@renderer/features/workbench/chat/thread'
+import type { ThreadAction } from '@renderer/features/workbench/chat/use-threads'
 import type { Dispatch } from 'react'
 
 const TRAFFIC_LIGHT_FALLBACK = { top: 0, left: 0 }

@@ -1,5 +1,4 @@
 import { useReducer, useEffect } from 'react'
-import type { Message } from '@arc-types/messages'
 import type { ThreadSummary } from '@arc-types/threads'
 import { getThreadSummaries, onThreadEvent } from '@renderer/lib/threads'
 import { clearBranchSelections } from '@renderer/lib/ui-state-db'
@@ -7,71 +6,36 @@ import { type ChatThread, createDraftThread, hydrateFromSummary } from './thread
 
 /**
  * Actions for managing ChatThread state
+ *
+ * Note: Message-level state (ADD_MESSAGE, UPDATE_MESSAGES, EDIT_AND_TRUNCATE)
+ * is now managed by use-message-tree.ts at the view level, not the global thread list.
  */
 export type ThreadAction =
   | { type: 'CREATE_DRAFT'; id?: string }
   | { type: 'HYDRATE'; threads: ThreadSummary[] }
-  | { type: 'ADD_MESSAGE'; id: string; message: Message }
-  | { type: 'UPDATE_MESSAGES'; id: string; messages: Message[] }
   | { type: 'UPDATE_STATUS'; id: string; status: ChatThread['status'] }
   | { type: 'UPDATE_THREAD_METADATA'; id: string; title: string; updatedAt: string }
   | { type: 'DELETE_THREAD'; id: string }
   | { type: 'RENAME_THREAD'; id: string; title: string }
-  | { type: 'TOGGLE_PIN'; id: string; isPinned: boolean }
-  | { type: 'EDIT_AND_TRUNCATE'; id: string; editedMessage: Message; deletedIds: string[] }
 
-/**
- * Reducer for ChatThread state management
- */
 function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[] {
   switch (action.type) {
     case 'CREATE_DRAFT': {
-      const newThread = action.id
-        ? { ...createDraftThread(), id: action.id }
-        : createDraftThread()
+      const newThread = action.id ? { ...createDraftThread(), id: action.id } : createDraftThread()
       return [newThread, ...state]
     }
 
     case 'HYDRATE': {
-      // Convert database threads to UI threads
       const hydratedThreads = action.threads.map(hydrateFromSummary)
       // Preserve existing draft threads (not yet persisted to database)
       const existingDrafts = state.filter((t) => t.status === 'draft')
       return [...existingDrafts, ...hydratedThreads]
     }
 
-    case 'ADD_MESSAGE': {
-      return state.map((thread) => {
-        if (thread.id === action.id) {
-          return {
-            ...thread,
-            messages: [...thread.messages, action.message],
-            updatedAt: new Date().toISOString(),
-          }
-        }
-        return thread
-      })
-    }
-
-    case 'UPDATE_MESSAGES': {
-      return state.map((thread) => {
-        if (thread.id === action.id) {
-          return {
-            ...thread,
-            messages: action.messages,
-          }
-        }
-        return thread
-      })
-    }
-
     case 'UPDATE_STATUS': {
       return state.map((thread) => {
         if (thread.id === action.id) {
-          return {
-            ...thread,
-            status: action.status,
-          }
+          return { ...thread, status: action.status }
         }
         return thread
       })
@@ -80,11 +44,7 @@ function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[]
     case 'UPDATE_THREAD_METADATA': {
       return state.map((thread) => {
         if (thread.id === action.id) {
-          return {
-            ...thread,
-            title: action.title,
-            updatedAt: action.updatedAt,
-          }
+          return { ...thread, title: action.title, updatedAt: action.updatedAt }
         }
         return thread
       })
@@ -97,39 +57,7 @@ function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[]
     case 'RENAME_THREAD': {
       return state.map((thread) => {
         if (thread.id === action.id) {
-          return {
-            ...thread,
-            title: action.title,
-          }
-        }
-        return thread
-      })
-    }
-
-    case 'TOGGLE_PIN': {
-      return state.map((thread) => {
-        if (thread.id === action.id) {
-          return {
-            ...thread,
-            isPinned: action.isPinned,
-          }
-        }
-        return thread
-      })
-    }
-
-    case 'EDIT_AND_TRUNCATE': {
-      return state.map((thread) => {
-        if (thread.id === action.id) {
-          // Update the edited message and remove deleted messages
-          const updatedMessages = thread.messages
-            .filter((m) => !action.deletedIds.includes(m.id))
-            .map((m) => (m.id === action.editedMessage.id ? action.editedMessage : m))
-          return {
-            ...thread,
-            messages: updatedMessages,
-            updatedAt: new Date().toISOString(),
-          }
+          return { ...thread, title: action.title }
         }
         return thread
       })
@@ -146,18 +74,7 @@ function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[]
  * Responsibilities:
  * - Hydrate threads from database on mount
  * - Provide reducer dispatch for thread operations
- * - Maintain thread state throughout component lifecycle
- *
- * Usage:
- * ```typescript
- * const { threads, dispatch } = useChatThreads()
- *
- * // Create new draft thread
- * dispatch({ type: 'CREATE_DRAFT' })
- *
- * // Add message to thread
- * dispatch({ type: 'ADD_MESSAGE', id, message })
- * ```
+ * - Subscribe to thread events for sidebar reactivity
  */
 export function useChatThreads() {
   const [threads, dispatch] = useReducer(threadsReducer, [])
