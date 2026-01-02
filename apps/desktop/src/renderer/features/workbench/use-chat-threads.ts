@@ -2,6 +2,7 @@ import { useReducer, useEffect } from 'react'
 import type { Message } from '@arc-types/messages'
 import type { ThreadSummary } from '@arc-types/threads'
 import { getThreadSummaries, onThreadEvent } from '@renderer/lib/threads'
+import { clearBranchSelections } from '@renderer/lib/ui-state-db'
 import { type ChatThread, createDraftThread, hydrateFromSummary } from './chat-thread'
 
 /**
@@ -183,6 +184,7 @@ export function useChatThreads() {
           break
         case 'deleted':
           dispatch({ type: 'DELETE_THREAD', id: event.id })
+          clearBranchSelections(event.id)
           break
       }
     })
