@@ -52,10 +52,13 @@ export function MessageList({
           {messages.map((message, index) => {
             const parentId = index === 0 ? null : messages[index - 1].id
             const branchInfo = branchPoints.find((bp) => bp.parentId === parentId)
+            // Streaming message is the last in array when active (added by composeDisplayMessages)
+            const isStreamingMsg = streamingMessage && message.id === streamingMessage.id
             return (
               <Message
                 key={message.id}
                 message={message}
+                isThinking={isStreamingMsg ? streamingMessage.isThinking : undefined}
                 onEdit={(content) => onEdit(content, message.id, message.role)}
                 isEditing={editingId === message.id}
                 branchInfo={branchInfo}
@@ -63,15 +66,6 @@ export function MessageList({
               />
             )
           })}
-          {streamingMessage && (
-            <Message
-              key={streamingMessage.id}
-              message={streamingMessage}
-              isThinking={streamingMessage.isThinking}
-              onEdit={(content) => onEdit(content, streamingMessage.id, 'assistant')}
-              isEditing={editingId === streamingMessage.id}
-            />
-          )}
         </div>
       </ScrollArea>
 
