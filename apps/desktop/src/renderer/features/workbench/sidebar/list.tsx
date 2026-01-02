@@ -6,9 +6,9 @@ import {
 } from '@renderer/components/ui/sidebar'
 import { SidebarItem } from './item'
 import { groupThreadsByDate } from './thread-grouping'
-import type { ChatThread } from '@renderer/features/workbench/chat/thread'
+import type { ChatThread } from '@renderer/features/workbench/chat/domain/thread'
 import type { Dispatch } from 'react'
-import type { ThreadAction } from '@renderer/features/workbench/chat/use-threads'
+import type { ThreadAction } from '@renderer/features/workbench/chat/hooks/use-threads'
 
 interface SidebarListProps {
   threads: ChatThread[]

@@ -68,13 +68,6 @@ export function resetStream(): StreamState {
 }
 
 /**
- * Check if a stream state is actively streaming
- */
-export function isStreaming(state: StreamState): state is StreamState & { status: 'streaming' } {
-  return state.status === 'streaming'
-}
-
-/**
  * Get streaming message for display (or null if not streaming)
  */
 export function getStreamingMessage(state: StreamState, threadId: string, parentId: string | null) {

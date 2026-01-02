@@ -71,14 +71,33 @@ export interface EditContext {
 
 /**
  * Result of a send/edit operation
+ *
+ * Domain layer handles persistence only. Streaming is UI-owned.
  */
 export interface SendResult {
-  /** The user message that was created/edited */
+  /** The user message that was created */
   userMessage?: Message
-  /** Stream ID if AI response was started */
-  streamId?: string
   /** Updated messages after the operation */
   messages: Message[]
   /** New branch selection if a branch was created */
   newBranchSelection?: { parentId: string | null; index: number }
 }
+
+/**
+ * Display-ready message with embedded UI state
+ */
+export interface DisplayMessage extends Message {
+  isStreaming: boolean
+  isEditing: boolean
+}
+
+/**
+ * Unified input state machine
+ *
+ * Instead of separate isStreaming/isEditing flags, one discriminated union
+ * surfaces the relevant actions for each mode.
+ */
+export type InputMode =
+  | { mode: 'ready' }
+  | { mode: 'streaming'; stop: () => void }
+  | { mode: 'editing'; messageId: string; role: MessageRole; cancel: () => void }

@@ -1,222 +1,230 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
-import type { Model } from '@arc-types/models'
+import { useState, useCallback, useMemo } from 'react'
 import type { Message, MessageRole } from '@arc-types/messages'
-import type { AttachmentInput } from '@arc-types/arc-api'
-import type { ChatThread } from '@renderer/features/workbench/chat/thread'
-import type { ThreadAction } from '@renderer/features/workbench/chat/use-threads'
+import type { BranchInfo, AttachmentInput } from '@arc-types/arc-api'
+import type { Model } from '@arc-types/models'
+import type { ChatThread } from '@renderer/features/workbench/chat/domain/thread'
+import type { ThreadAction } from './use-threads'
+import type { DisplayMessage, InputMode, EditingState } from '@renderer/features/workbench/chat/domain/types'
 import { useModelSelection } from './use-model-selection'
 import { useMessageTree } from './use-message-tree'
 import { useStreaming } from './use-streaming'
 import { useEditing } from './use-editing'
-import { sendNewMessage, editUserMessage, editAssistantMessage } from '@renderer/features/workbench/chat/domain/send-flows'
+import { useStreamResume } from './use-stream-resume'
+import {
+  sendNewMessage,
+  editUserMessage,
+  editAssistantMessage,
+} from '@renderer/features/workbench/chat/domain/send-flows'
+import { findEditParent, composeDisplayMessages } from '@renderer/features/workbench/chat/domain/message-tree'
 import { error as logError } from '@renderer/lib/logger'
 
-export interface ComposerHandle {
-  setMessage: (text: string) => void
-  focus: () => void
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────────────────────────────────────
 
-interface UseChatSessionReturn {
-  // Model
-  selectedModel: Model | null
-  setSelectedModel: (model: Model | null) => void
-
-  // Messages
-  messages: Message[]
-  branchPoints: ReturnType<typeof useMessageTree>['branchPoints']
-  switchBranch: (parentId: string | null, index: number) => void
-
-  // Streaming
-  streamingMessage: ReturnType<typeof useStreaming>['streamingMessage']
-  isStreaming: boolean
-
-  // Editing
-  editingState: ReturnType<typeof useEditing>['editingState']
-  isEditing: boolean
-  handleEditMessage: (content: string, messageId: string, role: MessageRole) => void
-  handleCancelEdit: () => void
-
-  // Actions
-  send: (content: string, attachments?: AttachmentInput[]) => Promise<void>
-  stop: () => void
-
-  // Error
+interface ChatSessionView {
+  messages: DisplayMessage[]
+  streamingMessage: Message | null
+  branches: BranchInfo[]
+  model: Model | null
+  input: InputMode
   error: string | null
-
-  // Composer ref for parent to wire up
-  composerRef: React.RefObject<ComposerHandle>
 }
 
-/**
- * Orchestrates all chat session concerns
- *
- * Composes:
- * - Model selection
- * - Message tree with branching
- * - Streaming lifecycle
- * - Editing state
- * - Send/edit flows
- */
+interface ChatSessionActions {
+  send: (content: string, attachments?: AttachmentInput[]) => Promise<void>
+  startEdit: (messageId: string, role: MessageRole) => void
+  selectModel: (model: Model | null) => void
+  selectBranch: (parentId: string | null, index: number) => void
+}
+
+interface ChatSession {
+  view: ChatSessionView
+  actions: ChatSessionActions
+}
+
+/** Context passed to send flow executors */
+interface SendFlowContext {
+  threadId: string
+  model: Model
+  parentId: string | null
+  displayMessages: Message[]
+  addMessage: (m: Message) => void
+  setMessages: (m: Message[]) => void
+  switchBranch: (parentId: string | null, index: number) => void
+  startStreaming: () => Promise<void>
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Send flow executors
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function executeNewMessage(
+  ctx: SendFlowContext,
+  content: string,
+  attachments?: AttachmentInput[],
+): Promise<void> {
+  const result = await sendNewMessage({
+    threadId: ctx.threadId,
+    content,
+    parentId: ctx.parentId,
+    model: ctx.model,
+    attachments,
+  })
+  ctx.addMessage(result.userMessage!)
+  await ctx.startStreaming()
+}
+
+async function executeUserEdit(
+  ctx: SendFlowContext,
+  editState: EditingState,
+  content: string,
+  attachments?: AttachmentInput[],
+): Promise<void> {
+  const editParentId = findEditParent(ctx.displayMessages, editState.messageId)
+  const result = await editUserMessage({
+    threadId: ctx.threadId,
+    messageId: editState.messageId,
+    content,
+    role: editState.role,
+    parentId: editParentId,
+    model: ctx.model,
+    attachments,
+  })
+  ctx.setMessages(result.messages)
+  if (result.newBranchSelection) {
+    ctx.switchBranch(result.newBranchSelection.parentId, result.newBranchSelection.index)
+  }
+  await ctx.startStreaming()
+}
+
+async function executeAssistantEdit(
+  ctx: SendFlowContext,
+  editState: EditingState,
+  content: string,
+): Promise<void> {
+  const originalMessage = ctx.displayMessages.find((m) => m.id === editState.messageId)
+  const editParentId = findEditParent(ctx.displayMessages, editState.messageId)
+  const result = await editAssistantMessage({
+    threadId: ctx.threadId,
+    messageId: editState.messageId,
+    content,
+    role: editState.role,
+    parentId: editParentId,
+    model: ctx.model,
+    originalMessage,
+  })
+  ctx.setMessages(result.messages)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pure derivations
+// ─────────────────────────────────────────────────────────────────────────────
+
+function deriveInputMode(
+  streaming: { isStreaming: boolean; stop: () => void },
+  editing: { editingState: EditingState | null; cancelEdit: () => void },
+): InputMode {
+  if (streaming.isStreaming) {
+    return { mode: 'streaming', stop: streaming.stop }
+  }
+  if (editing.editingState) {
+    return {
+      mode: 'editing',
+      messageId: editing.editingState.messageId,
+      role: editing.editingState.role,
+      cancel: editing.cancelEdit,
+    }
+  }
+  return { mode: 'ready' }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Hook
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function useChatSession(
   thread: ChatThread,
   models: Model[],
   onThreadUpdate: (action: ThreadAction) => void,
-): UseChatSessionReturn {
-  const composerRef = useRef<ComposerHandle>(null)
+): ChatSession {
   const [error, setError] = useState<string | null>(null)
 
-  // Compose sub-hooks
   const tree = useMessageTree(thread.id)
-
   const lastMessage = tree.displayMessages[tree.displayMessages.length - 1]
   const { selectedModel, setSelectedModel } = useModelSelection(models, lastMessage)
+  const parentId = lastMessage?.id ?? null
 
-  const parentIdForStream = lastMessage?.id ?? null
-  const streaming = useStreaming(thread.id, parentIdForStream, (message) => {
-    tree.addMessage(message)
-    if (thread.status !== 'persisted') {
-      onThreadUpdate({ type: 'UPDATE_STATUS', id: thread.id, status: 'persisted' })
-    }
-  })
+  const handleStreamComplete = useCallback(
+    (message: Message) => {
+      tree.addMessage(message)
+      if (thread.status !== 'persisted') {
+        onThreadUpdate({ type: 'UPDATE_STATUS', id: thread.id, status: 'persisted' })
+      }
+    },
+    [tree, thread.status, thread.id, onThreadUpdate],
+  )
 
+  const streaming = useStreaming(thread.id, parentId, handleStreamComplete)
   const editing = useEditing()
 
-  // Check for pending stream on mount (from empty state quick-send)
-  useEffect(() => {
-    const pendingStream = sessionStorage.getItem('arc:activeStream')
-    if (pendingStream) {
-      try {
-        const { threadId } = JSON.parse(pendingStream)
-        if (threadId === thread.id) {
-          // Resume the stream - the streaming hook will pick up events
-          streaming.start(thread.id, selectedModel?.id || '')
-          sessionStorage.removeItem('arc:activeStream')
-        }
-      } catch {
-        sessionStorage.removeItem('arc:activeStream')
-      }
-    }
-  }, [thread.id])
+  useStreamResume({ threadId: thread.id, modelId: selectedModel?.id, onResume: streaming.start })
 
-  // Send message
   const send = useCallback(
     async (content: string, attachments?: AttachmentInput[]) => {
       if (!selectedModel) return
-
       setError(null)
 
-      try {
-        if (editing.isEditing && editing.editingState) {
-          const { messageId, role } = editing.editingState
-          const editIndex = tree.displayMessages.findIndex((m) => m.id === messageId)
-          const parentId = editIndex > 0 ? tree.displayMessages[editIndex - 1].id : null
-
-          if (role === 'assistant') {
-            // Edit assistant message in place
-            const originalMessage = tree.displayMessages.find((m) => m.id === messageId)
-            const result = await editAssistantMessage({
-              threadId: thread.id,
-              messageId,
-              content,
-              role,
-              parentId,
-              model: selectedModel,
-              originalMessage,
-            })
-            tree.setMessages(result.messages)
-          } else {
-            // Edit user message: create branch
-            const result = await editUserMessage({
-              threadId: thread.id,
-              messageId,
-              content,
-              role,
-              parentId,
-              model: selectedModel,
-              attachments,
-            })
-
-            tree.setMessages(result.messages)
-
-            if (result.newBranchSelection) {
-              tree.switchBranch(result.newBranchSelection.parentId, result.newBranchSelection.index)
-            }
-
-            onThreadUpdate({ type: 'UPDATE_STATUS', id: thread.id, status: 'streaming' })
-            await streaming.start(thread.id, selectedModel.id)
-          }
-        } else {
-          // New message
-          const result = await sendNewMessage({
-            threadId: thread.id,
-            content,
-            parentId: parentIdForStream,
-            model: selectedModel,
-            attachments,
-          })
-
-          if (result.userMessage) {
-            tree.addMessage(result.userMessage)
-          }
-
+      const ctx: SendFlowContext = {
+        threadId: thread.id,
+        model: selectedModel,
+        parentId,
+        displayMessages: tree.displayMessages,
+        addMessage: tree.addMessage,
+        setMessages: tree.setMessages,
+        switchBranch: tree.switchBranch,
+        startStreaming: async () => {
           onThreadUpdate({ type: 'UPDATE_STATUS', id: thread.id, status: 'streaming' })
           await streaming.start(thread.id, selectedModel.id)
+        },
+      }
+
+      try {
+        if (!editing.isEditing) {
+          await executeNewMessage(ctx, content, attachments)
+        } else if (editing.editingState!.role === 'assistant') {
+          await executeAssistantEdit(ctx, editing.editingState!, content)
+        } else {
+          await executeUserEdit(ctx, editing.editingState!, content, attachments)
         }
       } catch (err) {
-        logError('ui', 'Send message failed', err as Error)
+        logError('ui', 'Send failed', err as Error)
         streaming.stop()
         setError(err instanceof Error ? err.message : 'An error occurred')
       } finally {
         editing.clearEdit()
       }
     },
-    [selectedModel, editing, tree, thread, streaming, onThreadUpdate, parentIdForStream],
+    [selectedModel, editing, tree, thread, streaming, onThreadUpdate, parentId],
   )
 
-  // Edit message handler (wires to composer)
-  const handleEditMessage = useCallback(
-    (content: string, messageId: string, role: MessageRole) => {
-      editing.startEdit(messageId, role)
-      composerRef.current?.setMessage(content)
-      composerRef.current?.focus()
-    },
-    [editing],
-  )
+  const editingId = editing.editingState?.messageId ?? null
 
-  // Cancel edit handler
-  const handleCancelEdit = useCallback(() => {
-    editing.cancelEdit()
-    composerRef.current?.setMessage('')
-  }, [editing])
-
-  return {
-    // Model
-    selectedModel,
-    setSelectedModel,
-
-    // Messages
-    messages: tree.displayMessages,
-    branchPoints: tree.branchPoints,
-    switchBranch: tree.switchBranch,
-
-    // Streaming
+  const view: ChatSessionView = useMemo(() => ({
+    messages: composeDisplayMessages(tree.displayMessages, streaming.streamingMessage, editingId),
     streamingMessage: streaming.streamingMessage,
-    isStreaming: streaming.isStreaming,
-
-    // Editing
-    editingState: editing.editingState,
-    isEditing: editing.isEditing,
-    handleEditMessage,
-    handleCancelEdit,
-
-    // Actions
-    send,
-    stop: streaming.stop,
-
-    // Error
+    branches: tree.branchPoints,
+    model: selectedModel,
+    input: deriveInputMode(streaming, editing),
     error,
+  }), [tree.displayMessages, streaming.streamingMessage, editingId, tree.branchPoints, selectedModel, streaming, editing, error])
 
-    // Composer ref (cast to handle null case)
-    composerRef: composerRef as React.RefObject<ComposerHandle>,
-  }
+  const actions: ChatSessionActions = useMemo(() => ({
+    send,
+    startEdit: editing.startEdit,
+    selectModel: setSelectedModel,
+    selectBranch: tree.switchBranch,
+  }), [send, editing.startEdit, setSelectedModel, tree.switchBranch])
+
+  return { view, actions }
 }

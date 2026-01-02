@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createId } from '@paralleldrive/cuid2'
 import { onThreadEvent } from '@renderer/lib/threads'
-import type { ThreadAction } from '@renderer/features/workbench/chat/use-threads'
+import type { ThreadAction } from '@renderer/features/workbench/chat/hooks/use-threads'
 
 interface UseActiveThreadReturn {
   activeThreadId: string | null

@@ -1,6 +1,6 @@
 import type { Message } from '@arc-types/messages'
 import type { BranchInfo } from '@arc-types/arc-api'
-import type { BranchSelections, TreeResolution } from './types'
+import type { BranchSelections, TreeResolution, DisplayMessage } from './types'
 
 /**
  * Build a map from parentId to child messages, sorted by createdAt
@@ -68,17 +68,37 @@ export function resolveTree(messages: Message[], selections: BranchSelections): 
 }
 
 /**
- * Get the parent message ID for a given position in the display path
- */
-export function getParentId(messages: Message[], index: number): string | null {
-  return index > 0 ? messages[index - 1].id : null
-}
-
-/**
  * Find children of a given parent in the message list
  */
 export function findChildren(messages: Message[], parentId: string | null): Message[] {
   return messages
     .filter((m) => m.parentId === parentId)
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+}
+
+/**
+ * Find the parent of a message by its position in the list
+ */
+export function findEditParent(messages: Message[], messageId: string): string | null {
+  const index = messages.findIndex((m) => m.id === messageId)
+  return index > 0 ? messages[index - 1].id : null
+}
+
+/**
+ * Compose display-ready messages with UI state flags
+ */
+export function composeDisplayMessages(
+  base: Message[],
+  streamingMessage: Message | null,
+  editingId: string | null,
+): DisplayMessage[] {
+  const result: DisplayMessage[] = base.map((m) => ({
+    ...m,
+    isStreaming: false,
+    isEditing: m.id === editingId,
+  }))
+  if (streamingMessage) {
+    result.push({ ...streamingMessage, isStreaming: true, isEditing: false })
+  }
+  return result
 }

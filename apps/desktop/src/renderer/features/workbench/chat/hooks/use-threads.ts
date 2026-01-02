@@ -2,7 +2,7 @@ import { useReducer, useEffect } from 'react'
 import type { ThreadSummary } from '@arc-types/threads'
 import { getThreadSummaries, onThreadEvent } from '@renderer/lib/threads'
 import { clearBranchSelections } from '@renderer/lib/ui-state-db'
-import { type ChatThread, createDraftThread, hydrateFromSummary } from './thread'
+import { type ChatThread, createDraftThread, hydrateFromSummary } from '../domain/thread'
 
 /**
  * Actions for managing ChatThread state

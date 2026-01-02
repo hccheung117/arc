@@ -1,13 +1,11 @@
 import type { SendNewContext, EditContext, SendResult } from './types'
-import { createMessage, createBranch, updateMessage, getMessages, startAIChat } from '@renderer/lib/messages'
+import { createMessage, createBranch, updateMessage, getMessages } from '@renderer/lib/messages'
 import { findChildren } from './message-tree'
 
 /**
- * Send a new message in the conversation
+ * Persist a new user message
  *
- * Flow:
- * 1. Create user message with parentId pointing to last message
- * 2. Start AI chat to generate response
+ * Streaming is UI-owned—caller starts the AI stream after this returns.
  */
 export async function sendNewMessage(ctx: SendNewContext): Promise<SendResult> {
   const userMessage = await createMessage(
@@ -20,24 +18,15 @@ export async function sendNewMessage(ctx: SendNewContext): Promise<SendResult> {
     ctx.attachments,
   )
 
-  const { streamId } = await startAIChat(ctx.threadId, ctx.model.id)
-
   const { messages } = await getMessages(ctx.threadId)
 
-  return {
-    userMessage,
-    streamId,
-    messages,
-  }
+  return { userMessage, messages }
 }
 
 /**
- * Edit a user message by creating a new branch
+ * Create a new branch from an edited user message
  *
- * Flow:
- * 1. Create branch at the parent of the edited message
- * 2. Auto-select the new branch
- * 3. Start AI chat to generate response
+ * Streaming is UI-owned—caller starts the AI stream after this returns.
  */
 export async function editUserMessage(ctx: EditContext): Promise<SendResult> {
   await createBranch(
@@ -51,14 +40,10 @@ export async function editUserMessage(ctx: EditContext): Promise<SendResult> {
 
   const { messages } = await getMessages(ctx.threadId)
 
-  // Calculate new branch selection
   const childrenAtParent = findChildren(messages, ctx.parentId)
   const newBranchIndex = childrenAtParent.length - 1
 
-  const { streamId } = await startAIChat(ctx.threadId, ctx.model.id)
-
   return {
-    streamId,
     messages,
     newBranchSelection: {
       parentId: ctx.parentId,
