@@ -1,69 +1,16 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
 import { FileDown } from 'lucide-react'
 import { SidebarProvider, SidebarInset } from '@renderer/components/ui/sidebar'
 import { WorkbenchSidebar } from '@renderer/features/workbench/sidebar'
 import { Workspace } from '@renderer/features/workbench/workspace'
 import { useChatThreads } from '@renderer/features/workbench/use-chat-threads'
-import { createDraftThread } from '@renderer/features/workbench/chat-thread'
 import { DropOverlay } from '@renderer/components/drop-overlay'
-import { useFileDrop } from '@renderer/hooks/use-file-drop'
-import { onThreadEvent } from '@renderer/lib/threads'
+import { useActiveThread } from '@renderer/hooks/use-active-thread'
+import { useProfileImport } from '@renderer/hooks/use-profile-import'
 
 export function WorkbenchWindow() {
   const { threads, dispatch } = useChatThreads()
-  const [activeThreadId, setActiveThreadId] = useState<string | null>(null)
-  const [importMessage, setImportMessage] = useState<string | null>(null)
-  const activeThreadIdRef = useRef(activeThreadId)
-  activeThreadIdRef.current = activeThreadId
-
-  // Auto-create draft thread on startup
-  useEffect(() => {
-    if (activeThreadId !== null) return
-
-    const draft = createDraftThread()
-    dispatch({ type: 'CREATE_DRAFT', id: draft.id })
-    setActiveThreadId(draft.id)
-  }, [activeThreadId, dispatch])
-
-  // Deselect active thread if it's deleted (from context menu or elsewhere)
-  useEffect(() => {
-    return onThreadEvent((event) => {
-      if (event.type === 'deleted' && event.id === activeThreadIdRef.current) {
-        setActiveThreadId(null)
-      }
-    })
-  }, [])
-
-  const handleImport = useCallback(async (filePath: string) => {
-    try {
-      const result = await window.arc.profiles.install(filePath)
-      const msg = `Installed profile: ${result.name} (${result.providerCount} providers)`
-      setImportMessage(msg)
-      setTimeout(() => setImportMessage(null), 4000)
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Install failed'
-      setImportMessage(`Error: ${msg}`)
-      setTimeout(() => setImportMessage(null), 4000)
-    }
-  }, [])
-
-  const { isDragging } = useFileDrop({
-    extension: '.arc',
-    onDrop: handleImport,
-  })
-
-  // Subscribe to profile events (for dock drops)
-  useEffect(() => {
-    const cleanup = window.arc.profiles.onEvent((event) => {
-      if (event.type === 'installed') {
-        const { profile } = event
-        const msg = `Installed profile: ${profile.name} (${profile.providerCount} providers)`
-        setImportMessage(msg)
-        setTimeout(() => setImportMessage(null), 4000)
-      }
-    })
-    return cleanup
-  }, [])
+  const { activeThreadId, select } = useActiveThread(dispatch)
+  const { isDragging, notification } = useProfileImport()
 
   return (
     <SidebarProvider className="h-svh overflow-hidden">
@@ -77,9 +24,10 @@ export function WorkbenchWindow() {
       <WorkbenchSidebar
         threads={threads}
         activeThreadId={activeThreadId}
-        onThreadSelect={setActiveThreadId}
+        onThreadSelect={select}
         dispatch={dispatch}
       />
+
       <SidebarInset className="overflow-hidden">
         <div className="flex-1 min-w-0 bg-white dark:bg-black h-full">
           <Workspace
@@ -90,13 +38,11 @@ export function WorkbenchWindow() {
         </div>
       </SidebarInset>
 
-      {/* Import feedback message */}
-      {importMessage && (
+      {notification && (
         <div className="fixed bottom-4 right-4 z-50 rounded-md bg-primary px-4 py-2 text-label text-primary-foreground shadow-lg select-text cursor-text">
-          {importMessage}
+          {notification}
         </div>
       )}
     </SidebarProvider>
   )
 }
-
