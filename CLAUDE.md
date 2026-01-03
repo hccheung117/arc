@@ -44,3 +44,7 @@ Our hierarchy prevents churn and maintains a unified voice:
   - Record **architectural trade-offs** so future work builds on context, not guesswork.
   - Provide **breadcrumbs for future AI agents and teammates** when choices affect broader strategy.
 - Avoid restating what the code already shows. If the behavior needs narration, refactor until it speaks for itself.
+
+## Agent Skills
+
+- **Always invoke the [`typescript-writing`](.claude/skills/typescript-writing/SKILL.md) skill** before writing or editing TypeScript code. This skill defines our type philosophy and coding standards.
