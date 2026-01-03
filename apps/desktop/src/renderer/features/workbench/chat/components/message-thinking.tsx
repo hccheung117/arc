@@ -8,9 +8,11 @@ interface ThinkingBlockProps {
 }
 
 export function ThinkingBlock({ content, isStreaming }: ThinkingBlockProps) {
-  const [isExpanded, setIsExpanded] = useState(true)
+  // Initialize expanded only when streaming; completed messages start collapsed
+  const [isExpanded, setIsExpanded] = useState(isStreaming)
   const [thinkingDuration, setThinkingDuration] = useState<number | null>(null)
   const startTimeRef = useRef<number | null>(null)
+  const userHasTouchedRef = useRef(false)
 
   // Track thinking duration
   useEffect(() => {
@@ -21,8 +23,10 @@ export function ThinkingBlock({ content, isStreaming }: ThinkingBlockProps) {
     if (!isStreaming && startTimeRef.current) {
       const duration = Math.round((Date.now() - startTimeRef.current) / 1000)
       setThinkingDuration(duration)
-      // Auto-collapse when thinking ends
-      setIsExpanded(false)
+      // Auto-collapse when thinking ends (only if user hasn't touched)
+      if (!userHasTouchedRef.current) {
+        setIsExpanded(false)
+      }
     }
   }, [isStreaming])
 
@@ -43,7 +47,10 @@ export function ThinkingBlock({ content, isStreaming }: ThinkingBlockProps) {
     <div className="mb-3">
       <button
         type="button"
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={() => {
+          userHasTouchedRef.current = true
+          setIsExpanded(!isExpanded)
+        }}
         className="flex items-center gap-1 text-meta text-muted-foreground hover:text-foreground transition-colors"
       >
         <ChevronRight
@@ -55,9 +62,11 @@ export function ThinkingBlock({ content, isStreaming }: ThinkingBlockProps) {
       </button>
 
       <div
-        className={`overflow-hidden transition-all duration-300 ease-in-out ${
-          isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+        className={`transition-all duration-300 ease-in-out ${
+          isExpanded ? 'max-h-80 overflow-y-auto opacity-100' : 'max-h-0 overflow-hidden opacity-0'
         }`}
+        onClick={() => { userHasTouchedRef.current = true }}
+        onScroll={() => { userHasTouchedRef.current = true }}
       >
         <div className="mt-2 pl-4 border-l-2 border-muted text-muted-foreground">
           <Markdown>{content}</Markdown>
