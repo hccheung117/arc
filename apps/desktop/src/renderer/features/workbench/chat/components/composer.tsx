@@ -4,7 +4,7 @@ import { Textarea } from '@renderer/components/ui/textarea'
 import { ImagePlus, Send, Square, Pencil } from 'lucide-react'
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import type { AttachmentInput } from '@arc-types/arc-api'
-import { useAttachments } from '@renderer/features/workbench/chat/hooks/use-attachments'
+import { useComposerStore } from '@renderer/features/workbench/chat/hooks/use-composer-store'
 import { AttachmentGrid } from './composer-attachments'
 
 /*
@@ -16,6 +16,7 @@ import { AttachmentGrid } from './composer-attachments'
 */
 
 interface ComposerProps {
+  threadId: string
   onSend?: (message: string, attachments?: AttachmentInput[]) => void | Promise<void>
   onStop?: () => void
   isStreaming?: boolean
@@ -29,14 +30,21 @@ export interface ComposerRef {
 }
 
 export const Composer = forwardRef<ComposerRef, ComposerProps>(
-  ({ onSend, onStop, isStreaming, isEditing, onCancelEdit }, ref) => {
-    const [message, setMessage] = useState('')
+  ({ threadId, onSend, onStop, isStreaming, isEditing, onCancelEdit }, ref) => {
     const [isDragging, setIsDragging] = useState(false)
     const textareaRef = useRef<HTMLTextAreaElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
-    const { attachments, addFiles, removeAttachment, clear, toAttachmentInputs, hasAttachments } =
-      useAttachments()
+    const {
+      draft: message,
+      attachments,
+      hasAttachments,
+      setDraft: setMessage,
+      addFiles,
+      removeAttachment,
+      clear,
+      toAttachmentInputs,
+    } = useComposerStore(threadId)
 
     useImperativeHandle(ref, () => ({
       setMessage: (text: string) => {

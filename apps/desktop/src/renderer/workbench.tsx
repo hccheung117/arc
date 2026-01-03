@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { FileDown } from 'lucide-react'
 import { SidebarProvider, SidebarInset } from '@renderer/components/ui/sidebar'
 import { WorkbenchSidebar } from '@renderer/features/workbench/sidebar/sidebar'
@@ -6,11 +7,18 @@ import { useChatThreads } from '@renderer/features/workbench/chat/hooks/use-thre
 import { DropOverlay } from '@renderer/components/drop-overlay'
 import { useActiveThread } from '@renderer/hooks/use-active-thread'
 import { useProfileImport } from '@renderer/hooks/use-profile-import'
+import { streamManager } from '@renderer/features/workbench/chat/stores/stream-manager'
 
 export function WorkbenchWindow() {
   const { threads, dispatch } = useChatThreads()
   const { activeThreadId, select } = useActiveThread(dispatch)
   const { isDragging, notification } = useProfileImport()
+
+  // Initialize stream manager on app startup
+  useEffect(() => {
+    streamManager.init()
+    return () => streamManager.destroy()
+  }, [])
 
   return (
     <SidebarProvider className="h-svh overflow-hidden">

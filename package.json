@@ -17,5 +17,8 @@
     "release": "npm run release -w apps/desktop --",
     "db:dev": "npm run db:dev -w apps/desktop",
     "db:release": "npm run db:release -w apps/desktop"
+  },
+  "dependencies": {
+    "zustand": "^5.0.9"
   }
 }

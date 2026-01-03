@@ -7,24 +7,27 @@ import type { ThreadAction } from './use-threads'
 import type { DisplayMessage, InputMode, EditingState } from '@renderer/features/workbench/chat/domain/types'
 import { useModelSelection } from './use-model-selection'
 import { useMessageTree } from './use-message-tree'
-import { useStreaming } from './use-streaming'
-import { useEditing } from './use-editing'
-import { useStreamResume } from './use-stream-resume'
+import { useStreamingStore } from './use-streaming-store'
+import { useEditingStore } from './use-editing-store'
 import {
   sendNewMessage,
   editUserMessage,
   editAssistantMessage,
 } from '@renderer/features/workbench/chat/domain/send-flows'
 import { findEditParent, composeDisplayMessages } from '@renderer/features/workbench/chat/domain/message-tree'
+import { getStreamingMessage } from '@renderer/features/workbench/chat/domain/stream-state'
 import { error as logError } from '@renderer/lib/logger'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Streaming message display type with isThinking flag */
+type StreamingMessageDisplay = ReturnType<typeof getStreamingMessage>
+
 interface ChatSessionView {
   messages: DisplayMessage[]
-  streamingMessage: Message | null
+  streamingMessage: StreamingMessageDisplay
   branches: BranchInfo[]
   model: Model | null
   input: InputMode
@@ -165,10 +168,8 @@ export function useChatSession(
     [tree, thread.status, thread.id, onThreadUpdate],
   )
 
-  const streaming = useStreaming(thread.id, parentId, handleStreamComplete)
-  const editing = useEditing()
-
-  useStreamResume({ threadId: thread.id, modelId: selectedModel?.id, onResume: streaming.start })
+  const streaming = useStreamingStore(thread.id, parentId)
+  const editing = useEditingStore(thread.id)
 
   const send = useCallback(
     async (content: string, attachments?: AttachmentInput[]) => {
@@ -185,7 +186,7 @@ export function useChatSession(
         switchBranch: tree.switchBranch,
         startStreaming: async () => {
           onThreadUpdate({ type: 'UPDATE_STATUS', id: thread.id, status: 'streaming' })
-          await streaming.start(thread.id, selectedModel.id)
+          await streaming.start(selectedModel.id, handleStreamComplete)
         },
       }
 
@@ -205,7 +206,7 @@ export function useChatSession(
         editing.clearEdit()
       }
     },
-    [selectedModel, editing, tree, thread, streaming, onThreadUpdate, parentId],
+    [selectedModel, editing, tree, thread, streaming, onThreadUpdate, parentId, handleStreamComplete],
   )
 
   const editingId = editing.editingState?.messageId ?? null

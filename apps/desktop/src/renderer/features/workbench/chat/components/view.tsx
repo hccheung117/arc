@@ -4,7 +4,7 @@ import type { Model } from '@arc-types/models'
 import type { ChatThread } from '@renderer/features/workbench/chat/domain/thread'
 import type { ThreadAction } from '@renderer/features/workbench/chat/hooks/use-threads'
 import { useChatSession } from '@renderer/features/workbench/chat/hooks/use-chat-session'
-import { useAutoScroll } from '@renderer/features/workbench/chat/hooks/use-auto-scroll'
+import { useScrollStore } from '@renderer/features/workbench/chat/hooks/use-scroll-store'
 import { Header } from './header'
 import { MessageList } from './message-list'
 import { Composer, type ComposerRef } from './composer'
@@ -26,9 +26,9 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
   const { view, actions } = useChatSession(thread, models, onThreadUpdate)
   const composerRef = useRef<ComposerRef>(null)
 
-  // Scroll behavior
+  // Scroll behavior with persistence
   const [viewport, setViewport] = useState<HTMLDivElement | null>(null)
-  const { isAtBottom, scrollToBottom } = useAutoScroll(
+  const { isAtBottom, scrollToBottom } = useScrollStore(
     viewport,
     view.streamingMessage?.content,
     thread.id,
@@ -104,6 +104,7 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
         )}
         <Composer
           ref={composerRef}
+          threadId={thread.id}
           onSend={actions.send}
           onStop={handleStop}
           isStreaming={view.input.mode === 'streaming'}
