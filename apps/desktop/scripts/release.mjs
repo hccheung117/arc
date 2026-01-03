@@ -18,7 +18,8 @@ const DESKTOP_ROOT = resolve(__dirname, '..');
 const PACKAGE_JSON_PATH = resolve(DESKTOP_ROOT, 'package.json');
 
 function run(cmd, options = {}) {
-  return execSync(cmd, { encoding: 'utf-8', ...options }).trim();
+  const result = execSync(cmd, { encoding: 'utf-8', ...options });
+  return result?.trim() ?? '';
 }
 
 function validateSemver(version) {
