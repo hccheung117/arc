@@ -85,8 +85,12 @@ export interface SendResult {
 
 /**
  * Display-ready message with embedded UI state
+ *
+ * Uses composition over inheritance to separate domain (Message)
+ * from presentation concerns (isStreaming, isEditing).
  */
-export interface DisplayMessage extends Message {
+export interface DisplayMessage {
+  message: Message
   isStreaming: boolean
   isEditing: boolean
 }

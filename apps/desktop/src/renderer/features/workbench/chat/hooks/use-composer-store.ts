@@ -7,17 +7,6 @@ import type { ComposerAttachment } from './use-attachments'
 /** Accepted image MIME types */
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']
 
-interface UseComposerStoreReturn {
-  draft: string
-  attachments: ComposerAttachment[]
-  hasAttachments: boolean
-  setDraft: (text: string) => void
-  addFiles: (files: FileList | File[]) => Promise<void>
-  removeAttachment: (id: string) => void
-  clear: () => void
-  toAttachmentInputs: () => Promise<AttachmentInput[]>
-}
-
 /**
  * Convert File to ComposerAttachment with data URL preview
  */
@@ -45,7 +34,16 @@ function fileToAttachment(file: File): Promise<ComposerAttachment> {
  *
  * @param threadId - The thread ID
  */
-export function useComposerStore(threadId: string): UseComposerStoreReturn {
+export function useComposerStore(threadId: string): {
+  draft: string
+  attachments: ComposerAttachment[]
+  hasAttachments: boolean
+  setDraft: (text: string) => void
+  addFiles: (files: FileList | File[]) => Promise<void>
+  removeAttachment: (id: string) => void
+  clear: () => void
+  toAttachmentInputs: () => Promise<AttachmentInput[]>
+} {
   const composer = useChatUIStore((state) => state.getThreadState(threadId).composer)
 
   const setDraft = useCallback(

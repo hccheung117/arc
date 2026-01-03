@@ -47,19 +47,14 @@ export type { ProfileInfo, ProfileInstallResult }
 // ============================================================================
 
 /**
- * Provider identity input for generating stable IDs.
- */
-export interface ProviderIdentity {
-  type: string
-  apiKey?: string | null
-  baseUrl?: string | null
-}
-
-/**
  * Generates a stable provider ID from provider properties.
  * SHA-256 hash of type|apiKey|baseUrl ensures same config = same ID.
  */
-export function generateProviderId(provider: ProviderIdentity): string {
+export function generateProviderId(provider: {
+  type: string
+  apiKey?: string | null
+  baseUrl?: string | null
+}): string {
   const input = `${provider.type}|${provider.apiKey ?? ''}|${provider.baseUrl ?? ''}`
   return createHash('sha256').update(input).digest('hex').slice(0, 8)
 }
@@ -68,16 +63,14 @@ export function generateProviderId(provider: ProviderIdentity): string {
 // ARC FILE VALIDATION
 // ============================================================================
 
-export interface ValidationResult {
-  valid: boolean
-  data?: ArcFile
-  error?: string
-}
-
 /**
  * Validates .arc file content against the schema.
  */
-export function validateArcFile(content: string): ValidationResult {
+export function validateArcFile(content: string): {
+  valid: boolean
+  data?: ArcFile
+  error?: string
+} {
   let parsed: unknown
   try {
     parsed = JSON.parse(content)

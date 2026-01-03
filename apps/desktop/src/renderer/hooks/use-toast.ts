@@ -1,17 +1,15 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 
-interface UseToastReturn {
-  message: string | null
-  showToast: (message: string, duration?: number) => void
-}
-
 /**
  * Simple toast state with auto-dismiss and proper cleanup.
  *
  * Clears previous timeout before setting new message to prevent
  * stale callbacks. Cleans up on unmount to avoid memory leaks.
  */
-export function useToast(defaultDuration = 4000): UseToastReturn {
+export function useToast(defaultDuration = 4000): {
+  message: string | null
+  showToast: (message: string, duration?: number) => void
+} {
   const [message, setMessage] = useState<string | null>(null)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 

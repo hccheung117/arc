@@ -13,7 +13,7 @@ import type { Model } from '@arc-types/models'
 import { listModels, lookupModelProvider } from '@main/lib/models/operations'
 import { OPENAI_BASE_URL } from '@main/lib/ai/types'
 import { streamText } from '@main/lib/ai/stream'
-import type { Message, Usage } from '@main/lib/ai/types'
+import type { ChatMessage, Usage } from '@main/lib/ai/types'
 import type { StoredMessageEvent } from '@main/lib/messages/schemas'
 import { readMessages, appendMessage } from '@main/lib/messages/operations'
 import { getProviderConfig } from '@main/lib/profile/operations'
@@ -29,9 +29,9 @@ import { validated, broadcast } from '@main/foundation/ipc'
  * Convert stored messages to AI library format.
  * Handles multimodal content by loading attachments from disk.
  */
-async function convertToModelMessages(messages: StoredMessageEvent[], threadId: string): Promise<Message[]> {
+async function convertToModelMessages(messages: StoredMessageEvent[], threadId: string): Promise<ChatMessage[]> {
   return Promise.all(
-    messages.map(async (message): Promise<Message> => {
+    messages.map(async (message): Promise<ChatMessage> => {
       if (message.role === 'user' && message.attachments?.length) {
         const imageParts = await Promise.all(
           message.attachments.map(async (att) => {
@@ -81,13 +81,6 @@ function emitAIStreamEvent(event: AIStreamEvent): void {
 // STREAMING ORCHESTRATION
 // ============================================================================
 
-interface StreamCallbacks {
-  onDelta: (chunk: string) => void
-  onReasoning: (chunk: string) => void
-  onComplete: (message: StoredMessageEvent) => void
-  onError: (error: string) => void
-}
-
 /**
  * Orchestrates AI chat streaming.
  * Composes: messages → profile → ai → messages
@@ -101,7 +94,12 @@ async function executeStream(
   streamId: string,
   threadId: string,
   modelId: string,
-  callbacks: StreamCallbacks,
+  callbacks: {
+    onDelta: (chunk: string) => void
+    onReasoning: (chunk: string) => void
+    onComplete: (message: StoredMessageEvent) => void
+    onError: (error: string) => void
+  },
 ): Promise<void> {
   const abortController = new AbortController()
   activeStreams.set(streamId, abortController)

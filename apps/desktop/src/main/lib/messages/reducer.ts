@@ -7,16 +7,9 @@
  * - Builds tree structure via parentId
  */
 
-import type { StoredMessageEvent, BranchInfo } from './schemas'
+import type { BranchInfo } from '@arc-types/arc-api'
+import type { StoredMessageEvent } from './schemas'
 import { computeBranchPoints } from './branching'
-
-/**
- * Result of reducing message events with branching support.
- */
-export interface ReduceResult {
-  messages: StoredMessageEvent[]
-  branchPoints: BranchInfo[]
-}
 
 /**
  * Reduces message events into a flat list with branch information.
@@ -24,7 +17,10 @@ export interface ReduceResult {
  * @param events - Array of message events from the log file
  * @returns All messages + all branch points in tree
  */
-export function reduceMessageEvents(events: StoredMessageEvent[]): ReduceResult {
+export function reduceMessageEvents(events: StoredMessageEvent[]): {
+  messages: StoredMessageEvent[]
+  branchPoints: BranchInfo[]
+} {
   // Merge message events by ID
   const messagesById = new Map<string, StoredMessageEvent>()
   for (const event of events) {

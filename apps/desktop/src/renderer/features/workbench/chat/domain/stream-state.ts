@@ -67,18 +67,36 @@ export function resetStream(): StreamState {
   return { status: 'idle' }
 }
 
+/** Display-ready streaming message shape */
+export interface StreamingMessage {
+  id: string
+  role: 'assistant'
+  content: string
+  reasoning: string
+  status: 'streaming'
+  conversationId: string
+  createdAt: string
+  updatedAt: string
+  parentId: string | null
+  isThinking: boolean
+}
+
 /**
  * Get streaming message for display (or null if not streaming)
  */
-export function getStreamingMessage(state: StreamState, threadId: string, parentId: string | null) {
+export function getStreamingMessage(
+  state: StreamState,
+  threadId: string,
+  parentId: string | null,
+): StreamingMessage | null {
   if (state.status !== 'streaming') return null
 
   return {
     id: `streaming-${state.id}`,
-    role: 'assistant' as const,
+    role: 'assistant',
     content: state.content,
     reasoning: state.reasoning,
-    status: 'streaming' as const,
+    status: 'streaming',
     conversationId: threadId,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),

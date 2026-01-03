@@ -5,7 +5,7 @@
  * A branch point exists when a parent message has multiple child responses.
  */
 
-import type { BranchInfo } from './schemas'
+import type { BranchInfo } from '@arc-types/arc-api'
 
 /**
  * Computes all branch points from a parent→children map.

@@ -1,22 +1,13 @@
 import { useReducer, useEffect } from 'react'
-import type { ThreadSummary } from '@arc-types/threads'
-import { getThreadSummaries, onThreadEvent } from '@renderer/lib/threads'
+import {
+  type ChatThread,
+  type ThreadAction,
+  createDraftThread,
+  hydrateFromSummary,
+  getThreadSummaries,
+  onThreadEvent,
+} from '@renderer/lib/threads'
 import { clearBranchSelections } from '@renderer/lib/ui-state-db'
-import { type ChatThread, createDraftThread, hydrateFromSummary } from '../domain/thread'
-
-/**
- * Actions for managing ChatThread state
- *
- * Note: Message-level state (ADD_MESSAGE, UPDATE_MESSAGES, EDIT_AND_TRUNCATE)
- * is now managed by use-message-tree.ts at the view level, not the global thread list.
- */
-export type ThreadAction =
-  | { type: 'CREATE_DRAFT'; id?: string }
-  | { type: 'HYDRATE'; threads: ThreadSummary[] }
-  | { type: 'UPDATE_STATUS'; id: string; status: ChatThread['status'] }
-  | { type: 'UPDATE_THREAD_METADATA'; id: string; title: string; updatedAt: string }
-  | { type: 'DELETE_THREAD'; id: string }
-  | { type: 'RENAME_THREAD'; id: string; title: string }
 
 function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[] {
   switch (action.type) {

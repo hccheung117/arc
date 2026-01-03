@@ -8,7 +8,8 @@
 import type { IpcMain } from 'electron'
 import { readFile } from 'node:fs/promises'
 import { z } from 'zod'
-import type { StoredThread, StoredMessageEvent, BranchInfo } from '@main/lib/messages/schemas'
+import type { BranchInfo } from '@arc-types/arc-api'
+import type { StoredThread, StoredMessageEvent } from '@main/lib/messages/schemas'
 import { listThreads, emitThreadEvent, deleteThread, updateThread } from '@main/lib/messages/threads'
 import { appendMessage, readMessages } from '@main/lib/messages/operations'
 import { threadIndexFile } from '@main/lib/messages/storage'
@@ -99,19 +100,9 @@ function registerThreadsHandlers(ipcMain: IpcMain): void {
 // MESSAGES
 // ============================================================================
 
-interface GetMessagesResult {
-  messages: StoredMessageEvent[]
-  branchPoints: BranchInfo[]
-}
-
-interface CreateBranchResult {
-  message: StoredMessageEvent
-  branchPoints: BranchInfo[]
-}
-
 const handleMessagesList = validated(
   [z.string()],
-  async (threadId): Promise<GetMessagesResult> => {
+  async (threadId): Promise<{ messages: StoredMessageEvent[]; branchPoints: BranchInfo[] }> => {
     return readMessages(threadId)
   },
 )
@@ -140,7 +131,7 @@ const handleMessagesCreate = validated(
 
 const handleMessagesCreateBranch = validated(
   [z.string(), CreateBranchInputSchema],
-  async (threadId, input): Promise<CreateBranchResult> => {
+  async (threadId, input): Promise<{ message: StoredMessageEvent; branchPoints: BranchInfo[] }> => {
     const { message } = await appendMessage({
       type: 'new',
       threadId,

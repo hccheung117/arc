@@ -2,11 +2,6 @@ import { useEffect, useCallback } from 'react'
 import { useFileDrop } from './use-file-drop'
 import { useToast } from './use-toast'
 
-interface UseProfileImportReturn {
-  isDragging: boolean
-  notification: string | null
-}
-
 /**
  * Handles profile (.arc file) import from drag-drop and dock.
  *
@@ -16,7 +11,10 @@ interface UseProfileImportReturn {
  *
  * Success messages flow through profile events for both paths.
  */
-export function useProfileImport(): UseProfileImportReturn {
+export function useProfileImport(): {
+  isDragging: boolean
+  notification: string | null
+} {
   const { message: notification, showToast } = useToast()
 
   const handleImport = useCallback(

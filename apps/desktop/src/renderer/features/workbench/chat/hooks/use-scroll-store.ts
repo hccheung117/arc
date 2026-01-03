@@ -17,16 +17,11 @@ import { useChatUIStore } from '../stores/chat-ui-store'
 
 const BOTTOM_THRESHOLD = 50
 
-interface UseScrollStoreReturn {
-  isAtBottom: boolean
-  scrollToBottom: () => void
-}
-
 export function useScrollStore(
   viewport: HTMLDivElement | null,
   streamingContent: string | undefined,
   threadId: string,
-): UseScrollStoreReturn {
+): { isAtBottom: boolean; scrollToBottom: () => void } {
   const [isAtBottom, setIsAtBottom] = useState(true)
 
   // FOLLOW (false) vs MANUAL (true) - only user scrolls change this

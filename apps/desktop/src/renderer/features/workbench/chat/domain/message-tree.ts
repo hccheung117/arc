@@ -93,12 +93,12 @@ export function composeDisplayMessages(
   editingId: string | null,
 ): DisplayMessage[] {
   const result: DisplayMessage[] = base.map((m) => ({
-    ...m,
+    message: m,
     isStreaming: false,
     isEditing: m.id === editingId,
   }))
   if (streamingMessage) {
-    result.push({ ...streamingMessage, isStreaming: true, isEditing: false })
+    result.push({ message: streamingMessage, isStreaming: true, isEditing: false })
   }
   return result
 }

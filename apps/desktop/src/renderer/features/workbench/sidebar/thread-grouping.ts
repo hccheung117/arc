@@ -1,4 +1,4 @@
-import type { ChatThread } from '@renderer/features/workbench/chat/domain/thread'
+import type { ChatThread } from '@renderer/lib/threads'
 
 export interface GroupedThreads {
   pinned: ChatThread[]

@@ -1,25 +1,13 @@
 import type { Message as MessageType, MessageRole } from '@arc-types/messages'
 import type { BranchInfo } from '@arc-types/arc-api'
+import type { StreamingMessage } from '@renderer/features/workbench/chat/domain/stream-state'
 import { ScrollArea } from '@renderer/components/ui/scroll-area'
 import { Message } from './message'
 import { ChevronDown } from 'lucide-react'
 
-interface StreamingMessageDisplay {
-  id: string
-  role: 'assistant'
-  content: string
-  reasoning: string
-  status: 'streaming'
-  conversationId: string
-  createdAt: string
-  updatedAt: string
-  parentId: string | null
-  isThinking: boolean
-}
-
 interface MessageListProps {
   messages: MessageType[]
-  streamingMessage: StreamingMessageDisplay | null
+  streamingMessage: StreamingMessage | null
   branchPoints: BranchInfo[]
   editingId: string | null
   onEdit: (content: string, messageId: string, role: MessageRole) => void

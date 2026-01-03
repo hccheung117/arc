@@ -29,7 +29,12 @@ const paths = {
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-type Level = 'info' | 'warn' | 'error'
+const Level = {
+  INFO: 'info',
+  WARN: 'warn',
+  ERROR: 'error',
+} as const
+type Level = (typeof Level)[keyof typeof Level]
 
 interface LogEntry {
   level: Level

@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import type { MessageRole } from '@arc-types/messages'
 import type { Model } from '@arc-types/models'
-import type { ChatThread } from '@renderer/features/workbench/chat/domain/thread'
-import type { ThreadAction } from '@renderer/features/workbench/chat/hooks/use-threads'
+import type { ChatThread, ThreadAction } from '@renderer/lib/threads'
 import { useChatSession } from '@renderer/features/workbench/chat/hooks/use-chat-session'
 import { useScrollStore } from '@renderer/features/workbench/chat/hooks/use-scroll-store'
 import { Header } from './header'
@@ -38,9 +37,9 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
   const editingMessageId = view.input.mode === 'editing' ? view.input.messageId : null
   useEffect(() => {
     if (editingMessageId) {
-      const message = view.messages.find((m) => m.id === editingMessageId)
-      if (message) {
-        composerRef.current?.setMessage(message.content)
+      const dm = view.messages.find((dm) => dm.message.id === editingMessageId)
+      if (dm) {
+        composerRef.current?.setMessage(dm.message.content)
         composerRef.current?.focus()
       }
     }
@@ -83,7 +82,7 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
         </div>
       ) : (
         <MessageList
-          messages={view.messages}
+          messages={view.messages.map((dm) => dm.message)}
           streamingMessage={view.streamingMessage}
           branchPoints={view.branches}
           editingId={editingMessageId}

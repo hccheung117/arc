@@ -6,8 +6,8 @@
  */
 
 import { createId } from '@paralleldrive/cuid2'
-import type { AttachmentInput } from '@arc-types/arc-api'
-import type { StoredMessageEvent, StoredThread, StoredAttachment, BranchInfo, Usage } from './schemas'
+import type { AttachmentInput, BranchInfo } from '@arc-types/arc-api'
+import type { StoredMessageEvent, StoredThread, StoredAttachment, Usage } from './schemas'
 import { reduceMessageEvents } from './reducer'
 import { threadIndexFile, messageLogFile, buildAttachment, writeAttachmentData } from './storage'
 
@@ -72,11 +72,6 @@ const ensureThread =
 // CORE: APPEND EVENT
 // ============================================================================
 
-interface AppendEventResult {
-  event: StoredMessageEvent
-  threadCreated: boolean
-}
-
 /**
  * Appends an event to the message log with thread side effect.
  * The single effectful primitive—everything else composes on top.
@@ -85,7 +80,7 @@ async function appendEventToLog(
   threadId: string,
   event: StoredMessageEvent,
   threadEffect: ThreadEffect,
-): Promise<AppendEventResult> {
+): Promise<{ event: StoredMessageEvent; threadCreated: boolean }> {
   const timestamp = event.createdAt ?? event.updatedAt ?? now()
   await messageLogFile(threadId).append(event)
   const threadCreated = await threadEffect(threadId, timestamp)

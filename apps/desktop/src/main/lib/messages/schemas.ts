@@ -9,6 +9,7 @@
  */
 
 import { z } from 'zod'
+import { BranchInfoSchema } from '@arc-types/arc-api'
 
 // ============================================================================
 // ATTACHMENT SCHEMAS
@@ -73,17 +74,6 @@ export const StoredThreadIndexSchema = z.object({
   threads: z.array(StoredThreadSchema),
 })
 export type StoredThreadIndex = z.infer<typeof StoredThreadIndexSchema>
-
-// ============================================================================
-// BRANCH INFO SCHEMAS
-// ============================================================================
-
-export const BranchInfoSchema = z.object({
-  parentId: z.string().nullable(),
-  branches: z.array(z.string()),
-  currentIndex: z.number(),
-})
-export type BranchInfo = z.infer<typeof BranchInfoSchema>
 
 export const ReduceResultSchema = z.object({
   messages: z.array(StoredMessageEventSchema),

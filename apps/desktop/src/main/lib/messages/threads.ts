@@ -4,6 +4,7 @@
  * Thread reads, transformations, and lifecycle operations.
  */
 
+import type { ThreadPatch } from '@arc-types/arc-api'
 import type { StoredThread, StoredThreadIndex } from './schemas'
 import { threadIndexFile, messageLogFile, deleteThreadAttachments } from './storage'
 import { broadcast } from '@main/foundation/ipc'
@@ -67,11 +68,6 @@ export async function deleteThread(threadId: string): Promise<void> {
   await messageLogFile(threadId).delete()
   await deleteThreadAttachments(threadId)
   emitThreadEvent({ type: 'deleted', id: threadId })
-}
-
-export interface ThreadPatch {
-  title?: string
-  pinned?: boolean
 }
 
 export async function updateThread(threadId: string, patch: ThreadPatch): Promise<StoredThread> {

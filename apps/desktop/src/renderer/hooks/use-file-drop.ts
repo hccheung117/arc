@@ -1,23 +1,14 @@
 import { useState, useCallback, useEffect } from 'react'
 import { info } from '@renderer/lib/logger'
 
-interface UseFileDropOptions {
-  /** File extension to accept (e.g., '.arc') */
-  extension: string
-  /** Callback when valid file is dropped */
-  onDrop: (filePath: string) => void
-}
-
-interface UseFileDropResult {
-  /** Whether a drag operation is in progress */
-  isDragging: boolean
-}
-
 /**
  * Generic hook for managing file drag/drop state.
  * Filters drops by file extension and extracts Electron file paths.
  */
-export function useFileDrop({ extension, onDrop }: UseFileDropOptions): UseFileDropResult {
+export function useFileDrop({ extension, onDrop }: {
+  extension: string
+  onDrop: (filePath: string) => void
+}): { isDragging: boolean } {
   const [isDragging, setIsDragging] = useState(false)
   const [, setDragCounter] = useState(0)
 

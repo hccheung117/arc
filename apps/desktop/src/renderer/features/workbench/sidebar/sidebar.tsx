@@ -8,8 +8,7 @@ import {
   SidebarRail,
 } from '@renderer/components/ui/sidebar'
 import { SidebarList } from './list'
-import { createDraftThread, type ChatThread } from '@renderer/features/workbench/chat/domain/thread'
-import type { ThreadAction } from '@renderer/features/workbench/chat/hooks/use-threads'
+import { createDraftThread, type ChatThread, type ThreadAction } from '@renderer/lib/threads'
 import type { Dispatch } from 'react'
 
 interface WorkbenchSidebarProps {

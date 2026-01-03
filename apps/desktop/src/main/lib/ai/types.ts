@@ -22,7 +22,7 @@ export interface ImagePart {
 
 export type MessageContent = string | (TextPart | ImagePart)[]
 
-export interface Message {
+export interface ChatMessage {
   role: 'system' | 'user' | 'assistant'
   content: MessageContent
 }
@@ -31,7 +31,7 @@ export interface StreamOptions {
   baseUrl: string
   apiKey?: string
   model: string
-  messages: Message[]
+  messages: ChatMessage[]
   temperature?: number
   reasoningEffort?: 'low' | 'medium' | 'high'
   signal?: AbortSignal

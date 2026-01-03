@@ -3,8 +3,7 @@ import { TooltipProvider } from '@renderer/components/ui/tooltip'
 import { ChatView } from './chat/components/view'
 import type { Model } from '@arc-types/models'
 import { getModels, onModelsEvent } from '@renderer/lib/models'
-import type { ChatThread } from './chat/domain/thread'
-import type { ThreadAction } from './chat/hooks/use-threads'
+import type { ChatThread, ThreadAction } from '@renderer/lib/threads'
 
 interface WorkspaceProps {
   threads: ChatThread[]
