@@ -14,6 +14,7 @@ import {
   generateProviderId,
 } from '@main/lib/profile/operations'
 import { syncModels } from '@main/lib/models/sync'
+import { initAutoUpdate } from '@main/lib/updater/operations'
 import { OPENAI_BASE_URL } from '@main/lib/ai/types'
 import { broadcast } from '@main/foundation/ipc'
 import { info, error } from '@main/foundation/logger'
@@ -77,4 +78,13 @@ export async function handleProfileFileOpen(filePath: string): Promise<void> {
   } catch (err) {
     error('profiles', 'File open failed', err as Error)
   }
+}
+
+/**
+ * Initialize all app systems on startup.
+ * Orchestrates: auto-update → models
+ */
+export async function initApp(): Promise<void> {
+  initAutoUpdate()
+  await initModels()
 }

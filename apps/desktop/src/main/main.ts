@@ -25,7 +25,7 @@ import { buildAppMenu } from './menu'
 import { registerDataHandlers } from '@main/app/data'
 import { registerAIHandlers } from '@main/app/ai'
 import { registerSystemHandlers } from '@main/app/system'
-import { initModels, handleProfileFileOpen } from '@main/app/lifecycle'
+import { initApp, handleProfileFileOpen } from '@main/app/lifecycle'
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -76,7 +76,7 @@ app.on('ready', () => {
   registerDataHandlers(ipcMain)
   registerAIHandlers(ipcMain)
   registerSystemHandlers(ipcMain)
-  initModels()
+  initApp()
 })
 
 app.on('activate', () => {

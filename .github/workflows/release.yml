@@ -66,5 +66,6 @@ jobs:
             artifacts/**/*.zip
             artifacts/**/*.exe
             artifacts/**/*.nupkg
+            artifacts/**/RELEASES
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
