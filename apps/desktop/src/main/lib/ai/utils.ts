@@ -1,76 +1,14 @@
 /**
- * AI Library Internal Utilities
+ * Generic Utilities
  *
- * SSE parsing and normalization helpers. Not exported to consumers.
+ * Protocol-level helpers with no AI domain knowledge.
  */
-
-import type { Usage, FinishReason } from './types'
-
-// ============================================================================
-// WIRE FORMAT TYPES (OpenAI SSE response shape)
-// ============================================================================
-
-interface ChunkDelta {
-  role?: 'assistant'
-  content?: string | null
-  reasoning_content?: string | null
-}
-
-interface ChunkChoice {
-  index: number
-  delta: ChunkDelta
-  finish_reason?: 'stop' | 'length' | 'content_filter' | null
-}
-
-interface ProviderUsage {
-  prompt_tokens: number
-  completion_tokens: number
-  total_tokens: number
-  completion_tokens_details?: {
-    reasoning_tokens?: number
-  }
-}
-
-export interface LanguageModelChunk {
-  id: string
-  object: 'chat.completion.chunk'
-  created: number
-  model: string
-  choices: ChunkChoice[]
-  usage?: ProviderUsage
-}
-
-// ============================================================================
-// NORMALIZATION
-// ============================================================================
-
-export function normalizeUsage(wire: ProviderUsage): Usage {
-  return {
-    inputTokens: wire.prompt_tokens,
-    outputTokens: wire.completion_tokens,
-    totalTokens: wire.total_tokens,
-    reasoningTokens: wire.completion_tokens_details?.reasoning_tokens,
-  }
-}
-
-export function normalizeFinishReason(reason: string | null | undefined): FinishReason {
-  switch (reason) {
-    case 'stop':
-      return 'stop'
-    case 'length':
-      return 'length'
-    case 'content_filter':
-      return 'content-filter'
-    default:
-      return 'unknown'
-  }
-}
 
 // ============================================================================
 // SSE PARSING
 // ============================================================================
 
-function parseSSELine(line: string): LanguageModelChunk | null {
+function parseSSELine<T>(line: string): T | null {
   const trimmed = line.trim()
   if (!trimmed || !trimmed.startsWith('data:')) return null
 
@@ -78,15 +16,15 @@ function parseSSELine(line: string): LanguageModelChunk | null {
   if (payload === '[DONE]') return null
 
   try {
-    return JSON.parse(payload) as LanguageModelChunk
+    return JSON.parse(payload) as T
   } catch {
     return null
   }
 }
 
-export async function* parseSSE(
+export async function* parseSSE<T>(
   body: ReadableStream<Uint8Array>,
-): AsyncGenerator<LanguageModelChunk> {
+): AsyncGenerator<T> {
   const reader = body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
@@ -97,7 +35,7 @@ export async function* parseSSE(
 
       if (done) {
         if (buffer.trim()) {
-          const chunk = parseSSELine(buffer)
+          const chunk = parseSSELine<T>(buffer)
           if (chunk) yield chunk
         }
         break
@@ -108,7 +46,7 @@ export async function* parseSSE(
       buffer = lines.pop() ?? ''
 
       for (const line of lines) {
-        const chunk = parseSSELine(line)
+        const chunk = parseSSELine<T>(line)
         if (chunk) yield chunk
       }
     }

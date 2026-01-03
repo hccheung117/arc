@@ -1,77 +1,193 @@
 /**
  * AI Streaming
  *
- * Pure streaming function for OpenAI-compatible chat completions.
+ * Streaming function for OpenAI-compatible chat completions.
+ * Returns an async iterable and an abort function.
  */
 
-import type { StreamOptions, StreamEvent, Usage, FinishReason } from './types'
-import { parseSSE, normalizeUsage, normalizeFinishReason } from './utils'
+import type { ChatMessage, Usage } from './types'
+import { parseSSE } from './utils'
 
-export async function* streamText(options: StreamOptions): AsyncGenerator<StreamEvent> {
-  const { baseUrl, apiKey, model, messages, temperature, reasoningEffort, signal } = options
+// ============================================================================
+// WIRE FORMAT TYPES (OpenAI SSE response shape)
+// ============================================================================
 
-  const body: Record<string, unknown> = {
-    model,
-    messages,
-    stream: true,
+interface ChunkDelta {
+  role?: 'assistant'
+  content?: string | null
+  reasoning_content?: string | null
+  reasoning?: string | null
+}
+
+interface ChunkChoice {
+  index: number
+  delta: ChunkDelta
+  finish_reason?: 'stop' | 'length' | 'content_filter' | null
+}
+
+interface ProviderUsage {
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  completion_tokens_details?: {
+    reasoning_tokens?: number
+  }
+}
+
+interface LanguageModelChunk {
+  id: string
+  object: 'chat.completion.chunk'
+  created: number
+  model: string
+  choices: ChunkChoice[]
+  usage?: ProviderUsage
+}
+
+// ============================================================================
+// NORMALIZATION
+// ============================================================================
+
+function normalizeUsage(wire: ProviderUsage | undefined): Usage | undefined {
+  if (!wire) return undefined
+  return {
+    inputTokens: wire.prompt_tokens,
+    outputTokens: wire.completion_tokens,
+    totalTokens: wire.total_tokens,
+    reasoningTokens: wire.completion_tokens_details?.reasoning_tokens,
+  }
+}
+
+type FinishReason = 'stop' | 'length' | 'content-filter' | 'error' | 'unknown'
+
+function normalizeFinishReason(reason: string | null | undefined): FinishReason {
+  switch (reason) {
+    case 'stop':
+      return 'stop'
+    case 'length':
+      return 'length'
+    case 'content_filter':
+      return 'content-filter'
+    default:
+      return 'unknown'
+  }
+}
+
+// ============================================================================
+// STREAM EVENTS
+// ============================================================================
+
+type StreamEvent =
+  | { type: 'content'; delta: string }
+  | { type: 'reasoning'; delta: string }
+  | { type: 'usage'; usage: Usage }
+  | { type: 'done'; finishReason: FinishReason }
+
+type StreamOptions = {
+  model: { id: string; baseUrl: string; apiKey?: string }
+  messages: ChatMessage[]
+  temperature?: number
+  reasoningEffort?: 'low' | 'medium' | 'high'
+}
+
+// --- Pure functions ---
+
+type ChunkResult = {
+  events: StreamEvent[]
+  usage?: Usage
+  finishReason?: FinishReason
+}
+
+function processChunk(chunk: LanguageModelChunk): ChunkResult {
+  const events: StreamEvent[] = []
+  const delta = chunk.choices[0]?.delta
+
+  const reasoning = delta?.reasoning_content ?? delta?.reasoning
+  if (reasoning) {
+    events.push({ type: 'reasoning', delta: reasoning })
   }
 
-  if (temperature !== undefined) {
-    body.temperature = temperature
+  if (delta?.content) {
+    events.push({ type: 'content', delta: delta.content })
   }
 
-  if (reasoningEffort) {
-    body.thinking = { reasoning_effort: reasoningEffort }
+  return {
+    events,
+    usage: normalizeUsage(chunk.usage),
+    finishReason: normalizeFinishReason(chunk.choices[0]?.finish_reason),
   }
+}
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
+async function extractErrorMessage(response: Response): Promise<string> {
+  const fallback = `HTTP ${response.status}: ${response.statusText}`
+  try {
+    const body = (await response.json()) as { error?: { message?: string } }
+    return body.error?.message ?? fallback
+  } catch {
+    return fallback
+  }
+}
+
+// --- Effectful functions ---
+
+async function fetchStream(
+  options: StreamOptions,
+  signal: AbortSignal,
+): Promise<ReadableStream<Uint8Array>> {
+  const response = await fetch(`${options.model.baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      ...(apiKey && { Authorization: `Bearer ${apiKey}` }),
+      ...(options.model.apiKey && { Authorization: `Bearer ${options.model.apiKey}` }),
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      model: options.model.id,
+      messages: options.messages,
+      stream: true,
+      ...(options.temperature !== undefined && { temperature: options.temperature }),
+      ...(options.reasoningEffort && { thinking: { reasoning_effort: options.reasoningEffort } }),
+    }),
     signal,
   })
 
   if (!response.ok) {
-    let message = `HTTP ${response.status}: ${response.statusText}`
-    try {
-      const err = (await response.json()) as { error?: { message?: string } }
-      if (err.error?.message) message = err.error.message
-    } catch {
-      // Use default message
-    }
-    throw new Error(message)
+    throw new Error(await extractErrorMessage(response))
   }
 
   if (!response.body) {
     throw new Error('Response body is null')
   }
 
+  return response.body
+}
+
+async function* generate(
+  options: StreamOptions,
+  signal: AbortSignal,
+): AsyncGenerator<StreamEvent> {
+  const stream = await fetchStream(options, signal)
+
   let usage: Usage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 }
   let finishReason: FinishReason = 'unknown'
 
-  for await (const chunk of parseSSE(response.body)) {
-    const delta = chunk.choices[0]?.delta
+  for await (const chunk of parseSSE<LanguageModelChunk>(stream)) {
+    const result = processChunk(chunk)
 
-    if (delta?.reasoning_content) {
-      yield { type: 'reasoning', delta: delta.reasoning_content }
-    }
-
-    if (delta?.content) {
-      yield { type: 'content', delta: delta.content }
-    }
-
-    if (chunk.choices[0]?.finish_reason) {
-      finishReason = normalizeFinishReason(chunk.choices[0].finish_reason)
-    }
-
-    if (chunk.usage) {
-      usage = normalizeUsage(chunk.usage)
-    }
+    yield* result.events
+    if (result.usage) usage = result.usage
+    if (result.finishReason) finishReason = result.finishReason
   }
 
   yield { type: 'usage', usage }
   yield { type: 'done', finishReason }
+}
+
+// --- Public API ---
+
+export function streamText(options: StreamOptions) {
+  const abortController = new AbortController()
+
+  return {
+    textStream: generate(options, abortController.signal),
+    abort: () => abortController.abort(),
+  }
 }

@@ -1,6 +1,6 @@
 ---
 name: typescript-writing
-description: TypeScript coding standards and type philosophy. Must use this skill when writing or editing TypeScript code.
+description: TypeScript coding standards and type philosophy. Must use this skill when reading, writing or editing TypeScript code.
 ---
 
 # TypeScript Writing Standards
@@ -76,10 +76,23 @@ export type Config = ReturnType<typeof createConfig>
   - For **Contract Types** with validation: Derive TS type from schema (e.g., `type User = z.infer<typeof UserSchema>`)
   - For **Logic**: Define the type once near the behavior that owns it
 
-## 5. Checklist for Every File
+## 5. Checklist for Every Type
 
-1. **Is this a boundary?** (API, DB, External Input) → Use runtime validation and export the type
-2. **Is this shared across features?** No → Keep it in the feature directory
-3. **Is this shared across files?** No → Keep it in-file
-4. **Can the compiler infer this?** Yes → Remove the manual annotation
-5. **Is this type hard to read?** Yes → Simplify the code rather than writing a more complex type
+Apply this checklist **per-type**, not per-file. A `types.ts` file doesn't exempt types from earning their place there.
+
+1. **How many consumers?** Single consumer → inline it at the call site, don't create a named type
+2. **Is this a boundary?** (API, DB, External Input) → Use runtime validation and export the type
+3. **Is this shared across features?** No → Keep it in the feature directory
+4. **Is this shared across files?** No → Keep it in-file
+5. **Can the compiler infer this?** Yes → Remove the manual annotation
+6. **Is this type hard to read?** Yes → Simplify the code rather than writing a more complex type
+
+**Single-consumer rule:** If a type like `FooOptions` is only used by `foo()`, inline it:
+```typescript
+// Avoid: Named type with single consumer
+interface StreamOptions { model: Model; messages: Message[] }
+export function streamText(options: StreamOptions) { ... }
+
+// Prefer: Inline at call site
+export function streamText(options: { model: Model; messages: Message[] }) { ... }
+```

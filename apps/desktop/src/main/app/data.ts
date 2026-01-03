@@ -26,7 +26,7 @@ import {
   type ProfileInstallResult,
 } from '@main/lib/profile/operations'
 import { syncModels } from '@main/lib/models/sync'
-import { OPENAI_BASE_URL } from '@main/lib/ai/types'
+import { resolveOpenAI } from '@main/lib/ai/providers'
 import { info, error } from '@main/foundation/logger'
 import { validated, broadcast } from '@main/foundation/ipc'
 
@@ -179,14 +179,17 @@ function registerMessagesHandlers(ipcMain: IpcMain): void {
 async function refreshModelsCache(): Promise<void> {
   try {
     const profile = await getActiveProfile()
-    const providers = profile?.providers.map((p) => ({
-      id: generateProviderId(p),
-      baseUrl: p.baseUrl ?? OPENAI_BASE_URL,
-      apiKey: p.apiKey ?? null,
-      filter: p.modelFilter ?? null,
-      aliases: p.modelAliases ?? null,
-      name: profile.name,
-    })) ?? []
+    const providers = profile?.providers.map((p) => {
+      const { baseUrl, apiKey } = resolveOpenAI(p)
+      return {
+        id: generateProviderId(p),
+        baseUrl,
+        apiKey,
+        filter: p.modelFilter ?? null,
+        aliases: p.modelAliases ?? null,
+        name: profile.name,
+      }
+    }) ?? []
     const updated = await syncModels(providers)
     if (updated) broadcast('arc:models:event', { type: 'updated' })
   } catch (err) {

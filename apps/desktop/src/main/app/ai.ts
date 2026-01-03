@@ -11,8 +11,8 @@ import { createId } from '@paralleldrive/cuid2'
 import { z } from 'zod'
 import type { Model } from '@arc-types/models'
 import { listModels, lookupModelProvider } from '@main/lib/models/operations'
-import { OPENAI_BASE_URL } from '@main/lib/ai/types'
 import { streamText } from '@main/lib/ai/stream'
+import { createOpenAI } from '@main/lib/ai/providers'
 import type { ChatMessage, Usage } from '@main/lib/ai/types'
 import type { StoredMessageEvent } from '@main/lib/messages/schemas'
 import { readMessages, appendMessage } from '@main/lib/messages/operations'
@@ -61,7 +61,7 @@ async function convertToModelMessages(messages: StoredMessageEvent[], threadId: 
 // STREAM STATE
 // ============================================================================
 
-const activeStreams = new Map<string, AbortController>()
+const activeStreams = new Map<string, () => void>()
 
 // ============================================================================
 // AI STREAM EVENTS
@@ -101,9 +101,6 @@ async function executeStream(
     onError: (error: string) => void
   },
 ): Promise<void> {
-  const abortController = new AbortController()
-  activeStreams.set(streamId, abortController)
-
   try {
     const { messages: threadMessages } = await readMessages(threadId)
 
@@ -116,19 +113,24 @@ async function executeStream(
 
     const modelMessages = await convertToModelMessages(threadMessages, threadId)
 
-    const stream = streamText({
-      baseUrl: providerConfig.baseUrl ?? OPENAI_BASE_URL,
+    const openai = createOpenAI({
+      baseUrl: providerConfig.baseUrl ?? undefined,
       apiKey: providerConfig.apiKey ?? undefined,
-      model: modelId,
-      messages: modelMessages,
-      signal: abortController.signal,
     })
+
+    const { textStream, abort } = streamText({
+      model: openai(modelId),
+      messages: modelMessages,
+      reasoningEffort: 'high', // Arc always uses high reasoning effort
+    })
+
+    activeStreams.set(streamId, abort)
 
     let fullContent = ''
     let fullReasoning = ''
     let usage: Usage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 }
 
-    for await (const event of stream) {
+    for await (const event of textStream) {
       switch (event.type) {
         case 'content':
           fullContent += event.delta
@@ -173,9 +175,9 @@ async function executeStream(
  * Cancel an active AI stream.
  */
 function cancelStream(streamId: string): void {
-  const controller = activeStreams.get(streamId)
-  if (controller) {
-    controller.abort()
+  const abort = activeStreams.get(streamId)
+  if (abort) {
+    abort()
     activeStreams.delete(streamId)
   }
 }
