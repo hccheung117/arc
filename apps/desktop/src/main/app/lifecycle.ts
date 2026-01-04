@@ -13,9 +13,8 @@ import {
   emitProfilesEvent,
   generateProviderId,
 } from '@main/lib/profile/operations'
-import { syncModels } from '@main/lib/models/sync'
+import { syncModels } from '@main/lib/profile/models'
 import { initAutoUpdate } from '@main/lib/updater/operations'
-import { resolveOpenAI } from '@main/lib/ai/providers'
 import { broadcast } from '@main/foundation/ipc'
 import { info, error } from '@main/foundation/logger'
 
@@ -26,17 +25,14 @@ import { info, error } from '@main/foundation/logger'
 export async function initModels(): Promise<void> {
   try {
     const profile = await getActiveProfile()
-    const providers = profile?.providers.map((p) => {
-      const { baseUrl, apiKey } = resolveOpenAI(p)
-      return {
-        id: generateProviderId(p),
-        baseUrl,
-        apiKey,
-        filter: p.modelFilter ?? null,
-        aliases: p.modelAliases ?? null,
-        name: profile.name,
-      }
-    }) ?? []
+    const providers = profile?.providers.map((p) => ({
+      id: generateProviderId(p),
+      baseUrl: p.baseUrl,
+      apiKey: p.apiKey,
+      filter: p.modelFilter,
+      aliases: p.modelAliases,
+      providerName: profile.name,
+    })) ?? []
     const updated = await syncModels(providers)
     if (updated) broadcast('arc:models:event', { type: 'updated' })
   } catch (err) {
@@ -65,17 +61,14 @@ export async function handleProfileFileOpen(filePath: string): Promise<void> {
 
     // Background model fetch after activation
     const profile = await getActiveProfile()
-    const providers = profile?.providers.map((p) => {
-      const { baseUrl, apiKey } = resolveOpenAI(p)
-      return {
-        id: generateProviderId(p),
-        baseUrl,
-        apiKey,
-        filter: p.modelFilter ?? null,
-        aliases: p.modelAliases ?? null,
-        name: profile.name,
-      }
-    }) ?? []
+    const providers = profile?.providers.map((p) => ({
+      id: generateProviderId(p),
+      baseUrl: p.baseUrl,
+      apiKey: p.apiKey,
+      filter: p.modelFilter,
+      aliases: p.modelAliases,
+      providerName: profile.name,
+    })) ?? []
     syncModels(providers)
       .then((updated) => {
         if (updated) broadcast('arc:models:event', { type: 'updated' })

@@ -1,7 +1,7 @@
 /**
  * AI Library Types
  *
- * Public types for OpenAI-compatible chat completions.
+ * Public types for OpenAI-compatible APIs.
  */
 
 // ============================================================================

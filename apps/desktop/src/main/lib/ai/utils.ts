@@ -1,12 +1,8 @@
 /**
- * Generic Utilities
+ * SSE Parsing
  *
- * Protocol-level helpers with no AI domain knowledge.
+ * Server-Sent Events protocol helpers.
  */
-
-// ============================================================================
-// SSE PARSING
-// ============================================================================
 
 function parseSSELine<T>(line: string): T | null {
   const trimmed = line.trim()

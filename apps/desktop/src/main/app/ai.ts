@@ -10,9 +10,8 @@ import type { IpcMain } from 'electron'
 import { createId } from '@paralleldrive/cuid2'
 import { z } from 'zod'
 import type { Model } from '@arc-types/models'
-import { listModels, lookupModelProvider } from '@main/lib/models/operations'
+import { listModels, lookupModelProvider } from '@main/lib/profile/models'
 import { streamText } from '@main/lib/ai/stream'
-import { createOpenAI } from '@main/lib/ai/providers'
 import type { ChatMessage, Usage } from '@main/lib/ai/types'
 import type { StoredMessageEvent } from '@main/lib/messages/schemas'
 import { readMessages, appendMessage } from '@main/lib/messages/operations'
@@ -113,13 +112,10 @@ async function executeStream(
 
     const modelMessages = await convertToModelMessages(threadMessages, threadId)
 
-    const openai = createOpenAI({
-      baseUrl: providerConfig.baseUrl ?? undefined,
-      apiKey: providerConfig.apiKey ?? undefined,
-    })
-
     const { textStream, abort } = streamText({
-      model: openai(modelId),
+      modelId,
+      baseUrl: providerConfig.baseUrl,
+      apiKey: providerConfig.apiKey,
       messages: modelMessages,
       reasoningEffort: 'high', // Arc always uses high reasoning effort
     })

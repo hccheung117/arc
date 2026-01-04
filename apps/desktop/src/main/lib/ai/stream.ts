@@ -1,12 +1,13 @@
 /**
  * AI Streaming
  *
- * Streaming function for OpenAI-compatible chat completions.
+ * Stream processing for OpenAI-compatible chat completions.
  * Returns an async iterable and an abort function.
  */
 
 import type { ChatMessage, Usage } from './types'
 import { parseSSE } from './utils'
+import { createClient } from './http'
 
 // ============================================================================
 // WIRE FORMAT TYPES (OpenAI SSE response shape)
@@ -83,7 +84,9 @@ type StreamEvent =
   | { type: 'done'; finishReason: FinishReason }
 
 type StreamOptions = {
-  model: { id: string; baseUrl: string; apiKey?: string }
+  modelId: string
+  baseUrl?: string | null
+  apiKey?: string | null
   messages: ChatMessage[]
   temperature?: number
   reasoningEffort?: 'low' | 'medium' | 'high'
@@ -117,54 +120,25 @@ function processChunk(chunk: LanguageModelChunk): ChunkResult {
   }
 }
 
-async function extractErrorMessage(response: Response): Promise<string> {
-  const fallback = `HTTP ${response.status}: ${response.statusText}`
-  try {
-    const body = (await response.json()) as { error?: { message?: string } }
-    return body.error?.message ?? fallback
-  } catch {
-    return fallback
-  }
-}
-
 // --- Effectful functions ---
-
-async function fetchStream(
-  options: StreamOptions,
-  signal: AbortSignal,
-): Promise<ReadableStream<Uint8Array>> {
-  const response = await fetch(`${options.model.baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.model.apiKey && { Authorization: `Bearer ${options.model.apiKey}` }),
-    },
-    body: JSON.stringify({
-      model: options.model.id,
-      messages: options.messages,
-      stream: true,
-      ...(options.temperature !== undefined && { temperature: options.temperature }),
-      ...(options.reasoningEffort && { thinking: { reasoning_effort: options.reasoningEffort } }),
-    }),
-    signal,
-  })
-
-  if (!response.ok) {
-    throw new Error(await extractErrorMessage(response))
-  }
-
-  if (!response.body) {
-    throw new Error('Response body is null')
-  }
-
-  return response.body
-}
 
 async function* generate(
   options: StreamOptions,
   signal: AbortSignal,
 ): AsyncGenerator<StreamEvent> {
-  const stream = await fetchStream(options, signal)
+  const client = createClient({
+    baseUrl: options.baseUrl,
+    apiKey: options.apiKey,
+  })
+  const stream = await client.streamChatCompletions(
+    {
+      model: options.modelId,
+      messages: options.messages,
+      ...(options.temperature !== undefined && { temperature: options.temperature }),
+      ...(options.reasoningEffort && { thinking: { reasoning_effort: options.reasoningEffort } }),
+    },
+    signal,
+  )
 
   let usage: Usage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 }
   let finishReason: FinishReason = 'unknown'
