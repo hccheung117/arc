@@ -33,6 +33,7 @@ import { registerAIHandlers } from '@main/app/ai'
 import { registerSystemHandlers } from '@main/app/system'
 import { initApp, handleProfileFileOpen } from '@main/app/lifecycle'
 import { readWindowSize, trackWindowSize, MIN_SIZE } from '@main/lib/window/state'
+import { setupEditableContextMenu } from '@main/lib/ui'
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -50,6 +51,7 @@ const buildWindowConfig = (size: { width: number; height: number }): BrowserWind
   autoHideMenuBar: process.platform !== 'darwin',
   webPreferences: {
     preload: path.join(__dirname, 'preload.js'),
+    spellcheck: true,
   },
 })
 
@@ -72,6 +74,7 @@ const loadRenderer = (window: BrowserWindow): void => {
 const createWindow = (size: { width: number; height: number }) => {
   const window = new BrowserWindow(buildWindowConfig(size))
   trackWindowSize(window)
+  setupEditableContextMenu(window)
   loadRenderer(window)
   return window
 }

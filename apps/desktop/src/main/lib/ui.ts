@@ -5,65 +5,59 @@
  * Returns selected actions without executing side effects.
  */
 
-import { Menu } from 'electron'
+import {type BrowserWindow, Menu, type MenuItemConstructorOptions} from 'electron'
 
 // ============================================================================
-// GENERIC CONTEXT MENU FACTORY
+// TYPES
 // ============================================================================
 
 type MenuItem<T extends string> =
   | { label: string; action: T }
   | { type: 'separator' }
 
-/**
- * Creates and shows a native context menu, returning the selected action.
- * Resolves to null if the menu is dismissed without selection.
- */
-function createContextMenu<T extends string>(items: MenuItem<T>[]): Promise<T | null> {
-  return new Promise((resolve) => {
-    let resolved = false
+// ============================================================================
+// PURE TRANSFORMATIONS
+// ============================================================================
 
-    const menu = Menu.buildFromTemplate(items.map((item) =>
-        'type' in item
-            ? { type: 'separator' as const }
-            : {
-              label: item.label,
-              click: () => {
-                resolved = true
-                resolve(item.action)
-              },
-            }
-    ))
+const isSeparator = <T extends string>(item: MenuItem<T>): item is { type: 'separator' } =>
+  'type' in item
+
+const toElectronMenuItem = <T extends string>(resolve: (action: T) => void) =>
+  (item: MenuItem<T>): MenuItemConstructorOptions =>
+    isSeparator(item)
+      ? { type: 'separator' }
+      : { label: item.label, click: () => resolve(item.action) }
+
+// ============================================================================
+// GENERIC CONTEXT MENU FACTORY
+// ============================================================================
+
+const createContextMenu = <T extends string>(items: MenuItem<T>[]) =>
+  new Promise<T | null>((resolve) => {
+    let selected: T | null = null
+
+    const menu = Menu.buildFromTemplate(
+      items.map(toElectronMenuItem((action) => { selected = action }))
+    )
 
     menu.once('menu-will-close', () => {
-      // Delay resolution to allow click handlers to fire first (macOS timing issue)
-      setTimeout(() => {
-        if (!resolved) resolve(null)
-      }, 100)
+      setTimeout(() => resolve(selected), 100)
     })
 
     menu.popup()
   })
-}
 
 // ============================================================================
 // THREAD CONTEXT MENU
 // ============================================================================
 
-export type ThreadMenuAction = 'rename' | 'togglePin' | 'delete'
-
-/**
- * Shows a native context menu for thread/conversation actions.
- * Returns the selected action, leaving side effects to the caller.
- */
-export function showThreadContextMenu(isPinned: boolean): Promise<ThreadMenuAction | null> {
-  return createContextMenu<ThreadMenuAction>([
-    { label: 'Rename', action: 'rename' },
-    { label: isPinned ? 'Unpin' : 'Pin', action: 'togglePin' },
-    { type: 'separator' },
-    { label: 'Delete', action: 'delete' },
+export const showThreadContextMenu = (isPinned: boolean) =>
+  createContextMenu([
+      {label: 'Rename', action: 'rename'},
+      {label: isPinned ? 'Unpin' : 'Pin', action: 'togglePin'},
+      {type: 'separator'},
+      {label: 'Delete', action: 'delete'},
   ])
-}
 
 // ============================================================================
 // MESSAGE CONTEXT MENU
@@ -71,16 +65,64 @@ export function showThreadContextMenu(isPinned: boolean): Promise<ThreadMenuActi
 
 export type MessageMenuAction = 'copy' | 'edit'
 
-/**
- * Shows a native context menu for message actions.
- * Returns the selected action, leaving side effects to the caller.
- */
-export function showMessageContextMenu(hasEditOption: boolean): Promise<MessageMenuAction | null> {
-  const items: MenuItem<MessageMenuAction>[] = [{ label: 'Copy', action: 'copy' }]
+export const showMessageContextMenu = (hasEditOption: boolean) =>
+  createContextMenu(hasEditOption
+      ? [{label: 'Copy', action: 'copy'}, {label: 'Edit', action: 'edit'}]
+      : [{label: 'Copy', action: 'copy'}])
 
-  if (hasEditOption) {
-    items.push({ label: 'Edit', action: 'edit' })
-  }
+// ============================================================================
+// EDITABLE ELEMENT CONTEXT MENU
+// ============================================================================
 
-  return createContextMenu(items)
+const spellingSuggestions = (
+  params: Electron.ContextMenuParams,
+  webContents: Electron.WebContents
+) =>
+  params.dictionarySuggestions.length > 0
+    ? params.dictionarySuggestions.map((suggestion) => ({
+        label: suggestion,
+        click: () => webContents.replaceMisspelling(suggestion),
+      }))
+    : [{ label: 'No suggestions', enabled: false }]
+
+const addToDictionary = (
+  params: Electron.ContextMenuParams,
+  webContents: Electron.WebContents
+): MenuItemConstructorOptions => ({
+  label: 'Add to Dictionary',
+  click: () => webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord),
+})
+
+const spellingSection = (
+  params: Electron.ContextMenuParams,
+  webContents: Electron.WebContents
+) =>
+  params.misspelledWord
+    ? [
+        ...spellingSuggestions(params, webContents),
+        { type: 'separator' } as const,
+        addToDictionary(params, webContents),
+        { type: 'separator' } as const,
+      ]
+    : []
+
+const editOperations: MenuItemConstructorOptions[] = [
+  { role: 'undo' },
+  { role: 'redo' },
+  { type: 'separator' },
+  { role: 'cut' },
+  { role: 'copy' },
+  { role: 'paste' },
+  { type: 'separator' },
+  { role: 'selectAll' },
+]
+
+export const setupEditableContextMenu = (window: BrowserWindow) => {
+  window.webContents.on('context-menu', (_event, params) => {
+    if (!params.isEditable) return
+    Menu.buildFromTemplate([
+        ...spellingSection(params, window.webContents),
+        ...editOperations,
+    ]).popup()
+  })
 }

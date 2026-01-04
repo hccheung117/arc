@@ -79,7 +79,7 @@ export type ThreadAction =
   | { type: 'CREATE_DRAFT'; id?: string }
   | { type: 'HYDRATE'; threads: ThreadSummary[] }
   | { type: 'UPDATE_STATUS'; id: string; status: ChatThread['status'] }
-  | { type: 'UPDATE_THREAD_METADATA'; id: string; title: string; updatedAt: string }
+  | { type: 'UPDATE_THREAD_METADATA'; id: string; title: string; updatedAt: string; isPinned: boolean }
   | { type: 'DELETE_THREAD'; id: string }
   | { type: 'RENAME_THREAD'; id: string; title: string }
 

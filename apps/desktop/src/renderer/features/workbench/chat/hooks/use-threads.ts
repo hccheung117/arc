@@ -35,7 +35,7 @@ function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[]
     case 'UPDATE_THREAD_METADATA': {
       return state.map((thread) => {
         if (thread.id === action.id) {
-          return { ...thread, title: action.title, updatedAt: action.updatedAt }
+          return { ...thread, title: action.title, updatedAt: action.updatedAt, isPinned: action.isPinned }
         }
         return thread
       })
@@ -88,6 +88,7 @@ export function useChatThreads() {
             id: event.thread.id,
             title: event.thread.title,
             updatedAt: event.thread.updatedAt,
+            isPinned: event.thread.pinned,
           })
           break
         case 'deleted':

@@ -30,13 +30,14 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate }: Workspace
       getModels().then(setModels)
     }
 
-    fetchModels()
-
+    // Subscribe first to avoid race with main process startup fetch
     const unsubscribe = onModelsEvent((event) => {
       if (event.type === 'updated') {
         fetchModels()
       }
     })
+
+    fetchModels()
 
     return unsubscribe
   }, [])

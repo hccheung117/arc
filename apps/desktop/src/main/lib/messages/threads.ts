@@ -80,11 +80,12 @@ export async function updateThread(threadId: string, patch: ThreadPatch): Promis
     if (patch.title !== undefined) {
       thread.title = patch.title
       thread.renamed = true
+      thread.updatedAt = new Date().toISOString()
     }
     if (patch.pinned !== undefined) {
       thread.pinned = patch.pinned
+      // Pinning is organizational metadata—don't update timestamp
     }
-    thread.updatedAt = new Date().toISOString()
     updatedThread = thread
     return index
   })
