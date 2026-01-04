@@ -143,8 +143,11 @@ export function ModelSelector({
       }
 
       // Convert Set back to array of objects for storage
+      // Split only on the first colon to preserve colons in modelId (e.g., "claude-haiku-4-5:thinking")
       const favoritesArray: StoredFavorite[] = Array.from(next).map((k) => {
-        const [providerId, modelId] = k.split(':')
+        const colonIndex = k.indexOf(':')
+        const providerId = k.slice(0, colonIndex)
+        const modelId = k.slice(colonIndex + 1)
         return { providerId, modelId }
       })
       window.arc.settings.set('favorites', favoritesArray)
