@@ -100,3 +100,14 @@ export function getSettingsPath(): string {
 export function getModelsCachePath(): string {
   return path.join(getDataDir(), 'models.cache.json')
 }
+
+// ============================================================================
+// WINDOW STATE
+// ============================================================================
+
+/**
+ * Returns the window state cache file path.
+ */
+export function getWindowStateCachePath(): string {
+  return path.join(getDataDir(), 'window-state.cache.json')
+}

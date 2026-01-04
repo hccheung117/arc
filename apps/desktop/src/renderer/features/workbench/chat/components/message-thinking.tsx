@@ -68,7 +68,7 @@ export function ThinkingBlock({ content, isStreaming }: ThinkingBlockProps) {
         onClick={() => { userHasTouchedRef.current = true }}
         onScroll={() => { userHasTouchedRef.current = true }}
       >
-        <div className="mt-2 pl-4 border-l-2 border-muted text-muted-foreground">
+        <div className="mt-2 pl-4 border-l-3 border-muted [&_.prose]:[--tw-prose-body:var(--muted-foreground)] [&_.prose]:[--tw-prose-headings:var(--muted-foreground)] [&_.prose]:[--tw-prose-bold:var(--muted-foreground)] text-muted-foreground/80">
           <Markdown>{content}</Markdown>
         </div>
       </div>

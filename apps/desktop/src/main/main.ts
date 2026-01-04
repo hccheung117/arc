@@ -18,7 +18,13 @@
  * extract it to the appropriate layer (foundation/, lib/, or app/).
  */
 
-import { app, BrowserWindow, ipcMain, Menu } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  Menu,
+  type BrowserWindowConstructorOptions,
+} from 'electron'
 import path from 'node:path'
 import started from 'electron-squirrel-startup'
 import { buildAppMenu } from './menu'
@@ -26,37 +32,48 @@ import { registerDataHandlers } from '@main/app/data'
 import { registerAIHandlers } from '@main/app/ai'
 import { registerSystemHandlers } from '@main/app/system'
 import { initApp, handleProfileFileOpen } from '@main/app/lifecycle'
+import { readWindowSize, trackWindowSize, MIN_SIZE } from '@main/lib/window/state'
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
   app.quit()
 }
 
-const createWindow = () => {
-  const mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
-    minWidth: 700,
-    minHeight: 550,
-    autoHideMenuBar: process.platform !== 'darwin',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-    },
-  })
+// ─────────────────────────────────────────────────────────────────
+// Config builders (pure)
+// ─────────────────────────────────────────────────────────────────
 
-  const appMenu = buildAppMenu()
-  Menu.setApplicationMenu(appMenu)
+const buildWindowConfig = (size: { width: number; height: number }): BrowserWindowConstructorOptions => ({
+  ...size,
+  minWidth: MIN_SIZE.width,
+  minHeight: MIN_SIZE.height,
+  autoHideMenuBar: process.platform !== 'darwin',
+  webPreferences: {
+    preload: path.join(__dirname, 'preload.js'),
+  },
+})
 
-  // Load renderer: dev server in development, file in production
+// ─────────────────────────────────────────────────────────────────
+// Window initializers (side effects)
+// ─────────────────────────────────────────────────────────────────
+
+const loadRenderer = (window: BrowserWindow): void => {
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL)
+    window.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL)
   } else {
-    mainWindow.loadFile(
-      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
-    )
+    window.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`))
   }
+}
 
-  return mainWindow
+// ─────────────────────────────────────────────────────────────────
+// Composition
+// ─────────────────────────────────────────────────────────────────
+
+const createWindow = (size: { width: number; height: number }) => {
+  const window = new BrowserWindow(buildWindowConfig(size))
+  trackWindowSize(window)
+  loadRenderer(window)
+  return window
 }
 
 // Quit when all windows are closed, except on macOS. There, it's common
@@ -71,19 +88,23 @@ app.on('window-all-closed', () => {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.on('ready', () => {
-  createWindow()
+app.on('ready', async () => {
+  Menu.setApplicationMenu(buildAppMenu())
+
+  const size = await readWindowSize()
+  createWindow(size)
   registerDataHandlers(ipcMain)
   registerAIHandlers(ipcMain)
   registerSystemHandlers(ipcMain)
   initApp()
 })
 
-app.on('activate', () => {
+app.on('activate', async () => {
   // On OS X it's common to re-create a window in the app when the
   // dock icon is clicked and there are no other windows open.
   if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow()
+    const size = await readWindowSize()
+    createWindow(size)
   }
 })
 
