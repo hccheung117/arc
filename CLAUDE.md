@@ -47,4 +47,4 @@ Our hierarchy prevents churn and maintains a unified voice:
 
 ## Agent Skills
 
-- **Always invoke the [`typescript-writing`](.claude/skills/typescript-writing/SKILL.md) skill** before writing or editing TypeScript code. This skill defines our type philosophy and coding standards.
+- **Always invoke the [`writing-typescript`](.claude/skills/writing-typescript/SKILL.md) skill** before writing or editing TypeScript code. This skill defines our type philosophy and coding standards.
