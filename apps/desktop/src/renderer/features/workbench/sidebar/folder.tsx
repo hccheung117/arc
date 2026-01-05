@@ -73,7 +73,7 @@ function FolderHeader({
 function FolderContent({ threads }: { threads: ChatThread[] }) {
   return (
     <SidebarGroupContent>
-      <SidebarMenu className="mx-3.5 min-w-0 translate-x-px border-l border-sidebar-border px-2.5 py-0.5">
+      <SidebarMenu className="w-auto mx-3.5 min-w-0 translate-x-px border-l border-sidebar-border px-2.5 py-0.5">
         {threads.length === 0 ? (
           <SidebarMenuItem>
             <div className="px-2 py-1.5 text-meta text-sidebar-foreground/50 italic">
@@ -139,7 +139,7 @@ export function FolderView({
         onContextMenu={handleContextMenu}
       >
         <FolderHeader title={folder.title} isCollapsed={isCollapsed}>
-          {rename.isRenaming && <RenameInput rename={rename} />}
+          {rename.isRenaming ? <RenameInput rename={rename} /> : null}
         </FolderHeader>
       </SidebarGroupLabel>
 

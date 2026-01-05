@@ -47,7 +47,7 @@ export function WorkbenchSidebar({ threads, activeThreadId, onThreadSelect, disp
       <SidebarHeader className="p-0 pb-3 bg-sidebar">
         <NewChatButton onThreadSelect={onThreadSelect} dispatch={dispatch} />
       </SidebarHeader>
-      <SidebarContent className="p-0 bg-sidebar">
+      <SidebarContent className="p-0 bg-sidebar [&::-webkit-scrollbar]:hidden">
         <SidebarProvider
           activeThreadId={activeThreadId}
           onThreadSelect={onThreadSelect}
