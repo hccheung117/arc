@@ -10,13 +10,14 @@ import type { ThreadEvent, Unsubscribe } from '@arc-types/arc-api'
 /**
  * ChatThread: UI ViewModel for organizing messages
  *
- * Uses cuid2 for stable IDs.
+ * Uses cuid2 for stable IDs. Supports nested structure for folders.
  *
  * This enables:
  * - Instant UI feedback (threads exist before database)
  * - Zero blinking (ID stability prevents re-renders)
  * - Lazy persistence (threads created only when needed)
  * - Message-first UX (users interact with messages, not threads)
+ * - Folder organization (threads with children[] act as folders)
  */
 export type ChatThread = {
   id: string
@@ -26,6 +27,7 @@ export type ChatThread = {
   createdAt: string
   updatedAt: string
   isPinned: boolean
+  children: ChatThread[]
 }
 
 /**
@@ -44,6 +46,7 @@ export function createDraftThread(): ChatThread {
     createdAt: now,
     updatedAt: now,
     isPinned: false,
+    children: [],
   }
 }
 
@@ -52,6 +55,7 @@ export function createDraftThread(): ChatThread {
  *
  * Used on initial load to convert persisted threads into UI threads.
  * Messages are lazy-loaded when the thread is selected.
+ * Recursively hydrates children for folder support.
  */
 export function hydrateFromSummary(summary: ThreadSummary): ChatThread {
   return {
@@ -62,6 +66,7 @@ export function hydrateFromSummary(summary: ThreadSummary): ChatThread {
     createdAt: summary.createdAt || summary.updatedAt,
     updatedAt: summary.updatedAt,
     isPinned: summary.pinned,
+    children: summary.children.map(hydrateFromSummary),
   }
 }
 
@@ -72,16 +77,17 @@ export function hydrateFromSummary(summary: ThreadSummary): ChatThread {
 /**
  * Actions for managing ChatThread state
  *
- * Note: Message-level state (ADD_MESSAGE, UPDATE_MESSAGES, EDIT_AND_TRUNCATE)
- * is now managed by use-message-tree.ts at the view level, not the global thread list.
+ * Four actions with CRUD-like semantics:
+ * - HYDRATE: Bulk load from database
+ * - UPSERT: Create or replace a thread
+ * - PATCH: Partial update (optimistic)
+ * - DELETE: Remove a thread
  */
 export type ThreadAction =
-  | { type: 'CREATE_DRAFT'; id?: string }
   | { type: 'HYDRATE'; threads: ThreadSummary[] }
-  | { type: 'UPDATE_STATUS'; id: string; status: ChatThread['status'] }
-  | { type: 'UPDATE_THREAD_METADATA'; id: string; title: string; updatedAt: string; isPinned: boolean }
-  | { type: 'DELETE_THREAD'; id: string }
-  | { type: 'RENAME_THREAD'; id: string; title: string }
+  | { type: 'UPSERT'; thread: ChatThread }
+  | { type: 'PATCH'; id: string; patch: Partial<ChatThread> }
+  | { type: 'DELETE'; id: string }
 
 // ============================================================================
 // IPC WRAPPERS

@@ -35,6 +35,20 @@ const arcAPI: ArcAPI = {
     },
   },
 
+  folders: {
+    create: (name: string, thread1Id: string, thread2Id: string) =>
+      ipcRenderer.invoke('arc:folders:create', name, thread1Id, thread2Id),
+
+    moveThread: (threadId: string, folderId: string) =>
+      ipcRenderer.invoke('arc:folders:moveThread', threadId, folderId),
+
+    moveToRoot: (threadId: string) =>
+      ipcRenderer.invoke('arc:folders:moveToRoot', threadId),
+
+    reorder: (folderId: string, orderedChildIds: string[]) =>
+      ipcRenderer.invoke('arc:folders:reorder', folderId, orderedChildIds),
+  },
+
   messages: {
     list: (threadId: string) =>
       ipcRenderer.invoke('arc:messages:list', threadId),

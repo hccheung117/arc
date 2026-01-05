@@ -161,7 +161,7 @@ export function useChatSession(
     (message: Message) => {
       tree.addMessage(message)
       if (thread.status !== 'persisted') {
-        onThreadUpdate({ type: 'UPDATE_STATUS', id: thread.id, status: 'persisted' })
+        onThreadUpdate({ type: 'PATCH', id: thread.id, patch: { status: 'persisted' } })
       }
     },
     [tree, thread.status, thread.id, onThreadUpdate],
@@ -184,7 +184,7 @@ export function useChatSession(
         setMessages: tree.setMessages,
         switchBranch: tree.switchBranch,
         startStreaming: async () => {
-          onThreadUpdate({ type: 'UPDATE_STATUS', id: thread.id, status: 'streaming' })
+          onThreadUpdate({ type: 'PATCH', id: thread.id, patch: { status: 'streaming' } })
           await streaming.start(selectedModel.id, handleStreamComplete)
         },
       }

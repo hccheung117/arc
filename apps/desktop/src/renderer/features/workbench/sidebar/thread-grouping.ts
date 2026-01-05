@@ -1,96 +1,95 @@
 import type { ChatThread } from '@renderer/lib/threads'
 
+export interface FolderGroup {
+  folder: ChatThread
+  threads: ChatThread[]
+}
+
 export interface GroupedThreads {
+  folders: FolderGroup[]
   pinned: ChatThread[]
-  groups: Array<{
-    label: string
-    threads: ChatThread[]
-  }>
+  groups: Array<{ label: string; threads: ChatThread[] }>
 }
 
 const GROUP_ORDER = ['Today', 'Yesterday', 'Previous 7 Days', 'Previous 30 Days'] as const
 
-/**
- * Calculates the appropriate group label for a given date
- */
-export function getGroupLabel(dateStr: string): string {
-  const date = new Date(dateStr)
-  const now = new Date()
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-  const diffTime = today.getTime() - target.getTime()
-  const diffDays = diffTime / (1000 * 60 * 60 * 24)
+// --- Pure helpers ---
 
-  if (diffDays < 1) return 'Today'
-  if (diffDays < 2) return 'Yesterday'
-  if (diffDays <= 7) return 'Previous 7 Days'
-  if (diffDays <= 30) return 'Previous 30 Days'
+const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate())
+const daysBetween = (from: Date, to: Date) =>
+  (startOfDay(to).getTime() - startOfDay(from).getTime()) / 86_400_000
 
-  if (date.getFullYear() === now.getFullYear()) {
-    return date.toLocaleDateString('en-US', { month: 'long' })
-  }
+const partition = <T>(xs: T[], pred: (x: T) => boolean) => [
+  xs.filter(pred),
+  xs.filter((x) => !pred(x)),
+]
 
-  return date.getFullYear().toString()
-}
-
-/**
- * Sorts group labels by their temporal order
- * Known labels (Today, Yesterday, etc.) come first in order,
- * followed by months/years sorted by recency
- */
-function sortGroupLabels(
-  labels: string[],
-  threadsByLabel: Record<string, ChatThread[]>,
-): string[] {
-  return labels.sort((a, b) => {
-    const indexA = GROUP_ORDER.indexOf(a as (typeof GROUP_ORDER)[number])
-    const indexB = GROUP_ORDER.indexOf(b as (typeof GROUP_ORDER)[number])
-
-    if (indexA !== -1 && indexB !== -1) return indexA - indexB
-    if (indexA !== -1) return -1
-    if (indexB !== -1) return 1
-
-    // For months/years, sort by most recent thread in each group
-    const dateA = new Date(threadsByLabel[a][0].updatedAt).getTime()
-    const dateB = new Date(threadsByLabel[b][0].updatedAt).getTime()
-    return dateB - dateA
-  })
-}
-
-/**
- * Groups threads by date and separates pinned threads
- *
- * @returns Pinned threads separately, plus groups sorted by recency
- */
-export function groupThreadsByDate(threads: ChatThread[]): GroupedThreads {
-  // Filter out draft threads that haven't been started yet
-  const validThreads = threads.filter((thread) => thread.status !== 'draft')
-
-  const pinned = validThreads.filter((t) => t.isPinned)
-  const unpinned = validThreads.filter((t) => !t.isPinned)
-
-  // Group unpinned threads by date label
-  const threadsByLabel = unpinned.reduce(
-    (acc, thread) => {
-      const label = getGroupLabel(thread.updatedAt)
-      if (!acc[label]) acc[label] = []
-      acc[label].push(thread)
-      return acc
-    },
-    {} as Record<string, ChatThread[]>,
+const groupBy = <T>(xs: T[], key: (x: T) => string) =>
+  xs.reduce(
+    (acc, x) => ((acc[key(x)] ??= []).push(x), acc),
+    {} as Record<string, T[]>,
   )
 
-  // Sort threads within each group by updatedAt desc
-  Object.values(threadsByLabel).forEach((groupThreads) => {
-    groupThreads.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-  })
+// --- Predicates ---
 
-  // Build sorted groups array
-  const sortedLabels = sortGroupLabels(Object.keys(threadsByLabel), threadsByLabel)
-  const groups = sortedLabels.map((label) => ({
-    label,
-    threads: threadsByLabel[label],
+export const isFolder = (t: ChatThread) => t.children.length > 0
+const isPinned = (t: ChatThread) => t.isPinned
+const isActive = (t: ChatThread) => t.status !== 'draft'
+
+// --- Comparators ---
+
+const byUpdatedAtDesc = (a: ChatThread, b: ChatThread) =>
+  new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+
+const byGroupOrder =
+  (threadsByLabel: Record<string, ChatThread[]>) =>
+  (a: string, b: string) => {
+    const ia = GROUP_ORDER.indexOf(a as (typeof GROUP_ORDER)[number])
+    const ib = GROUP_ORDER.indexOf(b as (typeof GROUP_ORDER)[number])
+
+    if (ia !== -1 && ib !== -1) return ia - ib
+    if (ia !== -1) return -1
+    if (ib !== -1) return 1
+
+    return byUpdatedAtDesc(threadsByLabel[a][0], threadsByLabel[b][0])
+  }
+
+// --- Public API ---
+
+export function getGroupLabel(dateStr: string) {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const days = daysBetween(date, now)
+
+  if (days < 1) return 'Today'
+  if (days < 2) return 'Yesterday'
+  if (days <= 7) return 'Previous 7 Days'
+  if (days <= 30) return 'Previous 30 Days'
+
+  return date.getFullYear() === now.getFullYear()
+    ? date.toLocaleDateString('en-US', { month: 'long' })
+    : date.getFullYear().toString()
+}
+
+export function groupThreadsWithFolders(threads: ChatThread[]) {
+  const active = threads.filter(isActive)
+
+  const [folderThreads, nonFolders] = partition(active, isFolder)
+  const [pinned, unpinned] = partition(nonFolders, isPinned)
+
+  const folders = folderThreads.map((folder) => ({
+    folder,
+    threads: folder.children,
   }))
 
-  return { pinned, groups }
+  const byLabel = groupBy(unpinned, (t) => getGroupLabel(t.updatedAt))
+
+  const groups = Object.keys(byLabel)
+    .toSorted(byGroupOrder(byLabel))
+    .map((label) => ({
+      label,
+      threads: byLabel[label].toSorted(byUpdatedAtDesc),
+    }))
+
+  return { folders, pinned, groups }
 }

@@ -2,62 +2,69 @@ import { useReducer, useEffect } from 'react'
 import {
   type ChatThread,
   type ThreadAction,
-  createDraftThread,
   hydrateFromSummary,
   getThreadSummaries,
   onThreadEvent,
 } from '@renderer/lib/threads'
 import { clearBranchSelections } from '@renderer/lib/ui-state-db'
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Tree Operations
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Generic tree modification. Traverses the tree and applies a modifier
+ * to the matching node. Return null from modifier to remove the node.
+ */
+const modifyTree = (
+  threads: ChatThread[],
+  id: string,
+  modifier: (thread: ChatThread) => ChatThread | null,
+): ChatThread[] =>
+  threads.flatMap((thread) => {
+    if (thread.id === id) {
+      const result = modifier(thread)
+      return result ? [result] : []
+    }
+    return thread.children.length > 0
+      ? [{ ...thread, children: modifyTree(thread.children, id, modifier) }]
+      : [thread]
+  })
+
+/**
+ * Checks if a thread exists anywhere in the tree.
+ */
+const existsInTree = (threads: ChatThread[], id: string): boolean =>
+  threads.some((t) => t.id === id || existsInTree(t.children, id))
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Reducer
+// ─────────────────────────────────────────────────────────────────────────────
+
 function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[] {
   switch (action.type) {
-    case 'CREATE_DRAFT': {
-      const newThread = action.id ? { ...createDraftThread(), id: action.id } : createDraftThread()
-      return [newThread, ...state]
-    }
-
     case 'HYDRATE': {
-      const hydratedThreads = action.threads.map(hydrateFromSummary)
-      // Preserve existing draft threads (not yet persisted to database)
-      const existingDrafts = state.filter((t) => t.status === 'draft')
-      return [...existingDrafts, ...hydratedThreads]
+      const hydrated = action.threads.map(hydrateFromSummary)
+      const drafts = state.filter((t) => t.status === 'draft')
+      return [...drafts, ...hydrated]
     }
 
-    case 'UPDATE_STATUS': {
-      return state.map((thread) => {
-        if (thread.id === action.id) {
-          return { ...thread, status: action.status }
-        }
-        return thread
-      })
-    }
+    case 'UPSERT':
+      return existsInTree(state, action.thread.id)
+        ? modifyTree(state, action.thread.id, () => action.thread)
+        : [action.thread, ...state]
 
-    case 'UPDATE_THREAD_METADATA': {
-      return state.map((thread) => {
-        if (thread.id === action.id) {
-          return { ...thread, title: action.title, updatedAt: action.updatedAt, isPinned: action.isPinned }
-        }
-        return thread
-      })
-    }
+    case 'PATCH':
+      return modifyTree(state, action.id, (t) => ({ ...t, ...action.patch }))
 
-    case 'DELETE_THREAD': {
-      return state.filter((thread) => thread.id !== action.id)
-    }
-
-    case 'RENAME_THREAD': {
-      return state.map((thread) => {
-        if (thread.id === action.id) {
-          return { ...thread, title: action.title }
-        }
-        return thread
-      })
-    }
-
-    default:
-      return state
+    case 'DELETE':
+      return modifyTree(state, action.id, () => null)
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Hook
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Hook for managing ChatThread state
@@ -72,32 +79,20 @@ export function useChatThreads() {
 
   // Hydrate threads from database on mount
   useEffect(() => {
-    getThreadSummaries().then((threads) => {
-      dispatch({ type: 'HYDRATE', threads })
-    })
+    getThreadSummaries().then((threads) => dispatch({ type: 'HYDRATE', threads }))
   }, [])
 
   // Subscribe to thread events for sidebar reactivity
   useEffect(() => {
-    const unsubscribe = onThreadEvent((event) => {
-      switch (event.type) {
-        case 'created':
-        case 'updated':
-          dispatch({
-            type: 'UPDATE_THREAD_METADATA',
-            id: event.thread.id,
-            title: event.thread.title,
-            updatedAt: event.thread.updatedAt,
-            isPinned: event.thread.pinned,
-          })
-          break
-        case 'deleted':
-          dispatch({ type: 'DELETE_THREAD', id: event.id })
-          clearBranchSelections(event.id)
-          break
+    return onThreadEvent((event) => {
+      if (event.type === 'deleted') {
+        dispatch({ type: 'DELETE', id: event.id })
+        clearBranchSelections(event.id)
+      } else {
+        // Both 'created' and 'updated' events upsert the hydrated thread
+        dispatch({ type: 'UPSERT', thread: hydrateFromSummary(event.thread) })
       }
     })
-    return unsubscribe
   }, [])
 
   return { threads, dispatch }

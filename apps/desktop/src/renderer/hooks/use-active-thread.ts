@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { createId } from '@paralleldrive/cuid2'
-import { onThreadEvent, type ThreadAction } from '@renderer/lib/threads'
+import { createDraftThread, onThreadEvent, type ThreadAction } from '@renderer/lib/threads'
 
 interface UseActiveThreadReturn {
   activeThreadId: string | null
@@ -20,9 +19,9 @@ export function useActiveThread(dispatch: (action: ThreadAction) => void): UseAc
   useEffect(() => {
     if (activeThreadId !== null) return
 
-    const id = createId()
-    dispatch({ type: 'CREATE_DRAFT', id })
-    setActiveThreadId(id)
+    const draft = createDraftThread()
+    dispatch({ type: 'UPSERT', thread: draft })
+    setActiveThreadId(draft.id)
   }, [activeThreadId, dispatch])
 
   // Deselect if active thread is deleted

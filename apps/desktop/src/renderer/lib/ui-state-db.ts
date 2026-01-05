@@ -1,20 +1,22 @@
 /**
  * UI State IndexedDB
  *
- * Persists UI-related state (like branch selections) in the renderer's IndexedDB.
- * Keeps UI state separate from the pure data layer (JSONL files in arcfs).
+ * Persists UI-related state (like branch selections, folder collapse states) in
+ * the renderer's IndexedDB. Keeps UI state separate from the pure data layer
+ * (JSONL files in arcfs).
  */
 
 const DB_NAME = 'arc-ui-state'
-const DB_VERSION = 1
-const STORE_NAME = 'branch-selections'
+const DB_VERSION = 2
+const BRANCH_STORE = 'branch-selections'
+const FOLDER_STORE = 'folder-collapse'
 
 let dbPromise: Promise<IDBDatabase> | null = null
 
-function openDB(): Promise<IDBDatabase> {
+function openDB() {
   if (dbPromise) return dbPromise
 
-  dbPromise = new Promise((resolve, reject) => {
+  dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION)
 
     request.onerror = () => reject(request.error)
@@ -22,8 +24,11 @@ function openDB(): Promise<IDBDatabase> {
 
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: 'threadId' })
+      if (!db.objectStoreNames.contains(BRANCH_STORE)) {
+        db.createObjectStore(BRANCH_STORE, { keyPath: 'threadId' })
+      }
+      if (!db.objectStoreNames.contains(FOLDER_STORE)) {
+        db.createObjectStore(FOLDER_STORE, { keyPath: 'folderId' })
       }
     }
   })
@@ -31,73 +36,75 @@ function openDB(): Promise<IDBDatabase> {
   return dbPromise
 }
 
+// ============================================================================
+// IndexedDB Primitives
+// ============================================================================
+
+const promisify = <T>(request: IDBRequest<T>) =>
+  new Promise<T>((resolve, reject) => {
+    request.onerror = () => reject(request.error)
+    request.onsuccess = () => resolve(request.result)
+  })
+
+const withStore = async <T>(
+  storeName: string,
+  mode: IDBTransactionMode,
+  fn: (store: IDBObjectStore) => IDBRequest<T>,
+) => {
+  const db = await openDB()
+  return promisify(fn(db.transaction(storeName, mode).objectStore(storeName)))
+}
+
+const get = <T>(store: string, key: string) =>
+  withStore<T | undefined>(store, 'readonly', (s) => s.get(key))
+
+const put = (store: string, value: unknown) =>
+  withStore(store, 'readwrite', (s) => s.put(value)).then(() => {})
+
+const del = (store: string, key: string) =>
+  withStore(store, 'readwrite', (s) => s.delete(key)).then(() => {})
+
+const getAll = <T>(store: string) =>
+  withStore<T[]>(store, 'readonly', (s) => s.getAll())
+
+// ============================================================================
+// Branch Selections
+// ============================================================================
+
+// Exported: contract type used by consumers
 export interface BranchSelections {
   threadId: string
   selections: Record<string, number> // parentId (or 'root') -> branch index
 }
 
-/**
- * Get branch selections for a thread.
- * Returns empty object if no selections stored.
- */
-export async function getBranchSelections(threadId: string): Promise<Record<string, number>> {
-  const db = await openDB()
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readonly')
-    const store = tx.objectStore(STORE_NAME)
-    const request = store.get(threadId)
+export const getBranchSelections = async (threadId: string) => {
+  const result = await get<BranchSelections>(BRANCH_STORE, threadId)
+  return result?.selections ?? {}
+}
 
-    request.onerror = () => reject(request.error)
-    request.onsuccess = () => {
-      const result = request.result as BranchSelections | undefined
-      resolve(result?.selections ?? {})
-    }
+export const setBranchSelection = async (threadId: string, parentId: string | null, index: number) => {
+  const existing = await get<BranchSelections>(BRANCH_STORE, threadId)
+  await put(BRANCH_STORE, {
+    threadId,
+    selections: { ...(existing?.selections ?? {}), [parentId ?? 'root']: index },
   })
 }
 
-/**
- * Set a branch selection for a thread.
- * Merges with existing selections.
- */
-export async function setBranchSelection(
-  threadId: string,
-  parentId: string | null,
-  index: number,
-): Promise<void> {
-  const db = await openDB()
-  const key = parentId ?? 'root'
+export const clearBranchSelections = (threadId: string) => del(BRANCH_STORE, threadId)
 
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite')
-    const store = tx.objectStore(STORE_NAME)
+// ============================================================================
+// Folder Collapse State
+// ============================================================================
 
-    // First get existing selections
-    const getRequest = store.get(threadId)
-
-    getRequest.onerror = () => reject(getRequest.error)
-    getRequest.onsuccess = () => {
-      const existing = getRequest.result as BranchSelections | undefined
-      const selections = existing?.selections ?? {}
-      selections[key] = index
-
-      const putRequest = store.put({ threadId, selections })
-      putRequest.onerror = () => reject(putRequest.error)
-      putRequest.onsuccess = () => resolve()
-    }
-  })
+export const getFolderCollapsed = async (folderId: string) => {
+  const result = await get<{ folderId: string; collapsed: boolean }>(FOLDER_STORE, folderId)
+  return result?.collapsed ?? false
 }
 
-/**
- * Clear all branch selections for a thread.
- */
-export async function clearBranchSelections(threadId: string): Promise<void> {
-  const db = await openDB()
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite')
-    const store = tx.objectStore(STORE_NAME)
-    const request = store.delete(threadId)
+export const setFolderCollapsed = (folderId: string, collapsed: boolean) =>
+  put(FOLDER_STORE, { folderId, collapsed })
 
-    request.onerror = () => reject(request.error)
-    request.onsuccess = () => resolve()
-  })
+export const getAllFolderCollapseStates = async () => {
+  const results = await getAll<{ folderId: string; collapsed: boolean }>(FOLDER_STORE)
+  return Object.fromEntries(results.map(({ folderId, collapsed }) => [folderId, collapsed]))
 }

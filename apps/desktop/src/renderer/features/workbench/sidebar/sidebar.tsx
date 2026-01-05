@@ -8,8 +8,31 @@ import {
   SidebarRail,
 } from '@renderer/components/ui/sidebar'
 import { SidebarList } from './list'
+import { SidebarProvider } from './context'
 import { createDraftThread, type ChatThread, type ThreadAction } from '@renderer/lib/threads'
 import type { Dispatch } from 'react'
+
+interface NewChatButtonProps {
+  onThreadSelect: (threadId: string | null) => void
+  dispatch: Dispatch<ThreadAction>
+}
+
+function NewChatButton({ onThreadSelect, dispatch }: NewChatButtonProps) {
+  return (
+    <Button
+      className="w-full justify-start gap-2"
+      variant="outline"
+      onClick={() => {
+        const draft = createDraftThread()
+        dispatch({ type: 'UPSERT', thread: draft })
+        onThreadSelect(draft.id)
+      }}
+    >
+      <PenSquare className="h-4 w-4" />
+      New Chat
+    </Button>
+  )
+}
 
 interface WorkbenchSidebarProps {
   threads: ChatThread[]
@@ -22,26 +45,16 @@ export function WorkbenchSidebar({ threads, activeThreadId, onThreadSelect, disp
   return (
     <Sidebar className="p-2 bg-sidebar">
       <SidebarHeader className="p-0 pb-3 bg-sidebar">
-        <Button
-          className="w-full justify-start gap-2"
-          variant="outline"
-          onClick={() => {
-            const draft = createDraftThread()
-            dispatch({ type: 'CREATE_DRAFT', id: draft.id })
-            onThreadSelect(draft.id)
-          }}
-        >
-          <PenSquare className="h-4 w-4" />
-          New Chat
-        </Button>
+        <NewChatButton onThreadSelect={onThreadSelect} dispatch={dispatch} />
       </SidebarHeader>
       <SidebarContent className="p-0 bg-sidebar">
-        <SidebarList
-          threads={threads}
+        <SidebarProvider
           activeThreadId={activeThreadId}
           onThreadSelect={onThreadSelect}
           dispatch={dispatch}
-        />
+        >
+          <SidebarList threads={threads} />
+        </SidebarProvider>
       </SidebarContent>
       <SidebarFooter className="p-0 bg-sidebar" />
       <SidebarRail />

@@ -30,6 +30,7 @@ const buildThread = (id: string, timestamp: string, title: string | null): Store
   renamed: false,
   createdAt: timestamp,
   updatedAt: timestamp,
+  children: [],
 })
 
 // ============================================================================

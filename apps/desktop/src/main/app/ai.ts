@@ -9,7 +9,6 @@ import * as fs from 'fs/promises'
 import type { IpcMain } from 'electron'
 import { createId } from '@paralleldrive/cuid2'
 import { z } from 'zod'
-import type { Model } from '@arc-types/models'
 import { listModels, lookupModelProvider } from '@main/lib/profile/models'
 import { streamText } from '@main/lib/ai/stream'
 import type { ChatMessage, Usage } from '@main/lib/ai/types'
@@ -18,7 +17,7 @@ import { readMessages, appendMessage } from '@main/lib/messages/operations'
 import { getProviderConfig } from '@main/lib/profile/operations'
 import { getThreadAttachmentPath } from '@main/foundation/paths'
 import { error } from '@main/foundation/logger'
-import { validated, broadcast } from '@main/foundation/ipc'
+import { validated, broadcast, register } from '@main/foundation/ipc'
 
 // ============================================================================
 // MESSAGE CONVERSION
@@ -179,59 +178,56 @@ function cancelStream(streamId: string): void {
 }
 
 // ============================================================================
-// MODELS HANDLERS
-// ============================================================================
-
-async function handleModelsList(): Promise<Model[]> {
-  return listModels()
-}
-
-function registerModelsHandlers(ipcMain: IpcMain): void {
-  ipcMain.handle('arc:models:list', handleModelsList)
-}
-
-// ============================================================================
-// AI STREAMING HANDLERS
+// SCHEMAS
 // ============================================================================
 
 const ChatOptionsSchema = z.object({
   model: z.string(),
 })
 
-const handleAIChat = validated(
-  [z.string(), ChatOptionsSchema],
-  async (threadId, options): Promise<{ streamId: string }> => {
-    const streamId = createId()
+// ============================================================================
+// MODELS
+// ============================================================================
 
-    executeStream(streamId, threadId, options.model, {
-      onDelta: (chunk) => emitAIStreamEvent({ type: 'delta', streamId, chunk }),
-      onReasoning: (chunk) => emitAIStreamEvent({ type: 'reasoning', streamId, chunk }),
-      onComplete: (message) => emitAIStreamEvent({ type: 'complete', streamId, message }),
-      onError: (err) => emitAIStreamEvent({ type: 'error', streamId, error: err }),
-    }).catch((err) => {
-      const errorMsg = err instanceof Error ? err.message : 'Unknown streaming error'
-      error('chat', errorMsg, err as Error)
-      emitAIStreamEvent({ type: 'error', streamId, error: errorMsg })
-    })
-
-    return { streamId }
-  }
-)
-
-const handleAIStop = validated([z.string()], async (streamId) => {
-  cancelStream(streamId)
-})
-
-function registerAIStreamHandlers(ipcMain: IpcMain): void {
-  ipcMain.handle('arc:ai:chat', handleAIChat)
-  ipcMain.handle('arc:ai:stop', handleAIStop)
+const modelHandlers = {
+  'arc:models:list': listModels,
 }
 
 // ============================================================================
-// MAIN REGISTRATION
+// AI STREAMING
+// ============================================================================
+
+const aiStreamHandlers = {
+  'arc:ai:chat': validated(
+    [z.string(), ChatOptionsSchema],
+    async (threadId, options): Promise<{ streamId: string }> => {
+      const streamId = createId()
+
+      executeStream(streamId, threadId, options.model, {
+        onDelta: (chunk) => emitAIStreamEvent({ type: 'delta', streamId, chunk }),
+        onReasoning: (chunk) => emitAIStreamEvent({ type: 'reasoning', streamId, chunk }),
+        onComplete: (message) => emitAIStreamEvent({ type: 'complete', streamId, message }),
+        onError: (err) => emitAIStreamEvent({ type: 'error', streamId, error: err }),
+      }).catch((err) => {
+        const errorMsg = err instanceof Error ? err.message : 'Unknown streaming error'
+        error('chat', errorMsg, err as Error)
+        emitAIStreamEvent({ type: 'error', streamId, error: errorMsg })
+      })
+
+      return { streamId }
+    },
+  ),
+
+  'arc:ai:stop': validated([z.string()], async (streamId) => {
+    cancelStream(streamId)
+  }),
+}
+
+// ============================================================================
+// REGISTRATION
 // ============================================================================
 
 export function registerAIHandlers(ipcMain: IpcMain): void {
-  registerModelsHandlers(ipcMain)
-  registerAIStreamHandlers(ipcMain)
+  register(ipcMain, modelHandlers)
+  register(ipcMain, aiStreamHandlers)
 }

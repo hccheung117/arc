@@ -1,8 +1,8 @@
 /**
  * Data IPC Handlers
  *
- * Orchestration layer for conversation, message, and profile operations.
- * Composes building blocks from lib/ modules.
+ * Orchestration layer: composes lib/ modules and emits events.
+ * All IPC event broadcasting belongs here, not in lib/.
  */
 
 import type { IpcMain } from 'electron'
@@ -10,7 +10,15 @@ import { readFile } from 'node:fs/promises'
 import { z } from 'zod'
 import type { BranchInfo } from '@arc-types/arc-api'
 import type { StoredThread, StoredMessageEvent } from '@main/lib/messages/schemas'
-import { listThreads, emitThreadEvent, deleteThread, updateThread } from '@main/lib/messages/threads'
+import {
+  listThreads,
+  deleteThread,
+  updateThread,
+  createFolder,
+  moveToFolder,
+  moveToRoot,
+  reorderInFolder,
+} from '@main/lib/messages/threads'
 import { appendMessage, readMessages } from '@main/lib/messages/operations'
 import { threadIndexFile } from '@main/lib/messages/storage'
 import {
@@ -20,17 +28,15 @@ import {
   listProfiles,
   getActiveProfileId,
   getActiveProfile,
-  emitProfilesEvent,
   generateProviderId,
-  type ProfileInfo,
   type ProfileInstallResult,
 } from '@main/lib/profile/operations'
 import { syncModels } from '@main/lib/profile/models'
 import { info, error } from '@main/foundation/logger'
-import { validated, broadcast } from '@main/foundation/ipc'
+import { validated, broadcast, register, withEmit, withEmitIf } from '@main/foundation/ipc'
 
 // ============================================================================
-// IPC SCHEMAS (app-level input validation)
+// SCHEMAS
 // ============================================================================
 
 const ThreadPatchSchema = z.object({
@@ -71,121 +77,154 @@ const UpdateMessageInputSchema = z.object({
 })
 
 // ============================================================================
+// THREAD EVENTS
+// ============================================================================
+
+type ThreadEvent =
+  | { type: 'created'; thread: StoredThread }
+  | { type: 'updated'; thread: StoredThread }
+  | { type: 'deleted'; id: string }
+
+const emitThread = (event: ThreadEvent) => broadcast('arc:threads:event', event)
+const withThreadEmit = withEmit(emitThread)
+const withThreadEmitIf = withEmitIf(emitThread)
+
+// ============================================================================
 // THREADS
 // ============================================================================
 
-async function handleThreadsList(): Promise<StoredThread[]> {
-  return listThreads()
-}
+const threadHandlers = {
+  'arc:threads:list': listThreads,
 
-const handleThreadsUpdate = validated(
-  [z.string(), ThreadPatchSchema],
-  async (id, patch): Promise<StoredThread> => {
-    return updateThread(id, patch)
-  },
-)
+  'arc:threads:update': validated(
+    [z.string(), ThreadPatchSchema],
+    withThreadEmit<[string, z.infer<typeof ThreadPatchSchema>], StoredThread>(
+      (thread) => ({ type: 'updated', thread }),
+    )(updateThread),
+  ),
 
-const handleThreadsDelete = validated([z.string()], async (id) => {
-  await deleteThread(id)
-})
+  'arc:threads:delete': validated(
+    [z.string()],
+    withThreadEmit<[string], void>((_, id) => ({ type: 'deleted', id }))(deleteThread),
+  ),
 
-function registerThreadsHandlers(ipcMain: IpcMain): void {
-  ipcMain.handle('arc:threads:list', handleThreadsList)
-  ipcMain.handle('arc:threads:update', handleThreadsUpdate)
-  ipcMain.handle('arc:threads:delete', handleThreadsDelete)
+  'arc:folders:create': validated(
+    [z.string(), z.string(), z.string()],
+    withThreadEmit<[string, string, string], StoredThread>((thread) => ({
+      type: 'created',
+      thread,
+    }))(createFolder),
+  ),
+
+  'arc:folders:moveThread': validated(
+    [z.string(), z.string()],
+    withThreadEmitIf<[string, string], StoredThread>((folder) => ({
+      type: 'updated',
+      thread: folder,
+    }))(moveToFolder),
+  ),
+
+  'arc:folders:moveToRoot': validated([z.string()], moveToRoot),
+
+  'arc:folders:reorder': validated(
+    [z.string(), z.array(z.string())],
+    withThreadEmitIf<[string, string[]], StoredThread>((folder) => ({
+      type: 'updated',
+      thread: folder,
+    }))(reorderInFolder),
+  ),
 }
 
 // ============================================================================
 // MESSAGES
 // ============================================================================
 
-const handleMessagesList = validated(
-  [z.string()],
-  async (threadId): Promise<{ messages: StoredMessageEvent[]; branchPoints: BranchInfo[] }> => {
-    return readMessages(threadId)
-  },
-)
+const messageHandlers = {
+  'arc:messages:list': validated(
+    [z.string()],
+    async (threadId): Promise<{ messages: StoredMessageEvent[]; branchPoints: BranchInfo[] }> =>
+      readMessages(threadId),
+  ),
 
-const handleMessagesCreate = validated(
-  [z.string(), CreateMessageInputSchema],
-  async (threadId, input): Promise<StoredMessageEvent> => {
-    const { message, threadCreated } = await appendMessage({
-      type: 'new',
-      threadId,
-      ...input,
-    })
+  'arc:messages:create': validated(
+    [z.string(), CreateMessageInputSchema],
+    async (threadId, input): Promise<StoredMessageEvent> => {
+      const { message, threadCreated } = await appendMessage({
+        type: 'new',
+        threadId,
+        ...input,
+      })
 
-    if (threadCreated) {
-      // Fetch the created thread for event emission
-      const index = await threadIndexFile().read()
-      const thread = index.threads.find((t) => t.id === threadId)
-      if (thread) {
-        emitThreadEvent({ type: 'created', thread })
+      if (threadCreated) {
+        const index = await threadIndexFile().read()
+        const thread = index.threads.find((t) => t.id === threadId)
+        if (thread) emitThread({ type: 'created', thread })
       }
-    }
 
-    return message
-  },
-)
+      return message
+    },
+  ),
 
-const handleMessagesCreateBranch = validated(
-  [z.string(), CreateBranchInputSchema],
-  async (threadId, input): Promise<{ message: StoredMessageEvent; branchPoints: BranchInfo[] }> => {
-    const { message } = await appendMessage({
-      type: 'new',
+  'arc:messages:createBranch': validated(
+    [z.string(), CreateBranchInputSchema],
+    async (
       threadId,
-      role: 'user',
-      content: input.content,
-      parentId: input.parentId,
-      attachments: input.attachments,
-      modelId: input.modelId,
-      providerId: input.providerId,
-    })
+      input,
+    ): Promise<{ message: StoredMessageEvent; branchPoints: BranchInfo[] }> => {
+      const { message } = await appendMessage({
+        type: 'new',
+        threadId,
+        role: 'user',
+        content: input.content,
+        parentId: input.parentId,
+        attachments: input.attachments,
+        modelId: input.modelId,
+        providerId: input.providerId,
+      })
 
-    const { branchPoints } = await readMessages(threadId)
-    return { message, branchPoints }
-  },
-)
+      const { branchPoints } = await readMessages(threadId)
+      return { message, branchPoints }
+    },
+  ),
 
-const handleMessagesUpdate = validated(
-  [z.string(), z.string(), UpdateMessageInputSchema],
-  async (threadId, messageId, input): Promise<StoredMessageEvent> => {
-    const { message } = await appendMessage({
-      type: 'edit',
-      threadId,
-      messageId,
-      ...input,
-    })
-    return message
-  },
-)
-
-function registerMessagesHandlers(ipcMain: IpcMain): void {
-  ipcMain.handle('arc:messages:list', handleMessagesList)
-  ipcMain.handle('arc:messages:create', handleMessagesCreate)
-  ipcMain.handle('arc:messages:createBranch', handleMessagesCreateBranch)
-  ipcMain.handle('arc:messages:update', handleMessagesUpdate)
+  'arc:messages:update': validated(
+    [z.string(), z.string(), UpdateMessageInputSchema],
+    async (threadId, messageId, input): Promise<StoredMessageEvent> => {
+      const { message } = await appendMessage({
+        type: 'edit',
+        threadId,
+        messageId,
+        ...input,
+      })
+      return message
+    },
+  ),
 }
 
 // ============================================================================
 // PROFILES
 // ============================================================================
 
-/**
- * Refreshes the model cache after profile changes.
- * Background operation - errors are logged but not thrown.
- */
+type ProfileEvent =
+  | { type: 'installed'; profile: ProfileInstallResult }
+  | { type: 'uninstalled'; profileId: string }
+  | { type: 'activated'; profileId: string | null }
+
+const emitProfile = (event: ProfileEvent) => broadcast('arc:profiles:event', event)
+
+/** Refreshes model cache after profile changes (background, errors logged) */
 async function refreshModelsCache(): Promise<void> {
   try {
     const profile = await getActiveProfile()
-    const providers = profile?.providers.map((p) => ({
-      id: generateProviderId(p),
-      baseUrl: p.baseUrl,
-      apiKey: p.apiKey,
-      filter: p.modelFilter,
-      aliases: p.modelAliases,
-      providerName: profile.name,
-    })) ?? []
+    const providers =
+      profile?.providers.map((p) => ({
+        id: generateProviderId(p),
+        baseUrl: p.baseUrl,
+        apiKey: p.apiKey,
+        filter: p.modelFilter,
+        aliases: p.modelAliases,
+        providerName: profile.name,
+      })) ?? []
     const updated = await syncModels(providers)
     if (updated) broadcast('arc:models:event', { type: 'updated' })
   } catch (err) {
@@ -193,60 +232,44 @@ async function refreshModelsCache(): Promise<void> {
   }
 }
 
-async function handleProfilesList(): Promise<ProfileInfo[]> {
-  return listProfiles()
-}
+const profileHandlers = {
+  'arc:profiles:list': listProfiles,
 
-async function handleProfilesGetActive(): Promise<string | null> {
-  return getActiveProfileId()
-}
+  'arc:profiles:getActive': getActiveProfileId,
 
-const handleProfilesInstall = validated([z.string()], async (filePath): Promise<ProfileInstallResult> => {
-  info('profiles', `Install request: ${filePath}`)
-  const content = await readFile(filePath, 'utf-8')
+  'arc:profiles:install': validated([z.string()], async (filePath): Promise<ProfileInstallResult> => {
+    info('profiles', `Install request: ${filePath}`)
+    const content = await readFile(filePath, 'utf-8')
 
-  const result = await installProfile(content)
-  emitProfilesEvent({ type: 'installed', profile: result })
+    const result = await installProfile(content)
+    emitProfile({ type: 'installed', profile: result })
 
-  await activateProfile(result.id)
-  emitProfilesEvent({ type: 'activated', profileId: result.id })
+    await activateProfile(result.id)
+    emitProfile({ type: 'activated', profileId: result.id })
 
-  // Background model fetch after activation
-  refreshModelsCache()
+    refreshModelsCache()
+    return result
+  }),
 
-  return result
-})
+  'arc:profiles:uninstall': validated([z.string()], async (profileId) => {
+    await uninstallProfile(profileId)
+    emitProfile({ type: 'uninstalled', profileId })
+    refreshModelsCache()
+  }),
 
-const handleProfilesUninstall = validated([z.string()], async (profileId) => {
-  await uninstallProfile(profileId)
-  emitProfilesEvent({ type: 'uninstalled', profileId })
-
-  // Background model fetch after uninstall
-  refreshModelsCache()
-})
-
-const handleProfilesActivate = validated([z.string().nullable()], async (profileId) => {
-  await activateProfile(profileId)
-  emitProfilesEvent({ type: 'activated', profileId })
-
-  // Background model fetch after activation
-  refreshModelsCache()
-})
-
-function registerProfilesHandlers(ipcMain: IpcMain): void {
-  ipcMain.handle('arc:profiles:list', handleProfilesList)
-  ipcMain.handle('arc:profiles:getActive', handleProfilesGetActive)
-  ipcMain.handle('arc:profiles:install', handleProfilesInstall)
-  ipcMain.handle('arc:profiles:uninstall', handleProfilesUninstall)
-  ipcMain.handle('arc:profiles:activate', handleProfilesActivate)
+  'arc:profiles:activate': validated([z.string().nullable()], async (profileId) => {
+    await activateProfile(profileId)
+    emitProfile({ type: 'activated', profileId })
+    refreshModelsCache()
+  }),
 }
 
 // ============================================================================
-// MAIN REGISTRATION
+// REGISTRATION
 // ============================================================================
 
 export function registerDataHandlers(ipcMain: IpcMain): void {
-  registerThreadsHandlers(ipcMain)
-  registerMessagesHandlers(ipcMain)
-  registerProfilesHandlers(ipcMain)
+  register(ipcMain, threadHandlers)
+  register(ipcMain, messageHandlers)
+  register(ipcMain, profileHandlers)
 }

@@ -60,15 +60,30 @@ export type StoredMessageEvent = z.infer<typeof StoredMessageEventSchema>
 // THREAD INDEX SCHEMAS
 // ============================================================================
 
-export const StoredThreadSchema = z.object({
+/**
+ * Recursive thread schema - threads can contain other threads (folders).
+ * A thread with non-empty children[] acts as a folder.
+ * Schema allows infinite nesting; UI limits to 1 level.
+ */
+export type StoredThread = {
+  id: string
+  title: string | null
+  pinned: boolean
+  renamed: boolean
+  createdAt: string
+  updatedAt: string
+  children: StoredThread[]
+}
+
+export const StoredThreadSchema: z.ZodType<StoredThread> = z.object({
   id: z.string(),
   title: z.string().nullable(),
   pinned: z.boolean(),
   renamed: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
+  children: z.lazy(() => z.array(StoredThreadSchema)).default([]),
 })
-export type StoredThread = z.infer<typeof StoredThreadSchema>
 
 export const StoredThreadIndexSchema = z.object({
   threads: z.array(StoredThreadSchema),

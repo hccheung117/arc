@@ -6,14 +6,27 @@
 
 import { z } from 'zod'
 
-export const ThreadSummarySchema = z.object({
+/**
+ * Recursive thread summary - threads can contain other threads (folders).
+ * A thread with non-empty children[] acts as a folder.
+ */
+export type ThreadSummary = {
+  id: string
+  title: string
+  createdAt: string
+  updatedAt: string
+  pinned: boolean
+  children: ThreadSummary[]
+}
+
+export const ThreadSummarySchema: z.ZodType<ThreadSummary> = z.object({
   id: z.string(),
   title: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
   pinned: z.boolean(),
+  children: z.lazy(() => z.array(ThreadSummarySchema)).default([]),
 })
-export type ThreadSummary = z.infer<typeof ThreadSummarySchema>
 
 export const ContextMenuActionSchema = z.union([z.literal('rename'), z.null()])
 export type ContextMenuAction = z.infer<typeof ContextMenuActionSchema>

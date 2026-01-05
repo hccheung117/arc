@@ -72,14 +72,26 @@ export type ChatOptions = z.infer<typeof ChatOptionsSchema>
 // RESPONSE SCHEMAS
 // ============================================================================
 
-export const ThreadSchema = z.object({
+/**
+ * Recursive thread type for events - threads can contain other threads (folders).
+ */
+export type Thread = {
+  id: string
+  title: string
+  pinned: boolean
+  createdAt: string
+  updatedAt: string
+  children: Thread[]
+}
+
+export const ThreadSchema: z.ZodType<Thread> = z.object({
   id: z.string(),
   title: z.string(),
   pinned: z.boolean(),
   createdAt: z.string(),
   updatedAt: z.string(),
+  children: z.lazy(() => z.array(ThreadSchema)).default([]),
 })
-export type Thread = z.infer<typeof ThreadSchema>
 
 export const BranchInfoSchema = z.object({
   parentId: z.string().nullable(),
@@ -152,6 +164,21 @@ export interface ArcAPI {
 
     /** Subscribe to thread lifecycle events (Rule 3: Push) */
     onEvent(callback: (event: ThreadEvent) => void): Unsubscribe
+  }
+
+  /** Folder operations for organizing threads */
+  folders: {
+    /** Create a folder from two threads (Rule 2: Two-Way) */
+    create(name: string, thread1Id: string, thread2Id: string): Promise<ThreadSummary>
+
+    /** Move a thread into a folder (Rule 2: Two-Way) */
+    moveThread(threadId: string, folderId: string): Promise<void>
+
+    /** Move a thread out of its folder to root (Rule 2: Two-Way) */
+    moveToRoot(threadId: string): Promise<void>
+
+    /** Reorder threads within a folder (Rule 2: Two-Way) */
+    reorder(folderId: string, orderedChildIds: string[]): Promise<void>
   }
 
   /** Message resource operations */
