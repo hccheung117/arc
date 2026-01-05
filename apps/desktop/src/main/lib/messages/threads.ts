@@ -175,6 +175,37 @@ export async function createFolder(
   return folder
 }
 
+/** Creates a folder with a single thread. Returns both the folder and the folder count for naming. */
+export async function createFolderWithThread(
+  threadId: string,
+): Promise<{ folder: StoredThread }> {
+  let folder: StoredThread | undefined
+
+  await threadIndexFile().update((index) => {
+    const [thread, remaining] = extract(threadId)(index.threads)
+    if (!thread) throw new Error(`Thread not found: ${threadId}`)
+
+    // Count existing folders for naming
+    const folderCount = index.threads.filter((t) => t.children.length > 0).length
+
+    const timestamp = now()
+    folder = {
+      id: createId(),
+      title: `Folder ${folderCount + 1}`,
+      pinned: false,
+      renamed: false,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      children: [unpin(thread)],
+    }
+
+    return { threads: [folder, ...remaining] }
+  })
+
+  if (!folder) throw new Error('Failed to create folder')
+  return { folder }
+}
+
 export async function moveToFolder(threadId: string, folderId: string): Promise<StoredThread | undefined> {
   let updatedFolder: StoredThread | undefined
 
@@ -197,15 +228,20 @@ export async function moveToFolder(threadId: string, folderId: string): Promise<
   return updatedFolder
 }
 
-export async function moveToRoot(threadId: string): Promise<void> {
+export async function moveToRoot(threadId: string): Promise<StoredThread | undefined> {
+  let moved: StoredThread | undefined
+
   await threadIndexFile().update((index) => {
     if (!parentOf(threadId)(index.threads)) return index
 
     const [thread, remaining] = extract(threadId)(index.threads)
     if (!thread) throw new Error(`Thread not found: ${threadId}`)
 
+    moved = thread
     return { threads: [...remaining, thread] }
   })
+
+  return moved
 }
 
 export async function reorderInFolder(folderId: string, orderedIds: string[]): Promise<StoredThread | undefined> {

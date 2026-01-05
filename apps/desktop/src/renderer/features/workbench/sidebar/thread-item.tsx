@@ -1,6 +1,4 @@
 import { MessageSquare, MoreHorizontal } from 'lucide-react'
-import { useSortable } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
 import {
   SidebarMenuItem,
   SidebarMenuButton,
@@ -35,15 +33,30 @@ function RenameInput({ rename }: { rename: ReturnType<typeof useRename> }) {
   )
 }
 
-export function ThreadItem({ thread }: { thread: ChatThread }) {
-  const { activeThreadId, onThreadSelect } = useSidebar()
+interface ThreadItemProps {
+  thread: ChatThread
+  isInFolder?: boolean
+}
+
+export function ThreadItem({ thread, isInFolder = false }: ThreadItemProps) {
+  const { activeThreadId, onThreadSelect, folders, setRenamingFolderId } = useSidebar()
   const rename = useRename({ id: thread.id, initialTitle: thread.title })
 
   const handleContextMenu = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    const action = await showThreadContextMenu(thread.id, thread.isPinned)
-    if (action === 'rename') rename.startRenaming()
+    const action = await showThreadContextMenu({
+      threadId: thread.id,
+      isPinned: thread.isPinned,
+      isInFolder,
+      folders: folders.map((f) => ({ id: f.id, title: f.title })),
+    })
+    if (action === 'rename') {
+      rename.startRenaming()
+    } else if (action?.startsWith('newFolder:')) {
+      const folderId = action.slice('newFolder:'.length)
+      setRenamingFolderId(folderId)
+    }
   }
 
   if (rename.isRenaming) return <RenameInput rename={rename} />
@@ -64,49 +77,5 @@ export function ThreadItem({ thread }: { thread: ChatThread }) {
         <span className="sr-only">More</span>
       </SidebarMenuAction>
     </SidebarMenuItem>
-  )
-}
-
-export function DraggableThreadItem({
-  thread,
-  isDropTarget,
-}: {
-  thread: ChatThread
-  isDropTarget?: boolean
-}) {
-  const sortable = useSortable({
-    id: thread.id,
-    data: { type: 'thread', thread },
-  })
-
-  return (
-    <div
-      ref={sortable.setNodeRef}
-      style={{
-        transform: CSS.Transform.toString(sortable.transform),
-        transition: sortable.transition,
-        opacity: sortable.isDragging ? 0.5 : 1,
-      }}
-      className={
-        isDropTarget
-          ? 'rounded-md ring-2 ring-sidebar-accent ring-offset-1 ring-offset-sidebar bg-sidebar-accent/10'
-          : undefined
-      }
-      {...sortable.attributes}
-      {...sortable.listeners}
-    >
-      <ThreadItem thread={thread} />
-    </div>
-  )
-}
-
-export function ThreadItemOverlay({ thread }: { thread: ChatThread }) {
-  return (
-    <div className="bg-sidebar rounded-md shadow-lg border border-sidebar-border p-1">
-      <div className="flex items-center gap-2 px-2 py-1.5">
-        <ThreadIcon />
-        <span className="truncate text-label text-sidebar-foreground">{thread.title}</span>
-      </div>
-    </div>
   )
 }

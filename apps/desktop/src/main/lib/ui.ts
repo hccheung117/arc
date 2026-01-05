@@ -13,6 +13,7 @@ import {type BrowserWindow, Menu, type MenuItemConstructorOptions} from 'electro
 
 type MenuItem<T extends string> =
   | { label: string; action: T }
+  | { label: string; submenu: MenuItem<T>[] }
   | { type: 'separator' }
 
 // ============================================================================
@@ -22,11 +23,15 @@ type MenuItem<T extends string> =
 const isSeparator = <T extends string>(item: MenuItem<T>): item is { type: 'separator' } =>
   'type' in item
 
+const isSubmenu = <T extends string>(item: MenuItem<T>): item is { label: string; submenu: MenuItem<T>[] } =>
+  'submenu' in item
+
 const toElectronMenuItem = <T extends string>(resolve: (action: T) => void) =>
-  (item: MenuItem<T>): MenuItemConstructorOptions =>
-    isSeparator(item)
-      ? { type: 'separator' }
-      : { label: item.label, click: () => resolve(item.action) }
+  (item: MenuItem<T>): MenuItemConstructorOptions => {
+    if (isSeparator(item)) return { type: 'separator' }
+    if (isSubmenu(item)) return { label: item.label, submenu: item.submenu.map(toElectronMenuItem(resolve)) }
+    return { label: item.label, click: () => resolve(item.action) }
+  }
 
 // ============================================================================
 // GENERIC CONTEXT MENU FACTORY
@@ -51,13 +56,38 @@ const createContextMenu = <T extends string>(items: MenuItem<T>[]) =>
 // THREAD CONTEXT MENU
 // ============================================================================
 
-export const showThreadContextMenu = (isPinned: boolean) =>
-  createContextMenu([
-      {label: 'Rename', action: 'rename'},
-      {label: isPinned ? 'Unpin' : 'Pin', action: 'togglePin'},
-      {type: 'separator'},
-      {label: 'Delete', action: 'delete'},
-  ])
+interface FolderInfo {
+  id: string
+  title: string
+}
+
+interface ThreadContextMenuParams {
+  isPinned: boolean
+  isInFolder: boolean
+  folders: FolderInfo[]
+}
+
+type ThreadMenuAction = 'rename' | 'togglePin' | 'delete' | 'newFolder' | 'removeFromFolder' | `moveToFolder:${string}`
+
+export const showThreadContextMenu = ({isPinned, isInFolder, folders}: ThreadContextMenuParams) => {
+  const folderSubmenu: MenuItem<ThreadMenuAction>[] = [
+    ...folders.map((f) => ({label: f.title, action: `moveToFolder:${f.id}` as const})),
+    ...(folders.length > 0 ? [{type: 'separator'} as const] : []),
+    {label: 'New Folder...', action: 'newFolder' as const},
+  ]
+
+  const items: MenuItem<ThreadMenuAction>[] = [
+    {label: 'Rename', action: 'rename'},
+    {label: isPinned ? 'Unpin' : 'Pin', action: 'togglePin'},
+    {type: 'separator'},
+    {label: 'Move to Folder', submenu: folderSubmenu},
+    ...(isInFolder ? [{label: 'Remove from Folder', action: 'removeFromFolder'} as const] : []),
+    {type: 'separator'},
+    {label: 'Delete', action: 'delete'},
+  ]
+
+  return createContextMenu(items)
+}
 
 // ============================================================================
 // MESSAGE CONTEXT MENU

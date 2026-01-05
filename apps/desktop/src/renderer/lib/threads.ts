@@ -1,7 +1,7 @@
 import { createId } from '@paralleldrive/cuid2'
 import type { Message } from '@arc-types/messages'
 import type { ThreadSummary } from '@arc-types/threads'
-import type { ThreadEvent, Unsubscribe } from '@arc-types/arc-api'
+import type { ThreadEvent, ThreadContextMenuParams, ThreadContextMenuResult, Unsubscribe } from '@arc-types/arc-api'
 
 // ============================================================================
 // CHAT THREAD
@@ -106,12 +106,11 @@ export function onThreadEvent(callback: (event: ThreadEvent) => void): Unsubscri
 }
 
 /**
- * Shows thread context menu. Data actions (delete, togglePin) are handled in main.
- * Returns 'rename' for UI-only action, or null otherwise.
+ * Shows thread context menu. Data actions (delete, togglePin, folder ops) are handled in main.
+ * Returns 'rename' or 'newFolder:folderId' for UI-only actions, or null otherwise.
  */
 export async function showThreadContextMenu(
-  threadId: string,
-  isPinned: boolean
-): Promise<'rename' | null> {
-  return window.arc.ui.showThreadContextMenu(threadId, isPinned)
+  params: ThreadContextMenuParams
+): Promise<ThreadContextMenuResult> {
+  return window.arc.ui.showThreadContextMenu(params)
 }

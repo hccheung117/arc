@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react'
 import { ChevronRight, ChevronDown, Folder } from 'lucide-react'
-import { useSortable } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
 import {
   SidebarGroup,
   SidebarGroupLabel,
@@ -10,9 +8,10 @@ import {
   SidebarMenuItem,
 } from '@renderer/components/ui/sidebar'
 import { getFolderCollapsed, setFolderCollapsed } from '@renderer/lib/ui-state-db'
-import type { ChatThread } from '@renderer/lib/threads'
+import { showThreadContextMenu, type ChatThread } from '@renderer/lib/threads'
 import { useRename } from './use-rename'
 import { ThreadItem } from './thread-item'
+import { useSidebar } from './context'
 
 // ─────────────────────────────────────────────────────────────
 // A folder is a collapsible container for threads.
@@ -81,7 +80,7 @@ function FolderContent({ threads }: { threads: ChatThread[] }) {
             </div>
           </SidebarMenuItem>
         ) : (
-          threads.map((thread) => <ThreadItem key={thread.id} thread={thread} />)
+          threads.map((thread) => <ThreadItem key={thread.id} thread={thread} isInFolder />)
         )}
       </SidebarMenu>
     </SidebarGroupContent>
@@ -111,28 +110,41 @@ function RenameInput({ rename }: { rename: ReturnType<typeof useRename> }) {
 export function FolderView({
   folder,
   threads,
-  isDropTarget,
 }: {
   folder: ChatThread
   threads: ChatThread[]
-  isDropTarget?: boolean
 }) {
+  const { folders, renamingFolderId, setRenamingFolderId } = useSidebar()
   const { isCollapsed, toggle } = useFolderCollapse(folder.id)
   const rename = useRename({ id: folder.id, initialTitle: folder.title })
+
+  // Auto-trigger rename mode when this folder was just created via context menu
+  useEffect(() => {
+    if (renamingFolderId === folder.id) {
+      rename.startRenaming()
+      setRenamingFolderId(null)
+    }
+  }, [renamingFolderId, folder.id, rename, setRenamingFolderId])
 
   const handleContextMenu = async (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
-    const action = await window.arc.ui.showThreadContextMenu(folder.id, folder.isPinned)
-    if (action === 'rename') rename.startRenaming()
+    const action = await showThreadContextMenu({
+      threadId: folder.id,
+      isPinned: folder.isPinned,
+      isInFolder: false,
+      folders: folders.filter((f) => f.id !== folder.id).map((f) => ({ id: f.id, title: f.title })),
+    })
+    if (action === 'rename') {
+      rename.startRenaming()
+    } else if (action?.startsWith('newFolder:')) {
+      const folderId = action.slice('newFolder:'.length)
+      setRenamingFolderId(folderId)
+    }
   }
 
-  const dropTargetStyles = isDropTarget
-    ? 'rounded-md ring-2 ring-sidebar-accent ring-offset-1 ring-offset-sidebar bg-sidebar-accent/10'
-    : ''
-
   return (
-    <SidebarGroup className={`p-0 ${dropTargetStyles}`}>
+    <SidebarGroup className="p-0">
       <SidebarGroupLabel
         className="cursor-pointer select-none"
         onClick={toggle}
@@ -144,52 +156,6 @@ export function FolderView({
       </SidebarGroupLabel>
 
       {!isCollapsed && <FolderContent threads={threads} />}
-    </SidebarGroup>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────
-// For drag-and-drop, we wrap the folder in sortable behavior.
-// The wrapper adds transform styles during drag operations.
-// ─────────────────────────────────────────────────────────────
-
-export function DraggableFolderView(props: {
-  folder: ChatThread
-  threads: ChatThread[]
-  isDropTarget?: boolean
-}) {
-  const sortable = useSortable({
-    id: props.folder.id,
-    data: { type: 'folder', folder: props.folder },
-  })
-
-  return (
-    <div
-      ref={sortable.setNodeRef}
-      style={{
-        transform: CSS.Transform.toString(sortable.transform),
-        transition: sortable.transition,
-        opacity: sortable.isDragging ? 0.5 : 1,
-      }}
-      {...sortable.attributes}
-      {...sortable.listeners}
-    >
-      <FolderView {...props} />
-    </div>
-  )
-}
-
-// ─────────────────────────────────────────────────────────────
-// The overlay appears under the cursor while dragging.
-// It's a simplified, static version of the folder header.
-// ─────────────────────────────────────────────────────────────
-
-export function FolderViewOverlay({ folder }: { folder: ChatThread }) {
-  return (
-    <SidebarGroup className="p-0 bg-sidebar rounded-md shadow-lg border border-sidebar-border">
-      <SidebarGroupLabel className="cursor-pointer select-none">
-        <FolderHeader title={folder.title} isCollapsed />
-      </SidebarGroupLabel>
     </SidebarGroup>
   )
 }

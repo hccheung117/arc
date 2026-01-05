@@ -8,12 +8,13 @@
 import type { IpcMain } from 'electron'
 import { shell } from 'electron'
 import { z } from 'zod'
+import type { ThreadContextMenuResult } from '@arc-types/arc-api'
 import { rendererError } from '@main/foundation/logger'
 import { getThreadAttachmentPath } from '@main/foundation/paths'
 import { getSetting, setSetting } from '@main/lib/profile/operations'
 import { showThreadContextMenu, showMessageContextMenu, type MessageMenuAction } from '@main/lib/ui'
-import { deleteThread, updateThread } from '@main/lib/messages/threads'
-import { validated, register } from '@main/foundation/ipc'
+import { deleteThread, updateThread, moveToFolder, moveToRoot, createFolderWithThread } from '@main/lib/messages/threads'
+import { validated, register, broadcast } from '@main/foundation/ipc'
 
 // ============================================================================
 // SETTINGS
@@ -33,15 +34,22 @@ const settingsHandlers = {
 // UI - CONTEXT MENUS
 // ============================================================================
 
+const ThreadContextMenuParamsSchema = z.object({
+  threadId: z.string(),
+  isPinned: z.boolean(),
+  isInFolder: z.boolean(),
+  folders: z.array(z.object({ id: z.string(), title: z.string() })),
+})
+
 const uiHandlers = {
   /**
    * Shows thread context menu and executes the selected action.
-   * Returns 'rename' for UI-only action, or null if action was handled.
+   * Returns 'rename' or 'newFolder:folderId' for UI-only actions, or null if action was handled server-side.
    */
   'arc:ui:showThreadContextMenu': validated(
-    [z.string(), z.boolean()],
-    async (threadId, isPinned): Promise<'rename' | null> => {
-      const action = await showThreadContextMenu(isPinned)
+    [ThreadContextMenuParamsSchema],
+    async ({ threadId, isPinned, isInFolder, folders }): Promise<ThreadContextMenuResult> => {
+      const action = await showThreadContextMenu({ isPinned, isInFolder, folders })
 
       if (action === 'delete') {
         await deleteThread(threadId)
@@ -53,7 +61,27 @@ const uiHandlers = {
         return null
       }
 
-      return action
+      if (action === 'removeFromFolder') {
+        const updated = await moveToRoot(threadId)
+        if (updated) broadcast('arc:threads:event', { type: 'updated', thread: updated })
+        return null
+      }
+
+      if (action?.startsWith('moveToFolder:')) {
+        const folderId = action.slice('moveToFolder:'.length)
+        const updated = await moveToFolder(threadId, folderId)
+        if (updated) broadcast('arc:threads:event', { type: 'updated', thread: updated })
+        return null
+      }
+
+      if (action === 'newFolder') {
+        const result = await createFolderWithThread(threadId)
+        broadcast('arc:threads:event', { type: 'created', thread: result.folder })
+        return `newFolder:${result.folder.id}`
+      }
+
+      // At this point, action is either 'rename' or null
+      return action === 'rename' ? 'rename' : null
     },
   ),
 

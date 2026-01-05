@@ -1,3 +1,4 @@
+import { useMemo, type Dispatch } from 'react'
 import { PenSquare } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import {
@@ -9,8 +10,8 @@ import {
 } from '@renderer/components/ui/sidebar'
 import { SidebarList } from './list'
 import { SidebarProvider } from './context'
+import { isFolder } from './thread-grouping'
 import { createDraftThread, type ChatThread, type ThreadAction } from '@renderer/lib/threads'
-import type { Dispatch } from 'react'
 
 interface NewChatButtonProps {
   onThreadSelect: (threadId: string | null) => void
@@ -42,6 +43,8 @@ interface WorkbenchSidebarProps {
 }
 
 export function WorkbenchSidebar({ threads, activeThreadId, onThreadSelect, dispatch }: WorkbenchSidebarProps) {
+  const folders = useMemo(() => threads.filter(isFolder), [threads])
+
   return (
     <Sidebar className="p-2 bg-sidebar">
       <SidebarHeader className="p-0 pb-3 bg-sidebar">
@@ -52,6 +55,7 @@ export function WorkbenchSidebar({ threads, activeThreadId, onThreadSelect, disp
           activeThreadId={activeThreadId}
           onThreadSelect={onThreadSelect}
           dispatch={dispatch}
+          folders={folders}
         >
           <SidebarList threads={threads} />
         </SidebarProvider>

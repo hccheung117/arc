@@ -140,6 +140,17 @@ export type AIStreamEvent =
 /** Models cache update events (Rule 3: Push) */
 export type ModelsEvent = { type: 'updated' }
 
+/** Thread context menu input parameters */
+export interface ThreadContextMenuParams {
+  threadId: string
+  isPinned: boolean
+  isInFolder: boolean
+  folders: Array<{ id: string; title: string }>
+}
+
+/** Thread context menu result - UI-only actions returned to caller */
+export type ThreadContextMenuResult = 'rename' | `newFolder:${string}` | null
+
 // ============================================================================
 // ArcAPI INTERFACE
 // ============================================================================
@@ -243,10 +254,10 @@ export interface ArcAPI {
   ui: {
     /**
      * Show thread context menu (Rule 2: Two-Way)
-     * Data operations (delete, togglePin) are executed in main process.
-     * Returns 'rename' for UI-only action, or null otherwise.
+     * Data operations (delete, togglePin, moveToFolder, removeFromFolder) are executed in main process.
+     * Returns 'rename' or 'newFolder:folderId' for UI-only actions, or null otherwise.
      */
-    showThreadContextMenu(threadId: string, isPinned: boolean): Promise<'rename' | null>
+    showThreadContextMenu(params: ThreadContextMenuParams): Promise<ThreadContextMenuResult>
 
     /**
      * Show message context menu (Rule 2: Two-Way)

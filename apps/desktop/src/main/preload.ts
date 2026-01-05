@@ -9,6 +9,7 @@ import type {
   ChatOptions,
   AIStreamEvent,
   ModelsEvent,
+  ThreadContextMenuParams,
 } from '@arc-types/arc-api'
 import type { ProfilesEvent } from '@arc-types/arc-file'
 
@@ -95,8 +96,8 @@ const arcAPI: ArcAPI = {
   },
 
   ui: {
-    showThreadContextMenu: (threadId: string, isPinned: boolean) =>
-      ipcRenderer.invoke('arc:ui:showThreadContextMenu', threadId, isPinned),
+    showThreadContextMenu: (params: ThreadContextMenuParams) =>
+      ipcRenderer.invoke('arc:ui:showThreadContextMenu', params),
     showMessageContextMenu: (hasEditOption: boolean) =>
       ipcRenderer.invoke('arc:ui:showMessageContextMenu', hasEditOption),
   },
