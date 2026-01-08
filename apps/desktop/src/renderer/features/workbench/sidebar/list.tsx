@@ -6,7 +6,7 @@ import {
   SidebarMenu,
 } from '@renderer/components/ui/sidebar'
 import { ThreadItem } from './thread-item'
-import { FolderView } from './folder'
+import { FolderItem } from './folder'
 import { groupThreadsWithFolders } from './thread-grouping'
 import type { ChatThread } from '@renderer/lib/threads'
 
@@ -24,14 +24,20 @@ export function SidebarList({ threads }: SidebarListProps) {
 
   return (
     <>
-      {folders.map(({ folder, threads: folderThreads }) => (
-        <FolderView
-          key={folder.id}
-          folder={folder}
-          threads={folderThreads}
-        />
-      ))}
+      {/* Folders rendered as menu items (no section label) */}
+      {folders.length > 0 && (
+        <SidebarMenu>
+          {folders.map(({ folder, threads: folderThreads }) => (
+            <FolderItem
+              key={folder.id}
+              folder={folder}
+              threads={folderThreads}
+            />
+          ))}
+        </SidebarMenu>
+      )}
 
+      {/* Time-based groups with section labels */}
       {allGroups.map(({ label, threads: groupThreads }) => (
         <SidebarGroup key={label} className="p-0">
           <SidebarGroupLabel>{label}</SidebarGroupLabel>

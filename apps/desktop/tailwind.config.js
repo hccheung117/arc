@@ -82,6 +82,21 @@ module.exports = {
           },
         },
       },
+      /**
+       * Sidebar Spacing Scale
+       *
+       * Semantic spacing tokens for sidebar layout. These ensure consistent
+       * spacing across the sidebar hierarchy and make spacing changes predictable.
+       *
+       * Usage: Apply these tokens (p-sidebar-shell, gap-sidebar-item, etc.) instead
+       * of raw spacing utilities in sidebar components.
+       */
+      spacing: {
+        'sidebar-shell': '0.5rem',    // 8px - Outer padding of sidebar container
+        'sidebar-section': '0.5rem',  // 8px - Gap between header and content sections
+        'sidebar-item': '0.25rem',    // 4px - Gap between menu items (gap-1 equivalent)
+        'sidebar-indent': '0.875rem', // 14px - Left indent for nested items (mx-3.5)
+      },
     },
   },
 }
