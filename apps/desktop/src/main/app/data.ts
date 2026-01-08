@@ -118,13 +118,28 @@ const threadHandlers = {
 
   'arc:folders:moveThread': validated(
     [z.string(), z.string()],
-    withThreadEmitIf<[string, string], StoredThread>((folder) => ({
-      type: 'updated',
-      thread: folder,
-    }))(moveToFolder),
+    async (threadId: string, folderId: string) => {
+      const result = await moveToFolder(threadId, folderId)
+      if (result) {
+        // Emit source folder update first (if thread was in a folder)
+        if (result.sourceFolder) {
+          emitThread({ type: 'updated', thread: result.sourceFolder })
+        }
+        // Emit target folder update
+        emitThread({ type: 'updated', thread: result.targetFolder })
+      }
+      return result?.targetFolder
+    },
   ),
 
-  'arc:folders:moveToRoot': validated([z.string()], moveToRoot),
+  'arc:folders:moveToRoot': validated([z.string()], async (threadId: string) => {
+    const result = await moveToRoot(threadId)
+    if (result) {
+      // Emit updated parent folder (with child removed)
+      emitThread({ type: 'updated', thread: result.updatedParent })
+    }
+    return result?.moved
+  }),
 
   'arc:folders:reorder': validated(
     [z.string(), z.array(z.string())],

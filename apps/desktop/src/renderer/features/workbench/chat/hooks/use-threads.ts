@@ -1,4 +1,4 @@
-import { useReducer, useEffect } from 'react'
+import { useReducer, useEffect, useRef } from 'react'
 import {
   type ChatThread,
   type ThreadAction,
@@ -36,6 +36,17 @@ const modifyTree = (
  */
 const existsInTree = (threads: ChatThread[], id: string): boolean =>
   threads.some((t) => t.id === id || existsInTree(t.children, id))
+
+/**
+ * Finds a thread by ID anywhere in the tree.
+ */
+const findInTree = (threads: ChatThread[], id: string): ChatThread | undefined => {
+  for (const t of threads) {
+    if (t.id === id) return t
+    const found = findInTree(t.children, id)
+    if (found) return found
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Reducer
@@ -76,6 +87,8 @@ function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[]
  */
 export function useChatThreads() {
   const [threads, dispatch] = useReducer(threadsReducer, [])
+  const threadsRef = useRef(threads)
+  threadsRef.current = threads
 
   // Hydrate threads from database on mount
   useEffect(() => {
@@ -89,8 +102,16 @@ export function useChatThreads() {
         dispatch({ type: 'DELETE', id: event.id })
         clearBranchSelections(event.id)
       } else {
-        // Both 'created' and 'updated' events upsert the hydrated thread
-        dispatch({ type: 'UPSERT', thread: hydrateFromSummary(event.thread) })
+        const thread = hydrateFromSummary(event.thread)
+        dispatch({ type: 'UPSERT', thread })
+
+        // Auto-delete folders that became empty
+        if (event.type === 'updated' && thread.children.length === 0) {
+          const prev = findInTree(threadsRef.current, thread.id)
+          if (prev && prev.children.length > 0) {
+            window.arc.threads.delete(thread.id)
+          }
+        }
       }
     })
   }, [])

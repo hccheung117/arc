@@ -25,13 +25,14 @@ export function useRename({ id, initialTitle }: UseRenameOptions) {
   }
 
   const saveRename = async () => {
-    if (!renameValue.trim()) {
+    const trimmed = renameValue.trim()
+    if (!trimmed || trimmed === initialTitle) {
       setIsRenaming(false)
       setRenameValue(initialTitle)
       return
     }
-    await window.arc.threads.update(id, { title: renameValue })
-    dispatch({ type: 'PATCH', id, patch: { title: renameValue } })
+    await window.arc.threads.update(id, { title: trimmed })
+    dispatch({ type: 'PATCH', id, patch: { title: trimmed } })
     setIsRenaming(false)
   }
 

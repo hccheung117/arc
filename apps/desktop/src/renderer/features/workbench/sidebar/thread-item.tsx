@@ -1,11 +1,9 @@
-import { MessageSquare, MoreHorizontal } from 'lucide-react'
+import { MessageSquare } from 'lucide-react'
 import {
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarMenuAction,
   SidebarMenuSubItem,
   SidebarMenuSubButton,
-  SidebarMenuSubAction,
 } from '@renderer/components/ui/sidebar'
 import { showThreadContextMenu, type ChatThread } from '@renderer/lib/threads'
 import { useSidebar } from './context'
@@ -109,10 +107,6 @@ export function ThreadItem({ thread, variant = 'default' }: ThreadItemProps) {
             <span className="truncate">{thread.title}</span>
           </button>
         </SidebarMenuSubButton>
-        <SidebarMenuSubAction showOnHover onClick={handleContextMenu}>
-          <MoreHorizontal />
-          <span className="sr-only">More</span>
-        </SidebarMenuSubAction>
       </SidebarMenuSubItem>
     )
   }
@@ -124,15 +118,10 @@ export function ThreadItem({ thread, variant = 'default' }: ThreadItemProps) {
         isActive={activeThreadId === thread.id}
         onClick={() => onThreadSelect(thread.id)}
         onContextMenu={handleContextMenu}
-        className="group/item"
       >
         <ThreadIcon />
         <span className="truncate">{thread.title}</span>
       </SidebarMenuButton>
-      <SidebarMenuAction showOnHover onClick={handleContextMenu}>
-        <MoreHorizontal />
-        <span className="sr-only">More</span>
-      </SidebarMenuAction>
     </SidebarMenuItem>
   )
 }

@@ -78,7 +78,7 @@ export const showThreadContextMenu = ({isPinned, isInFolder, folders}: ThreadCon
 
   const items: MenuItem<ThreadMenuAction>[] = [
     {label: 'Rename', action: 'rename'},
-    {label: isPinned ? 'Unpin' : 'Pin', action: 'togglePin'},
+    ...(!isInFolder ? [{label: isPinned ? 'Unpin' : 'Pin', action: 'togglePin'} as const] : []),
     {type: 'separator'},
     {label: 'Move to Folder', submenu: folderSubmenu},
     ...(isInFolder ? [{label: 'Remove from Folder', action: 'removeFromFolder'} as const] : []),

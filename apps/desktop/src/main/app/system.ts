@@ -53,29 +53,46 @@ const uiHandlers = {
 
       if (action === 'delete') {
         await deleteThread(threadId)
+        broadcast('arc:threads:event', { type: 'deleted', id: threadId })
         return null
       }
 
       if (action === 'togglePin') {
-        await updateThread(threadId, { pinned: !isPinned })
+        const updatedThread = await updateThread(threadId, { pinned: !isPinned })
+        broadcast('arc:threads:event', { type: 'updated', thread: updatedThread })
         return null
       }
 
       if (action === 'removeFromFolder') {
-        const updated = await moveToRoot(threadId)
-        if (updated) broadcast('arc:threads:event', { type: 'updated', thread: updated })
+        const result = await moveToRoot(threadId)
+        if (result) {
+          // Emit updated parent folder (with child removed) so UI reflects the change
+          broadcast('arc:threads:event', { type: 'updated', thread: result.updatedParent })
+        }
         return null
       }
 
       if (action?.startsWith('moveToFolder:')) {
         const folderId = action.slice('moveToFolder:'.length)
-        const updated = await moveToFolder(threadId, folderId)
-        if (updated) broadcast('arc:threads:event', { type: 'updated', thread: updated })
+        const result = await moveToFolder(threadId, folderId)
+        if (result) {
+          // Emit source folder update first (if thread was in a folder)
+          if (result.sourceFolder) {
+            broadcast('arc:threads:event', { type: 'updated', thread: result.sourceFolder })
+          } else {
+            // Thread was at root level - emit delete to remove from root state
+            broadcast('arc:threads:event', { type: 'deleted', id: threadId })
+          }
+          // Emit target folder update
+          broadcast('arc:threads:event', { type: 'updated', thread: result.targetFolder })
+        }
         return null
       }
 
       if (action === 'newFolder') {
         const result = await createFolderWithThread(threadId)
+        // Thread was extracted from root - emit delete to remove from root state
+        broadcast('arc:threads:event', { type: 'deleted', id: threadId })
         broadcast('arc:threads:event', { type: 'created', thread: result.folder })
         return `newFolder:${result.folder.id}`
       }

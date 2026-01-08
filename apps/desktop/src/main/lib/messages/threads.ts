@@ -206,42 +206,59 @@ export async function createFolderWithThread(
   return { folder }
 }
 
-export async function moveToFolder(threadId: string, folderId: string): Promise<StoredThread | undefined> {
-  let updatedFolder: StoredThread | undefined
+export async function moveToFolder(threadId: string, folderId: string): Promise<{ targetFolder: StoredThread; sourceFolder?: StoredThread } | undefined> {
+  let targetFolder: StoredThread | undefined
+  let sourceFolder: StoredThread | undefined
 
   await threadIndexFile().update((index) => {
     if (!findById(folderId)(index.threads)) {
       throw new Error(`Folder not found: ${folderId}`)
     }
 
+    // Check if thread is currently in a folder (for cross-folder moves)
+    const parent = parentOf(threadId)(index.threads)
+
     const [thread, remaining] = extract(threadId)(index.threads)
     if (!thread) throw new Error(`Thread not found: ${threadId}`)
 
-    const appendChild = (folder: StoredThread): StoredThread => {
-      updatedFolder = { ...folder, children: [...folder.children, unpin(thread)], updatedAt: now() }
-      return updatedFolder
+    // Update source folder if thread was in one
+    let withUpdatedSource = remaining
+    if (parent) {
+      sourceFolder = { ...parent, children: parent.children.filter(c => c.id !== threadId), updatedAt: now() }
+      withUpdatedSource = updateById(parent.id, () => sourceFolder!)(remaining)
     }
 
-    return { threads: updateById(folderId, appendChild)(remaining) }
+    const appendChild = (folder: StoredThread): StoredThread => {
+      targetFolder = { ...folder, children: [...folder.children, unpin(thread)], updatedAt: now() }
+      return targetFolder
+    }
+
+    return { threads: updateById(folderId, appendChild)(withUpdatedSource) }
   })
 
-  return updatedFolder
+  return targetFolder ? { targetFolder, sourceFolder } : undefined
 }
 
-export async function moveToRoot(threadId: string): Promise<StoredThread | undefined> {
+export async function moveToRoot(threadId: string): Promise<{ moved: StoredThread; updatedParent: StoredThread } | undefined> {
   let moved: StoredThread | undefined
+  let updatedParent: StoredThread | undefined
 
   await threadIndexFile().update((index) => {
-    if (!parentOf(threadId)(index.threads)) return index
+    const parent = parentOf(threadId)(index.threads)
+    if (!parent) return index
 
     const [thread, remaining] = extract(threadId)(index.threads)
     if (!thread) throw new Error(`Thread not found: ${threadId}`)
 
     moved = thread
-    return { threads: [...remaining, thread] }
+    // Update the parent folder to reflect the child removal
+    updatedParent = { ...parent, children: parent.children.filter(c => c.id !== threadId), updatedAt: now() }
+    const withUpdatedParent = updateById(parent.id, () => updatedParent!)(remaining)
+
+    return { threads: [...withUpdatedParent, thread] }
   })
 
-  return moved
+  return moved && updatedParent ? { moved, updatedParent } : undefined
 }
 
 export async function reorderInFolder(folderId: string, orderedIds: string[]): Promise<StoredThread | undefined> {
