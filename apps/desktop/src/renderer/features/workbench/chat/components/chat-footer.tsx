@@ -8,14 +8,14 @@ interface ChatFooterProps {
 
 /**
  * Footer area for chat view containing error banner and composer.
- * Owns horizontal inset (px-6) to match content column alignment.
+ * Grows upward naturally; flex container constrains max height.
  */
 export const ChatFooter = forwardRef<ComposerRef, ChatFooterProps>(
   ({ error, composerProps }, ref) => {
     return (
-      <div className="shrink-0 p-chat-shell">
+      <div className="flex flex-col min-h-0 p-chat-shell">
         {error && (
-          <div className="mb-2 rounded-md bg-destructive/10 px-3 py-2 text-label text-destructive select-text cursor-text">
+          <div className="mb-2 rounded-md bg-destructive/10 px-3 py-2 text-label text-destructive select-text cursor-text shrink-0">
             {error}
           </div>
         )}

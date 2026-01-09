@@ -55,16 +55,13 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(
       },
     }))
 
-    // Auto-resize textarea
+    // Auto-resize textarea - grows naturally without cap (flex container constrains)
     useEffect(() => {
       const textarea = textareaRef.current
       if (!textarea) return
 
       textarea.style.height = 'auto'
-      const scrollHeight = textarea.scrollHeight
-      const lineHeight = parseInt(getComputedStyle(textarea).lineHeight)
-      const maxHeight = lineHeight * 8
-      textarea.style.height = `${Math.min(scrollHeight, maxHeight)}px`
+      textarea.style.height = `${textarea.scrollHeight}px`
     }, [message])
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,7 +133,7 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(
 
     return (
       <Card
-        className={`p-3 border transition-colors ${
+        className={`flex flex-col min-h-0 p-3 border transition-colors ${
           isDragging
             ? 'border-primary bg-primary/5'
             : isEditing
@@ -148,7 +145,7 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(
         onDrop={handleDrop}
       >
         {isEditing && (
-          <div className="flex items-center justify-between mb-0 px-1">
+          <div className="flex items-center justify-between mb-0 px-1 shrink-0">
             <span className="text-xs font-medium text-primary flex items-center gap-1">
               <Pencil className="h-3 w-3" />
               Editing message
@@ -162,7 +159,7 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(
           </div>
         )}
 
-        <div className="space-y-2">
+        <div className="flex flex-col min-h-0 gap-2">
           <AttachmentGrid attachments={attachments} onRemove={removeAttachment} />
 
           <Textarea
@@ -172,11 +169,11 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
             placeholder="Enter here, press ↵ to send"
-            className="min-h-0 resize-none border-0 p-0 text-body focus-visible:ring-0 focus-visible:ring-offset-0 outline-none shadow-none"
+            className="min-h-0 resize-none border-0 p-0 text-body focus-visible:ring-0 focus-visible:ring-offset-0 outline-none shadow-none overflow-y-auto"
             rows={1}
           />
 
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between shrink-0">
             <div className="flex gap-1">
               <input
                 type="file"

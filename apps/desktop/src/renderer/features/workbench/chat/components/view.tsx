@@ -69,6 +69,8 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
     }
   }, [view.input])
 
+  const isEmpty = view.messages.length === 0 && !view.streamingMessage
+
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <Header
@@ -77,37 +79,48 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
         models={models}
       />
 
-      {view.messages.length === 0 && !view.streamingMessage ? (
-        <div className="flex flex-1 min-h-0 items-center justify-center">
-          <EmptyState />
-        </div>
-      ) : (
-        <MessageList
-          messages={view.messages.map((dm) => dm.message)}
-          streamingMessage={view.streamingMessage}
-          branchPoints={view.branches}
-          editingId={editingMessageId}
-          onEdit={handleEditMessage}
-          onBranchSwitch={actions.selectBranch}
-          onViewportMount={setViewport}
-          isAtBottom={isAtBottom}
-          isStreaming={view.input.mode === 'streaming'}
-          onScrollToBottom={scrollToBottom}
-        />
-      )}
+      {/* Chat body: layered architecture for stable robot positioning */}
+      <div className="flex-1 min-h-0 relative">
+        {/* Background layer: robot icon stays centered regardless of composer growth */}
+        {isEmpty && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <EmptyState />
+          </div>
+        )}
 
-      <ChatFooter
-        ref={composerRef}
-        error={view.error}
-        composerProps={{
-          threadId: thread.id,
-          onSend: actions.send,
-          onStop: handleStop,
-          isStreaming: view.input.mode === 'streaming',
-          isEditing: view.input.mode === 'editing',
-          onCancelEdit: handleCancelEdit,
-        }}
-      />
+        {/* Content layer: flex column pushes footer to bottom */}
+        <div className="absolute inset-0 flex flex-col">
+          {isEmpty ? (
+            <div className="flex-1 min-h-0" />
+          ) : (
+            <MessageList
+              messages={view.messages.map((dm) => dm.message)}
+              streamingMessage={view.streamingMessage}
+              branchPoints={view.branches}
+              editingId={editingMessageId}
+              onEdit={handleEditMessage}
+              onBranchSwitch={actions.selectBranch}
+              onViewportMount={setViewport}
+              isAtBottom={isAtBottom}
+              isStreaming={view.input.mode === 'streaming'}
+              onScrollToBottom={scrollToBottom}
+            />
+          )}
+
+          <ChatFooter
+            ref={composerRef}
+            error={view.error}
+            composerProps={{
+              threadId: thread.id,
+              onSend: actions.send,
+              onStop: handleStop,
+              isStreaming: view.input.mode === 'streaming',
+              isEditing: view.input.mode === 'editing',
+              onCancelEdit: handleCancelEdit,
+            }}
+          />
+        </div>
+      </div>
     </div>
   )
 }
