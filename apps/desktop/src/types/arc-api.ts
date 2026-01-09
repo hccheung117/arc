@@ -142,14 +142,23 @@ export type ModelsEvent = { type: 'updated' }
 
 /** Thread context menu input parameters */
 export interface ThreadContextMenuParams {
-  threadId: string
   isPinned: boolean
   isInFolder: boolean
   folders: Array<{ id: string; title: string }>
 }
 
-/** Thread context menu result - UI-only actions returned to caller */
-export type ThreadContextMenuResult = 'rename' | `newFolder:${string}` | null
+/**
+ * Thread context menu result - ALL actions returned to caller.
+ * Renderer uses this to determine which domain IPC to call.
+ */
+export type ThreadContextMenuResult =
+  | 'rename'
+  | 'togglePin'
+  | 'delete'
+  | 'newFolder'
+  | 'removeFromFolder'
+  | `moveToFolder:${string}`
+  | null
 
 // ============================================================================
 // ArcAPI INTERFACE
@@ -181,6 +190,9 @@ export interface ArcAPI {
   folders: {
     /** Create a folder from two threads (Rule 2: Two-Way) */
     create(name: string, thread1Id: string, thread2Id: string): Promise<ThreadSummary>
+
+    /** Create a folder containing a single thread (Rule 2: Two-Way) */
+    createWithThread(threadId: string): Promise<ThreadSummary>
 
     /** Move a thread into a folder (Rule 2: Two-Way) */
     moveThread(threadId: string, folderId: string): Promise<void>
@@ -254,8 +266,7 @@ export interface ArcAPI {
   ui: {
     /**
      * Show thread context menu (Rule 2: Two-Way)
-     * Data operations (delete, togglePin, moveToFolder, removeFromFolder) are executed in main process.
-     * Returns 'rename' or 'newFolder:folderId' for UI-only actions, or null otherwise.
+     * Returns the selected action. Renderer calls appropriate domain IPC based on action.
      */
     showThreadContextMenu(params: ThreadContextMenuParams): Promise<ThreadContextMenuResult>
 

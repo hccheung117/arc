@@ -1,8 +1,8 @@
 /**
  * Data IPC Handlers
  *
- * Orchestration layer: composes lib/ modules and emits events.
- * All IPC event broadcasting belongs here, not in lib/.
+ * Orchestration layer for messages and profiles.
+ * Thread/folder handlers are in app/threads.ts.
  */
 
 import type { IpcMain } from 'electron'
@@ -10,15 +10,6 @@ import { readFile } from 'node:fs/promises'
 import { z } from 'zod'
 import type { BranchInfo } from '@arc-types/arc-api'
 import type { StoredThread, StoredMessageEvent } from '@main/lib/messages/schemas'
-import {
-  listThreads,
-  deleteThread,
-  updateThread,
-  createFolder,
-  moveToFolder,
-  moveToRoot,
-  reorderInFolder,
-} from '@main/lib/messages/threads'
 import { appendMessage, readMessages } from '@main/lib/messages/operations'
 import { threadIndexFile } from '@main/lib/messages/storage'
 import {
@@ -33,16 +24,11 @@ import {
 } from '@main/lib/profile/operations'
 import { syncModels } from '@main/lib/profile/models'
 import { info, error } from '@main/foundation/logger'
-import { validated, broadcast, register, withEmit, withEmitIf } from '@main/foundation/ipc'
+import { validated, broadcast, register } from '@main/foundation/ipc'
 
 // ============================================================================
 // SCHEMAS
 // ============================================================================
-
-const ThreadPatchSchema = z.object({
-  title: z.string().optional(),
-  pinned: z.boolean().optional(),
-})
 
 const AttachmentInputSchema = z.object({
   type: z.literal('image'),
@@ -77,77 +63,13 @@ const UpdateMessageInputSchema = z.object({
 })
 
 // ============================================================================
-// THREAD EVENTS
+// THREAD EVENTS (for message creation side effect)
 // ============================================================================
 
-type ThreadEvent =
-  | { type: 'created'; thread: StoredThread }
-  | { type: 'updated'; thread: StoredThread }
-  | { type: 'deleted'; id: string }
+type ThreadEvent = { type: 'created'; thread: StoredThread }
 
-const emitThread = (event: ThreadEvent) => broadcast('arc:threads:event', event)
-const withThreadEmit = withEmit(emitThread)
-const withThreadEmitIf = withEmitIf(emitThread)
-
-// ============================================================================
-// THREADS
-// ============================================================================
-
-const threadHandlers = {
-  'arc:threads:list': listThreads,
-
-  'arc:threads:update': validated(
-    [z.string(), ThreadPatchSchema],
-    withThreadEmit<[string, z.infer<typeof ThreadPatchSchema>], StoredThread>(
-      (thread) => ({ type: 'updated', thread }),
-    )(updateThread),
-  ),
-
-  'arc:threads:delete': validated(
-    [z.string()],
-    withThreadEmit<[string], void>((_, id) => ({ type: 'deleted', id }))(deleteThread),
-  ),
-
-  'arc:folders:create': validated(
-    [z.string(), z.string(), z.string()],
-    withThreadEmit<[string, string, string], StoredThread>((thread) => ({
-      type: 'created',
-      thread,
-    }))(createFolder),
-  ),
-
-  'arc:folders:moveThread': validated(
-    [z.string(), z.string()],
-    async (threadId: string, folderId: string) => {
-      const result = await moveToFolder(threadId, folderId)
-      if (result) {
-        // Emit source folder update first (if thread was in a folder)
-        if (result.sourceFolder) {
-          emitThread({ type: 'updated', thread: result.sourceFolder })
-        }
-        // Emit target folder update
-        emitThread({ type: 'updated', thread: result.targetFolder })
-      }
-      return result?.targetFolder
-    },
-  ),
-
-  'arc:folders:moveToRoot': validated([z.string()], async (threadId: string) => {
-    const result = await moveToRoot(threadId)
-    if (result) {
-      // Emit updated parent folder (with child removed)
-      emitThread({ type: 'updated', thread: result.updatedParent })
-    }
-    return result?.moved
-  }),
-
-  'arc:folders:reorder': validated(
-    [z.string(), z.array(z.string())],
-    withThreadEmitIf<[string, string[]], StoredThread>((folder) => ({
-      type: 'updated',
-      thread: folder,
-    }))(reorderInFolder),
-  ),
+function emitThread(event: ThreadEvent): void {
+  broadcast('arc:threads:event', event)
 }
 
 // ============================================================================
@@ -284,7 +206,6 @@ const profileHandlers = {
 // ============================================================================
 
 export function registerDataHandlers(ipcMain: IpcMain): void {
-  register(ipcMain, threadHandlers)
   register(ipcMain, messageHandlers)
   register(ipcMain, profileHandlers)
 }

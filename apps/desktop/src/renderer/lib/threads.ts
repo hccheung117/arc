@@ -106,11 +106,36 @@ export function onThreadEvent(callback: (event: ThreadEvent) => void): Unsubscri
 }
 
 /**
- * Shows thread context menu. Data actions (delete, togglePin, folder ops) are handled in main.
- * Returns 'rename' or 'newFolder:folderId' for UI-only actions, or null otherwise.
+ * Shows thread context menu and returns the selected action.
+ * The caller is responsible for calling the appropriate domain IPC based on the action.
  */
 export async function showThreadContextMenu(
   params: ThreadContextMenuParams
 ): Promise<ThreadContextMenuResult> {
   return window.arc.ui.showThreadContextMenu(params)
+}
+
+// ============================================================================
+// DOMAIN IPC WRAPPERS
+// ============================================================================
+
+export async function deleteThread(threadId: string): Promise<void> {
+  await window.arc.threads.delete(threadId)
+}
+
+export async function toggleThreadPin(threadId: string, isPinned: boolean): Promise<void> {
+  await window.arc.threads.update(threadId, { pinned: !isPinned })
+}
+
+export async function removeThreadFromFolder(threadId: string): Promise<void> {
+  await window.arc.folders.moveToRoot(threadId)
+}
+
+export async function moveThreadToFolder(threadId: string, folderId: string): Promise<void> {
+  await window.arc.folders.moveThread(threadId, folderId)
+}
+
+export async function createFolderWithThread(threadId: string): Promise<{ id: string }> {
+  const folder = await window.arc.folders.createWithThread(threadId)
+  return { id: folder.id }
 }

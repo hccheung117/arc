@@ -40,6 +40,9 @@ const arcAPI: ArcAPI = {
     create: (name: string, thread1Id: string, thread2Id: string) =>
       ipcRenderer.invoke('arc:folders:create', name, thread1Id, thread2Id),
 
+    createWithThread: (threadId: string) =>
+      ipcRenderer.invoke('arc:folders:createWithThread', threadId),
+
     moveThread: (threadId: string, folderId: string) =>
       ipcRenderer.invoke('arc:folders:moveThread', threadId, folderId),
 

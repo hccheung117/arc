@@ -29,6 +29,8 @@ import path from 'node:path'
 import started from 'electron-squirrel-startup'
 import { buildAppMenu } from './menu'
 import { registerDataHandlers } from '@main/app/data'
+import { registerThreadHandlers } from '@main/app/threads'
+import { registerUIHandlers } from '@main/app/ui'
 import { registerAIHandlers } from '@main/app/ai'
 import { registerSystemHandlers } from '@main/app/system'
 import { initApp, handleProfileFileOpen } from '@main/app/lifecycle'
@@ -97,6 +99,8 @@ app.on('ready', async () => {
   const size = await readWindowSize()
   createWindow(size)
   registerDataHandlers(ipcMain)
+  registerThreadHandlers(ipcMain)
+  registerUIHandlers(ipcMain)
   registerAIHandlers(ipcMain)
   registerSystemHandlers(ipcMain)
   initApp()

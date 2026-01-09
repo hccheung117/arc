@@ -7,7 +7,14 @@ import {
   SidebarMenuSubItem,
 } from '@renderer/components/ui/sidebar'
 import { getFolderCollapsed, setFolderCollapsed } from '@renderer/lib/ui-state-db'
-import { showThreadContextMenu, type ChatThread } from '@renderer/lib/threads'
+import {
+  showThreadContextMenu,
+  deleteThread,
+  toggleThreadPin,
+  moveThreadToFolder,
+  createFolderWithThread,
+  type ChatThread,
+} from '@renderer/lib/threads'
 import { useRename } from './use-rename'
 import { ThreadItem } from './thread-item'
 import { useSidebar } from './context'
@@ -72,16 +79,35 @@ export function FolderItem({
     e.preventDefault()
     e.stopPropagation()
     const action = await showThreadContextMenu({
-      threadId: folder.id,
       isPinned: folder.isPinned,
       isInFolder: false,
       folders: folders.filter((f) => f.id !== folder.id).map((f) => ({ id: f.id, title: f.title })),
     })
-    if (action === 'rename') {
-      rename.startRenaming()
-    } else if (action?.startsWith('newFolder:')) {
-      const folderId = action.slice('newFolder:'.length)
-      setRenamingFolderId(folderId)
+
+    if (!action) return
+
+    // Handle each action by calling the appropriate domain IPC
+    switch (action) {
+      case 'rename':
+        rename.startRenaming()
+        break
+      case 'delete':
+        await deleteThread(folder.id)
+        break
+      case 'togglePin':
+        await toggleThreadPin(folder.id, folder.isPinned)
+        break
+      case 'newFolder': {
+        const newFolder = await createFolderWithThread(folder.id)
+        setRenamingFolderId(newFolder.id)
+        break
+      }
+      default:
+        // Handle moveToFolder:folderId
+        if (action.startsWith('moveToFolder:')) {
+          const folderId = action.slice('moveToFolder:'.length)
+          await moveThreadToFolder(folder.id, folderId)
+        }
     }
   }
 
