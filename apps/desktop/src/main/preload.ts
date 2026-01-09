@@ -10,6 +10,7 @@ import type {
   AIStreamEvent,
   ModelsEvent,
   ThreadContextMenuParams,
+  SaveDialogOptions,
 } from '@arc-types/arc-api'
 import type { ProfilesEvent } from '@arc-types/arc-file'
 
@@ -133,6 +134,13 @@ const arcAPI: ArcAPI = {
   log: {
     error: (tag: string, message: string, stack?: string) =>
       ipcRenderer.send('arc:log:error', tag, message, stack),
+  },
+
+  files: {
+    showSaveDialog: (options: SaveDialogOptions) =>
+      ipcRenderer.invoke('arc:files:showSaveDialog', options),
+    writeFile: (filePath: string, content: string) =>
+      ipcRenderer.invoke('arc:files:writeFile', filePath, content),
   },
 }
 

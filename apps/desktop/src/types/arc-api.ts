@@ -161,6 +161,19 @@ export type ThreadContextMenuResult =
   | null
 
 // ============================================================================
+// FILE OPERATIONS
+// ============================================================================
+
+export const SaveDialogOptionsSchema = z.object({
+  defaultPath: z.string().optional(),
+  filters: z.array(z.object({
+    name: z.string(),
+    extensions: z.array(z.string()),
+  })).optional(),
+})
+export type SaveDialogOptions = z.infer<typeof SaveDialogOptionsSchema>
+
+// ============================================================================
 // ArcAPI INTERFACE
 // ============================================================================
 
@@ -314,6 +327,15 @@ export interface ArcAPI {
   log: {
     /** Send error to main process for file logging in production */
     error(tag: string, message: string, stack?: string): void
+  }
+
+  /** File operations */
+  files: {
+    /** Show native save dialog, returns selected file path or null if cancelled */
+    showSaveDialog(options: SaveDialogOptions): Promise<string | null>
+
+    /** Write content to a file */
+    writeFile(filePath: string, content: string): Promise<void>
   }
 }
 

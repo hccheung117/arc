@@ -4,6 +4,7 @@ import type { Model } from '@arc-types/models'
 import type { ChatThread, ThreadAction } from '@renderer/lib/threads'
 import { useChatSession } from '@renderer/features/workbench/chat/hooks/use-chat-session'
 import { useScrollStore } from '@renderer/features/workbench/chat/hooks/use-scroll-store'
+import { formatMessagesToMarkdown, generateExportFilename } from '@renderer/features/workbench/chat/domain/export'
 import { Header } from './header'
 import { MessageList } from './message-list'
 import { ChatFooter } from './chat-footer'
@@ -69,6 +70,22 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
     }
   }, [view.input])
 
+  // Export handler - shows save dialog first, then generates markdown only if user confirms
+  const handleExport = useCallback(async () => {
+    const messages = view.messages.map((dm) => dm.message)
+    if (messages.length === 0) return
+
+    const filePath = await window.arc.files.showSaveDialog({
+      defaultPath: generateExportFilename(),
+      filters: [{ name: 'Markdown', extensions: ['md'] }],
+    })
+
+    if (filePath) {
+      const markdown = formatMessagesToMarkdown(messages)
+      await window.arc.files.writeFile(filePath, markdown)
+    }
+  }, [view.messages])
+
   const isEmpty = view.messages.length === 0 && !view.streamingMessage
 
   return (
@@ -77,6 +94,8 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
         selectedModel={view.model}
         onModelSelect={actions.selectModel}
         models={models}
+        onExport={handleExport}
+        canExport={!isEmpty}
       />
 
       {/* Chat body: layered architecture for stable robot positioning */}
