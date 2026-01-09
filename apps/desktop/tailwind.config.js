@@ -96,6 +96,15 @@ module.exports = {
         'sidebar-section': '0.5rem',  // 8px - Gap between header and content sections
         'sidebar-item': '0.25rem',    // 4px - Gap between menu items (gap-1 equivalent)
         'sidebar-indent': '0.875rem', // 14px - Left indent for nested items (mx-3.5)
+
+        /**
+         * Chat Spacing Scale
+         *
+         * Semantic spacing tokens for chat view layout.
+         */
+        'chat-shell': '0.75rem',      // 12px - Outer padding of chat regions
+        'chat-message-gap': '1.5rem', // 24px - Gap between messages
+        'chat-action-h': '2rem',      // 32px - Height of message action bar
       },
     },
   },

@@ -7,14 +7,13 @@ interface MessageActionsProps {
   content: string
   isHovered: boolean
   onEdit?: (content: string) => void
-  /** Alignment for the action bar */
-  align?: 'left' | 'right'
 }
 
 /**
- * Shared action bar for messages (copy, edit buttons)
+ * Action buttons for messages (copy, edit).
+ * Rendered inline - parent component (MessageFooter) handles alignment.
  */
-export function MessageActions({ content, isHovered, onEdit, align = 'left' }: MessageActionsProps) {
+export function MessageActions({ content, isHovered, onEdit }: MessageActionsProps) {
   const [isCopied, setIsCopied] = useState(false)
 
   const handleCopy = useCallback(() => {
@@ -25,7 +24,6 @@ export function MessageActions({ content, isHovered, onEdit, align = 'left' }: M
 
   return (
     <>
-      {align === 'right' && <div className="flex-1" />}
       <Button
         variant="ghost"
         size="icon-sm"

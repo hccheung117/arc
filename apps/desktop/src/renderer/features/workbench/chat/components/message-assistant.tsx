@@ -4,8 +4,8 @@ import type { Message } from '@arc-types/messages'
 import type { BranchInfo } from '@arc-types/arc-api'
 import { Markdown } from '@renderer/components/markdown'
 import { ThinkingBlock } from './message-thinking'
-import { MessageActions, useMessageContextMenu } from './message-actions'
-import { BranchIndicator } from './message-branch'
+import { useMessageContextMenu } from './message-actions'
+import { MessageFooter } from './message-footer'
 
 interface MessageAssistantProps {
   message: Message
@@ -36,7 +36,7 @@ export function MessageAssistant({
 
   return (
     <div
-      className={`mb-6 transition-all duration-300 ${isEditing ? 'opacity-40 blur-[1px]' : ''}`}
+      className={`transition-all duration-300 ${isEditing ? 'opacity-40 blur-[1px]' : ''}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -62,17 +62,14 @@ export function MessageAssistant({
               <Markdown>{message.content}</Markdown>
             )}
           </div>
-          <div className="h-8 flex items-center gap-1">
-            {branchInfo && branchInfo.branches.length > 1 && onBranchSwitch && (
-              <BranchIndicator branchInfo={branchInfo} onSwitch={onBranchSwitch} />
-            )}
-            <MessageActions
-              content={message.content}
-              isHovered={isHovered}
-              onEdit={onEdit}
-              align="left"
-            />
-          </div>
+          <MessageFooter
+            content={message.content}
+            isHovered={isHovered}
+            onEdit={onEdit}
+            branchInfo={branchInfo}
+            onBranchSwitch={onBranchSwitch}
+            align="left"
+          />
         </div>
       </div>
     </div>

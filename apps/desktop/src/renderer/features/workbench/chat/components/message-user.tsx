@@ -2,8 +2,8 @@ import { useState } from 'react'
 import type { Message, MessageAttachment } from '@arc-types/messages'
 import type { BranchInfo } from '@arc-types/arc-api'
 import { AttachmentGallery } from './message-attachments'
-import { MessageActions, useMessageContextMenu } from './message-actions'
-import { BranchIndicator } from './message-branch'
+import { useMessageContextMenu } from './message-actions'
+import { MessageFooter } from './message-footer'
 
 interface MessageUserProps {
   message: Message
@@ -30,7 +30,7 @@ export function MessageUser({
 
   return (
     <div
-      className={`flex justify-end mb-6 transition-all duration-300 ${isEditing ? 'opacity-40 blur-[1px]' : ''}`}
+      className={`flex justify-end transition-all duration-300 ${isEditing ? 'opacity-40 blur-[1px]' : ''}`}
     >
       <div
         className="max-w-[70%]"
@@ -56,17 +56,14 @@ export function MessageUser({
           )}
           {message.content && <p className="text-body whitespace-pre-wrap">{message.content}</p>}
         </div>
-        <div className="h-8 flex items-center gap-1">
-          {branchInfo && branchInfo.branches.length > 1 && onBranchSwitch && (
-            <BranchIndicator branchInfo={branchInfo} onSwitch={onBranchSwitch} />
-          )}
-          <MessageActions
-            content={message.content}
-            isHovered={isHovered}
-            onEdit={onEdit}
-            align="right"
-          />
-        </div>
+        <MessageFooter
+          content={message.content}
+          isHovered={isHovered}
+          onEdit={onEdit}
+          branchInfo={branchInfo}
+          onBranchSwitch={onBranchSwitch}
+          align="right"
+        />
       </div>
     </div>
   )

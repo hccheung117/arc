@@ -15,7 +15,7 @@ import { AttachmentGrid } from './composer-attachments'
   type freely without artificial blocking states.
 */
 
-interface ComposerProps {
+export interface ComposerProps {
   threadId: string
   onSend?: (message: string, attachments?: AttachmentInput[]) => void | Promise<void>
   onStop?: () => void
@@ -136,7 +136,7 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(
 
     return (
       <Card
-        className={`mx-4 mb-4 p-3 border transition-colors ${
+        className={`p-3 border transition-colors ${
           isDragging
             ? 'border-primary bg-primary/5'
             : isEditing

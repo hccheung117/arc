@@ -6,7 +6,8 @@ import { useChatSession } from '@renderer/features/workbench/chat/hooks/use-chat
 import { useScrollStore } from '@renderer/features/workbench/chat/hooks/use-scroll-store'
 import { Header } from './header'
 import { MessageList } from './message-list'
-import { Composer, type ComposerRef } from './composer'
+import { ChatFooter } from './chat-footer'
+import type { ComposerRef } from './composer'
 import { EmptyState } from './empty-state'
 
 interface ChatViewProps {
@@ -95,22 +96,18 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
         />
       )}
 
-      <div className="shrink-0">
-        {view.error && (
-          <div className="mx-4 mb-2 rounded-md bg-destructive/10 px-3 py-2 text-label text-destructive select-text cursor-text">
-            {view.error}
-          </div>
-        )}
-        <Composer
-          ref={composerRef}
-          threadId={thread.id}
-          onSend={actions.send}
-          onStop={handleStop}
-          isStreaming={view.input.mode === 'streaming'}
-          isEditing={view.input.mode === 'editing'}
-          onCancelEdit={handleCancelEdit}
-        />
-      </div>
+      <ChatFooter
+        ref={composerRef}
+        error={view.error}
+        composerProps={{
+          threadId: thread.id,
+          onSend: actions.send,
+          onStop: handleStop,
+          isStreaming: view.input.mode === 'streaming',
+          isEditing: view.input.mode === 'editing',
+          onCancelEdit: handleCancelEdit,
+        }}
+      />
     </div>
   )
 }
