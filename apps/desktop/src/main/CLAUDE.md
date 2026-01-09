@@ -1,20 +1,12 @@
 # Main Process
 
-The main process manages AI streaming through an event-based push model. Streaming state divides into three categories:
-
-**In-memory only:** Typing indicators, chunk buffers, active stream tracking (`Map<streamId, AbortController>`), and transient errors during streaming.
-
-**Persisted to database:** Complete user messages (immediately on send), complete assistant messages (only after stream finishes), and conversation metadata.
-
-**Never persisted:** Partial responses, streaming progress, and temporary error states.
-
 ## Three-Layer Architecture
 
-**Layers**
-
-- `app/` — orchestration (composes domain libs, emits events)
-- `lib/` — domain libs (business logic, each independent)
-- `foundation/` — infrastructure only (logger, ipc utils, storage, paths)—**no domain knowledge**
+```
+app/        → routing (IPC → command → broadcast)
+lib/        → domain logic (commands, persistence, business rules)
+foundation/ → infrastructure (logger, ipc, storage, paths)
+```
 
 **Import rules:**
 
@@ -22,22 +14,56 @@ The main process manages AI streaming through an event-based push model. Streami
 - `lib/` — only imports from `foundation/` (not other libs)
 - `app/` — imports from `lib/` and `foundation/`
 
-**Same-level imports are design smells** at any layer. When module A imports from sibling module B, the shared piece either belongs in a new third module they both depend on (if domain-specific), should be pushed down to a lower layer (if generic infrastructure), or should be provided by the caller (if the coupling is incidental). The fix is never to relocate the import—it's to redistribute logic so dependencies flow strictly downward.
+Same-level imports are design smells. When module A imports sibling B, redistribute: push shared pieces down to a lower layer, extract to a new module both depend on, or have the caller provide it.
+
+## Command Pattern (lib/)
+
+Each domain exposes a command handler as its single source of truth:
+
+```typescript
+type Command =
+  | { type: 'delete'; id: string }
+  | { type: 'update'; id: string; patch: Patch }
+  | { type: 'move'; id: string; targetId: string }
+
+type Effect<T> = { result: T; events: Event[] }
+
+async function execute(cmd: Command): Promise<Effect<...>>
+```
+
+Commands return `{ result, events }`. The caller broadcasts events—lib/ never touches IPC.
+
+## Routing Layer (app/)
+
+The app layer is a thin router: translate IPC → command → execute → broadcast → return.
+
+```typescript
+async (id) => {
+  const { result, events } = await execute({ type: 'delete', id })
+  events.forEach(broadcast)
+  return result
+}
+```
+
+Split by **domain**, not trigger mechanism. The same operation flows through one handler regardless of how it was triggered (button, menu, shortcut).
+
+**Context menus return actions only.** UI modules show menus and return the selected action string. They never execute domain logic. The renderer receives the action and calls the appropriate domain IPC.
+
+## AI Streaming
+
+Streaming state divides into three categories:
+
+| Category | Examples |
+|----------|----------|
+| In-memory only | Typing indicators, chunk buffers, abort controllers |
+| Persisted | Complete user messages (immediate), assistant messages (after stream ends) |
+| Never persisted | Partial responses, streaming progress, transient errors |
 
 ## Logging
-
-A two-tier system designed for clarity without flooding:
 
 | Environment | `info` | `warn`/`error` |
 |-------------|--------|----------------|
 | Dev | Console | Console |
-| Prod | Silent | Console + File (`userData/error.log`) |
+| Prod | Silent | Console + File |
 
-**Guidelines:**
-
-- One log per operation, not per step
-- Concise messages with context: `logger.error('models', 'Fetch failed', err)`
-- No logging in loops—aggregate or sample if needed
-- No state transition logs
-
-Production error logs rotate automatically: max 5MB, renamed to `error.old.log` on startup if exceeded.
+One log per operation, not per step. No logging in loops.
