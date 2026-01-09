@@ -11,6 +11,18 @@ interface WorkspaceProps {
   onThreadUpdate: (action: ThreadAction) => void
 }
 
+/** Recursively finds a thread by ID in the tree (folders have nested children) */
+const findThreadInTree = (threads: ChatThread[], id: string): ChatThread | undefined => {
+  for (const thread of threads) {
+    if (thread.id === id) return thread
+    if (thread.children.length > 0) {
+      const found = findThreadInTree(thread.children, id)
+      if (found) return found
+    }
+  }
+  return undefined
+}
+
 /**
  * Workspace: Simple orchestrator for chat view
  *
@@ -42,8 +54,8 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate }: Workspace
     return unsubscribe
   }, [])
 
-  // Find the active thread
-  const activeThread = threads.find((t) => t.id === activeThreadId)
+  // Find the active thread (recursive search through folder children)
+  const activeThread = findThreadInTree(threads, activeThreadId ?? '')
 
   if (!activeThread) return null
 
