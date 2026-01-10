@@ -1,14 +1,9 @@
 import { useState, useCallback } from 'react'
 import { createId } from '@paralleldrive/cuid2'
 import type { AttachmentInput } from '@arc-types/arc-api'
+import type { ComposerAttachment } from '@renderer/features/workbench/chat/domain/types'
 
-/** Local attachment state for preview */
-export interface ComposerAttachment {
-  id: string
-  file: File
-  preview: string // data: URL for immediate display
-  mimeType: string
-}
+export type { ComposerAttachment }
 
 /** Accepted image MIME types */
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']

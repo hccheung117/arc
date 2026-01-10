@@ -44,6 +44,16 @@ export interface EditingState {
 }
 
 /**
+ * Local attachment state for preview
+ */
+export interface ComposerAttachment {
+  id: string
+  file: File
+  preview: string // data: URL for immediate display
+  mimeType: string
+}
+
+/**
  * Context for sending a new message
  */
 export interface SendNewContext {

@@ -28,8 +28,6 @@ class StreamManager {
     if (this.initialized) return
     this.initialized = true
 
-    const store = useChatUIStore.getState()
-
     this.unsubscribe = onAIEvent((event) => {
       const threadId = this.streamToThread.get(event.streamId)
       if (!threadId) return

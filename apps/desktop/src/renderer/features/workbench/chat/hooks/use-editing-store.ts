@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import type { MessageRole } from '@arc-types/messages'
-import type { EditingState } from '../domain/types'
-import { useChatUIStore } from '../stores/chat-ui-store'
+import type { EditingState } from '@renderer/features/workbench/chat/domain/types'
+import { useChatUIStore } from '@renderer/features/workbench/chat/stores/chat-ui-store'
 
 interface UseEditingStoreReturn {
   editingState: EditingState | null

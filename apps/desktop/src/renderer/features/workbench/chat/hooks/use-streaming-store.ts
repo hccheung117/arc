@@ -1,9 +1,9 @@
 import { useCallback } from 'react'
 import type { Message } from '@arc-types/messages'
-import { useChatUIStore } from '../stores/chat-ui-store'
-import { streamManager } from '../stores/stream-manager'
 import { startAIChat } from '@renderer/lib/messages'
-import { getStreamingMessage } from '../domain/stream-state'
+import { useChatUIStore } from '@renderer/features/workbench/chat/stores/chat-ui-store'
+import { streamManager } from '@renderer/features/workbench/chat/stores/stream-manager'
+import { getStreamingMessage } from '@renderer/features/workbench/chat/domain/stream-state'
 
 /** Streaming message display type returned by getStreamingMessage */
 type StreamingMessageDisplay = ReturnType<typeof getStreamingMessage>

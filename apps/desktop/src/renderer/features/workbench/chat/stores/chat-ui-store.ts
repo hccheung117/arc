@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import type { MessageRole } from '@arc-types/messages'
-import type { StreamState, EditingState } from '../domain/types'
-import type { ComposerAttachment } from '../hooks/use-attachments'
+import type { StreamState, EditingState, ComposerAttachment } from '@renderer/features/workbench/chat/domain/types'
 
 /**
  * Scroll state for a thread

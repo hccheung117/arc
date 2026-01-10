@@ -1,8 +1,8 @@
 import { useCallback } from 'react'
 import { createId } from '@paralleldrive/cuid2'
 import type { AttachmentInput } from '@arc-types/arc-api'
-import { useChatUIStore } from '../stores/chat-ui-store'
-import type { ComposerAttachment } from './use-attachments'
+import type { ComposerAttachment } from '@renderer/features/workbench/chat/domain/types'
+import { useChatUIStore } from '@renderer/features/workbench/chat/stores/chat-ui-store'
 
 /** Accepted image MIME types */
 const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp']

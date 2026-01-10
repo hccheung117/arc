@@ -15,6 +15,6 @@ export default defineConfig({
   build: {
     // Output to project root .vite/ (Electron Forge expects renderer here, not in src/.vite/)
     outDir: path.resolve(__dirname, '.vite/renderer/main_window'),
-    emptyDir: true,
+    emptyOutDir: true,
   },
 });
