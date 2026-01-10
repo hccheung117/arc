@@ -8,6 +8,7 @@ import { useMessageContextMenu } from './message-actions'
 import { MessageFooter } from './message-footer'
 
 interface MessageAssistantProps {
+  id?: string
   message: Message
   isThinking?: boolean
   onEdit?: (content: string) => void
@@ -20,6 +21,7 @@ interface MessageAssistantProps {
  * Renders an assistant message with reasoning block, markdown content, and action bar
  */
 export function MessageAssistant({
+  id,
   message,
   isThinking,
   onEdit,
@@ -36,6 +38,7 @@ export function MessageAssistant({
 
   return (
     <div
+      id={id}
       className={`transition-all duration-300 ${isEditing ? 'opacity-40 blur-[1px]' : ''}`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}

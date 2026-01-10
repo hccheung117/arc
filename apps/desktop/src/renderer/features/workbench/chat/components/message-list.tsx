@@ -14,7 +14,6 @@ interface MessageListProps {
   onBranchSwitch: (parentId: string | null, index: number) => void
   onViewportMount: (viewport: HTMLDivElement | null) => void
   isAtBottom: boolean
-  isStreaming: boolean
   onScrollToBottom: () => void
 }
 
@@ -30,7 +29,6 @@ export function MessageList({
   onBranchSwitch,
   onViewportMount,
   isAtBottom,
-  isStreaming,
   onScrollToBottom,
 }: MessageListProps) {
   return (
@@ -45,6 +43,7 @@ export function MessageList({
             return (
               <Message
                 key={message.id}
+                id={message.id}
                 message={message}
                 isThinking={isStreamingMsg ? streamingMessage.isThinking : undefined}
                 onEdit={(content) => onEdit(content, message.id, message.role)}
@@ -57,7 +56,7 @@ export function MessageList({
         </div>
       </ScrollArea>
 
-      {!isAtBottom && isStreaming && (
+      {!isAtBottom && (
         <button
           onClick={onScrollToBottom}
           className="absolute bottom-chat-shell right-chat-shell flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-opacity hover:bg-primary/90"

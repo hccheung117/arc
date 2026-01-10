@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import type { MessageRole } from '@arc-types/messages'
 import type { Model } from '@arc-types/models'
 import type { ChatThread, ThreadAction } from '@renderer/lib/threads'
@@ -27,13 +27,13 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
   const { view, actions } = useChatSession(thread, models, onThreadUpdate)
   const composerRef = useRef<ComposerRef>(null)
 
-  // Scroll behavior with persistence
+  // Scroll behavior: scroll to user message when sent
   const [viewport, setViewport] = useState<HTMLDivElement | null>(null)
-  const { isAtBottom, scrollToBottom } = useScrollStore(
-    viewport,
-    view.streamingMessage?.content,
-    thread.id,
-  )
+  const lastUserMessageId = useMemo(() => {
+    const userMsgs = view.messages.filter((dm) => dm.message.role === 'user')
+    return userMsgs.length > 0 ? userMsgs[userMsgs.length - 1].message.id : null
+  }, [view.messages])
+  const { isAtBottom, scrollToBottom } = useScrollStore(viewport, thread.id, lastUserMessageId)
 
   // Declarative wiring: sync composer with editing state
   const editingMessageId = view.input.mode === 'editing' ? view.input.messageId : null
@@ -121,7 +121,6 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
               onBranchSwitch={actions.selectBranch}
               onViewportMount={setViewport}
               isAtBottom={isAtBottom}
-              isStreaming={view.input.mode === 'streaming'}
               onScrollToBottom={scrollToBottom}
             />
           )}

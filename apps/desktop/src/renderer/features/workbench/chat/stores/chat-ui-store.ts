@@ -8,7 +8,6 @@ import type { ComposerAttachment } from '../hooks/use-attachments'
  */
 interface ScrollState {
   scrollTop: number
-  isManualMode: boolean
 }
 
 /**
@@ -40,7 +39,7 @@ function createDefaultThreadState(): ThreadUIState {
     composer: { draft: '', attachments: [] },
     streaming: { status: 'idle' },
     editing: null,
-    scroll: { scrollTop: 0, isManualMode: false },
+    scroll: { scrollTop: 0 },
   }
 }
 
@@ -76,7 +75,7 @@ interface ChatUIStore {
   cancelEdit: (threadId: string) => void
 
   // Scroll actions
-  saveScrollPosition: (threadId: string, scrollTop: number, isManualMode: boolean) => void
+  saveScrollPosition: (threadId: string, scrollTop: number) => void
 
   // Cleanup
   clearThread: (threadId: string) => void
@@ -231,10 +230,10 @@ export const useChatUIStore = create<ChatUIStore>((set, get) => ({
     ),
 
   // Scroll actions
-  saveScrollPosition: (threadId, scrollTop, isManualMode) =>
+  saveScrollPosition: (threadId, scrollTop) =>
     set((state) =>
       updateThread(state, threadId, () => ({
-        scroll: { scrollTop, isManualMode },
+        scroll: { scrollTop },
       })),
     ),
 

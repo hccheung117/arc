@@ -6,6 +6,7 @@ import { useMessageContextMenu } from './message-actions'
 import { MessageFooter } from './message-footer'
 
 interface MessageUserProps {
+  id?: string
   message: Message
   onEdit?: (content: string) => void
   isEditing?: boolean
@@ -17,6 +18,7 @@ interface MessageUserProps {
  * Renders a user message bubble with attachments and action bar
  */
 export function MessageUser({
+  id,
   message,
   onEdit,
   isEditing,
@@ -30,6 +32,7 @@ export function MessageUser({
 
   return (
     <div
+      id={id}
       className={`flex justify-end transition-all duration-300 ${isEditing ? 'opacity-40 blur-[1px]' : ''}`}
     >
       <div

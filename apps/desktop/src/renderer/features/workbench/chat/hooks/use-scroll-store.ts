@@ -1,158 +1,120 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useChatUIStore } from '../stores/chat-ui-store'
+import { useChatUIStore } from '@renderer/features/workbench/chat/stores/chat-ui-store'
 
 /**
- * Auto-Scroll with Store Persistence
+ * Simple Scroll Behavior
  *
- * Extends the user-action-centric auto-scroll pattern with store persistence:
- * - FOLLOW mode: Auto-stick to bottom when new content arrives
- * - MANUAL mode: User controls viewport
+ * One rule: When user sends a message, scroll to show that message.
+ * No other auto-scrolling. User controls their own viewport.
  *
- * On tab switch:
- * - Saves scrollTop + isManualMode to store
- * - Restores from store when returning to tab
- *
- * @see use-auto-scroll.ts for the original design rationale
+ * Tab switch: saves/restores scrollTop position.
  */
 
 const BOTTOM_THRESHOLD = 50
+const SCROLL_PADDING = 50
 
 export function useScrollStore(
   viewport: HTMLDivElement | null,
-  streamingContent: string | undefined,
   threadId: string,
+  lastUserMessageId: string | null,
 ): { isAtBottom: boolean; scrollToBottom: () => void } {
   const [isAtBottom, setIsAtBottom] = useState(true)
-
-  // FOLLOW (false) vs MANUAL (true) - only user scrolls change this
-  const isManualModeRef = useRef(false)
-
-  // Guard to ignore scroll events we caused
-  const isProgrammaticScrollRef = useRef(false)
 
   // Track previous threadId to detect tab switches
   const previousThreadIdRef = useRef<string | null>(null)
 
-  // Restore scroll position from store (deferred until content renders)
+  // Track which user message we've scrolled for (prevent duplicate scrolls)
+  const scrolledForMessageRef = useRef<string | null>(null)
+
+  // Restore scroll position from store
   const restoreScrollPosition = useCallback(() => {
     if (!viewport) return
 
     const saved = useChatUIStore.getState().getThreadState(threadId).scroll
 
-    // Apply the scroll position once content is ready
     const applyScroll = () => {
       if (!viewport) return
-
-      if (saved.isManualMode && saved.scrollTop > 0) {
-        isProgrammaticScrollRef.current = true
-        isManualModeRef.current = true
-        viewport.scrollTop = saved.scrollTop
-        setIsAtBottom(false)
-      } else {
-        isProgrammaticScrollRef.current = true
-        isManualModeRef.current = false
-        viewport.scrollTop = viewport.scrollHeight
-        setIsAtBottom(true)
-      }
+      viewport.scrollTop = saved.scrollTop
+      updateIsAtBottom()
     }
 
-    // We need content to be ready before scrolling. For manual mode, we need
-    // scrollHeight >= savedScrollTop. For follow mode, we need scrollHeight to
-    // stabilize (be "reasonable" - more than a minimal loading state).
-    const MIN_CONTENT_HEIGHT = 500
-
+    // Wait for content to be ready
     let attempts = 0
     const maxAttempts = 10
 
     const tryRestore = () => {
       if (!viewport) return
 
-      const isManualRestore = saved.isManualMode && saved.scrollTop > 0
-      const contentReady = isManualRestore
-        ? viewport.scrollHeight >= saved.scrollTop
-        : viewport.scrollHeight >= MIN_CONTENT_HEIGHT || viewport.scrollHeight >= saved.scrollTop
-
-      if (contentReady) {
+      if (viewport.scrollHeight >= saved.scrollTop || attempts >= maxAttempts) {
         applyScroll()
         return
       }
 
       attempts++
-      if (attempts < maxAttempts) {
-        requestAnimationFrame(tryRestore)
-      } else {
-        // Fallback: apply anyway after max attempts
-        applyScroll()
-      }
+      requestAnimationFrame(tryRestore)
     }
 
     requestAnimationFrame(tryRestore)
   }, [viewport, threadId])
 
+  // Helper to update isAtBottom state
+  const updateIsAtBottom = useCallback(() => {
+    if (!viewport) return
+    const { scrollTop, scrollHeight, clientHeight } = viewport
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight
+    setIsAtBottom(distanceFromBottom <= BOTTOM_THRESHOLD)
+  }, [viewport])
+
   // Handle thread change: save old, restore new
   useEffect(() => {
     const prevThreadId = previousThreadIdRef.current
 
-    // Save position for previous thread (if any)
+    // Save position for previous thread
     if (prevThreadId && prevThreadId !== threadId && viewport) {
-      useChatUIStore.getState().saveScrollPosition(
-        prevThreadId,
-        viewport.scrollTop,
-        isManualModeRef.current,
-      )
+      useChatUIStore.getState().saveScrollPosition(prevThreadId, viewport.scrollTop)
     }
 
-    // Restore position for new thread (after viewport is ready)
+    // Restore position for new thread
     if (viewport) {
       restoreScrollPosition()
     }
 
+    // Reset scroll tracker for new thread
+    scrolledForMessageRef.current = null
     previousThreadIdRef.current = threadId
   }, [threadId, viewport, restoreScrollPosition])
 
-  // User scroll handler - mode changes only on user scroll
+  // Simple scroll listener to track isAtBottom
   useEffect(() => {
     if (!viewport) return
 
-    const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = viewport
-      const distanceFromBottom = scrollHeight - scrollTop - clientHeight
-      const nearBottom = distanceFromBottom <= BOTTOM_THRESHOLD
-
-      // Ignore our own scrolls
-      if (isProgrammaticScrollRef.current) {
-        isProgrammaticScrollRef.current = false
-        setIsAtBottom(nearBottom)
-        return
-      }
-
-      // User scroll: mode changes based on where they landed
-      isManualModeRef.current = !nearBottom
-      setIsAtBottom(nearBottom)
-    }
+    const handleScroll = () => updateIsAtBottom()
 
     viewport.addEventListener('scroll', handleScroll, { passive: true })
     return () => viewport.removeEventListener('scroll', handleScroll)
-  }, [viewport, threadId])
+  }, [viewport, updateIsAtBottom])
 
-  // Content arrival: scroll only if in FOLLOW mode
+  // Scroll to user message when a new one is sent
   useEffect(() => {
-    if (!viewport || streamingContent === undefined) return
+    if (!viewport || !lastUserMessageId) return
 
-    // MANUAL mode: do nothing
-    if (isManualModeRef.current) return
+    // Already scrolled for this message
+    if (scrolledForMessageRef.current === lastUserMessageId) return
 
-    // FOLLOW mode: pin to bottom
-    isProgrammaticScrollRef.current = true
-    viewport.scrollTop = viewport.scrollHeight
-  }, [viewport, streamingContent])
+    scrolledForMessageRef.current = lastUserMessageId
 
-  // Manual button: jump to bottom and enter FOLLOW mode
+    requestAnimationFrame(() => {
+      const el = document.getElementById(lastUserMessageId)
+      if (el && viewport) {
+        viewport.scrollTop = Math.max(0, el.offsetTop - SCROLL_PADDING)
+        updateIsAtBottom()
+      }
+    })
+  }, [viewport, lastUserMessageId, updateIsAtBottom])
+
+  // Manual scroll to bottom
   const scrollToBottom = useCallback(() => {
     if (!viewport) return
-
-    isProgrammaticScrollRef.current = true
-    isManualModeRef.current = false
     viewport.scrollTop = viewport.scrollHeight
     setIsAtBottom(true)
   }, [viewport])

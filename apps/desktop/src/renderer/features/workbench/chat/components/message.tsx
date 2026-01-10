@@ -4,6 +4,7 @@ import { MessageUser } from './message-user'
 import { MessageAssistant } from './message-assistant'
 
 interface MessageProps {
+  id?: string
   message: MessageType
   isThinking?: boolean
   onEdit?: (content: string) => void
@@ -15,10 +16,10 @@ interface MessageProps {
 /**
  * Routes to the appropriate message component based on role
  */
-export function Message({ message, ...props }: MessageProps) {
+export function Message({ message, id, ...props }: MessageProps) {
   if (message.role === 'user') {
-    return <MessageUser message={message} {...props} />
+    return <MessageUser id={id} message={message} {...props} />
   }
 
-  return <MessageAssistant message={message} {...props} />
+  return <MessageAssistant id={id} message={message} {...props} />
 }
