@@ -84,6 +84,7 @@ export async function handleProfileFileOpen(filePath: string): Promise<void> {
  * Orchestrates: auto-update → models
  */
 export async function initApp(): Promise<void> {
-  initAutoUpdate()
+  const profile = await getActiveProfile()
+  initAutoUpdate(profile?.updateInterval)
   await initModels()
 }

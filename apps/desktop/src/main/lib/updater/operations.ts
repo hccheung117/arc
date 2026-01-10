@@ -15,7 +15,7 @@ const GITHUB_REPO = 'hccheung117/arc'
  * Initialize auto-updates.
  * Only runs in production on Windows.
  */
-export function initAutoUpdate(): void {
+export function initAutoUpdate(intervalMinutes?: number): void {
   if (!app.isPackaged) {
     info('updater', 'Skipping auto-update in development')
     return
@@ -26,13 +26,15 @@ export function initAutoUpdate(): void {
     return
   }
 
+  const interval = intervalMinutes ? `${intervalMinutes} minutes` : '1 hour'
+
   try {
     updateElectronApp({
       updateSource: {
         type: UpdateSourceType.ElectronPublicUpdateService,
         repo: GITHUB_REPO,
       },
-      updateInterval: '1 hour',
+      updateInterval: interval,
       notifyUser: true,
       logger: {
         log: (msg: string) => info('updater', msg),

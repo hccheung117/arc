@@ -29,6 +29,7 @@ export const ArcFileSchema = z.object({
   id: z.string(),
   name: z.string(),
   providers: z.array(ArcFileProviderSchema),
+  updateInterval: z.number().min(1).optional(),
 })
 export type ArcFile = z.infer<typeof ArcFileSchema>
 
