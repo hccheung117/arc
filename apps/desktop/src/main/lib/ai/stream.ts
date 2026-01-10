@@ -1,167 +1,122 @@
 /**
- * AI Streaming
- *
- * Stream processing for OpenAI-compatible chat completions.
- * Returns an async iterable and an abort function.
+ * Stream transform: Arc/OpenAI SSE chunks → AI SDK LanguageModelV3StreamPart
+ * Pure FP approach with generators for testability
  */
 
-import type { ChatMessage, Usage } from './types'
-import { parseSSE } from './utils'
-import { createClient } from './http'
+import {
+  LanguageModelV3FinishReason,
+  LanguageModelV3StreamPart,
+  LanguageModelV3Usage,
+} from '@ai-sdk/provider'
+import { ParseResult } from '@ai-sdk/provider-utils'
+import { z } from 'zod'
+import { convertUsage, mapFinishReason } from './convert'
+import { arcChatChunkSchema } from './schemas'
 
 // ============================================================================
-// WIRE FORMAT TYPES (OpenAI SSE response shape)
+// STATE
 // ============================================================================
 
-interface ChunkDelta {
-  role?: 'assistant'
-  content?: string | null
-  reasoning_content?: string | null
-  reasoning?: string | null
+type StreamState = {
+  reasoningActive: boolean
+  textActive: boolean
+  finishReason: LanguageModelV3FinishReason
+  usage: LanguageModelV3Usage
 }
 
-interface ChunkChoice {
-  index: number
-  delta: ChunkDelta
-  finish_reason?: 'stop' | 'length' | 'content_filter' | null
+const initialStreamState: StreamState = {
+  reasoningActive: false,
+  textActive: false,
+  finishReason: { unified: 'other', raw: undefined },
+  usage: convertUsage(undefined),
 }
 
-interface ProviderUsage {
-  prompt_tokens: number
-  completion_tokens: number
-  total_tokens: number
-  completion_tokens_details?: {
-    reasoning_tokens?: number
+// ============================================================================
+// PURE GENERATORS
+// ============================================================================
+
+type ChunkParseResult = ParseResult<z.infer<typeof arcChatChunkSchema>>
+
+/** Pure generator: chunk → stream parts, returns next state */
+function* processChunk(chunk: ChunkParseResult, state: StreamState): Generator<LanguageModelV3StreamPart, StreamState> {
+  if (!chunk.success) {
+    yield { type: 'error', error: chunk.error }
+    return state
   }
-}
 
-interface LanguageModelChunk {
-  id: string
-  object: 'chat.completion.chunk'
-  created: number
-  model: string
-  choices: ChunkChoice[]
-  usage?: ProviderUsage
-}
+  const { value } = chunk
+  const choice = value.choices[0]
+  const delta = choice?.delta
 
-// ============================================================================
-// NORMALIZATION
-// ============================================================================
+  let next = { ...state }
 
-function normalizeUsage(wire: ProviderUsage | undefined): Usage | undefined {
-  if (!wire) return undefined
-  return {
-    inputTokens: wire.prompt_tokens,
-    outputTokens: wire.completion_tokens,
-    totalTokens: wire.total_tokens,
-    reasoningTokens: wire.completion_tokens_details?.reasoning_tokens,
+  if (choice?.finish_reason) {
+    next = { ...next, finishReason: mapFinishReason(choice.finish_reason) }
   }
-}
-
-type FinishReason = 'stop' | 'length' | 'content-filter' | 'error' | 'unknown'
-
-function normalizeFinishReason(reason: string | null | undefined): FinishReason {
-  switch (reason) {
-    case 'stop':
-      return 'stop'
-    case 'length':
-      return 'length'
-    case 'content_filter':
-      return 'content-filter'
-    default:
-      return 'unknown'
+  if (value.usage) {
+    next = { ...next, usage: convertUsage(value.usage) }
   }
-}
 
-// ============================================================================
-// STREAM EVENTS
-// ============================================================================
+  if (!delta) return next
 
-type StreamEvent =
-  | { type: 'content'; delta: string }
-  | { type: 'reasoning'; delta: string }
-  | { type: 'usage'; usage: Usage }
-  | { type: 'done'; finishReason: FinishReason }
-
-type StreamOptions = {
-  modelId: string
-  baseUrl?: string | null
-  apiKey?: string | null
-  messages: ChatMessage[]
-  temperature?: number
-  reasoningEffort?: 'low' | 'medium' | 'high'
-}
-
-// --- Pure functions ---
-
-type ChunkResult = {
-  events: StreamEvent[]
-  usage?: Usage
-  finishReason?: FinishReason
-}
-
-function processChunk(chunk: LanguageModelChunk): ChunkResult {
-  const events: StreamEvent[] = []
-  const delta = chunk.choices[0]?.delta
-
-  const reasoning = delta?.reasoning_content ?? delta?.reasoning
+  // Reasoning: try reasoning_content first, fallback to reasoning
+  const reasoning = delta.reasoning_content ?? delta.reasoning
   if (reasoning) {
-    events.push({ type: 'reasoning', delta: reasoning })
+    if (!state.reasoningActive) {
+      yield { type: 'reasoning-start', id: 'reasoning-0' }
+      next = { ...next, reasoningActive: true }
+    }
+    yield { type: 'reasoning-delta', id: 'reasoning-0', delta: reasoning }
   }
 
-  if (delta?.content) {
-    events.push({ type: 'content', delta: delta.content })
+  // Text content
+  if (delta.content) {
+    if (!state.textActive) {
+      yield { type: 'text-start', id: 'text-0' }
+      next = { ...next, textActive: true }
+    }
+    yield { type: 'text-delta', id: 'text-0', delta: delta.content }
   }
 
-  return {
-    events,
-    usage: normalizeUsage(chunk.usage),
-    finishReason: normalizeFinishReason(chunk.choices[0]?.finish_reason),
-  }
+  return next
 }
 
-// --- Effectful functions ---
+/** Pure generator: emit closing events based on final state */
+function* flushStream(state: StreamState): Generator<LanguageModelV3StreamPart> {
+  if (state.reasoningActive) {
+    yield { type: 'reasoning-end', id: 'reasoning-0' }
+  }
+  if (state.textActive) {
+    yield { type: 'text-end', id: 'text-0' }
+  }
+  yield { type: 'finish', finishReason: state.finishReason, usage: state.usage }
+}
 
-async function* generate(
-  options: StreamOptions,
-  signal: AbortSignal,
-): AsyncGenerator<StreamEvent> {
-  const client = createClient({
-    baseUrl: options.baseUrl,
-    apiKey: options.apiKey,
-  })
-  const stream = await client.streamChatCompletions(
-    {
-      model: options.modelId,
-      messages: options.messages,
-      ...(options.temperature !== undefined && { temperature: options.temperature }),
-      ...(options.reasoningEffort && { thinking: { reasoning_effort: options.reasoningEffort } }),
+// ============================================================================
+// TRANSFORM STREAM
+// ============================================================================
+
+/** Factory: creates transformer that pipes chunks through pure functions */
+export function createChunkTransformer() {
+  let state = initialStreamState
+
+  return new TransformStream<ChunkParseResult, LanguageModelV3StreamPart>({
+    start(controller) {
+      controller.enqueue({ type: 'stream-start', warnings: [] })
     },
-    signal,
-  )
-
-  let usage: Usage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 }
-  let finishReason: FinishReason = 'unknown'
-
-  for await (const chunk of parseSSE<LanguageModelChunk>(stream)) {
-    const result = processChunk(chunk)
-
-    yield* result.events
-    if (result.usage) usage = result.usage
-    if (result.finishReason) finishReason = result.finishReason
-  }
-
-  yield { type: 'usage', usage }
-  yield { type: 'done', finishReason }
-}
-
-// --- Public API ---
-
-export function streamText(options: StreamOptions) {
-  const abortController = new AbortController()
-
-  return {
-    textStream: generate(options, abortController.signal),
-    abort: () => abortController.abort(),
-  }
+    transform(chunk, controller) {
+      const gen = processChunk(chunk, state)
+      let result = gen.next()
+      while (!result.done) {
+        controller.enqueue(result.value)
+        result = gen.next()
+      }
+      state = result.value
+    },
+    flush(controller) {
+      for (const part of flushStream(state)) {
+        controller.enqueue(part)
+      }
+    },
+  })
 }

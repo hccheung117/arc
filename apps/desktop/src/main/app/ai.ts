@@ -2,16 +2,17 @@
  * AI IPC Handlers
  *
  * Orchestration layer for AI streaming operations.
- * Composes building blocks from lib/ modules.
+ * Uses AI SDK for streaming with Arc custom provider.
  */
 
 import * as fs from 'fs/promises'
 import type { IpcMain } from 'electron'
 import { createId } from '@paralleldrive/cuid2'
 import { z } from 'zod'
+import { streamText, type LanguageModelUsage } from 'ai'
+import type { ModelMessage } from '@ai-sdk/provider-utils'
 import { listModels, lookupModelProvider } from '@main/lib/profile/models'
-import { streamText } from '@main/lib/ai/stream'
-import type { ChatMessage, Usage } from '@main/lib/ai/types'
+import { createArc } from '@main/lib/ai/provider'
 import type { StoredMessageEvent } from '@main/lib/messages/schemas'
 import { readMessages, appendMessage } from '@main/lib/messages/operations'
 import { getProviderConfig } from '@main/lib/profile/operations'
@@ -24,20 +25,21 @@ import { validated, broadcast, register } from '@main/foundation/ipc'
 // ============================================================================
 
 /**
- * Convert stored messages to AI library format.
+ * Convert stored messages to AI SDK format.
  * Handles multimodal content by loading attachments from disk.
  */
-async function convertToModelMessages(messages: StoredMessageEvent[], threadId: string): Promise<ChatMessage[]> {
+async function convertToModelMessages(messages: StoredMessageEvent[], threadId: string): Promise<ModelMessage[]> {
   return Promise.all(
-    messages.map(async (message): Promise<ChatMessage> => {
+    messages.map(async (message): Promise<ModelMessage> => {
       if (message.role === 'user' && message.attachments?.length) {
         const imageParts = await Promise.all(
           message.attachments.map(async (att) => {
             const buffer = await fs.readFile(getThreadAttachmentPath(threadId, att.path))
             const base64 = buffer.toString('base64')
             return {
-              type: 'image_url' as const,
-              image_url: { url: `data:${att.mimeType};base64,${base64}` },
+              type: 'image' as const,
+              image: `data:${att.mimeType};base64,${base64}`,
+              mediaType: att.mimeType,
             }
           }),
         )
@@ -59,7 +61,7 @@ async function convertToModelMessages(messages: StoredMessageEvent[], threadId: 
 // STREAM STATE
 // ============================================================================
 
-const activeStreams = new Map<string, () => void>()
+const activeStreams = new Map<string, AbortController>()
 
 // ============================================================================
 // AI STREAM EVENTS
@@ -76,12 +78,25 @@ function emitAIStreamEvent(event: AIStreamEvent): void {
 }
 
 // ============================================================================
+// USAGE CONVERSION
+// ============================================================================
+
+function convertUsage(usage: LanguageModelUsage) {
+  return {
+    inputTokens: usage.inputTokens ?? 0,
+    outputTokens: usage.outputTokens ?? 0,
+    totalTokens: usage.totalTokens ?? 0,
+    reasoningTokens: usage.outputTokenDetails?.reasoningTokens,
+  }
+}
+
+// ============================================================================
 // STREAMING ORCHESTRATION
 // ============================================================================
 
 /**
  * Orchestrates AI chat streaming.
- * Composes: messages → profile → ai → messages
+ * Uses AI SDK streamText with Arc custom provider.
  *
  * MEMORY-ONLY STREAMING STRATEGY:
  * Content accumulates via the result object pattern.
@@ -99,6 +114,8 @@ async function executeStream(
     onError: (error: string) => void
   },
 ): Promise<void> {
+  const abortController = new AbortController()
+
   try {
     const { messages: threadMessages } = await readMessages(threadId)
 
@@ -111,35 +128,42 @@ async function executeStream(
 
     const modelMessages = await convertToModelMessages(threadMessages, threadId)
 
-    const { textStream, abort } = streamText({
-      modelId,
-      baseUrl: providerConfig.baseUrl,
-      apiKey: providerConfig.apiKey,
-      messages: modelMessages,
-      reasoningEffort: 'high', // Arc always uses high reasoning effort
+    // Create Arc provider with config
+    const arc = createArc({
+      baseURL: providerConfig.baseUrl ?? undefined,
+      apiKey: providerConfig.apiKey ?? undefined,
     })
 
-    activeStreams.set(streamId, abort)
+    activeStreams.set(streamId, abortController)
+
+    const result = streamText({
+      model: arc(modelId),
+      messages: modelMessages,
+      providerOptions: {
+        arc: { reasoningEffort: 'high' },
+      },
+      abortSignal: abortController.signal,
+    })
 
     let fullContent = ''
     let fullReasoning = ''
-    let usage: Usage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 }
 
-    for await (const event of textStream) {
-      switch (event.type) {
-        case 'content':
-          fullContent += event.delta
-          callbacks.onDelta(event.delta)
+    // Consume the full stream for all event types
+    for await (const part of result.fullStream) {
+      switch (part.type) {
+        case 'text-delta':
+          fullContent += part.text
+          callbacks.onDelta(part.text)
           break
-        case 'reasoning':
-          fullReasoning += event.delta
-          callbacks.onReasoning(event.delta)
-          break
-        case 'usage':
-          usage = event.usage
+        case 'reasoning-delta':
+          fullReasoning += part.text
+          callbacks.onReasoning(part.text)
           break
       }
     }
+
+    // Get final usage
+    const usage = convertUsage(await result.usage)
 
     const { message: assistantMessage } = await appendMessage({
       type: 'new',
@@ -170,9 +194,9 @@ async function executeStream(
  * Cancel an active AI stream.
  */
 function cancelStream(streamId: string): void {
-  const abort = activeStreams.get(streamId)
-  if (abort) {
-    abort()
+  const controller = activeStreams.get(streamId)
+  if (controller) {
+    controller.abort()
     activeStreams.delete(streamId)
   }
 }
