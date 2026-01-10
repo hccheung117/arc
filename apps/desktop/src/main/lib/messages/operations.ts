@@ -10,6 +10,7 @@ import type { AttachmentInput, BranchInfo } from '@arc-types/arc-api'
 import type { StoredMessageEvent, StoredThread, StoredAttachment, Usage } from './schemas'
 import { reduceMessageEvents } from './reducer'
 import { threadIndexFile, messageLogFile, buildAttachment, writeAttachmentData } from './storage'
+import { findById, updateById } from './tree'
 
 // ============================================================================
 // PURE BUILDERS
@@ -42,9 +43,7 @@ type ThreadEffect = (threadId: string, timestamp: string) => Promise<boolean>
 /** Touches thread timestamp. Returns false (no thread created). */
 const touchThread: ThreadEffect = async (threadId, timestamp) => {
   await threadIndexFile().update((index) => ({
-    threads: index.threads.map((t) =>
-      t.id === threadId ? { ...t, updatedAt: timestamp } : t,
-    ),
+    threads: updateById(index.threads, threadId, (t) => ({ ...t, updatedAt: timestamp })),
   }))
   return false
 }
@@ -55,12 +54,10 @@ const ensureThread =
   async (threadId, timestamp) => {
     let created = false
     await threadIndexFile().update((index) => {
-      const exists = index.threads.some((t) => t.id === threadId)
+      const exists = findById(index.threads, threadId) !== undefined
       if (exists) {
         return {
-          threads: index.threads.map((t) =>
-            t.id === threadId ? { ...t, updatedAt: timestamp } : t,
-          ),
+          threads: updateById(index.threads, threadId, (t) => ({ ...t, updatedAt: timestamp })),
         }
       }
       created = true
