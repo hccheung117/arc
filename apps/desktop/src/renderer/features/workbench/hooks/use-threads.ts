@@ -51,7 +51,13 @@ function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[]
 
     case 'UPSERT':
       return existsInTree(state, action.thread.id)
-        ? modifyTree(state, action.thread.id, () => action.thread)
+        ? modifyTree(state, action.thread.id, (existing) => ({
+            ...action.thread,
+            // Preserve local systemPrompt if database version is null but local has a value.
+            // This handles the race where draft thread has systemPrompt set locally,
+            // but the thread is created in DB before auto-persist can save it.
+            systemPrompt: action.thread.systemPrompt ?? existing.systemPrompt,
+          }))
         : [action.thread, ...state]
 
     case 'PATCH':

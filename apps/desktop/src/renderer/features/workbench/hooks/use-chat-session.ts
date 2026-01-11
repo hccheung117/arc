@@ -66,6 +66,7 @@ async function executeNewMessage(
   ctx: SendFlowContext,
   content: string,
   attachments?: AttachmentInput[],
+  systemPrompt?: string | null,
 ): Promise<void> {
   const result = await sendNewMessage({
     threadId: ctx.threadId,
@@ -74,6 +75,10 @@ async function executeNewMessage(
     model: ctx.model,
     attachments,
   })
+  // Thread is now created. Persist systemPrompt before streaming starts.
+  if (systemPrompt) {
+    await window.arc.threads.update(ctx.threadId, { systemPrompt })
+  }
   ctx.addMessage(result.userMessage!)
   await ctx.startStreaming()
 }
@@ -203,7 +208,9 @@ export function useChatSession(
 
       try {
         if (!editing.isEditingMessage) {
-          await executeNewMessage(ctx, content, attachments)
+          // Pass systemPrompt for draft threads - it needs to be persisted before AI reads it
+          const systemPromptForNewThread = thread.status === 'draft' ? thread.systemPrompt : null
+          await executeNewMessage(ctx, content, attachments, systemPromptForNewThread)
         } else {
           const editState = editing.editingState as MessageEditingState
           if (editState.role === 'assistant') {
