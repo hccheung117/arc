@@ -67,7 +67,7 @@ interface ThreadContextMenuParams {
   folders: FolderInfo[]
 }
 
-type ThreadMenuAction = 'rename' | 'togglePin' | 'delete' | 'newFolder' | 'removeFromFolder' | `moveToFolder:${string}`
+type ThreadMenuAction = 'rename' | 'duplicate' | 'togglePin' | 'delete' | 'newFolder' | 'removeFromFolder' | `moveToFolder:${string}`
 
 export const showThreadContextMenu = ({isPinned, isInFolder, folders}: ThreadContextMenuParams) => {
   const folderSubmenu: MenuItem<ThreadMenuAction>[] = [
@@ -78,6 +78,7 @@ export const showThreadContextMenu = ({isPinned, isInFolder, folders}: ThreadCon
 
   const items: MenuItem<ThreadMenuAction>[] = [
     {label: 'Rename', action: 'rename'},
+    {label: 'Duplicate', action: 'duplicate'},
     ...(!isInFolder ? [{label: isPinned ? 'Unpin' : 'Pin', action: 'togglePin'} as const] : []),
     {type: 'separator'},
     {label: 'Move to Folder', submenu: folderSubmenu},

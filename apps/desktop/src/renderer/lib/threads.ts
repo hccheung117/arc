@@ -142,3 +142,7 @@ export async function createFolderWithThread(threadId: string): Promise<{ id: st
   const folder = await window.arc.folders.createWithThread(threadId)
   return { id: folder.id }
 }
+
+export async function duplicateThread(threadId: string, upToMessageId?: string): Promise<void> {
+  await window.arc.threads.duplicate(threadId, upToMessageId)
+}

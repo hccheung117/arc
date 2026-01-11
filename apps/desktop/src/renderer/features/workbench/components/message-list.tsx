@@ -6,6 +6,7 @@ import { Message } from './message'
 import { ChevronDown } from 'lucide-react'
 
 interface MessageListProps {
+  threadId: string
   messages: MessageType[]
   streamingMessage: StreamingMessage | null
   branchPoints: BranchInfo[]
@@ -21,6 +22,7 @@ interface MessageListProps {
  * Message list with scroll area and streaming support
  */
 export function MessageList({
+  threadId,
   messages,
   streamingMessage,
   branchPoints,
@@ -44,6 +46,7 @@ export function MessageList({
               <Message
                 key={message.id}
                 id={message.id}
+                threadId={threadId}
                 message={message}
                 isThinking={isStreamingMsg ? streamingMessage.isThinking : undefined}
                 onEdit={(content) => onEdit(content, message.id, message.role)}

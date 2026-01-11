@@ -30,6 +30,9 @@ const arcAPI: ArcAPI = {
 
     delete: (id: string) => ipcRenderer.invoke('arc:threads:delete', id),
 
+    duplicate: (id: string, upToMessageId?: string) =>
+      ipcRenderer.invoke('arc:threads:duplicate', id, upToMessageId),
+
     onEvent: (callback: (event: ThreadEvent) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, data: ThreadEvent) => callback(data)
       ipcRenderer.on('arc:threads:event', listener)

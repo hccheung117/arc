@@ -10,6 +10,8 @@ interface MessageFooterProps {
   onBranchSwitch?: (index: number) => void
   /** Controls alignment of action buttons */
   align: 'left' | 'right'
+  threadId: string
+  messageId: string
 }
 
 /**
@@ -23,6 +25,8 @@ export function MessageFooter({
   branchInfo,
   onBranchSwitch,
   align,
+  threadId,
+  messageId,
 }: MessageFooterProps) {
   const hasBranches = branchInfo && branchInfo.branches.length > 1 && onBranchSwitch
 
@@ -36,6 +40,8 @@ export function MessageFooter({
         content={content}
         isHovered={isHovered}
         onEdit={onEdit}
+        threadId={threadId}
+        messageId={messageId}
       />
     </div>
   )

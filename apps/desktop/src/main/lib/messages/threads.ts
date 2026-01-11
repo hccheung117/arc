@@ -5,11 +5,15 @@
  * Event emission belongs in app/ layer.
  */
 
+import * as fs from 'fs/promises'
+import * as path from 'path'
 import { createId } from '@paralleldrive/cuid2'
 import type { ThreadPatch } from '@arc-types/arc-api'
-import type { StoredThread, StoredThreadIndex } from './schemas'
+import type { StoredThread, StoredThreadIndex, StoredMessageEvent } from './schemas'
 import { threadIndexFile, messageLogFile, deleteThreadAttachments } from './storage'
 import { findById, parentOf, updateById, extract } from './tree'
+import { reduceMessageEvents } from './reducer'
+import { getMessageLogPath, getThreadAttachmentsDir } from '@main/foundation/paths'
 
 // ============================================================================
 // THREAD TRANSFORMS (Pure)
@@ -18,6 +22,28 @@ import { findById, parentOf, updateById, extract } from './tree'
 const now = () => new Date().toISOString()
 
 const unpin = (t: StoredThread): StoredThread => ({ ...t, pinned: false })
+
+interface NewThreadConfig {
+  title: string
+  renamed: boolean
+  systemPrompt: string | null
+  children: StoredThread[]
+}
+
+/** Factory for creating new thread entries with generated ID and timestamps */
+const createThreadEntry = (config: NewThreadConfig): StoredThread => {
+  const timestamp = now()
+  return {
+    id: createId(),
+    title: config.title,
+    pinned: false,
+    renamed: config.renamed,
+    systemPrompt: config.systemPrompt,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    children: config.children,
+  }
+}
 
 const applyPatch =
   (patch: ThreadPatch) =>
@@ -97,17 +123,12 @@ export async function createFolder(
     const [t2, after2] = extract(after1, id2)
     if (!t2) throw new Error(`Thread not found: ${id2}`)
 
-    const timestamp = now()
-    folder = {
-      id: createId(),
+    folder = createThreadEntry({
       title: name,
-      pinned: false,
       renamed: true,
       systemPrompt: null,
-      createdAt: timestamp,
-      updatedAt: timestamp,
       children: [unpin(t1), unpin(t2)],
-    }
+    })
 
     return { threads: [folder, ...after2] }
   })
@@ -129,17 +150,12 @@ export async function createFolderWithThread(
     // Count existing folders for naming
     const folderCount = index.threads.filter((t) => t.children.length > 0).length
 
-    const timestamp = now()
-    folder = {
-      id: createId(),
+    folder = createThreadEntry({
       title: `Folder ${folderCount + 1}`,
-      pinned: false,
       renamed: false,
       systemPrompt: null,
-      createdAt: timestamp,
-      updatedAt: timestamp,
       children: [unpin(thread)],
-    }
+    })
 
     return { threads: [folder, ...remaining] }
   })
@@ -226,4 +242,166 @@ export async function reorderInFolder(folderId: string, orderedIds: string[]): P
   })
 
   return updatedFolder
+}
+
+// ============================================================================
+// DUPLICATION
+// ============================================================================
+
+export interface DuplicateThreadResult {
+  duplicate: StoredThread
+  parentFolder?: StoredThread
+}
+
+/**
+ * Duplicates a thread with optional message filtering.
+ *
+ * - Copies to same location (folder if in folder, root if at root)
+ * - Adds " (Copy)" suffix to title
+ * - Copies message log (optionally filtered to messages up to upToMessageId)
+ * - Copies attachments (selective if filtered)
+ */
+export async function duplicateThread(
+  sourceId: string,
+  upToMessageId?: string,
+): Promise<DuplicateThreadResult> {
+  let duplicate: StoredThread | undefined
+  let parentFolder: StoredThread | undefined
+
+  await threadIndexFile().update((index) => {
+    const source = findById(index.threads, sourceId)
+    if (!source) throw new Error(`Thread not found: ${sourceId}`)
+
+    if (source.children.length > 0) {
+      throw new Error('Cannot duplicate a folder')
+    }
+
+    duplicate = createThreadEntry({
+      title: `${source.title ?? 'New Chat'} (Copy)`,
+      renamed: source.renamed,
+      systemPrompt: source.systemPrompt,
+      children: [],
+    })
+
+    const parent = parentOf(index.threads, sourceId)
+
+    if (parent) {
+      const appendChild = (folder: StoredThread): StoredThread => {
+        parentFolder = { ...folder, children: [...folder.children, duplicate!], updatedAt: now() }
+        return parentFolder
+      }
+      return { threads: updateById(index.threads, parent.id, appendChild) }
+    }
+
+    return { threads: [duplicate, ...index.threads] }
+  })
+
+  if (!duplicate) throw new Error('Failed to create duplicate')
+
+  await copyThreadData(sourceId, duplicate.id, upToMessageId)
+
+  return { duplicate, parentFolder }
+}
+
+/**
+ * Copies message log and attachments from source to target thread.
+ * If upToMessageId provided, filters to only include the branch path to that message.
+ */
+async function copyThreadData(
+  sourceId: string,
+  targetId: string,
+  upToMessageId?: string,
+): Promise<void> {
+  const sourcePath = getMessageLogPath(sourceId)
+
+  try {
+    await fs.access(sourcePath)
+  } catch {
+    return // No messages yet
+  }
+
+  if (upToMessageId) {
+    const events = await messageLogFile(sourceId).read()
+    const { filtered, attachmentPaths } = filterMessageEvents(events, upToMessageId)
+
+    const targetLog = messageLogFile(targetId)
+    for (const event of filtered) {
+      await targetLog.append(event)
+    }
+
+    await copySelectiveAttachments(sourceId, targetId, attachmentPaths)
+  } else {
+    await fs.copyFile(sourcePath, getMessageLogPath(targetId))
+
+    const sourceAttachmentsDir = getThreadAttachmentsDir(sourceId)
+    const targetAttachmentsDir = getThreadAttachmentsDir(targetId)
+
+    try {
+      await fs.cp(sourceAttachmentsDir, targetAttachmentsDir, { recursive: true })
+    } catch {
+      // No attachments directory
+    }
+  }
+}
+
+/**
+ * Filters message events to include only those in the branch path
+ * leading to upToMessageId (inclusive).
+ */
+function filterMessageEvents(
+  events: StoredMessageEvent[],
+  upToMessageId: string,
+): { filtered: StoredMessageEvent[]; attachmentPaths: Set<string> } {
+  const { messages } = reduceMessageEvents(events)
+
+  const target = messages.find((m) => m.id === upToMessageId)
+  if (!target) throw new Error(`Message not found: ${upToMessageId}`)
+
+  const ancestryIds = new Set<string>()
+  let current: StoredMessageEvent | undefined = target
+
+  while (current) {
+    ancestryIds.add(current.id)
+    current = current.parentId ? messages.find((m) => m.id === current!.parentId) : undefined
+  }
+
+  const filtered = events.filter((e) => ancestryIds.has(e.id))
+
+  const attachmentPaths = new Set<string>()
+  for (const event of filtered) {
+    if (event.attachments) {
+      for (const att of event.attachments) {
+        attachmentPaths.add(att.path)
+      }
+    }
+  }
+
+  return { filtered, attachmentPaths }
+}
+
+/**
+ * Copies only specific attachment files from source to target thread.
+ */
+async function copySelectiveAttachments(
+  sourceId: string,
+  targetId: string,
+  paths: Set<string>,
+): Promise<void> {
+  if (paths.size === 0) return
+
+  const sourceDir = getThreadAttachmentsDir(sourceId)
+  const targetDir = getThreadAttachmentsDir(targetId)
+
+  await fs.mkdir(targetDir, { recursive: true })
+
+  for (const relativePath of paths) {
+    const sourcePath = path.join(sourceDir, relativePath)
+    const targetPath = path.join(targetDir, relativePath)
+
+    try {
+      await fs.copyFile(sourcePath, targetPath)
+    } catch {
+      // Attachment missing - skip
+    }
+  }
 }

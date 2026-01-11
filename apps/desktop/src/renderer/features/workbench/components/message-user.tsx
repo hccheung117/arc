@@ -7,6 +7,7 @@ import { MessageFooter } from './message-footer'
 
 interface MessageUserProps {
   id?: string
+  threadId: string
   message: Message
   onEdit?: (content: string) => void
   isEditing?: boolean
@@ -19,6 +20,7 @@ interface MessageUserProps {
  */
 export function MessageUser({
   id,
+  threadId,
   message,
   onEdit,
   isEditing,
@@ -66,6 +68,8 @@ export function MessageUser({
           branchInfo={branchInfo}
           onBranchSwitch={onBranchSwitch}
           align="right"
+          threadId={threadId}
+          messageId={message.id}
         />
       </div>
     </div>

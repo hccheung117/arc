@@ -55,6 +55,15 @@ const handlers = {
     broadcastThreadEvents(events)
   }),
 
+  'arc:threads:duplicate': validated(
+    [z.string(), z.string().optional()],
+    async (threadId: string, upToMessageId?: string): Promise<StoredThread> => {
+      const { result, events } = await execute({ type: 'duplicate', threadId, upToMessageId })
+      broadcastThreadEvents(events)
+      return result as StoredThread
+    },
+  ),
+
   'arc:folders:create': validated(
     [z.string(), z.string(), z.string()],
     async (name: string, threadId1: string, threadId2: string): Promise<StoredThread> => {

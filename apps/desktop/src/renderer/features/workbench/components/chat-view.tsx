@@ -129,6 +129,7 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
             <div className="flex-1 min-h-0" />
           ) : (
             <MessageList
+              threadId={thread.id}
               messages={view.messages.map((dm) => dm.message)}
               streamingMessage={view.streamingMessage}
               branchPoints={view.branches}

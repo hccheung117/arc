@@ -36,6 +36,7 @@ const ThreadContextMenuParamsSchema = z.object({
  */
 type ThreadMenuAction =
   | 'rename'
+  | 'duplicate'
   | 'togglePin'
   | 'delete'
   | 'newFolder'

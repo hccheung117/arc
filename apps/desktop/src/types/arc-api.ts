@@ -156,6 +156,7 @@ export interface ThreadContextMenuParams {
  */
 export type ThreadContextMenuResult =
   | 'rename'
+  | 'duplicate'
   | 'togglePin'
   | 'delete'
   | 'newFolder'
@@ -197,6 +198,9 @@ export interface ArcAPI {
 
     /** Delete a thread (Rule 2: Two-Way) */
     delete(id: string): Promise<void>
+
+    /** Duplicate a thread with all messages and attachments (Rule 2: Two-Way) */
+    duplicate(id: string, upToMessageId?: string): Promise<Thread>
 
     /** Subscribe to thread lifecycle events (Rule 3: Push) */
     onEvent(callback: (event: ThreadEvent) => void): Unsubscribe

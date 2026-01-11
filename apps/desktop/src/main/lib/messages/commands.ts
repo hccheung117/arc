@@ -17,6 +17,7 @@ import {
   moveToFolder,
   moveToRoot,
   reorderInFolder,
+  duplicateThread,
 } from './threads'
 
 // ============================================================================
@@ -36,6 +37,7 @@ export type Effect<T> = {
 export type ThreadCommand =
   | { type: 'delete'; threadId: string }
   | { type: 'update'; threadId: string; patch: ThreadPatch }
+  | { type: 'duplicate'; threadId: string; upToMessageId?: string }
   | { type: 'move-to-folder'; threadId: string; folderId: string }
   | { type: 'move-to-root'; threadId: string }
   | { type: 'create-folder'; name: string; threadIds: [string, string] }
@@ -57,6 +59,9 @@ export async function execute(cmd: ThreadCommand): Promise<Effect<unknown>> {
 
     case 'update':
       return executeUpdate(cmd.threadId, cmd.patch)
+
+    case 'duplicate':
+      return executeDuplicate(cmd.threadId, cmd.upToMessageId)
 
     case 'move-to-folder':
       return executeMoveToFolder(cmd.threadId, cmd.folderId)
@@ -93,6 +98,21 @@ async function executeUpdate(threadId: string, patch: ThreadPatch): Promise<Effe
     result: thread,
     events: [{ type: 'updated', thread }],
   }
+}
+
+async function executeDuplicate(
+  threadId: string,
+  upToMessageId?: string,
+): Promise<Effect<StoredThread>> {
+  const result = await duplicateThread(threadId, upToMessageId)
+
+  const events: ThreadEvent[] = [{ type: 'created', thread: result.duplicate }]
+
+  if (result.parentFolder) {
+    events.push({ type: 'updated', thread: result.parentFolder })
+  }
+
+  return { result: result.duplicate, events }
 }
 
 async function executeMoveToFolder(

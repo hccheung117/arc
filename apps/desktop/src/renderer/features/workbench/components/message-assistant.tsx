@@ -9,6 +9,7 @@ import { MessageFooter } from './message-footer'
 
 interface MessageAssistantProps {
   id?: string
+  threadId: string
   message: Message
   isThinking?: boolean
   onEdit?: (content: string) => void
@@ -22,6 +23,7 @@ interface MessageAssistantProps {
  */
 export function MessageAssistant({
   id,
+  threadId,
   message,
   isThinking,
   onEdit,
@@ -72,6 +74,8 @@ export function MessageAssistant({
             branchInfo={branchInfo}
             onBranchSwitch={onBranchSwitch}
             align="left"
+            threadId={threadId}
+            messageId={message.id}
           />
         </div>
       </div>

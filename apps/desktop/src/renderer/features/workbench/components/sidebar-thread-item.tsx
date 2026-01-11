@@ -12,6 +12,7 @@ import {
   removeThreadFromFolder,
   moveThreadToFolder,
   createFolderWithThread,
+  duplicateThread,
   type ChatThread,
 } from '@renderer/lib/threads'
 import { useSidebar } from './sidebar-context'
@@ -86,6 +87,9 @@ export function ThreadItem({ thread, variant = 'default' }: ThreadItemProps) {
     switch (action) {
       case 'rename':
         rename.startRenaming()
+        break
+      case 'duplicate':
+        await duplicateThread(thread.id)
         break
       case 'delete':
         await deleteThread(thread.id)
