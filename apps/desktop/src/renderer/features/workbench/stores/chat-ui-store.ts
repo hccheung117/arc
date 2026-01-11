@@ -27,6 +27,7 @@ export interface ThreadUIState {
   streaming: StreamState
   editing: EditingState | null
   scroll: ScrollState
+  isSending: boolean
 }
 
 /**
@@ -38,6 +39,7 @@ function createDefaultThreadState(): ThreadUIState {
     streaming: { status: 'idle' },
     editing: null,
     scroll: { scrollTop: 0 },
+    isSending: false,
   }
 }
 
@@ -72,6 +74,10 @@ interface ChatUIStore {
   startEditMessage: (threadId: string, messageId: string, role: 'user' | 'assistant') => void
   startEditSystemPrompt: (threadId: string) => void
   cancelEdit: (threadId: string) => void
+
+  // Sending actions
+  startSending: (threadId: string) => void
+  stopSending: (threadId: string) => void
 
   // Scroll actions
   saveScrollPosition: (threadId: string, scrollTop: number) => void
@@ -235,6 +241,21 @@ export const useChatUIStore = create<ChatUIStore>((set, get) => ({
     set((state) =>
       updateThread(state, threadId, () => ({
         editing: null,
+      })),
+    ),
+
+  // Sending actions
+  startSending: (threadId) =>
+    set((state) =>
+      updateThread(state, threadId, () => ({
+        isSending: true,
+      })),
+    ),
+
+  stopSending: (threadId) =>
+    set((state) =>
+      updateThread(state, threadId, () => ({
+        isSending: false,
       })),
     ),
 

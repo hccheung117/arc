@@ -51,13 +51,18 @@ function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[]
 
     case 'UPSERT':
       return existsInTree(state, action.thread.id)
-        ? modifyTree(state, action.thread.id, (existing) => ({
-            ...action.thread,
-            // Preserve local systemPrompt if database version is null but local has a value.
-            // This handles the race where draft thread has systemPrompt set locally,
-            // but the thread is created in DB before auto-persist can save it.
-            systemPrompt: action.thread.systemPrompt ?? existing.systemPrompt,
-          }))
+        ? modifyTree(state, action.thread.id, (existing) => {
+            // If local owns the thread, preserve local config during handoff transition
+            if (existing.owner === 'local') {
+              return {
+                ...action.thread,
+                owner: 'local', // Keep local ownership until explicitly transferred
+                systemPrompt: existing.systemPrompt, // Preserve local config
+              }
+            }
+            // DB owns it, accept backend values
+            return action.thread
+          })
         : [action.thread, ...state]
 
     case 'PATCH':

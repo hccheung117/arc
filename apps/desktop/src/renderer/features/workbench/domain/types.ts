@@ -1,5 +1,5 @@
 import type { Message, MessageRole } from '@arc-types/messages'
-import type { BranchInfo, AttachmentInput } from '@arc-types/arc-api'
+import type { BranchInfo, AttachmentInput, ThreadConfig } from '@arc-types/arc-api'
 import type { Model } from '@arc-types/models'
 
 /**
@@ -72,6 +72,7 @@ export interface SendNewContext {
   parentId: string | null
   model: Model
   attachments?: AttachmentInput[]
+  threadConfig?: ThreadConfig
 }
 
 /**
@@ -87,6 +88,7 @@ export interface EditContext {
   attachments?: AttachmentInput[]
   /** Original message (for assistant edits that need modelId/providerId) */
   originalMessage?: Message
+  threadConfig?: ThreadConfig
 }
 
 /**
@@ -123,5 +125,6 @@ export interface DisplayMessage {
  */
 export type InputMode =
   | { mode: 'ready' }
+  | { mode: 'sending' }
   | { mode: 'streaming'; stop: () => void }
   | { mode: 'editing'; source: EditSource; cancel: () => void }

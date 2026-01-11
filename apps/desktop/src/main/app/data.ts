@@ -37,6 +37,10 @@ const AttachmentInputSchema = z.object({
   name: z.string().optional(),
 })
 
+const ThreadConfigSchema = z.object({
+  systemPrompt: z.string().nullable(),
+})
+
 const CreateMessageInputSchema = z.object({
   role: z.enum(['user', 'assistant', 'system']),
   content: z.string(),
@@ -44,6 +48,7 @@ const CreateMessageInputSchema = z.object({
   attachments: z.array(AttachmentInputSchema).optional(),
   modelId: z.string(),
   providerId: z.string(),
+  threadConfig: ThreadConfigSchema.optional(),
 })
 
 const CreateBranchInputSchema = z.object({
@@ -52,6 +57,7 @@ const CreateBranchInputSchema = z.object({
   attachments: z.array(AttachmentInputSchema).optional(),
   modelId: z.string(),
   providerId: z.string(),
+  threadConfig: ThreadConfigSchema.optional(),
 })
 
 const UpdateMessageInputSchema = z.object({
@@ -117,6 +123,7 @@ const messageHandlers = {
         attachments: input.attachments,
         modelId: input.modelId,
         providerId: input.providerId,
+        threadConfig: input.threadConfig,
       })
 
       const { branchPoints } = await readMessages(threadId)

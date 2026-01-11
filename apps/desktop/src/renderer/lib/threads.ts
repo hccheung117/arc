@@ -18,11 +18,16 @@ import type { ThreadEvent, ThreadContextMenuParams, ThreadContextMenuResult, Uns
  * - Lazy persistence (threads created only when needed)
  * - Message-first UX (users interact with messages, not threads)
  * - Folder organization (threads with children[] act as folders)
+ *
+ * Ownership semantics:
+ * - 'local': Draft thread, config lives in renderer state only
+ * - 'db': Persisted thread, backend is source of truth for config
  */
 export type ChatThread = {
   id: string
   messages: Message[]
   status: 'draft' | 'streaming' | 'persisted'
+  owner: 'local' | 'db'
   title: string
   createdAt: string
   updatedAt: string
@@ -43,6 +48,7 @@ export function createDraftThread(): ChatThread {
     id: createId(),
     messages: [],
     status: 'draft',
+    owner: 'local',
     title: 'New Chat',
     createdAt: now,
     updatedAt: now,
@@ -64,12 +70,35 @@ export function hydrateFromSummary(summary: ThreadSummary): ChatThread {
     id: summary.id,
     messages: [],
     status: 'persisted',
+    owner: 'db',
     title: summary.title,
     createdAt: summary.createdAt || summary.updatedAt,
     updatedAt: summary.updatedAt,
     isPinned: summary.pinned,
     systemPrompt: summary.systemPrompt,
     children: summary.children.map(hydrateFromSummary),
+  }
+}
+
+// ============================================================================
+// THREAD CONFIG
+// ============================================================================
+
+/**
+ * Thread configuration for handoff during first message creation.
+ * Extracted from local ChatThread and bundled with the first message IPC.
+ */
+export type ThreadConfig = {
+  systemPrompt: string | null
+}
+
+/**
+ * Extract thread config from a ChatThread for handoff.
+ * Only used when owner='local' to bundle config with first message.
+ */
+export function extractThreadConfig(thread: ChatThread): ThreadConfig {
+  return {
+    systemPrompt: thread.systemPrompt,
   }
 }
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type RefObject } from 'react'
+import { useCallback, type RefObject } from 'react'
 import type { ChatThread, ThreadAction } from '@renderer/lib/threads'
 import type { InputMode } from '@renderer/features/workbench/domain/types'
 import type { ComposerRef } from '@renderer/features/workbench/components/composer'
@@ -13,8 +13,10 @@ interface SystemPromptActions {
  *
  * Handles:
  * - Starting edit mode (blocked during streaming)
- * - Saving to draft (local) or persisted (backend) threads
- * - Auto-persisting when a draft thread becomes persisted
+ * - Saving to local (owner='local') or backend (owner='db') threads
+ *
+ * Note: Auto-persist is no longer needed. Thread config is bundled with the
+ * first message during ownership handoff (see use-chat-session.ts).
  */
 export function useSystemPrompt(
   thread: ChatThread,
@@ -24,7 +26,7 @@ export function useSystemPrompt(
   startEditSystemPrompt: () => void,
 ): SystemPromptActions {
   const startEdit = useCallback(() => {
-    if (input.mode === 'streaming') return
+    if (input.mode === 'streaming' || input.mode === 'sending') return
     startEditSystemPrompt()
   }, [input.mode, startEditSystemPrompt])
 
@@ -32,11 +34,11 @@ export function useSystemPrompt(
     async (content: string) => {
       const newSystemPrompt = content.trim() || null
 
-      if (thread.status === 'draft') {
-        // Draft threads: update local state only, will persist when thread is created
+      if (thread.owner === 'local') {
+        // Local ownership: update local state only, config bundled with first message
         onThreadUpdate({ type: 'PATCH', id: thread.id, patch: { systemPrompt: newSystemPrompt } })
       } else {
-        // Persisted threads: save to backend
+        // DB ownership: save to backend immediately
         await window.arc.threads.update(thread.id, { systemPrompt: newSystemPrompt })
       }
 
@@ -44,19 +46,8 @@ export function useSystemPrompt(
       if (input.mode === 'editing') input.cancel()
       composerRef.current?.setMessage('')
     },
-    [thread.id, thread.status, onThreadUpdate, input, composerRef],
+    [thread.id, thread.owner, onThreadUpdate, input, composerRef],
   )
-
-  // Auto-persist system prompt when draft thread becomes persisted
-  const prevStatusRef = useRef(thread.status)
-  useEffect(() => {
-    const wasJustPersisted = prevStatusRef.current === 'draft' && thread.status === 'persisted'
-    prevStatusRef.current = thread.status
-
-    if (wasJustPersisted && thread.systemPrompt) {
-      window.arc.threads.update(thread.id, { systemPrompt: thread.systemPrompt })
-    }
-  }, [thread.status, thread.id, thread.systemPrompt])
 
   return { startEdit, save }
 }

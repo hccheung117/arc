@@ -36,6 +36,15 @@ export const AttachmentInputSchema = z.object({
 })
 export type AttachmentInput = z.infer<typeof AttachmentInputSchema>
 
+/**
+ * Thread configuration bundled with first message during handoff.
+ * Only sent when creating a thread (owner='local' → owner='db').
+ */
+export const ThreadConfigSchema = z.object({
+  systemPrompt: z.string().nullable(),
+})
+export type ThreadConfig = z.infer<typeof ThreadConfigSchema>
+
 export const CreateMessageInputSchema = z.object({
   role: MessageRoleSchema,
   content: z.string(),
@@ -43,6 +52,7 @@ export const CreateMessageInputSchema = z.object({
   attachments: z.array(AttachmentInputSchema).optional(),
   modelId: z.string(),
   providerId: z.string(),
+  threadConfig: ThreadConfigSchema.optional(),
 })
 export type CreateMessageInput = z.infer<typeof CreateMessageInputSchema>
 
@@ -52,6 +62,7 @@ export const CreateBranchInputSchema = z.object({
   attachments: z.array(AttachmentInputSchema).optional(),
   modelId: z.string(),
   providerId: z.string(),
+  threadConfig: ThreadConfigSchema.optional(),
 })
 export type CreateBranchInput = z.infer<typeof CreateBranchInputSchema>
 

@@ -6,6 +6,7 @@ import type {
   Unsubscribe,
   ListMessagesResult,
   CreateBranchResult,
+  ThreadConfig,
 } from '@arc-types/arc-api'
 
 export async function getMessages(conversationId: string): Promise<ListMessagesResult> {
@@ -20,6 +21,7 @@ export async function createMessage(
   modelId: string,
   providerId: string,
   attachments?: AttachmentInput[],
+  threadConfig?: ThreadConfig,
 ): Promise<Message> {
   return window.arc.messages.create(conversationId, {
     role,
@@ -28,6 +30,7 @@ export async function createMessage(
     attachments,
     modelId,
     providerId,
+    threadConfig,
   })
 }
 
@@ -38,6 +41,7 @@ export async function createBranch(
   modelId: string,
   providerId: string,
   attachments?: AttachmentInput[],
+  threadConfig?: ThreadConfig,
 ): Promise<CreateBranchResult> {
   return window.arc.messages.createBranch(conversationId, {
     parentId,
@@ -45,6 +49,7 @@ export async function createBranch(
     attachments,
     modelId,
     providerId,
+    threadConfig,
   })
 }
 

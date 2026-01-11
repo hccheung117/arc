@@ -6,7 +6,7 @@
  */
 
 import { createId } from '@paralleldrive/cuid2'
-import type { AttachmentInput, BranchInfo } from '@arc-types/arc-api'
+import type { AttachmentInput, BranchInfo, ThreadConfig } from '@arc-types/arc-api'
 import type { StoredMessageEvent, StoredThread, StoredAttachment, Usage } from './schemas'
 import { reduceMessageEvents } from './reducer'
 import { threadIndexFile, messageLogFile, buildAttachment, writeAttachmentData } from './storage'
@@ -24,12 +24,17 @@ const generateTitle = (content: string): string => {
   return firstLine.length > 100 ? firstLine.slice(0, 100) : firstLine
 }
 
-const buildThread = (id: string, timestamp: string, title: string | null): StoredThread => ({
+const buildThread = (
+  id: string,
+  timestamp: string,
+  title: string | null,
+  config?: ThreadConfig,
+): StoredThread => ({
   id,
   title,
   pinned: false,
   renamed: false,
-  systemPrompt: null,
+  systemPrompt: config?.systemPrompt ?? null,
   createdAt: timestamp,
   updatedAt: timestamp,
   children: [],
@@ -51,7 +56,7 @@ const touchThread: ThreadEffect = async (threadId, timestamp) => {
 
 /** Creates thread if missing, otherwise touches. Returns true if created. */
 const ensureThread =
-  (title: string | null): ThreadEffect =>
+  (title: string | null, config?: ThreadConfig): ThreadEffect =>
   async (threadId, timestamp) => {
     let created = false
     await threadIndexFile().update((index) => {
@@ -62,7 +67,7 @@ const ensureThread =
         }
       }
       created = true
-      return { threads: [...index.threads, buildThread(threadId, timestamp, title)] }
+      return { threads: [...index.threads, buildThread(threadId, timestamp, title, config)] }
     })
     return created
   }
@@ -101,7 +106,12 @@ interface BaseMessageFields {
 }
 
 export type AppendMessageInput =
-  | (BaseMessageFields & { type: 'new'; role: 'user' | 'assistant' | 'system'; parentId: string | null })
+  | (BaseMessageFields & {
+      type: 'new'
+      role: 'user' | 'assistant' | 'system'
+      parentId: string | null
+      threadConfig?: ThreadConfig
+    })
   | (BaseMessageFields & { type: 'edit'; messageId: string })
 
 export interface AppendMessageResult {
@@ -142,7 +152,8 @@ export async function appendMessage(input: AppendMessageInput): Promise<AppendMe
   }
 
   const title = isNew && input.role === 'user' ? generateTitle(input.content) : null
-  const threadEffect = isNew ? ensureThread(title) : touchThread
+  const config = isNew && input.type === 'new' ? input.threadConfig : undefined
+  const threadEffect = isNew ? ensureThread(title, config) : touchThread
 
   // 1. Append to log first (source of truth)
   const result = await appendEventToLog(input.threadId, event, threadEffect)

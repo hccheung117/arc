@@ -1,8 +1,8 @@
 import { useState, useCallback, useMemo } from 'react'
 import type { Message } from '@arc-types/messages'
-import type { BranchInfo, AttachmentInput } from '@arc-types/arc-api'
+import type { BranchInfo, AttachmentInput, ThreadConfig } from '@arc-types/arc-api'
 import type { Model } from '@arc-types/models'
-import type { ChatThread, ThreadAction } from '@renderer/lib/threads'
+import { type ChatThread, type ThreadAction, extractThreadConfig } from '@renderer/lib/threads'
 import type { DisplayMessage, InputMode, EditingState, EditSource } from '@renderer/features/workbench/domain/types'
 import { useModelSelection } from './use-model-selection'
 import { useMessageTree } from './use-message-tree'
@@ -66,7 +66,7 @@ async function executeNewMessage(
   ctx: SendFlowContext,
   content: string,
   attachments?: AttachmentInput[],
-  systemPrompt?: string | null,
+  threadConfig?: ThreadConfig,
 ): Promise<void> {
   const result = await sendNewMessage({
     threadId: ctx.threadId,
@@ -74,11 +74,8 @@ async function executeNewMessage(
     parentId: ctx.parentId,
     model: ctx.model,
     attachments,
+    threadConfig,
   })
-  // Thread is now created. Persist systemPrompt before streaming starts.
-  if (systemPrompt) {
-    await window.arc.threads.update(ctx.threadId, { systemPrompt })
-  }
   ctx.addMessage(result.userMessage!)
   await ctx.startStreaming()
 }
@@ -91,6 +88,7 @@ async function executeUserEdit(
   editState: MessageEditingState,
   content: string,
   attachments?: AttachmentInput[],
+  threadConfig?: ThreadConfig,
 ): Promise<void> {
   const editParentId = findEditParent(ctx.displayMessages, editState.id)
   const result = await editUserMessage({
@@ -101,6 +99,7 @@ async function executeUserEdit(
     parentId: editParentId,
     model: ctx.model,
     attachments,
+    threadConfig,
   })
   ctx.setMessages(result.messages)
   if (result.newBranchSelection) {
@@ -133,9 +132,13 @@ async function executeAssistantEdit(
 // ─────────────────────────────────────────────────────────────────────────────
 
 function deriveInputMode(
+  sending: { isSending: boolean },
   streaming: { isStreaming: boolean; stop: () => void },
   editing: { editingState: EditingState | null; cancelEdit: () => void },
 ): InputMode {
+  if (sending.isSending) {
+    return { mode: 'sending' }
+  }
   if (streaming.isStreaming) {
     return { mode: 'streaming', stop: streaming.stop }
   }
@@ -192,6 +195,9 @@ export function useChatSession(
       if (!selectedModel) return
       setError(null)
 
+      // Block editing during send to prevent race conditions
+      editing.startSending()
+
       const ctx: SendFlowContext = {
         threadId: thread.id,
         model: selectedModel,
@@ -206,24 +212,30 @@ export function useChatSession(
         },
       }
 
+      // Extract config for local threads - bundled with first message during handoff
+      const threadConfig = thread.owner === 'local' ? extractThreadConfig(thread) : undefined
+
       try {
         if (!editing.isEditingMessage) {
-          // Pass systemPrompt for draft threads - it needs to be persisted before AI reads it
-          const systemPromptForNewThread = thread.status === 'draft' ? thread.systemPrompt : null
-          await executeNewMessage(ctx, content, attachments, systemPromptForNewThread)
+          await executeNewMessage(ctx, content, attachments, threadConfig)
         } else {
           const editState = editing.editingState as MessageEditingState
           if (editState.role === 'assistant') {
             await executeAssistantEdit(ctx, editState, content)
           } else {
-            await executeUserEdit(ctx, editState, content, attachments)
+            await executeUserEdit(ctx, editState, content, attachments, threadConfig)
           }
+        }
+        // Transfer ownership to DB after successful send
+        if (thread.owner === 'local') {
+          onThreadUpdate({ type: 'PATCH', id: thread.id, patch: { owner: 'db' } })
         }
       } catch (err) {
         logError('ui', 'Send failed', err as Error)
         streaming.stop()
         setError(err instanceof Error ? err.message : 'An error occurred')
       } finally {
+        editing.stopSending()
         editing.clearEdit()
       }
     },
@@ -241,7 +253,7 @@ export function useChatSession(
     streamingMessage: streaming.streamingMessage,
     branches: tree.branchPoints,
     model: selectedModel,
-    input: deriveInputMode(streaming, editing),
+    input: deriveInputMode(editing, streaming, editing),
     error,
   }), [tree.displayMessages, streaming.streamingMessage, editingId, tree.branchPoints, selectedModel, streaming, editing, error])
 

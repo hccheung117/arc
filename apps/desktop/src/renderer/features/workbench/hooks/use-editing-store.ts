@@ -7,10 +7,13 @@ interface UseEditingStoreReturn {
   isEditing: boolean
   isEditingMessage: boolean
   isEditingSystemPrompt: boolean
+  isSending: boolean
   startEditMessage: (messageId: string, role: 'user' | 'assistant') => void
   startEditSystemPrompt: () => void
   cancelEdit: () => void
   clearEdit: () => void
+  startSending: () => void
+  stopSending: () => void
 }
 
 /**
@@ -23,6 +26,7 @@ interface UseEditingStoreReturn {
  */
 export function useEditingStore(threadId: string): UseEditingStoreReturn {
   const editingState = useChatUIStore((state) => state.getThreadState(threadId).editing)
+  const isSending = useChatUIStore((state) => state.getThreadState(threadId).isSending)
 
   const startEditMessage = useCallback(
     (messageId: string, role: 'user' | 'assistant') => {
@@ -43,14 +47,25 @@ export function useEditingStore(threadId: string): UseEditingStoreReturn {
     useChatUIStore.getState().cancelEdit(threadId)
   }, [threadId])
 
+  const startSending = useCallback(() => {
+    useChatUIStore.getState().startSending(threadId)
+  }, [threadId])
+
+  const stopSending = useCallback(() => {
+    useChatUIStore.getState().stopSending(threadId)
+  }, [threadId])
+
   return {
     editingState,
     isEditing: editingState !== null,
     isEditingMessage: editingState !== null && editingState.kind !== 'system-prompt',
     isEditingSystemPrompt: editingState?.kind === 'system-prompt',
+    isSending,
     startEditMessage,
     startEditSystemPrompt,
     cancelEdit,
     clearEdit,
+    startSending,
+    stopSending,
   }
 }
