@@ -1,13 +1,13 @@
 import { useEffect } from 'react'
 import { FileDown } from 'lucide-react'
 import { SidebarProvider, SidebarInset } from '@renderer/components/ui/sidebar'
-import { WorkbenchSidebar } from '@renderer/features/workbench/sidebar/sidebar'
-import { Workspace } from '@renderer/features/workbench/workspace'
-import { useChatThreads } from '@renderer/features/workbench/chat/hooks/use-threads'
+import { WorkbenchSidebar } from '@renderer/features/workbench/components/sidebar'
+import { Workspace } from '@renderer/features/workbench/components/workspace'
+import { useChatThreads } from '@renderer/features/workbench/hooks/use-threads'
 import { DropOverlay } from '@renderer/components/drop-overlay'
 import { useActiveThread } from '@renderer/hooks/use-active-thread'
 import { useProfileImport } from '@renderer/hooks/use-profile-import'
-import { streamManager } from '@renderer/features/workbench/chat/stores/stream-manager'
+import { streamManager } from '@renderer/features/workbench/stores/stream-manager'
 
 export function WorkbenchWindow() {
   const { threads, dispatch } = useChatThreads()

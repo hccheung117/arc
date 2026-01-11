@@ -1,9 +1,9 @@
 import { useState, useCallback, useMemo } from 'react'
-import type { Message, MessageRole } from '@arc-types/messages'
+import type { Message } from '@arc-types/messages'
 import type { BranchInfo, AttachmentInput } from '@arc-types/arc-api'
 import type { Model } from '@arc-types/models'
 import type { ChatThread, ThreadAction } from '@renderer/lib/threads'
-import type { DisplayMessage, InputMode, EditingState } from '@renderer/features/workbench/chat/domain/types'
+import type { DisplayMessage, InputMode, EditingState, EditSource } from '@renderer/features/workbench/domain/types'
 import { useModelSelection } from './use-model-selection'
 import { useMessageTree } from './use-message-tree'
 import { useStreamingStore } from './use-streaming-store'
@@ -12,9 +12,9 @@ import {
   sendNewMessage,
   editUserMessage,
   editAssistantMessage,
-} from '@renderer/features/workbench/chat/domain/send-flows'
-import { findEditParent, composeDisplayMessages } from '@renderer/features/workbench/chat/domain/message-tree'
-import { getStreamingMessage } from '@renderer/features/workbench/chat/domain/stream-state'
+} from '@renderer/features/workbench/domain/send-flows'
+import { findEditParent, composeDisplayMessages } from '@renderer/features/workbench/domain/message-tree'
+import { getStreamingMessage } from '@renderer/features/workbench/domain/stream-state'
 import { error as logError } from '@renderer/lib/logger'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -35,7 +35,8 @@ interface ChatSessionView {
 
 interface ChatSessionActions {
   send: (content: string, attachments?: AttachmentInput[]) => Promise<void>
-  startEdit: (messageId: string, role: MessageRole) => void
+  startEditMessage: (messageId: string, role: 'user' | 'assistant') => void
+  startEditSystemPrompt: () => void
   selectModel: (model: Model | null) => void
   selectBranch: (parentId: string | null, index: number) => void
 }
@@ -77,16 +78,19 @@ async function executeNewMessage(
   await ctx.startStreaming()
 }
 
+/** Message editing state (excludes system-prompt) */
+type MessageEditingState = Extract<EditingState, { kind: 'user-message' | 'assistant-message' }>
+
 async function executeUserEdit(
   ctx: SendFlowContext,
-  editState: EditingState,
+  editState: MessageEditingState,
   content: string,
   attachments?: AttachmentInput[],
 ): Promise<void> {
-  const editParentId = findEditParent(ctx.displayMessages, editState.messageId)
+  const editParentId = findEditParent(ctx.displayMessages, editState.id)
   const result = await editUserMessage({
     threadId: ctx.threadId,
-    messageId: editState.messageId,
+    messageId: editState.id,
     content,
     role: editState.role,
     parentId: editParentId,
@@ -102,14 +106,14 @@ async function executeUserEdit(
 
 async function executeAssistantEdit(
   ctx: SendFlowContext,
-  editState: EditingState,
+  editState: MessageEditingState,
   content: string,
 ): Promise<void> {
-  const originalMessage = ctx.displayMessages.find((m) => m.id === editState.messageId)
-  const editParentId = findEditParent(ctx.displayMessages, editState.messageId)
+  const originalMessage = ctx.displayMessages.find((m) => m.id === editState.id)
+  const editParentId = findEditParent(ctx.displayMessages, editState.id)
   const result = await editAssistantMessage({
     threadId: ctx.threadId,
-    messageId: editState.messageId,
+    messageId: editState.id,
     content,
     role: editState.role,
     parentId: editParentId,
@@ -131,10 +135,16 @@ function deriveInputMode(
     return { mode: 'streaming', stop: streaming.stop }
   }
   if (editing.editingState) {
+    const source: EditSource =
+      editing.editingState.kind === 'system-prompt'
+        ? { kind: 'system-prompt' }
+        : editing.editingState.kind === 'user-message'
+          ? { kind: 'user-message', id: editing.editingState.id }
+          : { kind: 'assistant-message', id: editing.editingState.id }
+
     return {
       mode: 'editing',
-      messageId: editing.editingState.messageId,
-      role: editing.editingState.role,
+      source,
       cancel: editing.cancelEdit,
     }
   }
@@ -172,6 +182,8 @@ export function useChatSession(
 
   const send = useCallback(
     async (content: string, attachments?: AttachmentInput[]) => {
+      // System prompt edits are handled separately in ChatView
+      if (editing.isEditingSystemPrompt) return
       if (!selectedModel) return
       setError(null)
 
@@ -190,12 +202,15 @@ export function useChatSession(
       }
 
       try {
-        if (!editing.isEditing) {
+        if (!editing.isEditingMessage) {
           await executeNewMessage(ctx, content, attachments)
-        } else if (editing.editingState!.role === 'assistant') {
-          await executeAssistantEdit(ctx, editing.editingState!, content)
         } else {
-          await executeUserEdit(ctx, editing.editingState!, content, attachments)
+          const editState = editing.editingState as MessageEditingState
+          if (editState.role === 'assistant') {
+            await executeAssistantEdit(ctx, editState, content)
+          } else {
+            await executeUserEdit(ctx, editState, content, attachments)
+          }
         }
       } catch (err) {
         logError('ui', 'Send failed', err as Error)
@@ -208,7 +223,11 @@ export function useChatSession(
     [selectedModel, editing, tree, thread, streaming, onThreadUpdate, parentId, handleStreamComplete],
   )
 
-  const editingId = editing.editingState?.messageId ?? null
+  // Extract message ID for highlighting (only for message edits)
+  const editingId =
+    editing.editingState && editing.editingState.kind !== 'system-prompt'
+      ? editing.editingState.id
+      : null
 
   const view: ChatSessionView = useMemo(() => ({
     messages: composeDisplayMessages(tree.displayMessages, streaming.streamingMessage, editingId),
@@ -221,10 +240,11 @@ export function useChatSession(
 
   const actions: ChatSessionActions = useMemo(() => ({
     send,
-    startEdit: editing.startEdit,
+    startEditMessage: editing.startEditMessage,
+    startEditSystemPrompt: editing.startEditSystemPrompt,
     selectModel: setSelectedModel,
     selectBranch: tree.switchBranch,
-  }), [send, editing.startEdit, setSelectedModel, tree.switchBranch])
+  }), [send, editing.startEditMessage, editing.startEditSystemPrompt, setSelectedModel, tree.switchBranch])
 
   return { view, actions }
 }

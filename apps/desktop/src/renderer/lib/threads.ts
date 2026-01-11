@@ -27,6 +27,7 @@ export type ChatThread = {
   createdAt: string
   updatedAt: string
   isPinned: boolean
+  systemPrompt: string | null
   children: ChatThread[]
 }
 
@@ -46,6 +47,7 @@ export function createDraftThread(): ChatThread {
     createdAt: now,
     updatedAt: now,
     isPinned: false,
+    systemPrompt: null,
     children: [],
   }
 }
@@ -66,6 +68,7 @@ export function hydrateFromSummary(summary: ThreadSummary): ChatThread {
     createdAt: summary.createdAt || summary.updatedAt,
     updatedAt: summary.updatedAt,
     isPinned: summary.pinned,
+    systemPrompt: summary.systemPrompt,
     children: summary.children.map(hydrateFromSummary),
   }
 }

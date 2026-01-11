@@ -20,6 +20,7 @@ import { validated, broadcast, register } from '@main/foundation/ipc'
 const ThreadPatchSchema = z.object({
   title: z.string().optional(),
   pinned: z.boolean().optional(),
+  systemPrompt: z.string().nullable().optional(),
 })
 
 // ============================================================================

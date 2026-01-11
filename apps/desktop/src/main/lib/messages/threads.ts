@@ -25,6 +25,7 @@ const applyPatch =
     ...t,
     ...(patch.title !== undefined && { title: patch.title, renamed: true, updatedAt: now() }),
     ...(patch.pinned !== undefined && { pinned: patch.pinned }),
+    ...(patch.systemPrompt !== undefined && { systemPrompt: patch.systemPrompt, updatedAt: now() }),
   })
 
 /** Removes thread, moving its children to root */
@@ -102,6 +103,7 @@ export async function createFolder(
       title: name,
       pinned: false,
       renamed: true,
+      systemPrompt: null,
       createdAt: timestamp,
       updatedAt: timestamp,
       children: [unpin(t1), unpin(t2)],
@@ -133,6 +135,7 @@ export async function createFolderWithThread(
       title: `Folder ${folderCount + 1}`,
       pinned: false,
       renamed: false,
+      systemPrompt: null,
       createdAt: timestamp,
       updatedAt: timestamp,
       children: [unpin(thread)],

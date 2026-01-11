@@ -70,6 +70,7 @@ export type StoredThread = {
   title: string | null
   pinned: boolean
   renamed: boolean
+  systemPrompt: string | null
   createdAt: string
   updatedAt: string
   children: StoredThread[]
@@ -80,6 +81,7 @@ export const StoredThreadSchema: z.ZodType<StoredThread> = z.object({
   title: z.string().nullable(),
   pinned: z.boolean(),
   renamed: z.boolean(),
+  systemPrompt: z.string().nullable().default(null),
   createdAt: z.string(),
   updatedAt: z.string(),
   children: z.lazy(() => z.array(StoredThreadSchema)).default([]),

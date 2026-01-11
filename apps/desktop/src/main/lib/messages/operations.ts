@@ -29,6 +29,7 @@ const buildThread = (id: string, timestamp: string, title: string | null): Store
   title,
   pinned: false,
   renamed: false,
+  systemPrompt: null,
   createdAt: timestamp,
   updatedAt: timestamp,
   children: [],

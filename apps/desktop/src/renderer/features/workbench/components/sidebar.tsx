@@ -8,9 +8,9 @@ import {
   SidebarFooter,
   SidebarRail,
 } from '@renderer/components/ui/sidebar'
-import { SidebarList } from './list'
-import { SidebarProvider } from './context'
-import { isFolder } from './thread-grouping'
+import { SidebarList } from './sidebar-list'
+import { SidebarProvider } from './sidebar-context'
+import { isFolder } from '@renderer/features/workbench/domain/thread-grouping'
 import { createDraftThread, type ChatThread, type ThreadAction } from '@renderer/lib/threads'
 
 interface NewChatButtonProps {

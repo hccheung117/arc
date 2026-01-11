@@ -1,6 +1,5 @@
 import { create } from 'zustand'
-import type { MessageRole } from '@arc-types/messages'
-import type { StreamState, EditingState, ComposerAttachment } from '@renderer/features/workbench/chat/domain/types'
+import type { StreamState, EditingState, ComposerAttachment } from '@renderer/features/workbench/domain/types'
 
 /**
  * Scroll state for a thread
@@ -70,7 +69,8 @@ interface ChatUIStore {
   resetStream: (threadId: string) => void
 
   // Editing actions
-  startEdit: (threadId: string, messageId: string, role: MessageRole) => void
+  startEditMessage: (threadId: string, messageId: string, role: 'user' | 'assistant') => void
+  startEditSystemPrompt: (threadId: string) => void
   cancelEdit: (threadId: string) => void
 
   // Scroll actions
@@ -214,10 +214,20 @@ export const useChatUIStore = create<ChatUIStore>((set, get) => ({
     ),
 
   // Editing actions
-  startEdit: (threadId, messageId, role) =>
+  startEditMessage: (threadId, messageId, role) =>
     set((state) =>
       updateThread(state, threadId, () => ({
-        editing: { messageId, role },
+        editing:
+          role === 'user'
+            ? { kind: 'user-message', id: messageId, role }
+            : { kind: 'assistant-message', id: messageId, role },
+      })),
+    ),
+
+  startEditSystemPrompt: (threadId) =>
+    set((state) =>
+      updateThread(state, threadId, () => ({
+        editing: { kind: 'system-prompt' },
       })),
     ),
 

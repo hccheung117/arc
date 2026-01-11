@@ -1,12 +1,14 @@
 import { useCallback } from 'react'
-import type { MessageRole } from '@arc-types/messages'
-import type { EditingState } from '@renderer/features/workbench/chat/domain/types'
-import { useChatUIStore } from '@renderer/features/workbench/chat/stores/chat-ui-store'
+import type { EditingState } from '@renderer/features/workbench/domain/types'
+import { useChatUIStore } from '@renderer/features/workbench/stores/chat-ui-store'
 
 interface UseEditingStoreReturn {
   editingState: EditingState | null
   isEditing: boolean
-  startEdit: (messageId: string, role: MessageRole) => void
+  isEditingMessage: boolean
+  isEditingSystemPrompt: boolean
+  startEditMessage: (messageId: string, role: 'user' | 'assistant') => void
+  startEditSystemPrompt: () => void
   cancelEdit: () => void
   clearEdit: () => void
 }
@@ -22,12 +24,16 @@ interface UseEditingStoreReturn {
 export function useEditingStore(threadId: string): UseEditingStoreReturn {
   const editingState = useChatUIStore((state) => state.getThreadState(threadId).editing)
 
-  const startEdit = useCallback(
-    (messageId: string, role: MessageRole) => {
-      useChatUIStore.getState().startEdit(threadId, messageId, role)
+  const startEditMessage = useCallback(
+    (messageId: string, role: 'user' | 'assistant') => {
+      useChatUIStore.getState().startEditMessage(threadId, messageId, role)
     },
     [threadId],
   )
+
+  const startEditSystemPrompt = useCallback(() => {
+    useChatUIStore.getState().startEditSystemPrompt(threadId)
+  }, [threadId])
 
   const cancelEdit = useCallback(() => {
     useChatUIStore.getState().cancelEdit(threadId)
@@ -40,7 +46,10 @@ export function useEditingStore(threadId: string): UseEditingStoreReturn {
   return {
     editingState,
     isEditing: editingState !== null,
-    startEdit,
+    isEditingMessage: editingState !== null && editingState.kind !== 'system-prompt',
+    isEditingSystemPrompt: editingState?.kind === 'system-prompt',
+    startEditMessage,
+    startEditSystemPrompt,
     cancelEdit,
     clearEdit,
   }

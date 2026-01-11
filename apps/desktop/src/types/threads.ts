@@ -16,6 +16,7 @@ export type ThreadSummary = {
   createdAt: string
   updatedAt: string
   pinned: boolean
+  systemPrompt: string | null
   children: ThreadSummary[]
 }
 
@@ -25,6 +26,7 @@ export const ThreadSummarySchema: z.ZodType<ThreadSummary> = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   pinned: z.boolean(),
+  systemPrompt: z.string().nullable(),
   children: z.lazy(() => z.array(ThreadSummarySchema)).default([]),
 })
 

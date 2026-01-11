@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import type { Message } from '@arc-types/messages'
 import type { BranchInfo } from '@arc-types/arc-api'
-import type { BranchSelections } from '@renderer/features/workbench/chat/domain/types'
-import { resolveTree } from '@renderer/features/workbench/chat/domain/message-tree'
+import type { BranchSelections } from '@renderer/features/workbench/domain/types'
+import { resolveTree } from '@renderer/features/workbench/domain/message-tree'
 import { getMessages } from '@renderer/lib/messages'
 import { getBranchSelections, setBranchSelection } from '@renderer/lib/ui-state-db'
 

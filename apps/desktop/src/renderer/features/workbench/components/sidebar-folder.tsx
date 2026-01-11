@@ -15,9 +15,9 @@ import {
   createFolderWithThread,
   type ChatThread,
 } from '@renderer/lib/threads'
-import { useRename } from './use-rename'
-import { ThreadItem } from './thread-item'
-import { useSidebar } from './context'
+import { useRename } from '@renderer/features/workbench/hooks/use-rename'
+import { ThreadItem } from './sidebar-thread-item'
+import { useSidebar } from './sidebar-context'
 
 // ─────────────────────────────────────────────────────────────
 // A folder is a collapsible menu item containing nested threads.

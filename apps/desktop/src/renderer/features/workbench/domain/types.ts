@@ -36,12 +36,22 @@ export type StreamState =
   | { status: 'error'; error: string }
 
 /**
- * Editing state for message modification
+ * Source of editing operation
+ * Discriminates between message edits and system prompt edits
  */
-export interface EditingState {
-  messageId: string
-  role: MessageRole
-}
+export type EditSource =
+  | { kind: 'user-message'; id: string }
+  | { kind: 'assistant-message'; id: string }
+  | { kind: 'system-prompt' }
+
+/**
+ * Store-level editing state
+ * Includes role for message edits (used by send flows)
+ */
+export type EditingState =
+  | { kind: 'user-message'; id: string; role: 'user' }
+  | { kind: 'assistant-message'; id: string; role: 'assistant' }
+  | { kind: 'system-prompt' }
 
 /**
  * Local attachment state for preview
@@ -114,4 +124,4 @@ export interface DisplayMessage {
 export type InputMode =
   | { mode: 'ready' }
   | { mode: 'streaming'; stop: () => void }
-  | { mode: 'editing'; messageId: string; role: MessageRole; cancel: () => void }
+  | { mode: 'editing'; source: EditSource; cancel: () => void }

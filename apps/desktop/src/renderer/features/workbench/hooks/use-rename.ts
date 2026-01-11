@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { useSidebar } from './context'
+import { useSidebar } from '@renderer/features/workbench/components/sidebar-context'
 
 interface UseRenameOptions {
   id: string

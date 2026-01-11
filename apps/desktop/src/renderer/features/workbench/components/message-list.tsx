@@ -1,6 +1,6 @@
 import type { Message as MessageType, MessageRole } from '@arc-types/messages'
 import type { BranchInfo } from '@arc-types/arc-api'
-import type { StreamingMessage } from '@renderer/features/workbench/chat/domain/stream-state'
+import type { StreamingMessage } from '@renderer/features/workbench/domain/stream-state'
 import { ScrollArea } from '@renderer/components/ui/scroll-area'
 import { Message } from './message'
 import { ChevronDown } from 'lucide-react'

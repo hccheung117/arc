@@ -4,7 +4,7 @@ import { Textarea } from '@renderer/components/ui/textarea'
 import { ImagePlus, Send, Square, Pencil } from 'lucide-react'
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import type { AttachmentInput } from '@arc-types/arc-api'
-import { useComposerStore } from '@renderer/features/workbench/chat/hooks/use-composer-store'
+import { useComposerStore } from '@renderer/features/workbench/hooks/use-composer-store'
 import { AttachmentGrid } from './composer-attachments'
 
 /*
@@ -22,6 +22,8 @@ export interface ComposerProps {
   isStreaming?: boolean
   isEditing?: boolean
   onCancelEdit?: () => void
+  editingLabel?: string
+  allowEmptySubmit?: boolean
 }
 
 export interface ComposerRef {
@@ -30,7 +32,7 @@ export interface ComposerRef {
 }
 
 export const Composer = forwardRef<ComposerRef, ComposerProps>(
-  ({ threadId, onSend, onStop, isStreaming, isEditing, onCancelEdit }, ref) => {
+  ({ threadId, onSend, onStop, isStreaming, isEditing, onCancelEdit, editingLabel, allowEmptySubmit }, ref) => {
     const [isDragging, setIsDragging] = useState(false)
     const textareaRef = useRef<HTMLTextAreaElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
@@ -112,7 +114,8 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(
 
     const handleSend = async () => {
       const hasContent = message.trim() || hasAttachments
-      if (!hasContent || !onSend || isStreaming) return
+      if (!hasContent && !allowEmptySubmit) return
+      if (!onSend || isStreaming) return
 
       const messageToSend = message.trim()
       const attachmentInputs = hasAttachments ? await toAttachmentInputs() : undefined
@@ -129,7 +132,7 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(
       }
     }
 
-    const canSend = (message.trim() || hasAttachments) && !isStreaming
+    const canSend = (message.trim() || hasAttachments || allowEmptySubmit) && !isStreaming
 
     return (
       <Card
@@ -148,7 +151,7 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(
           <div className="flex items-center justify-between mb-0 px-1 shrink-0">
             <span className="text-xs font-medium text-primary flex items-center gap-1">
               <Pencil className="h-3 w-3" />
-              Editing message
+              {editingLabel ?? 'Editing message'}
             </span>
             <button
               onClick={onCancelEdit}

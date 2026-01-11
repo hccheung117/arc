@@ -24,6 +24,7 @@ import type { ProfileInfo, ProfileInstallResult, ProfilesEvent } from './arc-fil
 export const ThreadPatchSchema = z.object({
   title: z.string().optional(),
   pinned: z.boolean().optional(),
+  systemPrompt: z.string().nullable().optional(),
 })
 export type ThreadPatch = z.infer<typeof ThreadPatchSchema>
 
@@ -79,6 +80,7 @@ export type Thread = {
   id: string
   title: string
   pinned: boolean
+  systemPrompt: string | null
   createdAt: string
   updatedAt: string
   children: Thread[]
@@ -88,6 +90,7 @@ export const ThreadSchema: z.ZodType<Thread> = z.object({
   id: z.string(),
   title: z.string(),
   pinned: z.boolean(),
+  systemPrompt: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
   children: z.lazy(() => z.array(ThreadSchema)).default([]),

@@ -15,6 +15,8 @@ import { listModels, lookupModelProvider } from '@main/lib/profile/models'
 import { createArc } from '@main/lib/ai/provider'
 import type { StoredMessageEvent } from '@main/lib/messages/schemas'
 import { readMessages, appendMessage } from '@main/lib/messages/operations'
+import { threadIndexFile } from '@main/lib/messages/storage'
+import { findById } from '@main/lib/messages/tree'
 import { getProviderConfig } from '@main/lib/profile/operations'
 import { getThreadAttachmentPath } from '@main/foundation/paths'
 import { error } from '@main/foundation/logger'
@@ -91,17 +93,111 @@ function convertUsage(usage: LanguageModelUsage) {
 }
 
 // ============================================================================
+// STREAM CONTEXT
+// ============================================================================
+
+interface StreamContext {
+  messages: ModelMessage[]
+  parentId: string | null
+  provider: { baseURL?: string; apiKey?: string }
+  providerId: string
+  modelId: string
+  threadId: string
+}
+
+async function prepareStreamContext(threadId: string, modelId: string): Promise<StreamContext> {
+  const [{ messages: threadMessages }, threadIndex, providerId] = await Promise.all([
+    readMessages(threadId),
+    threadIndexFile().read(),
+    lookupModelProvider(modelId),
+  ])
+
+  const thread = findById(threadIndex.threads, threadId)
+  const providerConfig = await getProviderConfig(providerId)
+  const parentId = threadMessages.at(-1)?.id ?? null
+
+  const baseMessages = await convertToModelMessages(threadMessages, threadId)
+  const messages = thread?.systemPrompt
+    ? [{ role: 'system' as const, content: thread.systemPrompt }, ...baseMessages]
+    : baseMessages
+
+  return {
+    messages,
+    parentId,
+    provider: { baseURL: providerConfig.baseUrl ?? undefined, apiKey: providerConfig.apiKey ?? undefined },
+    providerId,
+    modelId,
+    threadId,
+  }
+}
+
+// ============================================================================
+// STREAM CONSUMPTION
+// ============================================================================
+
+interface StreamResult {
+  content: string
+  reasoning: string
+  usage: ReturnType<typeof convertUsage>
+}
+
+async function consumeStream(
+  ctx: StreamContext,
+  abortSignal: AbortSignal,
+  onDelta: (chunk: string) => void,
+  onReasoning: (chunk: string) => void,
+): Promise<StreamResult> {
+  const arc = createArc(ctx.provider)
+
+  const result = streamText({
+    model: arc(ctx.modelId),
+    messages: ctx.messages,
+    providerOptions: { arc: { reasoningEffort: 'high' } },
+    abortSignal,
+  })
+
+  let content = ''
+  let reasoning = ''
+
+  for await (const part of result.fullStream) {
+    if (part.type === 'text-delta') {
+      content += part.text
+      onDelta(part.text)
+    } else if (part.type === 'reasoning-delta') {
+      reasoning += part.text
+      onReasoning(part.text)
+    }
+  }
+
+  return { content, reasoning, usage: convertUsage(await result.usage) }
+}
+
+// ============================================================================
+// STREAM PERSISTENCE
+// ============================================================================
+
+async function persistStreamResult(ctx: StreamContext, result: StreamResult) {
+  return appendMessage({
+    type: 'new',
+    threadId: ctx.threadId,
+    role: 'assistant',
+    content: result.content,
+    parentId: ctx.parentId,
+    modelId: ctx.modelId,
+    providerId: ctx.providerId,
+    reasoning: result.reasoning || undefined,
+    usage: result.usage,
+  })
+}
+
+// ============================================================================
 // STREAMING ORCHESTRATION
 // ============================================================================
 
 /**
  * Orchestrates AI chat streaming.
- * Uses AI SDK streamText with Arc custom provider.
  *
- * MEMORY-ONLY STREAMING STRATEGY:
- * Content accumulates via the result object pattern.
- * Storage is NOT touched until streaming completes successfully.
- * On completion, a single atomic write persists the full message.
+ * Flow: prepare context → consume stream → persist result
  */
 async function executeStream(
   streamId: string,
@@ -115,76 +211,19 @@ async function executeStream(
   },
 ): Promise<void> {
   const abortController = new AbortController()
+  activeStreams.set(streamId, abortController)
 
   try {
-    const { messages: threadMessages } = await readMessages(threadId)
-
-    const providerId = await lookupModelProvider(modelId)
-    const providerConfig = await getProviderConfig(providerId)
-
-    // Get the parent ID (last message in the thread)
-    const lastMessage = threadMessages[threadMessages.length - 1]
-    const parentId = lastMessage?.id ?? null
-
-    const modelMessages = await convertToModelMessages(threadMessages, threadId)
-
-    // Create Arc provider with config
-    const arc = createArc({
-      baseURL: providerConfig.baseUrl ?? undefined,
-      apiKey: providerConfig.apiKey ?? undefined,
-    })
-
-    activeStreams.set(streamId, abortController)
-
-    const result = streamText({
-      model: arc(modelId),
-      messages: modelMessages,
-      providerOptions: {
-        arc: { reasoningEffort: 'high' },
-      },
-      abortSignal: abortController.signal,
-    })
-
-    let fullContent = ''
-    let fullReasoning = ''
-
-    // Consume the full stream for all event types
-    for await (const part of result.fullStream) {
-      switch (part.type) {
-        case 'text-delta':
-          fullContent += part.text
-          callbacks.onDelta(part.text)
-          break
-        case 'reasoning-delta':
-          fullReasoning += part.text
-          callbacks.onReasoning(part.text)
-          break
-      }
-    }
-
-    // Get final usage
-    const usage = convertUsage(await result.usage)
-
-    const { message: assistantMessage } = await appendMessage({
-      type: 'new',
-      threadId,
-      role: 'assistant',
-      content: fullContent,
-      parentId,
-      modelId,
-      providerId,
-      reasoning: fullReasoning || undefined,
-      usage,
-    })
-    callbacks.onComplete(assistantMessage)
+    const ctx = await prepareStreamContext(threadId, modelId)
+    const result = await consumeStream(ctx, abortController.signal, callbacks.onDelta, callbacks.onReasoning)
+    const { message } = await persistStreamResult(ctx, result)
+    callbacks.onComplete(message)
   } catch (err) {
-    if ((err as Error).name === 'AbortError') {
-      return
+    if ((err as Error).name !== 'AbortError') {
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+      error('chat', `Stream error: ${errorMsg}`)
+      callbacks.onError(errorMsg)
     }
-
-    const errorMsg = err instanceof Error ? err.message : 'Unknown error'
-    error('chat', `Stream error: ${errorMsg}`)
-    callbacks.onError(errorMsg)
   } finally {
     activeStreams.delete(streamId)
   }
