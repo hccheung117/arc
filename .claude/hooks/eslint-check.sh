@@ -1,51 +1,48 @@
 #!/bin/bash
 
-# ESLint hook for Claude Code
-# Runs ESLint on TypeScript/JavaScript files after edits
+# ESLint Stop hook for Claude Code
+# Runs ESLint on modified TS/JS files when Claude tries to stop
+# Blocks Claude from stopping if there are linting errors
 
-# Parse the file path from hook input JSON
-file_path=$(cat | jq -r '.tool_input.file_path // empty' 2>/dev/null)
+input=$(cat)
+cwd=$(echo "$input" | jq -r '.cwd // empty')
+stop_hook_active=$(echo "$input" | jq -r '.stop_hook_active // false')
 
-# Exit early if no file path or not a JS/TS file
-if [[ -z "$file_path" ]] || [[ ! "$file_path" =~ \.(ts|tsx|js|jsx|mjs|cjs)$ ]]; then
+# Prevent infinite loops - if we already blocked once, let Claude stop
+if [[ "$stop_hook_active" == "true" ]]; then
   exit 0
 fi
 
-# Skip node_modules
-if [[ "$file_path" == *"node_modules"* ]]; then
+# Exit if no cwd
+if [[ -z "$cwd" ]]; then
   exit 0
 fi
 
-# Find the nearest directory with an ESLint config
-find_eslint_root() {
-  local dir="$1"
-  while [[ "$dir" != "/" ]]; do
-    if ls "$dir"/eslint.config.* 1>/dev/null 2>&1; then
-      echo "$dir"
-      return 0
-    fi
-    dir=$(dirname "$dir")
-  done
-  return 1
-}
+cd "$cwd" || exit 0
 
-file_dir=$(dirname "$file_path")
-eslint_root=$(find_eslint_root "$file_dir")
+# Get modified TS/JS files from git (both staged and unstaged changes)
+# Filter to apps/desktop only and strip the prefix for ESLint
+modified_files=$(git diff --name-only HEAD 2>/dev/null | grep -E '^apps/desktop/.*\.(ts|tsx)$' | sed 's|^apps/desktop/||' || true)
 
-if [[ -z "$eslint_root" ]]; then
-  # No ESLint config found, skip
+# Also include untracked new files
+untracked_files=$(git ls-files --others --exclude-standard 2>/dev/null | grep -E '^apps/desktop/.*\.(ts|tsx)$' | sed 's|^apps/desktop/||' || true)
+
+# Combine both lists
+all_files=$(echo -e "${modified_files}\n${untracked_files}" | grep -v '^$' | sort -u)
+
+# Exit if no modified TS files in apps/desktop
+if [[ -z "$all_files" ]]; then
   exit 0
 fi
 
-# Run ESLint from the config directory
-cd "$eslint_root" || exit 0
-output=$(npx eslint "$file_path" 2>&1)
+# Run lint via npm workspace - paths are relative to apps/desktop
+output=$(npm run lint -w apps/desktop -- $all_files 2>&1)
 exit_code=$?
 
 if [[ $exit_code -ne 0 ]]; then
-  echo "$output" >&2
-  # Exit 2 blocks the action and shows stderr to Claude
-  exit 2
+  # Build valid JSON using jq - handles all escaping correctly
+  jq -n --arg reason "ESLint errors found. Fix all linting issues before stopping:" --arg output "$output" \
+    '{decision: "block", reason: ($reason + "\n\n" + $output)}'
 fi
 
 exit 0
