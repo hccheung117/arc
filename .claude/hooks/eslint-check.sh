@@ -20,6 +20,13 @@ fi
 
 cd "$cwd" || exit 0
 
+# Navigate to git repo root for npm workspace commands
+repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
+if [[ -z "$repo_root" ]]; then
+  exit 0
+fi
+cd "$repo_root" || exit 0
+
 # Get modified TS/JS files from git (both staged and unstaged changes)
 # Filter to apps/desktop only and strip the prefix for ESLint
 modified_files=$(git diff --name-only HEAD 2>/dev/null | grep -E '^apps/desktop/.*\.(ts|tsx)$' | sed 's|^apps/desktop/||' || true)
