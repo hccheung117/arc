@@ -19,6 +19,26 @@ Any Trigger → Command → Domain Handler → Effect { result, events[] } → B
 3. **Effects as data** — Domain returns `{ result, events }`, caller broadcasts
 4. **Unidirectional flow** — Commands down, events up. No scattered side effects.
 
+## Core Mental Model: Ownership Handoff
+
+**Threads are born local, transferred to DB on first message.**
+
+New chats exist only in renderer memory until the user sends a message. This avoids empty threads in storage and enables instant "New Chat" without backend latency.
+
+```
+[New Chat] → owner: 'local' → [First Message] → config bundled with IPC → owner: 'db'
+                ↓                                        ↓
+        Renderer owns state                      Backend owns state
+        UPSERT preserves local                   UPSERT accepted as-is
+```
+
+**Key principles:**
+
+1. **Explicit ownership** — `owner: 'local' | 'db'` field on ChatThread tracks who owns the source of truth
+2. **Atomic handoff** — Thread config (systemPrompt, etc.) bundled with first message IPC, created together
+3. **UPSERT guards** — When `owner === 'local'`, backend events don't overwrite local config
+4. **Blocking during send** — `InputMode: 'sending'` prevents config edits during the handoff window
+
 ## IPC Communication
 
 Three patterns based on direction and response requirements:
