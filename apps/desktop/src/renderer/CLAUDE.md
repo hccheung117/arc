@@ -67,3 +67,23 @@ Never use raw utilities (`text-sm`, `text-xs`)—always semantic tokens.
 ### State Persistence
 
 UI state that survives sessions persists via IndexedDB in the renderer.
+
+### Props vs Context
+
+**Context for identity, props for variation.**
+
+Use this decision tree when adding new data to components:
+
+| Question | Answer | Delivery |
+|----------|--------|----------|
+| Does every child need the same value? | Yes | Context |
+| Does it identify "where we are"? (threadId, messageId) | Yes | Context |
+| Does a sibling need a different value? | Yes | Props |
+| Is it an action operating on identity? | Yes | Hook + context |
+
+**Established context boundaries:**
+
+- `ThreadProvider` — wraps `ChatView`, provides `threadId` via `useThreadId()`
+- `MessageProvider` — wraps each message in `MessageList`, provides `messageId`/`role` via `useMessageContext()`
+
+**Why this matters:** Props are easy to add but accumulate debt. Context requires upfront investment but prevents drilling. If you find yourself passing a prop through 2+ components that don't use it, refactor to context.

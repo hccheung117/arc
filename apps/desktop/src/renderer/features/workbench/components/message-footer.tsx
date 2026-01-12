@@ -10,13 +10,14 @@ interface MessageFooterProps {
   onBranchSwitch?: (index: number) => void
   /** Controls alignment of action buttons */
   align: 'left' | 'right'
-  threadId: string
-  messageId: string
 }
 
 /**
  * Shared footer for messages containing branch navigation and action buttons.
  * Used by both MessageUser and MessageAssistant to ensure consistent layout.
+ *
+ * Note: threadId and messageId are accessed via context in MessageActions,
+ * avoiding prop drilling through this intermediate component.
  */
 export function MessageFooter({
   content,
@@ -25,8 +26,6 @@ export function MessageFooter({
   branchInfo,
   onBranchSwitch,
   align,
-  threadId,
-  messageId,
 }: MessageFooterProps) {
   const hasBranches = branchInfo && branchInfo.branches.length > 1 && onBranchSwitch
 
@@ -36,13 +35,7 @@ export function MessageFooter({
       {hasBranches && (
         <BranchIndicator branchInfo={branchInfo} onSwitch={onBranchSwitch} />
       )}
-      <MessageActions
-        content={content}
-        isHovered={isHovered}
-        onEdit={onEdit}
-        threadId={threadId}
-        messageId={messageId}
-      />
+      <MessageActions content={content} isHovered={isHovered} onEdit={onEdit} />
     </div>
   )
 }

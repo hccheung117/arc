@@ -3,13 +3,13 @@ import { Copy, Check, Pencil, GitFork } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { warn, error } from '@renderer/lib/logger'
 import { duplicateThread } from '@renderer/lib/threads'
+import { useThreadId } from '@renderer/features/workbench/context/thread-context'
+import { useMessageId } from '@renderer/features/workbench/context/message-context'
 
 interface MessageActionsProps {
   content: string
   isHovered: boolean
   onEdit?: (content: string) => void
-  threadId: string
-  messageId: string
 }
 
 const actionButtonClass = (visible: boolean) =>
@@ -18,14 +18,12 @@ const actionButtonClass = (visible: boolean) =>
 /**
  * Action buttons for messages (copy, duplicate, edit).
  * Rendered inline - parent component (MessageFooter) handles alignment.
+ *
+ * Pulls threadId and messageId from context to avoid prop drilling.
  */
-export function MessageActions({
-  content,
-  isHovered,
-  onEdit,
-  threadId,
-  messageId,
-}: MessageActionsProps) {
+export function MessageActions({ content, isHovered, onEdit }: MessageActionsProps) {
+  const threadId = useThreadId()
+  const messageId = useMessageId()
   const [isCopied, setIsCopied] = useState(false)
 
   const handleCopy = useCallback(() => {

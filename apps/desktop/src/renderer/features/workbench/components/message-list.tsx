@@ -2,11 +2,11 @@ import type { Message as MessageType, MessageRole } from '@arc-types/messages'
 import type { BranchInfo } from '@arc-types/arc-api'
 import type { StreamingMessage } from '@renderer/features/workbench/domain/stream-state'
 import { ScrollArea } from '@renderer/components/ui/scroll-area'
+import { MessageProvider } from '@renderer/features/workbench/context/message-context'
 import { Message } from './message'
 import { ChevronDown } from 'lucide-react'
 
 interface MessageListProps {
-  threadId: string
   messages: MessageType[]
   streamingMessage: StreamingMessage | null
   branchPoints: BranchInfo[]
@@ -22,7 +22,6 @@ interface MessageListProps {
  * Message list with scroll area and streaming support
  */
 export function MessageList({
-  threadId,
   messages,
   streamingMessage,
   branchPoints,
@@ -43,17 +42,17 @@ export function MessageList({
             // Streaming message is the last in array when active (added by composeDisplayMessages)
             const isStreamingMsg = streamingMessage && message.id === streamingMessage.id
             return (
-              <Message
-                key={message.id}
-                id={message.id}
-                threadId={threadId}
-                message={message}
-                isThinking={isStreamingMsg ? streamingMessage.isThinking : undefined}
-                onEdit={(content) => onEdit(content, message.id, message.role)}
-                isEditing={editingId === message.id}
-                branchInfo={branchInfo}
-                onBranchSwitch={(targetIndex) => onBranchSwitch(parentId, targetIndex)}
-              />
+              <MessageProvider key={message.id} messageId={message.id} role={message.role}>
+                <Message
+                  id={message.id}
+                  message={message}
+                  isThinking={isStreamingMsg ? streamingMessage.isThinking : undefined}
+                  onEdit={(content) => onEdit(content, message.id, message.role)}
+                  isEditing={editingId === message.id}
+                  branchInfo={branchInfo}
+                  onBranchSwitch={(targetIndex) => onBranchSwitch(parentId, targetIndex)}
+                />
+              </MessageProvider>
             )
           })}
         </div>

@@ -8,6 +8,7 @@ import { useScrollStore } from '@renderer/features/workbench/hooks/use-scroll-st
 import { useEditingSync } from '@renderer/features/workbench/hooks/use-editing-sync'
 import { useSystemPrompt } from '@renderer/features/workbench/hooks/use-system-prompt'
 import { useExport } from '@renderer/features/workbench/hooks/use-export'
+import { ThreadProvider } from '@renderer/features/workbench/context/thread-context'
 import { Header } from './header'
 import { MessageList } from './message-list'
 import { ChatFooter } from './chat-footer'
@@ -103,61 +104,62 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
   const handleSend = isEditingSystemPrompt ? systemPrompt.save : actions.send
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <Header
-        selectedModel={view.model}
-        onModelSelect={actions.selectModel}
-        models={models}
-        onExport={handleExport}
-        canExport={!isEmpty}
-        onEditSystemPrompt={systemPrompt.startEdit}
-        hasSystemPrompt={!!thread.systemPrompt}
-      />
+    <ThreadProvider threadId={thread.id}>
+      <div className="flex h-full flex-col overflow-hidden">
+        <Header
+          selectedModel={view.model}
+          onModelSelect={actions.selectModel}
+          models={models}
+          onExport={handleExport}
+          canExport={!isEmpty}
+          onEditSystemPrompt={systemPrompt.startEdit}
+          hasSystemPrompt={!!thread.systemPrompt}
+        />
 
-      {/* Chat body: layered architecture for stable robot positioning */}
-      <div className="flex-1 min-h-0 relative">
-        {/* Background layer: robot icon stays centered regardless of composer growth */}
-        {isEmpty && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <EmptyState />
-          </div>
-        )}
-
-        {/* Content layer: flex column pushes footer to bottom */}
-        <div className="absolute inset-0 flex flex-col">
-          {isEmpty ? (
-            <div className="flex-1 min-h-0" />
-          ) : (
-            <MessageList
-              threadId={thread.id}
-              messages={view.messages.map((dm) => dm.message)}
-              streamingMessage={view.streamingMessage}
-              branchPoints={view.branches}
-              editingId={editingMessageId}
-              onEdit={handleEditMessage}
-              onBranchSwitch={actions.selectBranch}
-              onViewportMount={setViewport}
-              isAtBottom={isAtBottom}
-              onScrollToBottom={scrollToBottom}
-            />
+        {/* Chat body: layered architecture for stable robot positioning */}
+        <div className="flex-1 min-h-0 relative">
+          {/* Background layer: robot icon stays centered regardless of composer growth */}
+          {isEmpty && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <EmptyState />
+            </div>
           )}
 
-          <ChatFooter
-            ref={composerRef}
-            error={view.error}
-            composerProps={{
-              threadId: thread.id,
-              onSend: handleSend,
-              onStop: handleStop,
-              isStreaming: view.input.mode === 'streaming',
-              isEditing: view.input.mode === 'editing',
-              onCancelEdit: cancelEdit,
-              editingLabel,
-              allowEmptySubmit: isEditingSystemPrompt,
-            }}
-          />
+          {/* Content layer: flex column pushes footer to bottom */}
+          <div className="absolute inset-0 flex flex-col">
+            {isEmpty ? (
+              <div className="flex-1 min-h-0" />
+            ) : (
+              <MessageList
+                messages={view.messages.map((dm) => dm.message)}
+                streamingMessage={view.streamingMessage}
+                branchPoints={view.branches}
+                editingId={editingMessageId}
+                onEdit={handleEditMessage}
+                onBranchSwitch={actions.selectBranch}
+                onViewportMount={setViewport}
+                isAtBottom={isAtBottom}
+                onScrollToBottom={scrollToBottom}
+              />
+            )}
+
+            <ChatFooter
+              ref={composerRef}
+              error={view.error}
+              composerProps={{
+                threadId: thread.id,
+                onSend: handleSend,
+                onStop: handleStop,
+                isStreaming: view.input.mode === 'streaming',
+                isEditing: view.input.mode === 'editing',
+                onCancelEdit: cancelEdit,
+                editingLabel,
+                allowEmptySubmit: isEditingSystemPrompt,
+              }}
+            />
+          </div>
         </div>
       </div>
-    </div>
+    </ThreadProvider>
   )
 }
