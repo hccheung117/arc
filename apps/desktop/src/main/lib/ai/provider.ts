@@ -2,7 +2,7 @@
  * Arc Custom Provider for AI SDK
  *
  * Implements LanguageModelV3 for Arc's custom backend format:
- * - Request: `{ thinking: { reasoning_effort } }` (nested)
+ * - Request: `{ reasoning_effort, thinking: { reasoning_effort } }` (both nested and unnested)
  * - Response: `reasoning_content ?? reasoning` fallback
  */
 
@@ -97,7 +97,10 @@ class ArcLanguageModel implements LanguageModelV3 {
       ...(options.temperature !== undefined && { temperature: options.temperature }),
       ...(options.topP !== undefined && { top_p: options.topP }),
       ...(options.stopSequences !== undefined && { stop: options.stopSequences }),
-      ...(providerOptions?.reasoningEffort && { thinking: { reasoning_effort: providerOptions.reasoningEffort } }),
+      ...(providerOptions?.reasoningEffort && {
+        reasoning_effort: providerOptions.reasoningEffort,
+        thinking: { reasoning_effort: providerOptions.reasoningEffort },
+      }),
     }
   }
 }
