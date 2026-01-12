@@ -1,5 +1,7 @@
 # Renderer Process
 
+> Implementation details for UI concerns.
+
 ## Code Organization
 
 Shared code at root, feature-specific code in feature directories:

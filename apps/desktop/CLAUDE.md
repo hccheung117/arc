@@ -2,15 +2,11 @@
 
 This Electron application uses a main-renderer architecture built with Vite. The main process handles backend concerns—AI integration, IPC, file system—while the renderer process owns UI presentation.
 
-## Core Mental Model: Commands as Data
+## Core Mental Model: Command Pattern
 
 **The trigger is incidental. The domain is essential.**
 
-For example, a "delete thread" operation is the same whether triggered by button click, context menu, or keyboard shortcut. All user intents become Commands that flow through a single domain handler.
-
-```
-Any Trigger → Command → Domain Handler → Effect { result, events[] } → Broadcast → UI State
-```
+For example, a "delete thread" operation is the same whether triggered by button click, context menu, or keyboard shortcut. All user intents become Commands that flow through a single domain handler. See @src/main/CLAUDE.md for backend flow, @src/renderer/CLAUDE.md for UI flow.
 
 **Key principles:**
 

@@ -1,5 +1,7 @@
 # Main Process
 
+> Implementation details for backend concerns.
+
 ## Three-Layer Architecture
 
 ```
