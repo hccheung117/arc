@@ -6,8 +6,8 @@
  */
 
 import { screen, type BrowserWindow } from 'electron'
-import { readFile, mkdir } from 'node:fs/promises'
-import { dirname } from 'node:path'
+import { readFile, mkdir, readdir, unlink } from 'node:fs/promises'
+import { dirname, basename } from 'node:path'
 import writeFileAtomic from 'write-file-atomic'
 import { z } from 'zod'
 import { getWindowStateCachePath } from '@main/foundation/paths'
@@ -21,11 +21,30 @@ const WindowStateSchema = z.object({
 const DEFAULT_SIZE = { width: 800, height: 600 }
 export const MIN_SIZE = { width: 700, height: 550 }
 
+// write-file-atomic creates temp files (e.g., file.json.123456) that can become
+// orphaned if the app crashes during write. Clean them up opportunistically.
+async function cleanupOrphanedTempFiles(): Promise<void> {
+  const cachePath = getWindowStateCachePath()
+  const dir = dirname(cachePath)
+  const baseName = basename(cachePath)
+
+  try {
+    const files = await readdir(dir)
+    const orphaned = files.filter((f) => f.startsWith(`${baseName}.`) && f !== baseName)
+
+    await Promise.all(orphaned.map((f) => unlink(`${dir}/${f}`).catch(() => {})))
+  } catch {
+    // Best-effort cleanup - silently ignore all errors
+  }
+}
+
 /**
  * Reads saved window size.
  * Returns default size if no saved state or on error.
  */
 export async function readWindowSize(): Promise<{ width: number; height: number }> {
+  cleanupOrphanedTempFiles() // Fire and forget
+
   try {
     const content = await readFile(getWindowStateCachePath(), 'utf-8')
     return WindowStateSchema.parse(JSON.parse(content))
