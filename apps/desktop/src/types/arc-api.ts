@@ -138,7 +138,9 @@ export type Persona = {
 }
 
 /** Persona lifecycle events (Rule 3: Push) */
-export type PersonasEvent = { type: 'created'; persona: Persona }
+export type PersonasEvent =
+  | { type: 'created'; persona: Persona }
+  | { type: 'deleted'; id: string }
 
 /** Thread lifecycle events (Rule 3: Push) */
 export type ThreadEvent =
@@ -329,6 +331,9 @@ export interface ArcAPI {
 
     /** Create a new persona (Rule 2: Two-Way) */
     create(name: string, systemPrompt: string): Promise<Persona>
+
+    /** Delete a persona (Rule 2: Two-Way) */
+    delete(id: string): Promise<void>
 
     /** Subscribe to persona lifecycle events (Rule 3: Push) */
     onEvent(callback: (event: PersonasEvent) => void): Unsubscribe

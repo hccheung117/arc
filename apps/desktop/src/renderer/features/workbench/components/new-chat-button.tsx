@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { PenSquare, ChevronDown, Drama } from 'lucide-react'
+import { PenSquare, ChevronDown, Drama, Trash2 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import {
   Popover,
@@ -22,6 +22,8 @@ export function NewChatButton({ onNewChat }: NewChatButtonProps) {
     return window.arc.personas.onEvent((event) => {
       if (event.type === 'created') {
         setPersonas((prev) => [...prev, event.persona])
+      } else if (event.type === 'deleted') {
+        setPersonas((prev) => prev.filter((p) => p.id !== event.id))
       }
     })
   }, [])
@@ -67,14 +69,25 @@ export function NewChatButton({ onNewChat }: NewChatButtonProps) {
         <PopoverContent className="w-56 p-1" align="end">
           <div className="flex flex-col">
             {personas.map((persona) => (
-              <button
+              <div
                 key={persona.id}
-                className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent text-left"
+                className="group flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent text-left cursor-pointer"
                 onClick={() => handlePersonaSelect(persona)}
               >
-                <Drama className="h-4 w-4 text-muted-foreground" />
-                <span className="truncate">{persona.name}</span>
-              </button>
+                <Drama className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="truncate flex-1">{persona.name}</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    window.arc.personas.delete(persona.id)
+                  }}
+                  className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                </button>
+              </div>
             ))}
           </div>
         </PopoverContent>

@@ -9,7 +9,7 @@ import type { IpcMain } from 'electron'
 import { z } from 'zod'
 import { validated, register, broadcast } from '@main/foundation/ipc'
 import type { PersonasEvent } from '@arc-types/arc-api'
-import { listPersonas, createPersona } from '@main/lib/personas/operations'
+import { listPersonas, createPersona, deletePersona } from '@main/lib/personas/operations'
 
 // ============================================================================
 // HANDLERS
@@ -26,6 +26,11 @@ const handlers = {
       return persona
     },
   ),
+
+  'arc:personas:delete': validated([z.string()], async (id: string) => {
+    await deletePersona(id)
+    broadcast<PersonasEvent>('arc:personas:event', { type: 'deleted', id })
+  }),
 }
 
 // ============================================================================

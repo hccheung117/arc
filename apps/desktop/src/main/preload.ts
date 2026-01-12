@@ -116,6 +116,8 @@ const arcAPI: ArcAPI = {
     create: (name: string, systemPrompt: string) =>
       ipcRenderer.invoke('arc:personas:create', name, systemPrompt),
 
+    delete: (id: string) => ipcRenderer.invoke('arc:personas:delete', id),
+
     onEvent: (callback: (event: PersonasEvent) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, data: PersonasEvent) => callback(data)
       ipcRenderer.on('arc:personas:event', listener)

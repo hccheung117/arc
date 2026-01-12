@@ -40,3 +40,12 @@ export async function createPersona(name: string, systemPrompt: string) {
 
   return persona
 }
+
+/**
+ * Delete a persona by ID.
+ */
+export async function deletePersona(id: string) {
+  await personasFile().update((store) => ({
+    personas: store.personas.filter((p) => p.id !== id),
+  }))
+}
