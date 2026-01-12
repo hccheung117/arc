@@ -9,6 +9,7 @@ import type {
   ChatOptions,
   AIStreamEvent,
   ModelsEvent,
+  PersonasEvent,
   ThreadContextMenuParams,
   SaveDialogOptions,
 } from '@arc-types/arc-api'
@@ -107,6 +108,19 @@ const arcAPI: ArcAPI = {
       ipcRenderer.invoke('arc:ui:showThreadContextMenu', params),
     showMessageContextMenu: (hasEditOption: boolean) =>
       ipcRenderer.invoke('arc:ui:showMessageContextMenu', hasEditOption),
+  },
+
+  personas: {
+    list: () => ipcRenderer.invoke('arc:personas:list'),
+
+    create: (name: string, systemPrompt: string) =>
+      ipcRenderer.invoke('arc:personas:create', name, systemPrompt),
+
+    onEvent: (callback: (event: PersonasEvent) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, data: PersonasEvent) => callback(data)
+      ipcRenderer.on('arc:personas:event', listener)
+      return () => ipcRenderer.removeListener('arc:personas:event', listener)
+    },
   },
 
   profiles: {

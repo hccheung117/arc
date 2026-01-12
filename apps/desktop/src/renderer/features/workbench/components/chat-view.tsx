@@ -12,8 +12,9 @@ import { ThreadProvider } from '@renderer/features/workbench/context/thread-cont
 import { Header } from './header'
 import { MessageList } from './message-list'
 import { ChatFooter } from './chat-footer'
-import type { ComposerRef } from './composer'
+import type { ComposerRef, ComposerMode } from './composer'
 import { EmptyState } from './empty-state'
+import { PromotePersonaDialog } from './promote-persona-dialog'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pure derivations
@@ -37,7 +38,13 @@ function deriveEditingState(input: InputMode) {
         ? 'Editing system prompt'
         : undefined
 
-  return { isEditingSystemPrompt, editingMessageId, editingLabel }
+  const composerMode: ComposerMode = isEditingSystemPrompt
+    ? { type: 'edit-system-prompt' }
+    : input.mode === 'editing'
+      ? { type: 'edit-message' }
+      : { type: 'chat' }
+
+  return { isEditingSystemPrompt, editingMessageId, editingLabel, composerMode }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -62,7 +69,7 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
 
   // Derived state (pure)
   const lastUserMessageId = useMemo(() => getLastUserMessageId(view.messages), [view.messages])
-  const { isEditingSystemPrompt, editingMessageId, editingLabel } = deriveEditingState(view.input)
+  const { isEditingSystemPrompt, editingMessageId, editingLabel, composerMode } = deriveEditingState(view.input)
   const isEmpty = view.messages.length === 0 && !view.streamingMessage
 
   // Scroll
@@ -103,8 +110,28 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
 
   const handleSend = isEditingSystemPrompt ? systemPrompt.save : actions.send
 
+  const handleToggleSystemPrompt = useCallback(() => {
+    if (isEditingSystemPrompt) {
+      cancelEdit()
+    } else {
+      systemPrompt.startEdit()
+    }
+  }, [isEditingSystemPrompt, cancelEdit, systemPrompt])
+
+  // Promote persona dialog
+  const [promoteDialogOpen, setPromoteDialogOpen] = useState(false)
+
+  const handlePromote = useCallback(() => {
+    setPromoteDialogOpen(true)
+  }, [])
+
   return (
     <ThreadProvider threadId={thread.id}>
+      <PromotePersonaDialog
+        open={promoteDialogOpen}
+        onOpenChange={setPromoteDialogOpen}
+        systemPrompt={thread.systemPrompt ?? ''}
+      />
       <div className="flex h-full flex-col overflow-hidden">
         <Header
           selectedModel={view.model}
@@ -112,7 +139,7 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
           models={models}
           onExport={handleExport}
           canExport={!isEmpty}
-          onEditSystemPrompt={systemPrompt.startEdit}
+          onEditSystemPrompt={handleToggleSystemPrompt}
           hasSystemPrompt={!!thread.systemPrompt}
         />
 
@@ -148,6 +175,7 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
               error={view.error}
               composerProps={{
                 threadId: thread.id,
+                mode: composerMode,
                 onSend: handleSend,
                 onStop: handleStop,
                 isStreaming: view.input.mode === 'streaming',
@@ -155,6 +183,7 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
                 onCancelEdit: cancelEdit,
                 editingLabel,
                 allowEmptySubmit: isEditingSystemPrompt,
+                onPromote: isEditingSystemPrompt ? handlePromote : undefined,
               }}
             />
           </div>

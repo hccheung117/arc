@@ -42,7 +42,7 @@ export type ChatThread = {
  * Draft threads use a generated cuid2 ID which will become the
  * database conversationId once persisted.
  */
-export function createDraftThread(): ChatThread {
+export function createDraftThread(systemPrompt?: string | null): ChatThread {
   const now = new Date().toISOString()
   return {
     id: createId(),
@@ -53,7 +53,7 @@ export function createDraftThread(): ChatThread {
     createdAt: now,
     updatedAt: now,
     isPinned: false,
-    systemPrompt: null,
+    systemPrompt: systemPrompt ?? null,
     children: [],
   }
 }

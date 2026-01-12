@@ -1,6 +1,4 @@
-import { useMemo, type Dispatch } from 'react'
-import { PenSquare } from 'lucide-react'
-import { Button } from '@renderer/components/ui/button'
+import { useMemo, useCallback, type Dispatch } from 'react'
 import {
   Sidebar,
   SidebarContent,
@@ -10,30 +8,10 @@ import {
 } from '@renderer/components/ui/sidebar'
 import { SidebarList } from './sidebar-list'
 import { SidebarProvider } from './sidebar-context'
+import { NewChatButton } from './new-chat-button'
 import { isFolder } from '@renderer/features/workbench/domain/thread-grouping'
 import { createDraftThread, type ChatThread, type ThreadAction } from '@renderer/lib/threads'
-
-interface NewChatButtonProps {
-  onThreadSelect: (threadId: string | null) => void
-  dispatch: Dispatch<ThreadAction>
-}
-
-function NewChatButton({ onThreadSelect, dispatch }: NewChatButtonProps) {
-  return (
-    <Button
-      className="w-full justify-start gap-2"
-      variant="outline"
-      onClick={() => {
-        const draft = createDraftThread()
-        dispatch({ type: 'UPSERT', thread: draft })
-        onThreadSelect(draft.id)
-      }}
-    >
-      <PenSquare className="h-4 w-4" />
-      New Chat
-    </Button>
-  )
-}
+import type { Persona } from '@arc-types/arc-api'
 
 interface WorkbenchSidebarProps {
   threads: ChatThread[]
@@ -45,10 +23,19 @@ interface WorkbenchSidebarProps {
 export function WorkbenchSidebar({ threads, activeThreadId, onThreadSelect, dispatch }: WorkbenchSidebarProps) {
   const folders = useMemo(() => threads.filter(isFolder), [threads])
 
+  const handleNewChat = useCallback(
+    (persona?: Persona) => {
+      const draft = createDraftThread(persona?.systemPrompt)
+      dispatch({ type: 'UPSERT', thread: draft })
+      onThreadSelect(draft.id)
+    },
+    [dispatch, onThreadSelect],
+  )
+
   return (
     <Sidebar className="p-2 bg-sidebar">
       <SidebarHeader className="p-0 pb-3 bg-sidebar">
-        <NewChatButton onThreadSelect={onThreadSelect} dispatch={dispatch} />
+        <NewChatButton onNewChat={handleNewChat} />
       </SidebarHeader>
       <SidebarContent className="p-0 bg-sidebar [&::-webkit-scrollbar]:hidden">
         <SidebarProvider

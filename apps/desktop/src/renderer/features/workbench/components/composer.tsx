@@ -1,7 +1,7 @@
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
 import { Textarea } from '@renderer/components/ui/textarea'
-import { ImagePlus, Send, Square, Pencil } from 'lucide-react'
+import { ImagePlus, Send, Square, Pencil, Sparkles, Save } from 'lucide-react'
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import type { AttachmentInput } from '@arc-types/arc-api'
 import { useComposerStore } from '@renderer/features/workbench/hooks/use-composer-store'
@@ -15,8 +15,20 @@ import { AttachmentGrid } from './composer-attachments'
   type freely without artificial blocking states.
 */
 
+/*
+  ComposerMode: What is the composer for right now?
+
+  Mode determines UI behavior (tool buttons, action icon). Streaming is orthogonal—
+  it overlays any mode with a stop button while AI responds.
+*/
+export type ComposerMode =
+  | { type: 'chat' }
+  | { type: 'edit-message' }
+  | { type: 'edit-system-prompt' }
+
 export interface ComposerProps {
   threadId: string
+  mode?: ComposerMode
   onSend?: (message: string, attachments?: AttachmentInput[]) => void | Promise<void>
   onStop?: () => void
   isStreaming?: boolean
@@ -24,6 +36,7 @@ export interface ComposerProps {
   onCancelEdit?: () => void
   editingLabel?: string
   allowEmptySubmit?: boolean
+  onPromote?: () => void
 }
 
 export interface ComposerRef {
@@ -31,8 +44,10 @@ export interface ComposerRef {
   focus: () => void
 }
 
+const DEFAULT_MODE: ComposerMode = { type: 'chat' }
+
 export const Composer = forwardRef<ComposerRef, ComposerProps>(
-  ({ threadId, onSend, onStop, isStreaming, isEditing, onCancelEdit, editingLabel, allowEmptySubmit }, ref) => {
+  ({ threadId, mode = DEFAULT_MODE, onSend, onStop, isStreaming, isEditing, onCancelEdit, editingLabel, allowEmptySubmit, onPromote }, ref) => {
     const [isDragging, setIsDragging] = useState(false)
     const textareaRef = useRef<HTMLTextAreaElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
@@ -153,12 +168,23 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(
               <Pencil className="h-3 w-3" />
               {editingLabel ?? 'Editing message'}
             </span>
-            <button
-              onClick={onCancelEdit}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Cancel
-            </button>
+            <div className="flex items-center gap-2">
+              {onPromote && (
+                <button
+                  onClick={onPromote}
+                  className="text-xs font-medium text-blue-500 hover:text-blue-600 transition-colors flex items-center gap-1"
+                >
+                  <Sparkles className="h-3 w-3" />
+                  Promote
+                </button>
+              )}
+              <button
+                onClick={onCancelEdit}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         )}
 
@@ -177,24 +203,30 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(
           />
 
           <div className="flex items-center justify-between shrink-0">
+            {/* Tool buttons: mode-aware rendering */}
             <div className="flex gap-1">
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                accept="image/*"
-                multiple
-                className="hidden"
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <ImagePlus className="h-4 w-4" />
-              </Button>
+              {mode.type !== 'edit-system-prompt' && (
+                <>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <ImagePlus className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
             </div>
+            {/* Action button: streaming overlays any mode with stop */}
             {isStreaming ? (
               <Button
                 size="icon"
@@ -211,7 +243,11 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(
                 onClick={handleSend}
                 disabled={!canSend}
               >
-                <Send className="h-4 w-4" />
+                {mode.type === 'edit-system-prompt' ? (
+                  <Save className="h-4 w-4" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
               </Button>
             )}
           </div>

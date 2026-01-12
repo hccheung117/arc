@@ -126,6 +126,20 @@ export type ChatResponse = z.infer<typeof ChatResponseSchema>
 /** Cleanup function returned by event subscriptions */
 export type Unsubscribe = () => void
 
+// ============================================================================
+// PERSONA TYPES
+// ============================================================================
+
+export type Persona = {
+  id: string
+  name: string
+  systemPrompt: string
+  createdAt: string
+}
+
+/** Persona lifecycle events (Rule 3: Push) */
+export type PersonasEvent = { type: 'created'; persona: Persona }
+
 /** Thread lifecycle events (Rule 3: Push) */
 export type ThreadEvent =
   | { type: 'created'; thread: Thread }
@@ -306,6 +320,18 @@ export interface ArcAPI {
      * Returns the selected action for caller to handle side effects.
      */
     showMessageContextMenu(hasEditOption: boolean): Promise<'copy' | 'edit' | null>
+  }
+
+  /** Persona operations */
+  personas: {
+    /** List all personas (Rule 2: Two-Way) */
+    list(): Promise<Persona[]>
+
+    /** Create a new persona (Rule 2: Two-Way) */
+    create(name: string, systemPrompt: string): Promise<Persona>
+
+    /** Subscribe to persona lifecycle events (Rule 3: Push) */
+    onEvent(callback: (event: PersonasEvent) => void): Unsubscribe
   }
 
   /** Profile management operations */

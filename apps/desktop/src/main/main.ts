@@ -33,6 +33,7 @@ import { registerThreadHandlers } from '@main/app/threads'
 import { registerUIHandlers } from '@main/app/ui'
 import { registerAIHandlers } from '@main/app/ai'
 import { registerSystemHandlers } from '@main/app/system'
+import { registerPersonaHandlers } from '@main/app/personas'
 import { initApp, handleProfileFileOpen } from '@main/app/lifecycle'
 import { readWindowSize, trackWindowSize, MIN_SIZE } from '@main/lib/window/state'
 import { setupEditableContextMenu } from '@main/lib/ui'
@@ -103,6 +104,7 @@ app.on('ready', async () => {
   registerUIHandlers(ipcMain)
   registerAIHandlers(ipcMain)
   registerSystemHandlers(ipcMain)
+  registerPersonaHandlers(ipcMain)
   initApp()
 })
 
