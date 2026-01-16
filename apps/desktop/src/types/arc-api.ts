@@ -130,17 +130,24 @@ export type Unsubscribe = () => void
 // PERSONA TYPES
 // ============================================================================
 
+/**
+ * Persona with two-layer resolution.
+ * - source: 'profile' = from installed .arc archive (read-only)
+ * - source: 'user' = user-created in app/personas/ (read-write)
+ * User personas shadow profile personas with the same name.
+ */
 export type Persona = {
-  id: string
   name: string
   systemPrompt: string
+  source: 'profile' | 'user'
   createdAt: string
 }
 
 /** Persona lifecycle events (Rule 3: Push) */
 export type PersonasEvent =
   | { type: 'created'; persona: Persona }
-  | { type: 'deleted'; id: string }
+  | { type: 'updated'; persona: Persona }
+  | { type: 'deleted'; name: string }
 
 /** Thread lifecycle events (Rule 3: Push) */
 export type ThreadEvent =
@@ -324,16 +331,19 @@ export interface ArcAPI {
     showMessageContextMenu(hasEditOption: boolean): Promise<'copy' | 'edit' | null>
   }
 
-  /** Persona operations */
+  /** Persona operations (two-layer: profile + user) */
   personas: {
-    /** List all personas (Rule 2: Two-Way) */
+    /** List all personas with shadow resolution (Rule 2: Two-Way) */
     list(): Promise<Persona[]>
 
-    /** Create a new persona (Rule 2: Two-Way) */
+    /** Create a new user persona (Rule 2: Two-Way) */
     create(name: string, systemPrompt: string): Promise<Persona>
 
-    /** Delete a persona (Rule 2: Two-Way) */
-    delete(id: string): Promise<void>
+    /** Update a user persona (Rule 2: Two-Way) */
+    update(name: string, systemPrompt: string): Promise<Persona>
+
+    /** Delete a user persona by name (Rule 2: Two-Way) */
+    delete(name: string): Promise<void>
 
     /** Subscribe to persona lifecycle events (Rule 3: Push) */
     onEvent(callback: (event: PersonasEvent) => void): Unsubscribe

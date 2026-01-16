@@ -17,15 +17,27 @@ export function NewChatButton({ onNewChat }: NewChatButtonProps) {
   const [isOpen, setIsOpen] = useState(false)
 
   useEffect(() => {
-    window.arc.personas.list().then(setPersonas)
+    let mounted = true
 
-    return window.arc.personas.onEvent((event) => {
+    window.arc.personas.list().then((data) => {
+      if (mounted) setPersonas(data)
+    })
+
+    const unsubscribe = window.arc.personas.onEvent((event) => {
+      if (!mounted) return
       if (event.type === 'created') {
         setPersonas((prev) => [...prev, event.persona])
+      } else if (event.type === 'updated') {
+        setPersonas((prev) => prev.map((p) => (p.name === event.persona.name ? event.persona : p)))
       } else if (event.type === 'deleted') {
-        setPersonas((prev) => prev.filter((p) => p.id !== event.id))
+        setPersonas((prev) => prev.filter((p) => p.name !== event.name))
       }
     })
+
+    return () => {
+      mounted = false
+      unsubscribe()
+    }
   }, [])
 
   const handlePersonaSelect = (persona?: Persona) => {
@@ -70,23 +82,25 @@ export function NewChatButton({ onNewChat }: NewChatButtonProps) {
           <div className="flex flex-col">
             {personas.map((persona) => (
               <div
-                key={persona.id}
+                key={persona.name}
                 className="group flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent text-left cursor-pointer"
                 onClick={() => handlePersonaSelect(persona)}
               >
                 <Drama className="h-4 w-4 text-muted-foreground shrink-0" />
                 <span className="truncate flex-1">{persona.name}</span>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    e.preventDefault()
-                    window.arc.personas.delete(persona.id)
-                  }}
-                  className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                </button>
+                {persona.source === 'user' && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      e.preventDefault()
+                      window.arc.personas.delete(persona.name)
+                    }}
+                    className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                  </button>
+                )}
               </div>
             ))}
           </div>

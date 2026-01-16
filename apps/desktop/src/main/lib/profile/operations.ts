@@ -5,14 +5,12 @@
  * Profiles are complete, isolated provider configurations.
  * Only one profile can be active at a time.
  *
- * Storage: profiles/{id}.arc - Arc files are copied here on import.
+ * Storage: profiles/{id}/ - Extracted archives containing arc.json + optional personas/
  * Arc files are self-describing with embedded id and name.
  */
 
 import * as fs from 'fs/promises'
-import * as path from 'path'
 import { createHash } from 'crypto'
-import writeFileAtomic from 'write-file-atomic'
 import { ZodError } from 'zod'
 import { settingsFile } from './storage'
 import type { StoredFavorite } from './schemas'
@@ -20,12 +18,16 @@ import {
   ArcFileSchema,
   ARC_FILE_VERSION,
   type ArcFile,
-  type ProfileInfo,
   type ProfileInstallResult,
 } from '@arc-types/arc-file'
 import { info } from '@main/foundation/logger'
 import { broadcast } from '@main/foundation/ipc'
-import { getProfilesDir, getProfilePath } from '@main/foundation/paths'
+import {
+  getProfilesDir,
+  getProfileDir,
+  getProfileArcJsonPath,
+} from '@main/foundation/paths'
+import { extractArchive } from '@main/foundation/archive'
 
 // ============================================================================
 // PROFILES EVENTS
@@ -36,11 +38,12 @@ export type ProfilesEvent =
   | { type: 'uninstalled'; profileId: string }
   | { type: 'activated'; profileId: string | null }
 
-export function emitProfilesEvent(event: ProfilesEvent): void {
+export function emitProfilesEvent(event: ProfilesEvent) {
   broadcast('arc:profiles:event', event)
 }
 
-export type { ProfileInfo, ProfileInstallResult }
+export type { ProfileInstallResult }
+export type { ProfileInfo } from '@arc-types/arc-file'
 
 // ============================================================================
 // PROVIDER ID GENERATION
@@ -54,7 +57,7 @@ export function generateProviderId(provider: {
   type: string
   apiKey?: string | null
   baseUrl?: string | null
-}): string {
+}) {
   const input = `${provider.type}|${provider.apiKey ?? ''}|${provider.baseUrl ?? ''}`
   return createHash('sha256').update(input).digest('hex').slice(0, 8)
 }
@@ -64,18 +67,14 @@ export function generateProviderId(provider: {
 // ============================================================================
 
 /**
- * Validates .arc file content against the schema.
+ * Validates arc.json content against the schema.
  */
-export function validateArcFile(content: string): {
-  valid: boolean
-  data?: ArcFile
-  error?: string
-} {
+export function validateArcJson(content: string) {
   let parsed: unknown
   try {
     parsed = JSON.parse(content)
   } catch {
-    return { valid: false, error: 'Invalid JSON format' }
+    return { valid: false as const, error: 'Invalid JSON format' }
   }
 
   try {
@@ -83,18 +82,18 @@ export function validateArcFile(content: string): {
 
     if (arcFile.version > ARC_FILE_VERSION) {
       return {
-        valid: false,
+        valid: false as const,
         error: `Unsupported version ${arcFile.version}. Maximum supported: ${ARC_FILE_VERSION}`,
       }
     }
 
-    return { valid: true, data: arcFile }
+    return { valid: true as const, data: arcFile }
   } catch (error) {
     if (error instanceof ZodError) {
       const issue = error.issues[0]
       const path = issue.path.join('.')
       const message = path ? `${path}: ${issue.message}` : issue.message
-      return { valid: false, error: message }
+      return { valid: false as const, error: message }
     }
     throw error
   }
@@ -105,28 +104,52 @@ export function validateArcFile(content: string): {
 // ============================================================================
 
 /**
- * Install a profile from file content.
- * Copies the arc file to profiles directory using its embedded id.
+ * Install a profile from a .arc archive file path.
+ * Extracts the archive to profiles/{id}/ directory.
  * Overwrites if a profile with the same id already exists (idempotent).
  */
-export async function installProfile(content: string): Promise<ProfileInstallResult> {
-  const validation = validateArcFile(content)
-  if (!validation.valid || !validation.data) {
-    throw new Error(validation.error || 'Invalid arc file')
-  }
-
-  const arcFile = validation.data
-
+export async function installProfile(archivePath: string) {
   await fs.mkdir(getProfilesDir(), { recursive: true })
 
-  await writeFileAtomic(getProfilePath(arcFile.id), content, { encoding: 'utf-8' })
+  // Extract to a temp directory first, then read arc.json to get the ID
+  const tempDir = `${getProfilesDir()}/.installing-${Date.now()}`
+  try {
+    await extractArchive(archivePath, tempDir)
 
-  info('profiles', `Installed: ${arcFile.name} (${arcFile.id})`)
+    // Read and validate arc.json
+    const arcJsonPath = `${tempDir}/arc.json`
+    let arcJsonContent: string
+    try {
+      arcJsonContent = await fs.readFile(arcJsonPath, 'utf-8')
+    } catch {
+      throw new Error('Invalid archive: missing arc.json')
+    }
 
-  return {
-    id: arcFile.id,
-    name: arcFile.name,
-    providerCount: arcFile.providers.length,
+    const validation = validateArcJson(arcJsonContent)
+    if (!validation.valid) {
+      throw new Error(validation.error || 'Invalid arc.json')
+    }
+
+    const arcFile = validation.data as ArcFile
+    const targetDir = getProfileDir(arcFile.id)
+
+    // Remove existing profile if present
+    await fs.rm(targetDir, { recursive: true, force: true })
+
+    // Move temp to final location
+    await fs.rename(tempDir, targetDir)
+
+    info('profiles', `Installed: ${arcFile.name} (${arcFile.id})`)
+
+    return {
+      id: arcFile.id,
+      name: arcFile.name,
+      providerCount: arcFile.providers.length,
+    }
+  } catch (error) {
+    // Clean up temp directory on failure
+    await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {})
+    throw error
   }
 }
 
@@ -134,12 +157,8 @@ export async function installProfile(content: string): Promise<ProfileInstallRes
  * Uninstall a profile by id.
  * Removes from disk. Clears activeProfileId if this was active.
  */
-export async function uninstallProfile(profileId: string): Promise<void> {
-  try {
-    await fs.unlink(getProfilePath(profileId))
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-  }
+export async function uninstallProfile(profileId: string) {
+  await fs.rm(getProfileDir(profileId), { recursive: true, force: true })
 
   await settingsFile().update((settings) => ({
     ...settings,
@@ -152,7 +171,7 @@ export async function uninstallProfile(profileId: string): Promise<void> {
 /**
  * Activate a profile (or deactivate if null).
  */
-export async function activateProfile(profileId: string | null): Promise<void> {
+export async function activateProfile(profileId: string | null) {
   if (profileId) {
     // Verify profile exists
     const profiles = await listProfiles()
@@ -171,17 +190,17 @@ export async function activateProfile(profileId: string | null): Promise<void> {
 }
 
 /**
- * Read the active profile's arc file.
+ * Read the active profile's arc.json file.
  * Returns null if no profile is active or file is missing/invalid.
  */
-export async function getActiveProfile(): Promise<ArcFile | null> {
+export async function getActiveProfile() {
   const settings = await settingsFile().read()
   if (!settings.activeProfileId) return null
 
   try {
-    const content = await fs.readFile(getProfilePath(settings.activeProfileId), 'utf-8')
-    const validation = validateArcFile(content)
-    return validation.data || null
+    const content = await fs.readFile(getProfileArcJsonPath(settings.activeProfileId), 'utf-8')
+    const validation = validateArcJson(content)
+    return validation.valid ? (validation.data as ArcFile) : null
   } catch {
     return null
   }
@@ -190,42 +209,45 @@ export async function getActiveProfile(): Promise<ArcFile | null> {
 /**
  * Get active profile ID.
  */
-export async function getActiveProfileId(): Promise<string | null> {
+export async function getActiveProfileId() {
   const settings = await settingsFile().read()
   return settings.activeProfileId
 }
 
 /**
  * List all installed profiles by scanning the profiles directory.
- * Arc files are the source of truth - we parse each to get metadata.
+ * Reads arc.json from each profile directory to get metadata.
  */
-export async function listProfiles(): Promise<ProfileInfo[]> {
+export async function listProfiles() {
   const profilesDir = getProfilesDir()
 
-  let files: string[]
+  let entries: string[]
   try {
-    files = await fs.readdir(profilesDir)
+    entries = await fs.readdir(profilesDir)
   } catch {
     return []
   }
 
-  const profiles: ProfileInfo[] = []
+  const profiles: Array<{ id: string; name: string; providerCount: number }> = []
 
-  for (const file of files) {
-    if (!file.endsWith('.arc')) continue
+  for (const entry of entries) {
+    // Skip temp directories
+    if (entry.startsWith('.')) continue
 
+    const arcJsonPath = getProfileArcJsonPath(entry)
     try {
-      const content = await fs.readFile(path.join(profilesDir, file), 'utf-8')
-      const validation = validateArcFile(content)
+      const content = await fs.readFile(arcJsonPath, 'utf-8')
+      const validation = validateArcJson(content)
       if (validation.valid && validation.data) {
+        const data = validation.data as ArcFile
         profiles.push({
-          id: validation.data.id,
-          name: validation.data.name,
-          providerCount: validation.data.providers.length,
+          id: data.id,
+          name: data.name,
+          providerCount: data.providers.length,
         })
       }
     } catch {
-      // Skip invalid files
+      // Skip invalid profiles
     }
   }
 
@@ -239,11 +261,7 @@ export async function listProfiles(): Promise<ProfileInfo[]> {
 /**
  * Get provider config from active profile by stable content-based ID.
  */
-export async function getProviderConfig(providerId: string): Promise<{
-  type: string
-  apiKey: string | null
-  baseUrl: string | null
-}> {
+export async function getProviderConfig(providerId: string) {
   const profile = await getActiveProfile()
   if (!profile) {
     throw new Error('No active profile')
@@ -265,7 +283,7 @@ export async function getProviderConfig(providerId: string): Promise<{
  * Generic settings get handler.
  * Routes key patterns to appropriate sources.
  */
-export async function getSetting<T = unknown>(key: string): Promise<T | null> {
+export async function getSetting<T = unknown>(key: string) {
   if (key.startsWith('provider:')) {
     const providerId = key.slice('provider:'.length)
     const config = await getProviderConfig(providerId)
@@ -285,7 +303,7 @@ export async function getSetting<T = unknown>(key: string): Promise<T | null> {
  * Routes key patterns to appropriate updaters.
  * Note: Provider configs are read-only (come from arc files).
  */
-export async function setSetting<T = unknown>(key: string, value: T): Promise<void> {
+export async function setSetting<T = unknown>(key: string, value: T) {
   if (key.startsWith('provider:')) {
     throw new Error('Provider configs are read-only (managed via arc files)')
   }
