@@ -8,7 +8,6 @@
 import * as fs from 'fs/promises'
 import type { IpcMain } from 'electron'
 import { createId } from '@paralleldrive/cuid2'
-import { z } from 'zod'
 import { streamText, type LanguageModelUsage } from 'ai'
 import type { ModelMessage } from '@ai-sdk/provider-utils'
 import { listModels, lookupModelProvider } from '@main/lib/profile/models'
@@ -20,7 +19,10 @@ import { findById } from '@main/lib/messages/tree'
 import { getProviderConfig } from '@main/lib/profile/operations'
 import { getThreadAttachmentPath } from '@main/foundation/paths'
 import { error } from '@main/foundation/logger'
-import { validated, broadcast, register } from '@main/foundation/ipc'
+import { broadcast } from '@main/foundation/ipc'
+import { registerHandlers } from '@main/foundation/contract'
+import { modelsContract } from '@main/contracts/models'
+import { aiContract } from '@main/contracts/ai'
 
 // ============================================================================
 // MESSAGE CONVERSION
@@ -241,32 +243,21 @@ function cancelStream(streamId: string): void {
 }
 
 // ============================================================================
-// SCHEMAS
+// REGISTRATION
 // ============================================================================
 
-const ChatOptionsSchema = z.object({
-  model: z.string(),
-})
+export function registerAIHandlers(ipcMain: IpcMain): void {
+  // Models
+  registerHandlers(ipcMain, modelsContract, {
+    list: async () => listModels(),
+  })
 
-// ============================================================================
-// MODELS
-// ============================================================================
-
-const modelHandlers = {
-  'arc:models:list': listModels,
-}
-
-// ============================================================================
-// AI STREAMING
-// ============================================================================
-
-const aiStreamHandlers = {
-  'arc:ai:chat': validated(
-    [z.string(), ChatOptionsSchema],
-    async (threadId, options): Promise<{ streamId: string }> => {
+  // AI Streaming
+  registerHandlers(ipcMain, aiContract, {
+    chat: async ({ threadId, model }) => {
       const streamId = createId()
 
-      executeStream(streamId, threadId, options.model, {
+      executeStream(streamId, threadId, model, {
         onDelta: (chunk) => emitAIStreamEvent({ type: 'delta', streamId, chunk }),
         onReasoning: (chunk) => emitAIStreamEvent({ type: 'reasoning', streamId, chunk }),
         onComplete: (message) => emitAIStreamEvent({ type: 'complete', streamId, message }),
@@ -279,18 +270,9 @@ const aiStreamHandlers = {
 
       return { streamId }
     },
-  ),
 
-  'arc:ai:stop': validated([z.string()], async (streamId) => {
-    cancelStream(streamId)
-  }),
-}
-
-// ============================================================================
-// REGISTRATION
-// ============================================================================
-
-export function registerAIHandlers(ipcMain: IpcMain): void {
-  register(ipcMain, modelHandlers)
-  register(ipcMain, aiStreamHandlers)
+    stop: async ({ streamId }) => {
+      cancelStream(streamId)
+    },
+  })
 }

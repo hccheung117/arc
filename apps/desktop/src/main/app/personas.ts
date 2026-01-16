@@ -2,7 +2,7 @@
  * Persona IPC Handlers
  *
  * Routing layer for persona operations.
- * Pattern: IPC → Validate → Operation → Broadcast → Return
+ * Pattern: IPC → Contract Validation → Operation → Broadcast → Return
  *
  * Two-layer architecture:
  * - Profile personas: read-only, from installed .arc archives
@@ -10,9 +10,9 @@
  */
 
 import type { IpcMain } from 'electron'
-import { z } from 'zod'
-import { validated, register, broadcast } from '@main/foundation/ipc'
-import type { PersonasEvent } from '@arc-types/arc-api'
+import { broadcast } from '@main/foundation/ipc'
+import { registerHandlers } from '@main/foundation/contract'
+import { personasContract, type Persona } from '@main/contracts/personas'
 import {
   listPersonas,
   createPersona,
@@ -21,40 +21,37 @@ import {
 } from '@main/lib/personas/operations'
 
 // ============================================================================
-// HANDLERS
+// EVENT TYPES
 // ============================================================================
 
-const handlers = {
-  'arc:personas:list': listPersonas,
-
-  'arc:personas:create': validated(
-    [z.string(), z.string()],
-    async (name: string, systemPrompt: string) => {
-      const persona = await createPersona(name, systemPrompt)
-      broadcast<PersonasEvent>('arc:personas:event', { type: 'created', persona })
-      return persona
-    },
-  ),
-
-  'arc:personas:update': validated(
-    [z.string(), z.string()],
-    async (name: string, systemPrompt: string) => {
-      const persona = await updatePersona(name, systemPrompt)
-      broadcast<PersonasEvent>('arc:personas:event', { type: 'updated', persona })
-      return persona
-    },
-  ),
-
-  'arc:personas:delete': validated([z.string()], async (name: string) => {
-    await deletePersona(name)
-    broadcast<PersonasEvent>('arc:personas:event', { type: 'deleted', name })
-  }),
-}
+type PersonasEvent =
+  | { type: 'created'; persona: Persona }
+  | { type: 'updated'; persona: Persona }
+  | { type: 'deleted'; name: string }
 
 // ============================================================================
 // REGISTRATION
 // ============================================================================
 
 export function registerPersonaHandlers(ipcMain: IpcMain): void {
-  register(ipcMain, handlers)
+  registerHandlers(ipcMain, personasContract, {
+    list: async () => listPersonas(),
+
+    create: async ({ name, systemPrompt }) => {
+      const persona = await createPersona(name, systemPrompt)
+      broadcast<PersonasEvent>('arc:personas:event', { type: 'created', persona })
+      return persona
+    },
+
+    update: async ({ name, systemPrompt }) => {
+      const persona = await updatePersona(name, systemPrompt)
+      broadcast<PersonasEvent>('arc:personas:event', { type: 'updated', persona })
+      return persona
+    },
+
+    delete: async ({ name }) => {
+      await deletePersona(name)
+      broadcast<PersonasEvent>('arc:personas:event', { type: 'deleted', name })
+    },
+  })
 }

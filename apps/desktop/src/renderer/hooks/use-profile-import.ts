@@ -20,7 +20,7 @@ export function useProfileImport(): {
   const handleImport = useCallback(
     async (filePath: string) => {
       try {
-        await window.arc.profiles.install(filePath)
+        await window.arc.profiles.install({ filePath })
       } catch (error) {
         showToast(`Error: ${error instanceof Error ? error.message : 'Install failed'}`)
       }

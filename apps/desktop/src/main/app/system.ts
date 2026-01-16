@@ -9,29 +9,16 @@
 import type { IpcMain } from 'electron'
 import { shell, dialog, BrowserWindow } from 'electron'
 import { writeFile } from 'node:fs/promises'
-import { z } from 'zod'
 import { rendererError } from '@main/foundation/logger'
 import { getThreadAttachmentPath } from '@main/foundation/paths'
 import { getSetting, setSetting } from '@main/lib/profile/operations'
-import { validated, register } from '@main/foundation/ipc'
-import { SaveDialogOptionsSchema } from '@arc-types/arc-api'
+import { registerHandlers } from '@main/foundation/contract'
+import { settingsContract } from '@main/contracts/settings'
+import { utilsContract } from '@main/contracts/utils'
+import { filesContract } from '@main/contracts/files'
 
 // ============================================================================
-// SETTINGS
-// ============================================================================
-
-const settingsHandlers = {
-  'arc:settings:get': validated([z.string()], async (key) => {
-    return getSetting(key)
-  }),
-
-  'arc:settings:set': validated([z.string(), z.unknown()], async (key, value) => {
-    await setSetting(key, value)
-  }),
-}
-
-// ============================================================================
-// LOGGING (one-way, uses ipcMain.on)
+// LOGGING (one-way, uses ipcMain.on - not part of contracts)
 // ============================================================================
 
 function registerLoggingHandlers(ipcMain: IpcMain): void {
@@ -41,48 +28,41 @@ function registerLoggingHandlers(ipcMain: IpcMain): void {
 }
 
 // ============================================================================
-// UTILS
-// ============================================================================
-
-const utilsHandlers = {
-  'arc:utils:openFile': validated([z.string()], async (filePath) => {
-    await shell.openPath(filePath)
-  }),
-
-  'arc:utils:getThreadAttachmentPath': validated(
-    [z.string(), z.string()],
-    async (threadId, relativePath) => {
-      return getThreadAttachmentPath(threadId, relativePath)
-    },
-  ),
-}
-
-// ============================================================================
-// FILES
-// ============================================================================
-
-const filesHandlers = {
-  'arc:files:showSaveDialog': validated([SaveDialogOptionsSchema], async (options) => {
-    const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
-    const result = await dialog.showSaveDialog(window, {
-      defaultPath: options.defaultPath,
-      filters: options.filters,
-    })
-    return result.canceled ? null : result.filePath
-  }),
-
-  'arc:files:writeFile': validated([z.string(), z.string()], async (filePath, content) => {
-    await writeFile(filePath, content, 'utf-8')
-  }),
-}
-
-// ============================================================================
 // REGISTRATION
 // ============================================================================
 
 export function registerSystemHandlers(ipcMain: IpcMain): void {
-  register(ipcMain, settingsHandlers)
+  // Settings
+  registerHandlers(ipcMain, settingsContract, {
+    get: async ({ key }) => getSetting(key),
+    set: async ({ key, value }) => setSetting(key, value),
+  })
+
+  // Utils
+  registerHandlers(ipcMain, utilsContract, {
+    openFile: async ({ filePath }) => {
+      await shell.openPath(filePath)
+    },
+    getThreadAttachmentPath: async ({ threadId, relativePath }) => {
+      return getThreadAttachmentPath(threadId, relativePath)
+    },
+  })
+
+  // Files
+  registerHandlers(ipcMain, filesContract, {
+    showSaveDialog: async (options) => {
+      const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+      const result = await dialog.showSaveDialog(window, {
+        defaultPath: options.defaultPath,
+        filters: options.filters,
+      })
+      return result.canceled ? null : result.filePath
+    },
+    writeFile: async ({ filePath, content }) => {
+      await writeFile(filePath, content, 'utf-8')
+    },
+  })
+
+  // Logging (one-way, not contract-based)
   registerLoggingHandlers(ipcMain)
-  register(ipcMain, utilsHandlers)
-  register(ipcMain, filesHandlers)
 }

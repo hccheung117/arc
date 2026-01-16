@@ -1,7 +1,8 @@
 import { createId } from '@paralleldrive/cuid2'
 import type { Message } from '@arc-types/messages'
-import type { ThreadSummary } from '@arc-types/threads'
-import type { ThreadEvent, ThreadContextMenuParams, ThreadContextMenuResult, Unsubscribe } from '@arc-types/arc-api'
+import type { Thread } from '@main/contracts/threads'
+import type { ThreadEvent, Unsubscribe } from '@main/contracts/events'
+import type { ThreadContextMenuParams, ThreadMenuAction } from '@main/contracts/ui'
 
 // ============================================================================
 // CHAT THREAD
@@ -59,24 +60,24 @@ export function createDraftThread(systemPrompt?: string | null): ChatThread {
 }
 
 /**
- * Hydrate a ChatThread from an existing database thread
+ * Hydrate a ChatThread from backend Thread.
  *
- * Used on initial load to convert persisted threads into UI threads.
- * Messages are lazy-loaded when the thread is selected.
- * Recursively hydrates children for folder support.
+ * Handles field transformations:
+ * - title: null → 'Untitled'
+ * - pinned → isPinned
  */
-export function hydrateFromSummary(summary: ThreadSummary): ChatThread {
+export function hydrateThread(thread: Thread): ChatThread {
   return {
-    id: summary.id,
+    id: thread.id,
     messages: [],
     status: 'persisted',
     owner: 'db',
-    title: summary.title,
-    createdAt: summary.createdAt || summary.updatedAt,
-    updatedAt: summary.updatedAt,
-    isPinned: summary.pinned,
-    systemPrompt: summary.systemPrompt,
-    children: summary.children.map(hydrateFromSummary),
+    title: thread.title ?? 'Untitled',
+    createdAt: thread.createdAt,
+    updatedAt: thread.updatedAt,
+    isPinned: thread.pinned,
+    systemPrompt: thread.systemPrompt,
+    children: thread.children.map(hydrateThread),
   }
 }
 
@@ -116,7 +117,7 @@ export function extractThreadConfig(thread: ChatThread): ThreadConfig {
  * - DELETE: Remove a thread
  */
 export type ThreadAction =
-  | { type: 'HYDRATE'; threads: ThreadSummary[] }
+  | { type: 'HYDRATE'; threads: ChatThread[] }
   | { type: 'UPSERT'; thread: ChatThread }
   | { type: 'PATCH'; id: string; patch: Partial<ChatThread> }
   | { type: 'DELETE'; id: string }
@@ -125,12 +126,13 @@ export type ThreadAction =
 // IPC WRAPPERS
 // ============================================================================
 
-export async function getThreadSummaries(): Promise<ThreadSummary[]> {
-  return window.arc.threads.list()
+export async function getThreads(): Promise<ChatThread[]> {
+  const threads = await window.arc.threads.list()
+  return threads.map(hydrateThread)
 }
 
 export async function renameThread(threadId: string, title: string): Promise<void> {
-  await window.arc.threads.update(threadId, { title })
+  await window.arc.threads.update({ threadId, patch: { title } })
 }
 
 export function onThreadEvent(callback: (event: ThreadEvent) => void): Unsubscribe {
@@ -143,7 +145,7 @@ export function onThreadEvent(callback: (event: ThreadEvent) => void): Unsubscri
  */
 export async function showThreadContextMenu(
   params: ThreadContextMenuParams
-): Promise<ThreadContextMenuResult> {
+): Promise<ThreadMenuAction | null> {
   return window.arc.ui.showThreadContextMenu(params)
 }
 
@@ -152,26 +154,26 @@ export async function showThreadContextMenu(
 // ============================================================================
 
 export async function deleteThread(threadId: string): Promise<void> {
-  await window.arc.threads.delete(threadId)
+  await window.arc.threads.delete({ threadId })
 }
 
 export async function toggleThreadPin(threadId: string, isPinned: boolean): Promise<void> {
-  await window.arc.threads.update(threadId, { pinned: !isPinned })
+  await window.arc.threads.update({ threadId, patch: { pinned: !isPinned } })
 }
 
 export async function removeThreadFromFolder(threadId: string): Promise<void> {
-  await window.arc.folders.moveToRoot(threadId)
+  await window.arc.folders.moveToRoot({ threadId })
 }
 
 export async function moveThreadToFolder(threadId: string, folderId: string): Promise<void> {
-  await window.arc.folders.moveThread(threadId, folderId)
+  await window.arc.folders.moveThread({ threadId, folderId })
 }
 
 export async function createFolderWithThread(threadId: string): Promise<{ id: string }> {
-  const folder = await window.arc.folders.createWithThread(threadId)
+  const folder = await window.arc.folders.createWithThread({ threadId })
   return { id: folder.id }
 }
 
 export async function duplicateThread(threadId: string, upToMessageId?: string): Promise<void> {
-  await window.arc.threads.duplicate(threadId, upToMessageId)
+  await window.arc.threads.duplicate({ threadId, upToMessageId })
 }

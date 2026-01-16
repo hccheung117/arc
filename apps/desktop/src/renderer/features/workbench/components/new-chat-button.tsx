@@ -6,7 +6,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@renderer/components/ui/popover'
-import type { Persona } from '@arc-types/arc-api'
+import type { Persona } from '@main/contracts/personas'
 
 interface NewChatButtonProps {
   onNewChat: (persona?: Persona) => void
@@ -103,7 +103,7 @@ export function NewChatButton({ onNewChat }: NewChatButtonProps) {
                     onClick={(e) => {
                       e.stopPropagation()
                       e.preventDefault()
-                      window.arc.personas.delete(persona.name)
+                      window.arc.personas.delete({ name: persona.name })
                     }}
                     className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
                   >

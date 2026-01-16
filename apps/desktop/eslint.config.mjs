@@ -85,11 +85,6 @@ export default tseslint.config(
                 "The @/ alias is deprecated. Use @renderer/ for renderer code.",
             },
             {
-              group: ["@main/*"],
-              message:
-                "Renderer cannot import main process code. Use IPC via window.arc.",
-            },
-            {
               group: ["**/index", "**/index.ts", "**/index.tsx"],
               message:
                 "Barrel files are forbidden. Import directly from the defining module.",

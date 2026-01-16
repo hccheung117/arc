@@ -29,7 +29,8 @@ cd "$repo_root" || exit 0
 
 # Get modified TS/JS files from git (both staged and unstaged changes)
 # Filter to apps/desktop only and strip the prefix for ESLint
-modified_files=$(git diff --name-only HEAD 2>/dev/null | grep -E '^apps/desktop/.*\.(ts|tsx)$' | sed 's|^apps/desktop/||' || true)
+# Use --diff-filter=d to exclude deleted files (lowercase d = exclude deletions)
+modified_files=$(git diff --name-only --diff-filter=d HEAD 2>/dev/null | grep -E '^apps/desktop/.*\.(ts|tsx)$' | sed 's|^apps/desktop/||' || true)
 
 # Also include untracked new files
 untracked_files=$(git ls-files --others --exclude-standard 2>/dev/null | grep -E '^apps/desktop/.*\.(ts|tsx)$' | sed 's|^apps/desktop/||' || true)

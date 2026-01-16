@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
 import type { Message } from '@arc-types/messages'
-import type { BranchInfo, AttachmentInput, ThreadConfig } from '@arc-types/arc-api'
+import type { BranchInfo, AttachmentInput, ThreadConfig } from '@main/contracts/messages'
 import type { Model } from '@arc-types/models'
 import { type ChatThread, type ThreadAction, extractThreadConfig } from '@renderer/lib/threads'
 import type { DisplayMessage, InputMode, EditingState, EditSource } from '@renderer/features/workbench/domain/types'

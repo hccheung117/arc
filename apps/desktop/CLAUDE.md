@@ -37,13 +37,40 @@ New chats exist only in renderer memory until the user sends a message. This avo
 
 ## IPC Communication
 
-Three patterns based on direction and response requirements:
+**Contract-first: Define once, derive everything.**
 
-| Pattern | Direction | API |
-|---------|-----------|-----|
-| One-way | Renderer → Main | `ipcRenderer.send()` / `ipcMain.on()` |
-| Two-way | Renderer → Main with response | `ipcRenderer.invoke()` / `ipcMain.handle()` |
-| Push | Main → Renderer | `webContents.send()` / `ipcRenderer.on()` |
+Request-response IPC uses contracts that generate channel names, input validation, handler registration, and typed clients. This eliminates triple-definition (types, preload wiring, handler schemas).
+
+| Pattern | Direction | Approach |
+|---------|-----------|----------|
+| Two-way | Renderer → Main with response | Contract-based |
+| Push | Main → Renderer | Event subscription |
+| One-way | Renderer → Main (rare) | Direct send (logging only) |
+
+**Adding new IPC:**
+1. Add operation to domain contract
+2. Implement handler via contract registration
+3. Client auto-generated—no preload changes needed
+
+## Type Architecture
+
+**Contracts = IPC surface = the only shared types.**
+
+There is no separate "shared types" layer. Every type the renderer uses comes from main via IPC. Contracts define the complete vocabulary:
+
+| What | Where | Validation |
+|------|-------|------------|
+| Input schemas | `contracts/*.ts` | Zod (validated at IPC boundary) |
+| Output types | `contracts/*.ts` | TypeScript only |
+| Event types | `contracts/events.ts` | TypeScript only |
+| Internal types | `main/lib/*/types.ts` | Never cross IPC |
+
+**Zod belongs at architecture boundaries only:**
+- IPC inputs (contracts)
+- File I/O parsing (storage layer)
+- External API responses (ai/stream)
+
+Internal code uses plain TypeScript types. Once data crosses a boundary and is validated, trust it.
 
 ## Push Events
 
@@ -71,5 +98,5 @@ RIGHT:  action triggers → main emits primary event
 
 ## Process-Specific Guidelines
 
-- @src/main/CLAUDE.md — Three-layer architecture, domain-centric app layer, command pattern, logging
+- @src/main/CLAUDE.md — Four-layer architecture, contract-first IPC, command pattern, logging
 - @src/renderer/CLAUDE.md — UI philosophy, reactive event handling, components, typography

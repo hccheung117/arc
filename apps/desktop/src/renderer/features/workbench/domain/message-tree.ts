@@ -1,5 +1,5 @@
 import type { Message } from '@arc-types/messages'
-import type { BranchInfo } from '@arc-types/arc-api'
+import type { BranchInfo } from '@main/contracts/messages'
 import type { BranchSelections, TreeResolution, DisplayMessage } from './types'
 
 /**

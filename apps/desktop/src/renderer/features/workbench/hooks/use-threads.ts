@@ -2,8 +2,8 @@ import { useReducer, useEffect } from 'react'
 import {
   type ChatThread,
   type ThreadAction,
-  hydrateFromSummary,
-  getThreadSummaries,
+  hydrateThread,
+  getThreads,
   onThreadEvent,
 } from '@renderer/lib/threads'
 import { clearBranchSelections } from '@renderer/lib/ui-state-db'
@@ -44,9 +44,8 @@ const existsInTree = (threads: ChatThread[], id: string): boolean =>
 function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[] {
   switch (action.type) {
     case 'HYDRATE': {
-      const hydrated = action.threads.map(hydrateFromSummary)
       const drafts = state.filter((t) => t.status === 'draft')
-      return [...drafts, ...hydrated]
+      return [...drafts, ...action.threads]
     }
 
     case 'UPSERT':
@@ -90,7 +89,7 @@ export function useChatThreads() {
 
   // Hydrate threads from database on mount
   useEffect(() => {
-    getThreadSummaries().then((threads) => dispatch({ type: 'HYDRATE', threads }))
+    getThreads().then((threads) => dispatch({ type: 'HYDRATE', threads }))
   }, [])
 
   // Subscribe to thread events for sidebar reactivity
@@ -101,7 +100,7 @@ export function useChatThreads() {
         dispatch({ type: 'DELETE', id: event.id })
         clearBranchSelections(event.id)
       } else {
-        const thread = hydrateFromSummary(event.thread)
+        const thread = hydrateThread(event.thread)
         dispatch({ type: 'UPSERT', thread })
       }
     })

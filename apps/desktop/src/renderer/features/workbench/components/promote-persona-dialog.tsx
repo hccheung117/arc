@@ -40,7 +40,7 @@ export function PromotePersonaDialog({
     setError(null)
 
     try {
-      await window.arc.personas.create(trimmedName, systemPrompt)
+      await window.arc.personas.create({ name: trimmedName, systemPrompt })
       setName('')
       onOpenChange(false)
     } catch (err) {

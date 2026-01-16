@@ -1,5 +1,5 @@
 import type { Message } from '@arc-types/messages'
-import { onAIEvent, stopAIChat } from '@renderer/lib/messages'
+import { onAIEvent, stopAIChat, transformMessage } from '@renderer/lib/messages'
 import { error as logError } from '@renderer/lib/logger'
 import { useChatUIStore } from './chat-ui-store'
 
@@ -47,7 +47,8 @@ class StreamManager {
           // Call the completion callback to add message to tree
           const callback = this.streamCallbacks.get(event.streamId)
           if (callback) {
-            callback(event.message)
+            // Transform stored message to UI message
+            callback(transformMessage(event.message, threadId))
             this.streamCallbacks.delete(event.streamId)
           }
 

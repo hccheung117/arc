@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Message, MessageAttachment } from '@arc-types/messages'
-import type { BranchInfo } from '@arc-types/arc-api'
+import type { BranchInfo } from '@main/contracts/messages'
 import { AttachmentGallery } from './message-attachments'
 import { useMessageContextMenu } from './message-actions'
 import { MessageFooter } from './message-footer'

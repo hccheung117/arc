@@ -9,7 +9,7 @@
  */
 
 import { z } from 'zod'
-import { BranchInfoSchema } from '@arc-types/arc-api'
+import { BranchInfoSchema } from '@main/contracts/messages'
 
 // ============================================================================
 // ATTACHMENT SCHEMAS
@@ -61,9 +61,16 @@ export type StoredMessageEvent = z.infer<typeof StoredMessageEventSchema>
 // ============================================================================
 
 /**
- * Recursive thread schema - threads can contain other threads (folders).
+ * Thread storage schema.
+ *
+ * Recursive structure - threads can contain other threads (folders).
  * A thread with non-empty children[] acts as a folder.
  * Schema allows infinite nesting; UI limits to 1 level.
+ *
+ * Field semantics:
+ * - `title` — nullable in storage; UI displays 'Untitled' for null
+ * - `renamed` — tracks if user manually renamed (for auto-title logic)
+ * - `pinned` — maps to `isPinned` in UI ViewModel
  */
 export type StoredThread = {
   id: string

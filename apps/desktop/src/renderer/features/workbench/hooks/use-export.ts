@@ -18,7 +18,7 @@ export function useExport(messages: DisplayMessage[]) {
     })
 
     if (filePath) {
-      await window.arc.files.writeFile(filePath, formatMessagesToMarkdown(msgs))
+      await window.arc.files.writeFile({ filePath, content: formatMessagesToMarkdown(msgs) })
     }
   }, [messages])
 }

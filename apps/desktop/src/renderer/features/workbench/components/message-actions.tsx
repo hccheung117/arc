@@ -95,7 +95,7 @@ export function useMessageContextMenu({ content, onEdit }: UseMessageContextMenu
       }
 
       try {
-        const result = await window.arc.ui.showMessageContextMenu(!!onEdit)
+        const result = await window.arc.ui.showMessageContextMenu({ hasEditOption: !!onEdit })
 
         if (result === 'copy') {
           navigator.clipboard.writeText(content)

@@ -1,5 +1,5 @@
 import type { Message as MessageType } from '@arc-types/messages'
-import type { BranchInfo } from '@arc-types/arc-api'
+import type { BranchInfo } from '@main/contracts/messages'
 import { MessageUser } from './message-user'
 import { MessageAssistant } from './message-assistant'
 

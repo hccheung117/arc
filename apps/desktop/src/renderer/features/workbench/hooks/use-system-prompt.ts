@@ -39,7 +39,7 @@ export function useSystemPrompt(
         onThreadUpdate({ type: 'PATCH', id: thread.id, patch: { systemPrompt: newSystemPrompt } })
       } else {
         // DB ownership: save to backend immediately
-        await window.arc.threads.update(thread.id, { systemPrompt: newSystemPrompt })
+        await window.arc.threads.update({ threadId: thread.id, patch: { systemPrompt: newSystemPrompt } })
       }
 
       // Clear editing state

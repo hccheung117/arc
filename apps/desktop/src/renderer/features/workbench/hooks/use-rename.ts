@@ -31,7 +31,7 @@ export function useRename({ id, initialTitle }: UseRenameOptions) {
       setRenameValue(initialTitle)
       return
     }
-    await window.arc.threads.update(id, { title: trimmed })
+    await window.arc.threads.update({ threadId: id, patch: { title: trimmed } })
     dispatch({ type: 'PATCH', id, patch: { title: trimmed } })
     setIsRenaming(false)
   }

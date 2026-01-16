@@ -7,7 +7,7 @@
  * - Builds tree structure via parentId
  */
 
-import type { BranchInfo } from '@arc-types/arc-api'
+import type { BranchInfo } from '@main/contracts/messages'
 import type { StoredMessageEvent } from './schemas'
 import { computeBranchPoints } from './branching'
 

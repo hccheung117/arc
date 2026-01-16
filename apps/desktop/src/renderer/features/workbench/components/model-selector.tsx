@@ -102,7 +102,7 @@ export function ModelSelector({
   }, [models])
 
   useEffect(() => {
-    window.arc.settings.get<StoredFavorite[]>('favorites').then((saved) => {
+    window.arc.settings.get<StoredFavorite[]>({ key: 'favorites' }).then((saved) => {
       if (saved && saved.length > 0) {
         const validFavorites = saved.filter(
           (f) =>
@@ -126,7 +126,7 @@ export function ModelSelector({
           }
         }
         if (validFavorites.length !== saved.length) {
-          window.arc.settings.set('favorites', validFavorites)
+          window.arc.settings.set({ key: 'favorites', value: validFavorites })
         }
       }
     })
@@ -150,7 +150,7 @@ export function ModelSelector({
         const modelId = k.slice(colonIndex + 1)
         return { providerId, modelId }
       })
-      window.arc.settings.set('favorites', favoritesArray)
+      window.arc.settings.set({ key: 'favorites', value: favoritesArray })
       return next
     })
   }

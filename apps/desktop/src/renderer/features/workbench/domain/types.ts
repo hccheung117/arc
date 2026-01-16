@@ -1,5 +1,5 @@
 import type { Message, MessageRole } from '@arc-types/messages'
-import type { BranchInfo, AttachmentInput, ThreadConfig } from '@arc-types/arc-api'
+import type { BranchInfo, AttachmentInput, ThreadConfig } from '@main/contracts/messages'
 import type { Model } from '@arc-types/models'
 
 /**
