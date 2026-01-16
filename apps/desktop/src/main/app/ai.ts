@@ -12,9 +12,9 @@ import { streamText, type LanguageModelUsage } from 'ai'
 import type { ModelMessage } from '@ai-sdk/provider-utils'
 import { listModels, lookupModelProvider } from '@main/lib/profile/models'
 import { createArc } from '@main/lib/ai/provider'
-import type { StoredMessageEvent } from '@main/lib/messages/schemas'
+import type { StoredMessageEvent } from '@boundary/messages'
+import { threadStorage } from '@boundary/messages'
 import { readMessages, appendMessage } from '@main/lib/messages/operations'
-import { threadIndexFile } from '@main/lib/messages/storage'
 import { findById } from '@main/lib/messages/tree'
 import { getProviderConfig } from '@main/lib/profile/operations'
 import { getThreadAttachmentPath } from '@main/foundation/paths'
@@ -110,7 +110,7 @@ interface StreamContext {
 async function prepareStreamContext(threadId: string, modelId: string): Promise<StreamContext> {
   const [{ messages: threadMessages }, threadIndex, providerId] = await Promise.all([
     readMessages(threadId),
-    threadIndexFile().read(),
+    threadStorage.read(),
     lookupModelProvider(modelId),
   ])
 

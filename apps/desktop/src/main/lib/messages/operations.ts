@@ -7,9 +7,9 @@
 
 import { createId } from '@paralleldrive/cuid2'
 import type { AttachmentInput, BranchInfo, ThreadConfig } from '@contracts/messages'
-import type { StoredMessageEvent, StoredThread, StoredAttachment, Usage } from './schemas'
+import type { StoredMessageEvent, StoredThread, StoredAttachment, Usage } from '@boundary/messages'
+import { threadStorage, messageStorage, attachmentStorage } from '@boundary/messages'
 import { reduceMessageEvents } from './reducer'
-import { threadIndexFile, messageLogFile, buildAttachment, writeAttachmentData } from './storage'
 import { findById, updateById } from './tree'
 
 // ============================================================================
@@ -48,7 +48,7 @@ type ThreadEffect = (threadId: string, timestamp: string) => Promise<boolean>
 
 /** Touches thread timestamp. Returns false (no thread created). */
 const touchThread: ThreadEffect = async (threadId, timestamp) => {
-  await threadIndexFile().update((index) => ({
+  await threadStorage.update((index) => ({
     threads: updateById(index.threads, threadId, (t) => ({ ...t, updatedAt: timestamp })),
   }))
   return false
@@ -59,7 +59,7 @@ const ensureThread =
   (title: string | null, config?: ThreadConfig): ThreadEffect =>
   async (threadId, timestamp) => {
     let created = false
-    await threadIndexFile().update((index) => {
+    await threadStorage.update((index) => {
       const exists = findById(index.threads, threadId) !== undefined
       if (exists) {
         return {
@@ -86,7 +86,7 @@ async function appendEventToLog(
   threadEffect: ThreadEffect,
 ): Promise<{ event: StoredMessageEvent; threadCreated: boolean }> {
   const timestamp = event.createdAt ?? event.updatedAt ?? now()
-  await messageLogFile(threadId).append(event)
+  await messageStorage.append(threadId, event)
   const threadCreated = await threadEffect(threadId, timestamp)
   return { event, threadCreated }
 }
@@ -135,7 +135,7 @@ export async function appendMessage(input: AppendMessageInput): Promise<AppendMe
 
   // Build attachment metadata (pure—no disk writes yet)
   const attachments: StoredAttachment[] | undefined = input.attachments?.length
-    ? input.attachments.map((att, i) => buildAttachment(id, i, att.mimeType))
+    ? input.attachments.map((att, i) => attachmentStorage.build(id, i, att.mimeType))
     : undefined
 
   const event: StoredMessageEvent = {
@@ -162,7 +162,7 @@ export async function appendMessage(input: AppendMessageInput): Promise<AppendMe
   if (input.attachments?.length && attachments) {
     await Promise.all(
       input.attachments.map((att, i) =>
-        writeAttachmentData(input.threadId, attachments[i].path, att.data),
+        attachmentStorage.write(input.threadId, attachments[i].path, att.data),
       ),
     )
   }
@@ -180,6 +180,6 @@ export interface ReadMessagesResult {
 }
 
 export async function readMessages(threadId: string): Promise<ReadMessagesResult> {
-  const events = await messageLogFile(threadId).read()
+  const events = await messageStorage.read(threadId)
   return reduceMessageEvents(events)
 }

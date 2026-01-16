@@ -8,8 +8,7 @@ import {
   LanguageModelV3Prompt,
   LanguageModelV3Usage,
 } from '@ai-sdk/provider'
-import { z } from 'zod'
-import { arcChatChunkSchema } from './schemas'
+import type { ArcChatChunk } from '@boundary/ai'
 
 // ============================================================================
 // REQUEST: AI SDK → Arc/OpenAI format
@@ -58,7 +57,7 @@ export const convertToArcMessages = (prompt: LanguageModelV3Prompt) =>
 // RESPONSE: Arc/OpenAI → AI SDK format
 // ============================================================================
 
-export function convertUsage(usage: z.infer<typeof arcChatChunkSchema>['usage']): LanguageModelV3Usage {
+export function convertUsage(usage: ArcChatChunk['usage']): LanguageModelV3Usage {
   return {
     inputTokens: {
       total: usage?.prompt_tokens ?? undefined,

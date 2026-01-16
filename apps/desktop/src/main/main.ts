@@ -35,7 +35,7 @@ import { registerAIHandlers } from '@main/app/ai'
 import { registerSystemHandlers } from '@main/app/system'
 import { registerPersonaHandlers } from '@main/app/personas'
 import { initApp, handleProfileFileOpen } from '@main/app/lifecycle'
-import { readWindowSize, trackWindowSize, MIN_SIZE } from '@main/lib/window/state'
+import { windowStateStorage, MIN_SIZE } from '@boundary/window'
 import { setupEditableContextMenu } from '@main/lib/ui'
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -76,7 +76,7 @@ const loadRenderer = (window: BrowserWindow): void => {
 
 const createWindow = (size: { width: number; height: number }) => {
   const window = new BrowserWindow(buildWindowConfig(size))
-  trackWindowSize(window)
+  windowStateStorage.track(window)
   setupEditableContextMenu(window)
   loadRenderer(window)
   return window
@@ -97,7 +97,7 @@ app.on('window-all-closed', () => {
 app.on('ready', async () => {
   Menu.setApplicationMenu(buildAppMenu())
 
-  const size = await readWindowSize()
+  const size = await windowStateStorage.read()
   createWindow(size)
   registerDataHandlers(ipcMain)
   registerThreadHandlers(ipcMain)
@@ -112,7 +112,7 @@ app.on('activate', async () => {
   // On OS X it's common to re-create a window in the app when the
   // dock icon is clicked and there are no other windows open.
   if (BrowserWindow.getAllWindows().length === 0) {
-    const size = await readWindowSize()
+    const size = await windowStateStorage.read()
     createWindow(size)
   }
 })

@@ -35,6 +35,37 @@ New chats exist only in renderer memory until the user sends a message. This avo
 3. **UPSERT guards** — When `owner === 'local'`, backend events don't overwrite local config
 4. **Blocking during send** — `InputMode: 'sending'` prevents config edits during the handoff window
 
+## Core Mental Model: Boundary Guard
+
+**Zod guards I/O; everything else trusts types.**
+
+External data is untrusted—whether from disk, network, or renderer. Validation happens once at the boundary where data enters, then internal code trusts the typed result.
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   Renderer  │     │    Disk     │     │   Network   │
+└──────┬──────┘     └──────┬──────┘     └──────┬──────┘
+       │ IPC               │ Files             │ HTTP
+       ▼                   ▼                   ▼
+┌─────────────┐     ┌─────────────────────────────────┐
+│ @contracts/ │     │          @boundary/             │  ◄── Zod here
+└──────┬──────┘     └───────────────┬─────────────────┘
+       │ types                      │ types + accessors
+       ▼                            ▼
+┌─────────────────────────────────────────────────────┐
+│              app/ + lib/ + foundation/              │  ◄── No Zod
+└─────────────────────────────────────────────────────┘
+```
+
+**Key principles:**
+
+1. **Trust boundary = module boundary** — If a module doesn't guard I/O, it doesn't import Zod
+2. **Schema ownership** — Schemas live where data enters: `@contracts/` for IPC, `@boundary/` for disk/network
+3. **Types flow inward** — Boundary modules export types; internal modules import types only
+4. **Validate once** — After crossing a boundary, data is trusted. No redundant validation.
+
+**The heuristic:** "Should I use Zod here?" → "Does this module guard untrusted input?"
+
 ## IPC Communication
 
 **Contract-first: Define once, derive everything.**
@@ -54,23 +85,18 @@ Request-response IPC uses contracts that generate channel names, input validatio
 
 ## Type Architecture
 
-**Contracts = IPC surface = the only shared types.**
+**`@contracts/` + `@boundary/` = the only places types are defined with Zod.**
 
-There is no separate "shared types" layer. Every type the renderer uses comes from main via IPC. Contracts define the complete vocabulary:
+There is no separate "shared types" layer. Types flow from boundary modules inward:
 
-| What | Where | Validation |
-|------|-------|------------|
-| Input schemas | `contracts/*.ts` | Zod (validated at IPC boundary) |
-| Output types | `contracts/*.ts` | TypeScript only |
-| Event types | `contracts/events.ts` | TypeScript only |
-| Internal types | `main/lib/*/types.ts` | Never cross IPC |
+| What | Where | Zod? |
+|------|-------|------|
+| IPC input schemas | `@contracts/*.ts` | Yes |
+| IPC output types | `@contracts/*.ts` | No (TypeScript only) |
+| Persistence schemas | `@boundary/*.ts` | Yes |
+| Domain types | `lib/` imports from above | No |
 
-**Zod belongs at architecture boundaries only:**
-- IPC inputs (contracts)
-- File I/O parsing (storage layer)
-- External API responses (ai/stream)
-
-Internal code uses plain TypeScript types. Once data crosses a boundary and is validated, trust it.
+See [Boundary Guard](#core-mental-model-boundary-guard) for the validation model.
 
 ## Push Events
 

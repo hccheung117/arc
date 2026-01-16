@@ -145,6 +145,3 @@ export function FolderItem({
     </SidebarMenuItem>
   )
 }
-
-// Re-export with old name for backward compatibility during migration
-export { FolderItem as FolderView }

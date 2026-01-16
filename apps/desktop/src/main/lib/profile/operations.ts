@@ -11,17 +11,12 @@
 
 import * as fs from 'fs/promises'
 import { createHash } from 'crypto'
-import { ZodError } from 'zod'
-import { settingsFile } from './storage'
-import type { StoredFavorite } from './schemas'
 import {
-  ArcFileSchema,
-  ARC_FILE_VERSION,
+  settingsStorage,
+  arcFileParser,
+  type StoredFavorite,
   type ArcFile,
-  type ProfileInstallResult,
-  type ProfileInfo,
-} from '@contracts/profiles'
-import type { ProfilesEvent } from '@contracts/events'
+} from '@boundary/profiles'
 import { info } from '@main/foundation/logger'
 import {
   getProfilesDir,
@@ -29,9 +24,6 @@ import {
   getProfileArcJsonPath,
 } from '@main/foundation/paths'
 import { extractArchive } from '@main/foundation/archive'
-
-// Re-export types from contracts for backwards compatibility
-export type { ProfilesEvent, ProfileInstallResult, ProfileInfo }
 
 // ============================================================================
 // PROVIDER ID GENERATION
@@ -48,43 +40,6 @@ export function generateProviderId(provider: {
 }) {
   const input = `${provider.type}|${provider.apiKey ?? ''}|${provider.baseUrl ?? ''}`
   return createHash('sha256').update(input).digest('hex').slice(0, 8)
-}
-
-// ============================================================================
-// ARC FILE VALIDATION
-// ============================================================================
-
-/**
- * Validates arc.json content against the schema.
- */
-export function validateArcJson(content: string) {
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(content)
-  } catch {
-    return { valid: false as const, error: 'Invalid JSON format' }
-  }
-
-  try {
-    const arcFile = ArcFileSchema.parse(parsed)
-
-    if (arcFile.version > ARC_FILE_VERSION) {
-      return {
-        valid: false as const,
-        error: `Unsupported version ${arcFile.version}. Maximum supported: ${ARC_FILE_VERSION}`,
-      }
-    }
-
-    return { valid: true as const, data: arcFile }
-  } catch (error) {
-    if (error instanceof ZodError) {
-      const issue = error.issues[0]
-      const path = issue.path.join('.')
-      const message = path ? `${path}: ${issue.message}` : issue.message
-      return { valid: false as const, error: message }
-    }
-    throw error
-  }
 }
 
 // ============================================================================
@@ -113,7 +68,7 @@ export async function installProfile(archivePath: string) {
       throw new Error('Invalid archive: missing arc.json')
     }
 
-    const validation = validateArcJson(arcJsonContent)
+    const validation = arcFileParser.validate(arcJsonContent)
     if (!validation.valid) {
       throw new Error(validation.error || 'Invalid arc.json')
     }
@@ -148,7 +103,7 @@ export async function installProfile(archivePath: string) {
 export async function uninstallProfile(profileId: string) {
   await fs.rm(getProfileDir(profileId), { recursive: true, force: true })
 
-  await settingsFile().update((settings) => ({
+  await settingsStorage.update((settings) => ({
     ...settings,
     activeProfileId: settings.activeProfileId === profileId ? null : settings.activeProfileId,
   }))
@@ -169,7 +124,7 @@ export async function activateProfile(profileId: string | null) {
     }
   }
 
-  await settingsFile().update((settings) => ({
+  await settingsStorage.update((settings) => ({
     ...settings,
     activeProfileId: profileId,
   }))
@@ -182,23 +137,16 @@ export async function activateProfile(profileId: string | null) {
  * Returns null if no profile is active or file is missing/invalid.
  */
 export async function getActiveProfile() {
-  const settings = await settingsFile().read()
+  const settings = await settingsStorage.read()
   if (!settings.activeProfileId) return null
-
-  try {
-    const content = await fs.readFile(getProfileArcJsonPath(settings.activeProfileId), 'utf-8')
-    const validation = validateArcJson(content)
-    return validation.valid ? (validation.data as ArcFile) : null
-  } catch {
-    return null
-  }
+  return arcFileParser.read(settings.activeProfileId)
 }
 
 /**
  * Get active profile ID.
  */
 export async function getActiveProfileId() {
-  const settings = await settingsFile().read()
+  const settings = await settingsStorage.read()
   return settings.activeProfileId
 }
 
@@ -225,7 +173,7 @@ export async function listProfiles() {
     const arcJsonPath = getProfileArcJsonPath(entry)
     try {
       const content = await fs.readFile(arcJsonPath, 'utf-8')
-      const validation = validateArcJson(content)
+      const validation = arcFileParser.validate(content)
       if (validation.valid && validation.data) {
         const data = validation.data as ArcFile
         profiles.push({
@@ -279,7 +227,7 @@ export async function getSetting<T = unknown>(key: string) {
   }
 
   if (key === 'favorites') {
-    const settings = await settingsFile().read()
+    const settings = await settingsStorage.read()
     return (settings.favorites ?? []) as T
   }
 
@@ -298,7 +246,7 @@ export async function setSetting<T = unknown>(key: string, value: T) {
 
   if (key === 'favorites') {
     const favorites = value as StoredFavorite[]
-    await settingsFile().update((settings) => ({
+    await settingsStorage.update((settings) => ({
       ...settings,
       favorites,
     }))

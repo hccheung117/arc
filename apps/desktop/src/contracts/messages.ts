@@ -6,7 +6,7 @@
 
 import { z } from 'zod'
 import { contract, op, returns } from '@main/foundation/contract'
-import type { StoredMessageEvent } from '@main/lib/messages/schemas'
+import type { StoredMessageEvent } from '@boundary/messages'
 
 // ============================================================================
 // SHARED TYPES

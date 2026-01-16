@@ -7,15 +7,11 @@
 
 import { getActiveProfileId } from '@main/lib/profile/operations'
 import {
-  readUserPersona,
-  writeUserPersona,
-  deleteUserPersona,
-  listUserPersonaNames,
-  userPersonaExists,
-  readProfilePersona,
-  listProfilePersonaNames,
-} from './storage'
-import { isValidPersonaName, type Persona } from './schemas'
+  userPersonaStorage,
+  profilePersonaStorage,
+  isValidPersonaName,
+  type Persona,
+} from '@boundary/personas'
 
 // ============================================================================
 // LIST PERSONAS
@@ -29,11 +25,11 @@ export async function listPersonas() {
   const activeProfileId = await getActiveProfileId()
 
   // Gather profile personas
-  const profileNames = activeProfileId ? await listProfilePersonaNames(activeProfileId) : []
+  const profileNames = activeProfileId ? await profilePersonaStorage.list(activeProfileId) : []
   const profilePersonas: Persona[] = []
 
   for (const name of profileNames) {
-    const systemPrompt = activeProfileId ? await readProfilePersona(activeProfileId, name) : null
+    const systemPrompt = activeProfileId ? await profilePersonaStorage.read(activeProfileId, name) : null
     if (systemPrompt !== null) {
       profilePersonas.push({
         name,
@@ -45,11 +41,11 @@ export async function listPersonas() {
   }
 
   // Gather user personas
-  const userNames = await listUserPersonaNames()
+  const userNames = await userPersonaStorage.list()
   const userPersonas: Persona[] = []
 
   for (const name of userNames) {
-    const systemPrompt = await readUserPersona(name)
+    const systemPrompt = await userPersonaStorage.read(name)
     if (systemPrompt !== null) {
       userPersonas.push({
         name,
@@ -81,7 +77,7 @@ export async function listPersonas() {
  */
 export async function getPersona(name: string) {
   // Check user layer first (shadow)
-  const userPrompt = await readUserPersona(name)
+  const userPrompt = await userPersonaStorage.read(name)
   if (userPrompt !== null) {
     return {
       name,
@@ -94,7 +90,7 @@ export async function getPersona(name: string) {
   // Check profile layer
   const activeProfileId = await getActiveProfileId()
   if (activeProfileId) {
-    const profilePrompt = await readProfilePersona(activeProfileId, name)
+    const profilePrompt = await profilePersonaStorage.read(activeProfileId, name)
     if (profilePrompt !== null) {
       return {
         name,
@@ -125,11 +121,11 @@ export async function createPersona(name: string, systemPrompt: string) {
   }
 
   // Check if already exists as user persona
-  if (await userPersonaExists(name)) {
+  if (await userPersonaStorage.exists(name)) {
     throw new Error(`Persona "${name}" already exists`)
   }
 
-  await writeUserPersona(name, systemPrompt)
+  await userPersonaStorage.write(name, systemPrompt)
 
   return {
     name,
@@ -149,11 +145,11 @@ export async function createPersona(name: string, systemPrompt: string) {
  */
 export async function updatePersona(name: string, systemPrompt: string) {
   // Only user personas can be updated
-  if (!(await userPersonaExists(name))) {
+  if (!(await userPersonaStorage.exists(name))) {
     throw new Error(`User persona "${name}" not found`)
   }
 
-  await writeUserPersona(name, systemPrompt)
+  await userPersonaStorage.write(name, systemPrompt)
 
   return {
     name,
@@ -173,9 +169,9 @@ export async function updatePersona(name: string, systemPrompt: string) {
  */
 export async function deletePersona(name: string) {
   // Only user personas can be deleted
-  if (!(await userPersonaExists(name))) {
+  if (!(await userPersonaStorage.exists(name))) {
     throw new Error(`User persona "${name}" not found`)
   }
 
-  await deleteUserPersona(name)
+  await userPersonaStorage.delete(name)
 }

@@ -8,7 +8,7 @@
  */
 
 import type { IpcMain } from 'electron'
-import type { StoredThread } from '@main/lib/messages/schemas'
+import type { StoredThread } from '@boundary/messages'
 import { execute, listThreads, type ThreadEvent } from '@main/lib/messages/commands'
 import { broadcast } from '@main/foundation/ipc'
 import { registerHandlers } from '@main/foundation/contract'

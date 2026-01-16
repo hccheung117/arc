@@ -6,7 +6,7 @@
 
 import { z } from 'zod'
 import { contract, op, returns } from '@main/foundation/contract'
-import type { StoredThread } from '@main/lib/messages/schemas'
+import type { StoredThread } from '@boundary/messages'
 
 // ============================================================================
 // SCHEMAS

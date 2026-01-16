@@ -7,7 +7,7 @@
  */
 
 import type { ThreadPatch } from '@contracts/threads'
-import type { StoredThread } from './schemas'
+import type { StoredThread } from '@boundary/messages'
 import {
   listThreads,
   deleteThread,

@@ -8,7 +8,7 @@
  */
 
 import type { BranchInfo } from '@contracts/messages'
-import type { StoredMessageEvent } from './schemas'
+import type { StoredMessageEvent } from '@boundary/messages'
 import { computeBranchPoints } from './branching'
 
 /**

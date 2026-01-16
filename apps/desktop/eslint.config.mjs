@@ -67,6 +67,29 @@ export default tseslint.config(
       ],
     },
   },
+  // Zod boundary enforcement: only contracts/ and boundary/ may import zod
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: [
+      "src/contracts/**",
+      "src/boundary/**",
+      "src/main/foundation/**",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "zod",
+              message:
+                "Zod is only allowed in @contracts/ and @boundary/. See 'Boundary Guard' in CLAUDE.md.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   {
     files: ["src/renderer/**/*.{ts,tsx}"],
     rules: {

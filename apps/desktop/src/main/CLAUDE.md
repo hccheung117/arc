@@ -2,21 +2,25 @@
 
 > Implementation details for backend concerns.
 
-## Four-Layer Architecture
+## Five-Layer Architecture
 
 ```
-contracts/  → IPC definitions (schemas, type derivation)
+@contracts/ → IPC boundary (Zod schemas, type derivation)
+@boundary/  → I/O boundary (Zod schemas for disk + network)
 app/        → routing (IPC → command → broadcast)
-lib/        → domain logic (commands, persistence, business rules)
-foundation/ → infrastructure (logger, ipc, storage, contract primitives)
+lib/        → domain logic (commands, business rules)
+foundation/ → infrastructure (logger, generic primitives)
 ```
 
 **Import rules:**
 
-- `contracts/` — imports from `foundation/` only
-- `foundation/` — no imports from `lib/`, `app/`, or `contracts/`
-- `lib/` — only imports from `foundation/`
-- `app/` — imports from `contracts/`, `lib/`, and `foundation/`
+- `@contracts/` — imports from `foundation/` only
+- `@boundary/` — imports from `foundation/` only
+- `foundation/` — no imports from above layers
+- `lib/` — imports from `@boundary/` (types + accessors), `foundation/`
+- `app/` — imports from `@contracts/`, `lib/`, `@boundary/`, `foundation/`
+
+**Zod rule:** Only `@contracts/` and `@boundary/` may import from `zod`.
 
 Same-level imports are design smells. When module A imports sibling B, redistribute: push shared pieces down to a lower layer, extract to a new module both depend on, or have the caller provide it.
 

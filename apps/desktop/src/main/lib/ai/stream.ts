@@ -9,9 +9,8 @@ import {
   LanguageModelV3Usage,
 } from '@ai-sdk/provider'
 import { ParseResult } from '@ai-sdk/provider-utils'
-import { z } from 'zod'
+import type { ArcChatChunk } from '@boundary/ai'
 import { convertUsage, mapFinishReason } from './convert'
-import { arcChatChunkSchema } from './schemas'
 
 // ============================================================================
 // STATE
@@ -35,7 +34,7 @@ const initialStreamState: StreamState = {
 // PURE GENERATORS
 // ============================================================================
 
-type ChunkParseResult = ParseResult<z.infer<typeof arcChatChunkSchema>>
+type ChunkParseResult = ParseResult<ArcChatChunk>
 
 /** Pure generator: chunk → stream parts, returns next state */
 function* processChunk(chunk: ChunkParseResult, state: StreamState): Generator<LanguageModelV3StreamPart, StreamState> {

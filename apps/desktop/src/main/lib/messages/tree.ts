@@ -6,7 +6,7 @@
  * nested structures should use these helpers.
  */
 
-import type { StoredThread } from './schemas'
+import type { StoredThread } from '@boundary/messages'
 
 /** Finds first thread matching predicate, depth-first */
 export function find(tree: StoredThread[], p: (t: StoredThread) => boolean): StoredThread | undefined {

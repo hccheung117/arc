@@ -18,7 +18,8 @@
     "paths": {
       "@renderer/*": ["./src/renderer/*"],
       "@main/*": ["./src/main/*"],
-      "@contracts/*": ["./src/contracts/*"]
+      "@contracts/*": ["./src/contracts/*"],
+      "@boundary/*": ["./src/boundary/*"]
     }
   },
   "include": ["src/**/*", "*.config.ts", "forge.env.d.ts"]

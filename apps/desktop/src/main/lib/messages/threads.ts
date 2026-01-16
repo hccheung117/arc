@@ -9,8 +9,8 @@ import * as fs from 'fs/promises'
 import * as path from 'path'
 import { createId } from '@paralleldrive/cuid2'
 import type { ThreadPatch } from '@contracts/threads'
-import type { StoredThread, StoredThreadIndex, StoredMessageEvent } from './schemas'
-import { threadIndexFile, messageLogFile, deleteThreadAttachments } from './storage'
+import type { StoredThread, StoredThreadIndex, StoredMessageEvent } from '@boundary/messages'
+import { threadStorage, messageStorage, attachmentStorage } from '@boundary/messages'
 import { findById, parentOf, updateById, extract } from './tree'
 import { reduceMessageEvents } from './reducer'
 import { getMessageLogPath, getThreadAttachmentsDir } from '@main/foundation/paths'
@@ -70,7 +70,7 @@ export const removeThread =
 // ============================================================================
 
 export async function listThreads(): Promise<StoredThread[]> {
-  const { threads } = await threadIndexFile().read()
+  const { threads } = await threadStorage.read()
   return [...threads].sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
   )
@@ -81,15 +81,15 @@ export async function listThreads(): Promise<StoredThread[]> {
 // ============================================================================
 
 export async function deleteThread(id: string): Promise<void> {
-  await threadIndexFile().update(removeThread(id))
-  await messageLogFile(id).delete()
-  await deleteThreadAttachments(id)
+  await threadStorage.update(removeThread(id))
+  await messageStorage.delete(id)
+  await attachmentStorage.deleteAll(id)
 }
 
 export async function updateThread(id: string, patch: ThreadPatch): Promise<StoredThread> {
   let result: StoredThread | undefined
 
-  await threadIndexFile().update((index) => {
+  await threadStorage.update((index) => {
     const thread = findById(index.threads, id)
     if (!thread) throw new Error(`Thread not found: ${id}`)
 
@@ -116,7 +116,7 @@ export async function createFolder(
 ): Promise<StoredThread> {
   let folder: StoredThread | undefined
 
-  await threadIndexFile().update((index) => {
+  await threadStorage.update((index) => {
     const [t1, after1] = extract(index.threads, id1)
     if (!t1) throw new Error(`Thread not found: ${id1}`)
 
@@ -143,7 +143,7 @@ export async function createFolderWithThread(
 ): Promise<{ folder: StoredThread }> {
   let folder: StoredThread | undefined
 
-  await threadIndexFile().update((index) => {
+  await threadStorage.update((index) => {
     const [thread, remaining] = extract(index.threads, threadId)
     if (!thread) throw new Error(`Thread not found: ${threadId}`)
 
@@ -168,7 +168,7 @@ export async function moveToFolder(threadId: string, folderId: string): Promise<
   let targetFolder: StoredThread | undefined
   let sourceFolder: StoredThread | undefined
 
-  await threadIndexFile().update((index) => {
+  await threadStorage.update((index) => {
     if (!findById(index.threads, folderId)) {
       throw new Error(`Folder not found: ${folderId}`)
     }
@@ -201,7 +201,7 @@ export async function moveToRoot(threadId: string): Promise<{ moved: StoredThrea
   let moved: StoredThread | undefined
   let updatedParent: StoredThread | undefined
 
-  await threadIndexFile().update((index) => {
+  await threadStorage.update((index) => {
     const parent = parentOf(index.threads, threadId)
     if (!parent) return index
 
@@ -222,7 +222,7 @@ export async function moveToRoot(threadId: string): Promise<{ moved: StoredThrea
 export async function reorderInFolder(folderId: string, orderedIds: string[]): Promise<StoredThread | undefined> {
   let updatedFolder: StoredThread | undefined
 
-  await threadIndexFile().update((index) => {
+  await threadStorage.update((index) => {
     const folder = findById(index.threads, folderId)
     if (!folder) throw new Error(`Folder not found: ${folderId}`)
 
@@ -268,7 +268,7 @@ export async function duplicateThread(
   let duplicate: StoredThread | undefined
   let parentFolder: StoredThread | undefined
 
-  await threadIndexFile().update((index) => {
+  await threadStorage.update((index) => {
     const source = findById(index.threads, sourceId)
     if (!source) throw new Error(`Thread not found: ${sourceId}`)
 
@@ -321,12 +321,11 @@ async function copyThreadData(
   }
 
   if (upToMessageId) {
-    const events = await messageLogFile(sourceId).read()
+    const events = await messageStorage.read(sourceId)
     const { filtered, attachmentPaths } = filterMessageEvents(events, upToMessageId)
 
-    const targetLog = messageLogFile(targetId)
     for (const event of filtered) {
-      await targetLog.append(event)
+      await messageStorage.append(targetId, event)
     }
 
     await copySelectiveAttachments(sourceId, targetId, attachmentPaths)

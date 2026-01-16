@@ -14,24 +14,13 @@ import {
 } from '@ai-sdk/provider'
 import {
   combineHeaders,
-  createEventSourceResponseHandler,
-  createJsonErrorResponseHandler,
   FetchFunction,
   parseProviderOptions,
   postJsonToApi,
 } from '@ai-sdk/provider-utils'
+import { arcStreamHandler, arcErrorHandler, arcProviderOptionsSchema } from '@boundary/ai'
 import { convertToArcMessages } from './convert'
-import { arcChatChunkSchema, arcErrorSchema, arcProviderOptionsSchema } from './schemas'
 import { createChunkTransformer } from './stream'
-
-// ============================================================================
-// ERROR HANDLER
-// ============================================================================
-
-const arcFailedResponseHandler = createJsonErrorResponseHandler({
-  errorSchema: arcErrorSchema,
-  errorToMessage: (data) => data.error.message,
-})
 
 // ============================================================================
 // LANGUAGE MODEL
@@ -69,8 +58,8 @@ class ArcLanguageModel implements LanguageModelV3 {
       url: `${this.config.baseURL}/chat/completions`,
       headers: combineHeaders(this.config.headers(), options.headers),
       body,
-      failedResponseHandler: arcFailedResponseHandler,
-      successfulResponseHandler: createEventSourceResponseHandler(arcChatChunkSchema),
+      failedResponseHandler: arcErrorHandler,
+      successfulResponseHandler: arcStreamHandler,
       abortSignal: options.abortSignal,
       fetch: this.config.fetch,
     })

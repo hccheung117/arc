@@ -6,9 +6,9 @@
  */
 
 import type { IpcMain } from 'electron'
-import type { StoredThread } from '@main/lib/messages/schemas'
+import type { StoredThread } from '@boundary/messages'
+import { threadStorage } from '@boundary/messages'
 import { appendMessage, readMessages } from '@main/lib/messages/operations'
-import { threadIndexFile } from '@main/lib/messages/storage'
 import {
   installProfile,
   uninstallProfile,
@@ -73,7 +73,7 @@ export function registerDataHandlers(ipcMain: IpcMain): void {
       })
 
       if (threadCreated) {
-        const index = await threadIndexFile().read()
+        const index = await threadStorage.read()
         const thread = index.threads.find((t) => t.id === threadId)
         if (thread) emitThread({ type: 'created', thread })
       }
