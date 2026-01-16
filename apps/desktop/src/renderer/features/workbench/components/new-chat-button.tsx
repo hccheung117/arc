@@ -19,11 +19,16 @@ export function NewChatButton({ onNewChat }: NewChatButtonProps) {
   useEffect(() => {
     let mounted = true
 
-    window.arc.personas.list().then((data) => {
-      if (mounted) setPersonas(data)
-    })
+    const fetchPersonas = () => {
+      window.arc.personas.list().then((data) => {
+        if (mounted) setPersonas(data)
+      })
+    }
 
-    const unsubscribe = window.arc.personas.onEvent((event) => {
+    fetchPersonas()
+
+    // Handle user persona CRUD events incrementally
+    const unsubPersonas = window.arc.personas.onEvent((event) => {
       if (!mounted) return
       if (event.type === 'created') {
         setPersonas((prev) => [...prev, event.persona])
@@ -34,9 +39,13 @@ export function NewChatButton({ onNewChat }: NewChatButtonProps) {
       }
     })
 
+    // Re-fetch when profile changes (profile personas may have changed)
+    const unsubProfiles = window.arc.profiles.onEvent(fetchPersonas)
+
     return () => {
       mounted = false
-      unsubscribe()
+      unsubPersonas()
+      unsubProfiles()
     }
   }, [])
 

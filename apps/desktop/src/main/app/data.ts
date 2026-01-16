@@ -6,7 +6,6 @@
  */
 
 import type { IpcMain } from 'electron'
-import { readFile } from 'node:fs/promises'
 import { z } from 'zod'
 import type { BranchInfo } from '@arc-types/arc-api'
 import type { StoredThread, StoredMessageEvent } from '@main/lib/messages/schemas'
@@ -21,9 +20,10 @@ import {
   getActiveProfile,
   generateProviderId,
   type ProfileInstallResult,
+  type ProfilesEvent,
 } from '@main/lib/profile/operations'
 import { syncModels } from '@main/lib/profile/models'
-import { info, error } from '@main/foundation/logger'
+import { info } from '@main/foundation/logger'
 import { validated, broadcast, register } from '@main/foundation/ipc'
 
 // ============================================================================
@@ -149,32 +149,21 @@ const messageHandlers = {
 // PROFILES
 // ============================================================================
 
-type ProfileEvent =
-  | { type: 'installed'; profile: ProfileInstallResult }
-  | { type: 'uninstalled'; profileId: string }
-  | { type: 'activated'; profileId: string | null }
-
-const emitProfile = (event: ProfileEvent) => broadcast('arc:profiles:event', event)
-
-/** Refreshes model cache after profile changes (background, errors logged) */
-async function refreshModelsCache(): Promise<void> {
-  try {
-    const profile = await getActiveProfile()
-    const providers =
-      profile?.providers.map((p) => ({
-        id: generateProviderId(p),
-        baseUrl: p.baseUrl,
-        apiKey: p.apiKey,
-        filter: p.modelFilter,
-        aliases: p.modelAliases,
-        providerName: profile.name,
-      })) ?? []
-    const updated = await syncModels(providers)
-    if (updated) broadcast('arc:models:event', { type: 'updated' })
-  } catch (err) {
-    error('models', 'Background fetch failed', err as Error)
-  }
+async function syncProfileModels(): Promise<void> {
+  const profile = await getActiveProfile()
+  const providers =
+    profile?.providers.map((p) => ({
+      id: generateProviderId(p),
+      baseUrl: p.baseUrl,
+      apiKey: p.apiKey,
+      filter: p.modelFilter,
+      aliases: p.modelAliases,
+      providerName: profile.name,
+    })) ?? []
+  await syncModels(providers)
 }
+
+const emitProfile = (event: ProfilesEvent) => broadcast<ProfilesEvent>('arc:profiles:event', event)
 
 const profileHandlers = {
   'arc:profiles:list': listProfiles,
@@ -183,28 +172,27 @@ const profileHandlers = {
 
   'arc:profiles:install': validated([z.string()], async (filePath): Promise<ProfileInstallResult> => {
     info('profiles', `Install request: ${filePath}`)
-    const content = await readFile(filePath, 'utf-8')
-
-    const result = await installProfile(content)
-    emitProfile({ type: 'installed', profile: result })
+    const result = await installProfile(filePath)
 
     await activateProfile(result.id)
+    await syncProfileModels()
+
+    emitProfile({ type: 'installed', profile: result })
     emitProfile({ type: 'activated', profileId: result.id })
 
-    refreshModelsCache()
     return result
   }),
 
   'arc:profiles:uninstall': validated([z.string()], async (profileId) => {
     await uninstallProfile(profileId)
+    await syncProfileModels()
     emitProfile({ type: 'uninstalled', profileId })
-    refreshModelsCache()
   }),
 
   'arc:profiles:activate': validated([z.string().nullable()], async (profileId) => {
     await activateProfile(profileId)
+    await syncProfileModels()
     emitProfile({ type: 'activated', profileId })
-    refreshModelsCache()
   }),
 }
 

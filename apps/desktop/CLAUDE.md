@@ -45,6 +45,30 @@ Three patterns based on direction and response requirements:
 | Two-way | Renderer → Main with response | `ipcRenderer.invoke()` / `ipcMain.handle()` |
 | Push | Main → Renderer | `webContents.send()` / `ipcRenderer.on()` |
 
+## Push Events
+
+**One cause, one event. Consumers own their concerns.**
+
+Events notify the renderer of domain state changes. Design events around the cause (what happened), not the effects (what needs updating).
+
+```
+WRONG:  action triggers → main emits primary event
+                        → main emits derived event A
+                        → main emits derived event B (forgotten!)
+
+RIGHT:  action triggers → main emits primary event
+                              ↓
+                         consumers subscribe
+                         and refresh as needed
+```
+
+**Key principles:**
+
+1. **One event per cause** — Emit for the action that happened. Derived events fragment causality, create coupling, and invite omissions.
+2. **Consumers own refresh** — Renderer knows its data dependencies. Main process shouldn't guess what UI state to invalidate.
+3. **Sync before emit** — Complete all storage/cache writes before broadcasting. Prevents race conditions where consumers fetch stale data.
+4. **Domain semantics** — Event types describe state transitions (`installed`, `deleted`), not implementation details (`cacheUpdated`, `needsRefresh`).
+
 ## Process-Specific Guidelines
 
 - @src/main/CLAUDE.md — Three-layer architecture, domain-centric app layer, command pattern, logging

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
 import { ChatView } from './chat-view'
 import type { Model } from '@arc-types/models'
-import { getModels, onModelsEvent } from '@renderer/lib/models'
+import { getModels } from '@renderer/lib/models'
 import type { ChatThread, ThreadAction } from '@renderer/lib/threads'
 
 interface WorkspaceProps {
@@ -36,22 +36,16 @@ const findThreadInTree = (threads: ChatThread[], id: string): ChatThread | undef
 export function Workspace({ threads, activeThreadId, onThreadUpdate }: WorkspaceProps) {
   const [models, setModels] = useState<Model[]>([])
 
-  // Fetch and subscribe to model updates (shared resource)
+  // Fetch models on mount and when active profile changes
   useEffect(() => {
     const fetchModels = () => {
       getModels().then(setModels)
     }
 
-    // Subscribe first to avoid race with main process startup fetch
-    const unsubscribe = onModelsEvent((event) => {
-      if (event.type === 'updated') {
-        fetchModels()
-      }
-    })
-
     fetchModels()
 
-    return unsubscribe
+    // Re-fetch when profile changes (install/uninstall/activate)
+    return window.arc.profiles.onEvent(fetchModels)
   }, [])
 
   // Find the active thread (recursive search through folder children)

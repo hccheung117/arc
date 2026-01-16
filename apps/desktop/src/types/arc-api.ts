@@ -174,8 +174,6 @@ export type AIStreamEvent =
   | { type: 'complete'; streamId: string; message: Message }
   | { type: 'error'; streamId: string; error: string }
 
-/** Models cache update events (Rule 3: Push) */
-export type ModelsEvent = { type: 'updated' }
 
 /** Thread context menu input parameters */
 export interface ThreadContextMenuParams {
@@ -287,9 +285,6 @@ export interface ArcAPI {
   models: {
     /** List available AI models (Rule 2: Two-Way) */
     list(): Promise<Model[]>
-
-    /** Subscribe to model cache update events (Rule 3: Push) */
-    onEvent(callback: (event: ModelsEvent) => void): Unsubscribe
   }
 
   /** AI streaming operations */

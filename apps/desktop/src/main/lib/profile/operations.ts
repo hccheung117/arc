@@ -21,7 +21,6 @@ import {
   type ProfileInstallResult,
 } from '@arc-types/arc-file'
 import { info } from '@main/foundation/logger'
-import { broadcast } from '@main/foundation/ipc'
 import {
   getProfilesDir,
   getProfileDir,
@@ -37,10 +36,6 @@ export type ProfilesEvent =
   | { type: 'installed'; profile: ProfileInstallResult }
   | { type: 'uninstalled'; profileId: string }
   | { type: 'activated'; profileId: string | null }
-
-export function emitProfilesEvent(event: ProfilesEvent) {
-  broadcast('arc:profiles:event', event)
-}
 
 export type { ProfileInstallResult }
 export type { ProfileInfo } from '@arc-types/arc-file'

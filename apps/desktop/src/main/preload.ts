@@ -8,7 +8,6 @@ import type {
   UpdateMessageInput,
   ChatOptions,
   AIStreamEvent,
-  ModelsEvent,
   PersonasEvent,
   ThreadContextMenuParams,
   SaveDialogOptions,
@@ -74,12 +73,6 @@ const arcAPI: ArcAPI = {
 
   models: {
     list: () => ipcRenderer.invoke('arc:models:list'),
-
-    onEvent: (callback: (event: ModelsEvent) => void) => {
-      const listener = (_event: Electron.IpcRendererEvent, data: ModelsEvent) => callback(data)
-      ipcRenderer.on('arc:models:event', listener)
-      return () => ipcRenderer.removeListener('arc:models:event', listener)
-    },
   },
 
   ai: {
