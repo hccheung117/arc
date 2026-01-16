@@ -9,6 +9,12 @@ import { contract, op, returns } from '@main/foundation/contract'
 import type { StoredMessageEvent } from '@main/lib/messages/schemas'
 
 // ============================================================================
+// SHARED TYPES
+// ============================================================================
+
+export type MessageRole = 'user' | 'assistant' | 'system'
+
+// ============================================================================
 // BRANCH INFO (defined here to avoid circular imports)
 // ============================================================================
 

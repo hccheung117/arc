@@ -6,7 +6,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@main': path.resolve(__dirname, './src/main'),
-      '@arc-types': path.resolve(__dirname, './src/types'),
+      '@contracts': path.resolve(__dirname, './src/contracts'),
     },
   },
 });

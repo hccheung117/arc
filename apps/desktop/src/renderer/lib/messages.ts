@@ -1,12 +1,59 @@
-import type { Message, MessageRole } from '@arc-types/messages'
-import type { AIStreamEvent, Unsubscribe } from '@main/contracts/events'
+import type { AIStreamEvent, Unsubscribe } from '@contracts/events'
 import type {
   AttachmentInput,
   ThreadConfig,
   BranchInfo,
   Message as StoredMessage,
-} from '@main/contracts/messages'
-import type { ChatResponse } from '@main/contracts/ai'
+  MessageRole,
+} from '@contracts/messages'
+import type { ChatResponse } from '@contracts/ai'
+
+// ============================================================================
+// RENDERER VIEW MODEL TYPES
+// ============================================================================
+
+/**
+ * Message attachment with URL for display.
+ *
+ * This is a renderer ViewModel - IPC returns StoredAttachment (no url).
+ * URL is generated during transformation based on conversationId.
+ */
+export interface MessageAttachment {
+  type: 'image'
+  path: string
+  mimeType: string
+  url: string
+}
+
+/**
+ * Message ViewModel for UI rendering.
+ *
+ * This is a renderer ViewModel - IPC returns StoredMessageEvent (optional fields).
+ * Key differences from IPC type:
+ * - Has conversationId (derived from context)
+ * - Has url on attachments (generated)
+ * - Has status field (for streaming state)
+ * - All fields required (defaults applied during transformation)
+ */
+export interface Message {
+  id: string
+  conversationId: string
+  role: MessageRole
+  status: MessageStatus
+  content: string
+  reasoning?: string
+  createdAt: string
+  updatedAt: string
+  parentId: string | null
+  error?: Error
+  attachments?: MessageAttachment[]
+  modelId?: string
+  providerId?: string
+}
+
+export type MessageStatus = 'pending' | 'streaming' | 'complete' | 'failed'
+
+export type { MessageRole }
 
 // ============================================================================
 // TRANSFORMATION

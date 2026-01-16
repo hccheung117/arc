@@ -8,7 +8,7 @@
 import * as fs from 'fs/promises'
 import * as path from 'path'
 import { createId } from '@paralleldrive/cuid2'
-import type { ThreadPatch } from '@main/contracts/threads'
+import type { ThreadPatch } from '@contracts/threads'
 import type { StoredThread, StoredThreadIndex, StoredMessageEvent } from './schemas'
 import { threadIndexFile, messageLogFile, deleteThreadAttachments } from './storage'
 import { findById, parentOf, updateById, extract } from './tree'

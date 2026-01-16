@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
-import type { BranchInfo } from '@main/contracts/messages'
+import type { BranchInfo } from '@contracts/messages'
 
 interface BranchIndicatorProps {
   branchInfo: BranchInfo

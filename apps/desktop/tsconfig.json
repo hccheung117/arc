@@ -18,7 +18,7 @@
     "paths": {
       "@renderer/*": ["./src/renderer/*"],
       "@main/*": ["./src/main/*"],
-      "@arc-types/*": ["./src/types/*"]
+      "@contracts/*": ["./src/contracts/*"]
     }
   },
   "include": ["src/**/*", "*.config.ts", "forge.env.d.ts"]

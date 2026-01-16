@@ -9,7 +9,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@renderer': path.resolve(__dirname, './src/renderer'),
-      '@arc-types': path.resolve(__dirname, './src/types'),
+      '@contracts': path.resolve(__dirname, './src/contracts'),
     },
   },
   build: {

@@ -1,8 +1,8 @@
 import { createId } from '@paralleldrive/cuid2'
-import type { Message } from '@arc-types/messages'
-import type { Thread } from '@main/contracts/threads'
-import type { ThreadEvent, Unsubscribe } from '@main/contracts/events'
-import type { ThreadContextMenuParams, ThreadMenuAction } from '@main/contracts/ui'
+import type { Message } from '@renderer/lib/messages'
+import type { Thread } from '@contracts/threads'
+import type { ThreadEvent, Unsubscribe } from '@contracts/events'
+import type { ThreadContextMenuParams, ThreadMenuAction } from '@contracts/ui'
 
 // ============================================================================
 // CHAT THREAD

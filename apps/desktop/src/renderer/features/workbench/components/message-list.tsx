@@ -1,5 +1,5 @@
-import type { Message as MessageType, MessageRole } from '@arc-types/messages'
-import type { BranchInfo } from '@main/contracts/messages'
+import type { Message as MessageType, MessageRole } from '@renderer/lib/messages'
+import type { BranchInfo } from '@contracts/messages'
 import type { StreamingMessage } from '@renderer/features/workbench/domain/stream-state'
 import { ScrollArea } from '@renderer/components/ui/scroll-area'
 import { MessageProvider } from '@renderer/features/workbench/context/message-context'

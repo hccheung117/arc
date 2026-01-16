@@ -10,7 +10,7 @@ import {
 import { ScrollArea } from '@renderer/components/ui/scroll-area'
 import { Separator } from '@renderer/components/ui/separator'
 import { cn } from '@renderer/lib/utils'
-import type { Model } from '@arc-types/models'
+import type { Model } from '@contracts/models'
 
 interface StoredFavorite {
   providerId: string

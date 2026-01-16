@@ -6,7 +6,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@renderer/components/ui/popover'
-import type { Persona } from '@main/contracts/personas'
+import type { Persona } from '@contracts/personas'
 
 interface NewChatButtonProps {
   onNewChat: (persona?: Persona) => void

@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react'
 import { error } from '@renderer/lib/logger'
-import type { MessageAttachment } from '@arc-types/messages'
+import type { MessageAttachment } from '@renderer/lib/messages'
 
 interface AttachmentImageProps {
   attachment: MessageAttachment

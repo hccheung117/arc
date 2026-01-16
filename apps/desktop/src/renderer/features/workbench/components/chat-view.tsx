@@ -1,6 +1,6 @@
 import { useRef, useCallback, useMemo, useState } from 'react'
-import type { MessageRole } from '@arc-types/messages'
-import type { Model } from '@arc-types/models'
+import type { MessageRole } from '@renderer/lib/messages'
+import type { Model } from '@contracts/models'
 import type { ChatThread, ThreadAction } from '@renderer/lib/threads'
 import type { DisplayMessage, InputMode } from '@renderer/features/workbench/domain/types'
 import { useChatSession } from '@renderer/features/workbench/hooks/use-chat-session'

@@ -12,7 +12,7 @@ import type { StoredThread } from '@main/lib/messages/schemas'
 import { execute, listThreads, type ThreadEvent } from '@main/lib/messages/commands'
 import { broadcast } from '@main/foundation/ipc'
 import { registerHandlers } from '@main/foundation/contract'
-import { threadsContract, foldersContract } from '@main/contracts/threads'
+import { threadsContract, foldersContract } from '@contracts/threads'
 
 // ============================================================================
 // EVENT BROADCASTING

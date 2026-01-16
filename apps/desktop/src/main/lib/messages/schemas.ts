@@ -9,7 +9,7 @@
  */
 
 import { z } from 'zod'
-import { BranchInfoSchema } from '@main/contracts/messages'
+import { BranchInfoSchema } from '@contracts/messages'
 
 // ============================================================================
 // ATTACHMENT SCHEMAS

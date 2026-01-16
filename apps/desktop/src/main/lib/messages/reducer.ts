@@ -7,7 +7,7 @@
  * - Builds tree structure via parentId
  */
 
-import type { BranchInfo } from '@main/contracts/messages'
+import type { BranchInfo } from '@contracts/messages'
 import type { StoredMessageEvent } from './schemas'
 import { computeBranchPoints } from './branching'
 

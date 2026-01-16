@@ -13,9 +13,9 @@ import { rendererError } from '@main/foundation/logger'
 import { getThreadAttachmentPath } from '@main/foundation/paths'
 import { getSetting, setSetting } from '@main/lib/profile/operations'
 import { registerHandlers } from '@main/foundation/contract'
-import { settingsContract } from '@main/contracts/settings'
-import { utilsContract } from '@main/contracts/utils'
-import { filesContract } from '@main/contracts/files'
+import { settingsContract } from '@contracts/settings'
+import { utilsContract } from '@contracts/utils'
+import { filesContract } from '@contracts/files'
 
 // ============================================================================
 // LOGGING (one-way, uses ipcMain.on - not part of contracts)

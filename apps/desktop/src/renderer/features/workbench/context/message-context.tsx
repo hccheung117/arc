@@ -1,5 +1,5 @@
 import { createContext, useContext } from 'react'
-import type { MessageRole } from '@arc-types/messages'
+import type { MessageRole } from '@renderer/lib/messages'
 
 /**
  * Message-level ambient context

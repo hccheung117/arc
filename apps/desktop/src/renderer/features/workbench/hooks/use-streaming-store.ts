@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import type { Message } from '@arc-types/messages'
+import type { Message } from '@renderer/lib/messages'
 import { startAIChat } from '@renderer/lib/messages'
 import { useChatUIStore } from '@renderer/features/workbench/stores/chat-ui-store'
 import { streamManager } from '@renderer/features/workbench/stores/stream-manager'

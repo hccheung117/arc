@@ -1,4 +1,4 @@
-import type { Message } from '@arc-types/messages'
+import type { Message } from '@renderer/lib/messages'
 
 function formatTimeShort(date: Date) {
   return date.toLocaleTimeString(undefined, {

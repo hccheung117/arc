@@ -1,4 +1,4 @@
-import type { Message } from '@arc-types/messages'
+import type { Message } from '@renderer/lib/messages'
 import { onAIEvent, stopAIChat, transformMessage } from '@renderer/lib/messages'
 import { error as logError } from '@renderer/lib/logger'
 import { useChatUIStore } from './chat-ui-store'

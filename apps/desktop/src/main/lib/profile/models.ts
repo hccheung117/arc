@@ -10,7 +10,7 @@ import { getModelsCachePath } from '@main/foundation/paths'
 import { info, error } from '@main/foundation/logger'
 import { matchesGlob } from '@main/foundation/glob'
 import { createClient } from '@main/lib/ai/client'
-import type { Model } from '@arc-types/models'
+import type { Model } from '@contracts/models'
 
 // ============================================================================
 // INTERNAL TYPES

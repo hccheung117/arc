@@ -12,7 +12,7 @@
 import type { IpcMain } from 'electron'
 import { broadcast } from '@main/foundation/ipc'
 import { registerHandlers } from '@main/foundation/contract'
-import { personasContract, type Persona } from '@main/contracts/personas'
+import { personasContract, type Persona } from '@contracts/personas'
 import {
   listPersonas,
   createPersona,

@@ -13,7 +13,7 @@ import {
   showMessageContextMenu,
 } from '@main/lib/ui'
 import { registerHandlers } from '@main/foundation/contract'
-import { uiContract } from '@main/contracts/ui'
+import { uiContract } from '@contracts/ui'
 
 // ============================================================================
 // REGISTRATION

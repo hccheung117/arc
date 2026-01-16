@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import type { Message } from '@arc-types/messages'
-import type { BranchInfo } from '@main/contracts/messages'
+import type { Message } from '@renderer/lib/messages'
+import type { BranchInfo } from '@contracts/messages'
 import type { BranchSelections } from '@renderer/features/workbench/domain/types'
 import { resolveTree } from '@renderer/features/workbench/domain/message-tree'
 import { getMessages } from '@renderer/lib/messages'

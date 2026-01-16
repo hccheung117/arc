@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { Model } from '@arc-types/models'
-import type { Message } from '@arc-types/messages'
+import type { Model } from '@contracts/models'
+import type { Message } from '@renderer/lib/messages'
 
 const STORAGE_KEY = 'arc:selectedModelId'
 

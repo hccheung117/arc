@@ -6,7 +6,7 @@
  */
 
 import { createId } from '@paralleldrive/cuid2'
-import type { AttachmentInput, BranchInfo, ThreadConfig } from '@main/contracts/messages'
+import type { AttachmentInput, BranchInfo, ThreadConfig } from '@contracts/messages'
 import type { StoredMessageEvent, StoredThread, StoredAttachment, Usage } from './schemas'
 import { reduceMessageEvents } from './reducer'
 import { threadIndexFile, messageLogFile, buildAttachment, writeAttachmentData } from './storage'

@@ -1,6 +1,6 @@
-import type { Message, MessageRole } from '@arc-types/messages'
-import type { BranchInfo, AttachmentInput, ThreadConfig } from '@main/contracts/messages'
-import type { Model } from '@arc-types/models'
+import type { Message, MessageRole } from '@renderer/lib/messages'
+import type { BranchInfo, AttachmentInput, ThreadConfig } from '@contracts/messages'
+import type { Model } from '@contracts/models'
 
 /**
  * Branch selection state: maps parentId (or 'root') to selected child index

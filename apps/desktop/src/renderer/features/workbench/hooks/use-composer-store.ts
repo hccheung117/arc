@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { createId } from '@paralleldrive/cuid2'
-import type { AttachmentInput } from '@main/contracts/messages'
+import type { AttachmentInput } from '@contracts/messages'
 import type { ComposerAttachment } from '@renderer/features/workbench/domain/types'
 import { useChatUIStore } from '@renderer/features/workbench/stores/chat-ui-store'
 

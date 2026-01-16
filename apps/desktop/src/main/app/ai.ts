@@ -21,8 +21,8 @@ import { getThreadAttachmentPath } from '@main/foundation/paths'
 import { error } from '@main/foundation/logger'
 import { broadcast } from '@main/foundation/ipc'
 import { registerHandlers } from '@main/foundation/contract'
-import { modelsContract } from '@main/contracts/models'
-import { aiContract } from '@main/contracts/ai'
+import { modelsContract } from '@contracts/models'
+import { aiContract } from '@contracts/ai'
 
 // ============================================================================
 // MESSAGE CONVERSION

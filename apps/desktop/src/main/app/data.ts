@@ -23,8 +23,8 @@ import { syncModels } from '@main/lib/profile/models'
 import { info } from '@main/foundation/logger'
 import { broadcast } from '@main/foundation/ipc'
 import { registerHandlers } from '@main/foundation/contract'
-import { messagesContract } from '@main/contracts/messages'
-import { profilesContract } from '@main/contracts/profiles'
+import { messagesContract } from '@contracts/messages'
+import { profilesContract } from '@contracts/profiles'
 
 // ============================================================================
 // THREAD EVENTS (for message creation side effect)

@@ -19,7 +19,9 @@ import {
   ARC_FILE_VERSION,
   type ArcFile,
   type ProfileInstallResult,
-} from '@arc-types/arc-file'
+  type ProfileInfo,
+} from '@contracts/profiles'
+import type { ProfilesEvent } from '@contracts/events'
 import { info } from '@main/foundation/logger'
 import {
   getProfilesDir,
@@ -28,17 +30,8 @@ import {
 } from '@main/foundation/paths'
 import { extractArchive } from '@main/foundation/archive'
 
-// ============================================================================
-// PROFILES EVENTS
-// ============================================================================
-
-export type ProfilesEvent =
-  | { type: 'installed'; profile: ProfileInstallResult }
-  | { type: 'uninstalled'; profileId: string }
-  | { type: 'activated'; profileId: string | null }
-
-export type { ProfileInstallResult }
-export type { ProfileInfo } from '@arc-types/arc-file'
+// Re-export types from contracts for backwards compatibility
+export type { ProfilesEvent, ProfileInstallResult, ProfileInfo }
 
 // ============================================================================
 // PROVIDER ID GENERATION

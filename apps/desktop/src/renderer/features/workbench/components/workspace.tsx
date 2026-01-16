@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
 import { ChatView } from './chat-view'
-import type { Model } from '@arc-types/models'
+import type { Model } from '@contracts/models'
 import { getModels } from '@renderer/lib/models'
 import type { ChatThread, ThreadAction } from '@renderer/lib/threads'
 

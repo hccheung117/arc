@@ -3,7 +3,7 @@ import { Card } from '@renderer/components/ui/card'
 import { Textarea } from '@renderer/components/ui/textarea'
 import { ImagePlus, Send, Square, Pencil, Sparkles, Save } from 'lucide-react'
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
-import type { AttachmentInput } from '@main/contracts/messages'
+import type { AttachmentInput } from '@contracts/messages'
 import { useComposerStore } from '@renderer/features/workbench/hooks/use-composer-store'
 import { AttachmentGrid } from './composer-attachments'
 

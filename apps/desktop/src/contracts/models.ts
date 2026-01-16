@@ -6,7 +6,22 @@
 
 import { z } from 'zod'
 import { contract, op } from '@main/foundation/contract'
-import type { Model } from '@arc-types/models'
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+export interface Provider {
+  id: string
+  name: string
+  type: 'openai'
+}
+
+export interface Model {
+  id: string
+  name: string
+  provider: Provider
+}
 
 // ============================================================================
 // CONTRACT

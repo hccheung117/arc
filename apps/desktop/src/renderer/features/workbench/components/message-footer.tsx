@@ -1,4 +1,4 @@
-import type { BranchInfo } from '@main/contracts/messages'
+import type { BranchInfo } from '@contracts/messages'
 import { MessageActions } from './message-actions'
 import { BranchIndicator } from './message-branch'
 

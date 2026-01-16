@@ -6,7 +6,7 @@
  * The app layer just executes commands and broadcasts returned events.
  */
 
-import type { ThreadPatch } from '@main/contracts/threads'
+import type { ThreadPatch } from '@contracts/threads'
 import type { StoredThread } from './schemas'
 import {
   listThreads,

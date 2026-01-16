@@ -1,5 +1,5 @@
 import { Download, Drama } from 'lucide-react'
-import type { Model } from '@arc-types/models'
+import type { Model } from '@contracts/models'
 import { Button } from '@renderer/components/ui/button'
 import { ModelSelector } from './model-selector'
 
