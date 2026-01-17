@@ -11,6 +11,7 @@ import { createId } from '@paralleldrive/cuid2'
 import { streamText, type LanguageModelUsage } from 'ai'
 import type { ModelMessage } from '@ai-sdk/provider-utils'
 import { listModels, lookupModelProvider } from '@main/lib/profile/models'
+import { resolvePromptSource } from '@main/lib/personas/resolver'
 import { createArc } from '@main/lib/ai/provider'
 import type { StoredMessageEvent } from '@boundary/messages'
 import { threadStorage } from '@boundary/messages'
@@ -118,9 +119,14 @@ async function prepareStreamContext(threadId: string, modelId: string): Promise<
   const providerConfig = await getProviderConfig(providerId)
   const parentId = threadMessages.at(-1)?.id ?? null
 
+  // Resolve system prompt from PromptSource
+  const resolvedSystemPrompt = thread?.promptSource
+    ? await resolvePromptSource(thread.promptSource)
+    : null
+
   const baseMessages = await convertToModelMessages(threadMessages, threadId)
-  const messages = thread?.systemPrompt
-    ? [{ role: 'system' as const, content: thread.systemPrompt }, ...baseMessages]
+  const messages = resolvedSystemPrompt
+    ? [{ role: 'system' as const, content: resolvedSystemPrompt }, ...baseMessages]
     : baseMessages
 
   return {

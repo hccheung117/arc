@@ -1,8 +1,10 @@
 import { useRef, useCallback, useMemo, useState } from 'react'
 import type { MessageRole } from '@renderer/lib/messages'
 import type { Model } from '@contracts/models'
+import type { Persona } from '@contracts/personas'
 import type { ChatThread, ThreadAction } from '@renderer/lib/threads'
 import type { DisplayMessage, InputMode } from '@renderer/lib/types'
+import { getPromptInfo } from '@renderer/lib/prompts'
 import { useChatSession } from '@renderer/hooks/use-chat-session'
 import { useScrollStore } from '@renderer/hooks/use-scroll-store'
 import { useEditingSync } from '@renderer/hooks/use-editing-sync'
@@ -54,6 +56,7 @@ function deriveEditingState(input: InputMode) {
 interface ChatViewProps {
   thread: ChatThread
   models: Model[]
+  findPersona: (personaId: string) => Persona | undefined
   onThreadUpdate: (action: ThreadAction) => void
 }
 
@@ -63,11 +66,16 @@ interface ChatViewProps {
  * Each ChatView instance is an independent "process" with isolated state.
  * Logic is delegated to useChatSession; this component owns UI wiring.
  */
-export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
+export function ChatView({ thread, models, findPersona, onThreadUpdate }: ChatViewProps) {
   const { view, actions } = useChatSession(thread, models, onThreadUpdate)
   const composerRef = useRef<ComposerRef>(null)
 
   // Derived state (pure)
+  const persona = useMemo(
+    () => thread.promptSource.type === 'persona' ? findPersona(thread.promptSource.personaId) : undefined,
+    [thread.promptSource, findPersona],
+  )
+  const promptInfo = useMemo(() => getPromptInfo(thread.promptSource, persona), [thread.promptSource, persona])
   const lastUserMessageId = useMemo(() => getLastUserMessageId(view.messages), [view.messages])
   const { isEditingSystemPrompt, editingMessageId, editingLabel, composerMode } = deriveEditingState(view.input)
   const isEmpty = view.messages.length === 0 && !view.streamingMessage
@@ -80,13 +88,14 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
   const { cancel: cancelEdit } = useEditingSync(
     view.input,
     view.messages,
-    thread.systemPrompt,
+    promptInfo,
     composerRef,
   )
 
   // System prompt
   const systemPrompt = useSystemPrompt(
     thread,
+    promptInfo,
     view.input,
     onThreadUpdate,
     composerRef,
@@ -130,7 +139,7 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
       <PromotePersonaDialog
         open={promoteDialogOpen}
         onOpenChange={setPromoteDialogOpen}
-        systemPrompt={thread.systemPrompt ?? ''}
+        systemPrompt={promptInfo.displayContent}
       />
       <div className="flex h-full flex-col overflow-hidden">
         <Header
@@ -140,7 +149,7 @@ export function ChatView({ thread, models, onThreadUpdate }: ChatViewProps) {
           onExport={handleExport}
           canExport={!isEmpty}
           onEditSystemPrompt={handleToggleSystemPrompt}
-          hasSystemPrompt={!!thread.systemPrompt}
+          hasSystemPrompt={promptInfo.hasPrompt}
         />
 
         {/* Chat body: layered architecture for stable robot positioning */}

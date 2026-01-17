@@ -5,11 +5,13 @@
  * Implements two-layer resolution: user personas shadow profile personas.
  */
 
+import matter from 'gray-matter'
 import { getActiveProfileId } from '@main/lib/profile/operations'
 import {
   userPersonaStorage,
   profilePersonaStorage,
   isValidPersonaName,
+  parsePersonaFile,
   type Persona,
 } from '@boundary/personas'
 
@@ -29,13 +31,18 @@ export async function listPersonas() {
   const profilePersonas: Persona[] = []
 
   for (const name of profileNames) {
-    const systemPrompt = activeProfileId ? await profilePersonaStorage.read(activeProfileId, name) : null
-    if (systemPrompt !== null) {
+    const rawContent = activeProfileId
+      ? await profilePersonaStorage.read(activeProfileId, name)
+      : null
+    if (rawContent !== null) {
+      const { frontMatter, systemPrompt } = parsePersonaFile(rawContent)
       profilePersonas.push({
         name,
+        displayName: frontMatter.name ?? name,
         systemPrompt,
         source: 'profile',
         createdAt: '',
+        frontMatter,
       })
     }
   }
@@ -45,13 +52,16 @@ export async function listPersonas() {
   const userPersonas: Persona[] = []
 
   for (const name of userNames) {
-    const systemPrompt = await userPersonaStorage.read(name)
-    if (systemPrompt !== null) {
+    const rawContent = await userPersonaStorage.read(name)
+    if (rawContent !== null) {
+      const { frontMatter, systemPrompt } = parsePersonaFile(rawContent)
       userPersonas.push({
         name,
+        displayName: frontMatter.name ?? name,
         systemPrompt,
         source: 'user',
         createdAt: '',
+        frontMatter,
       })
     }
   }
@@ -63,8 +73,8 @@ export async function listPersonas() {
     ...userPersonas,
   ]
 
-  // Sort alphabetically by name
-  return merged.sort((a, b) => a.name.localeCompare(b.name))
+  // Sort alphabetically by displayName
+  return merged.sort((a, b) => a.displayName.localeCompare(b.displayName))
 }
 
 // ============================================================================
@@ -77,26 +87,32 @@ export async function listPersonas() {
  */
 export async function getPersona(name: string) {
   // Check user layer first (shadow)
-  const userPrompt = await userPersonaStorage.read(name)
-  if (userPrompt !== null) {
+  const userContent = await userPersonaStorage.read(name)
+  if (userContent !== null) {
+    const { frontMatter, systemPrompt } = parsePersonaFile(userContent)
     return {
       name,
-      systemPrompt: userPrompt,
+      displayName: frontMatter.name ?? name,
+      systemPrompt,
       source: 'user' as const,
       createdAt: '',
+      frontMatter,
     }
   }
 
   // Check profile layer
   const activeProfileId = await getActiveProfileId()
   if (activeProfileId) {
-    const profilePrompt = await profilePersonaStorage.read(activeProfileId, name)
-    if (profilePrompt !== null) {
+    const profileContent = await profilePersonaStorage.read(activeProfileId, name)
+    if (profileContent !== null) {
+      const { frontMatter, systemPrompt } = parsePersonaFile(profileContent)
       return {
         name,
-        systemPrompt: profilePrompt,
+        displayName: frontMatter.name ?? name,
+        systemPrompt,
         source: 'profile' as const,
         createdAt: '',
+        frontMatter,
       }
     }
   }
@@ -127,11 +143,14 @@ export async function createPersona(name: string, systemPrompt: string) {
 
   await userPersonaStorage.write(name, systemPrompt)
 
+  // User-created personas have no front matter initially
   return {
     name,
+    displayName: name,
     systemPrompt,
     source: 'user' as const,
     createdAt: new Date().toISOString(),
+    frontMatter: {},
   }
 }
 
@@ -142,20 +161,33 @@ export async function createPersona(name: string, systemPrompt: string) {
 /**
  * Update an existing user persona's system prompt.
  * Cannot update profile personas (they are read-only).
+ * Preserves existing front matter when updating.
  */
 export async function updatePersona(name: string, systemPrompt: string) {
   // Only user personas can be updated
-  if (!(await userPersonaStorage.exists(name))) {
+  const existingContent = await userPersonaStorage.read(name)
+  if (existingContent === null) {
     throw new Error(`User persona "${name}" not found`)
   }
 
-  await userPersonaStorage.write(name, systemPrompt)
+  // Parse existing front matter to preserve it
+  const { frontMatter } = parsePersonaFile(existingContent)
+
+  // Reconstruct file with preserved front matter using gray-matter for proper YAML
+  const hasFrontMatter = Object.keys(frontMatter).length > 0
+  const newContent = hasFrontMatter
+    ? matter.stringify(systemPrompt, frontMatter)
+    : systemPrompt
+
+  await userPersonaStorage.write(name, newContent)
 
   return {
     name,
+    displayName: frontMatter.name ?? name,
     systemPrompt,
     source: 'user' as const,
     createdAt: '',
+    frontMatter,
   }
 }
 

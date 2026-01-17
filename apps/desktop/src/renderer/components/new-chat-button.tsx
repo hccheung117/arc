@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { PenSquare, ChevronDown, Drama, Trash2 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import {
@@ -6,6 +6,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@renderer/components/ui/popover'
+import { usePersonas } from '@renderer/hooks/use-personas'
 import type { Persona } from '@contracts/personas'
 
 interface NewChatButtonProps {
@@ -13,41 +14,8 @@ interface NewChatButtonProps {
 }
 
 export function NewChatButton({ onNewChat }: NewChatButtonProps) {
-  const [personas, setPersonas] = useState<Persona[]>([])
+  const { personas } = usePersonas()
   const [isOpen, setIsOpen] = useState(false)
-
-  useEffect(() => {
-    let mounted = true
-
-    const fetchPersonas = () => {
-      window.arc.personas.list().then((data) => {
-        if (mounted) setPersonas(data)
-      })
-    }
-
-    fetchPersonas()
-
-    // Handle user persona CRUD events incrementally
-    const unsubPersonas = window.arc.personas.onEvent((event) => {
-      if (!mounted) return
-      if (event.type === 'created') {
-        setPersonas((prev) => [...prev, event.persona])
-      } else if (event.type === 'updated') {
-        setPersonas((prev) => prev.map((p) => (p.name === event.persona.name ? event.persona : p)))
-      } else if (event.type === 'deleted') {
-        setPersonas((prev) => prev.filter((p) => p.name !== event.name))
-      }
-    })
-
-    // Re-fetch when profile changes (profile personas may have changed)
-    const unsubProfiles = window.arc.profiles.onEvent(fetchPersonas)
-
-    return () => {
-      mounted = false
-      unsubPersonas()
-      unsubProfiles()
-    }
-  }, [])
 
   const handlePersonaSelect = (persona?: Persona) => {
     setIsOpen(false)
@@ -96,7 +64,7 @@ export function NewChatButton({ onNewChat }: NewChatButtonProps) {
                 onClick={() => handlePersonaSelect(persona)}
               >
                 <Drama className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span className="truncate flex-1">{persona.name}</span>
+                <span className="truncate flex-1">{persona.displayName}</span>
                 {persona.source === 'user' && (
                   <button
                     type="button"

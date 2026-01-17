@@ -3,6 +3,7 @@ import { TooltipProvider } from '@renderer/components/ui/tooltip'
 import { ChatView } from './chat-view'
 import type { Model } from '@contracts/models'
 import { getModels } from '@renderer/lib/models'
+import { usePersonas } from '@renderer/hooks/use-personas'
 import type { ChatThread, ThreadAction } from '@renderer/lib/threads'
 
 interface WorkspaceProps {
@@ -35,6 +36,7 @@ const findThreadInTree = (threads: ChatThread[], id: string): ChatThread | undef
  */
 export function Workspace({ threads, activeThreadId, onThreadUpdate }: WorkspaceProps) {
   const [models, setModels] = useState<Model[]>([])
+  const { findPersona } = usePersonas()
 
   // Fetch models on mount and when active profile changes
   useEffect(() => {
@@ -59,6 +61,7 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate }: Workspace
         <ChatView
           thread={activeThread}
           models={models}
+          findPersona={findPersona}
           onThreadUpdate={onThreadUpdate}
         />
       </div>

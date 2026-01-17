@@ -7,17 +7,10 @@
 
 import { z } from 'zod'
 import { contract, op, returns } from '@main/foundation/contract'
+import type { Persona, PersonaFrontMatter } from '@boundary/personas'
 
-// ============================================================================
-// TYPES
-// ============================================================================
-
-export interface Persona {
-  name: string
-  systemPrompt: string
-  source: 'profile' | 'user'
-  createdAt: string
-}
+// Re-export types from boundary for renderer consumption
+export type { Persona, PersonaFrontMatter }
 
 // ============================================================================
 // CONTRACT

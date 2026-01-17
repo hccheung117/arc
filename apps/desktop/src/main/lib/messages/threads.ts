@@ -9,7 +9,7 @@ import * as fs from 'fs/promises'
 import * as path from 'path'
 import { createId } from '@paralleldrive/cuid2'
 import type { ThreadPatch } from '@contracts/threads'
-import type { StoredThread, StoredThreadIndex, StoredMessageEvent } from '@boundary/messages'
+import type { StoredThread, StoredThreadIndex, StoredMessageEvent, PromptSource } from '@boundary/messages'
 import { threadStorage, messageStorage, attachmentStorage } from '@boundary/messages'
 import { findById, parentOf, updateById, extract } from './tree'
 import { reduceMessageEvents } from './reducer'
@@ -26,7 +26,7 @@ const unpin = (t: StoredThread): StoredThread => ({ ...t, pinned: false })
 interface NewThreadConfig {
   title: string
   renamed: boolean
-  systemPrompt: string | null
+  promptSource: PromptSource
   children: StoredThread[]
 }
 
@@ -38,7 +38,7 @@ const createThreadEntry = (config: NewThreadConfig): StoredThread => {
     title: config.title,
     pinned: false,
     renamed: config.renamed,
-    systemPrompt: config.systemPrompt,
+    promptSource: config.promptSource,
     createdAt: timestamp,
     updatedAt: timestamp,
     children: config.children,
@@ -51,7 +51,7 @@ const applyPatch =
     ...t,
     ...(patch.title !== undefined && { title: patch.title, renamed: true, updatedAt: now() }),
     ...(patch.pinned !== undefined && { pinned: patch.pinned }),
-    ...(patch.systemPrompt !== undefined && { systemPrompt: patch.systemPrompt, updatedAt: now() }),
+    ...(patch.promptSource !== undefined && { promptSource: patch.promptSource, updatedAt: now() }),
   })
 
 /** Removes thread, moving its children to root */
@@ -126,7 +126,7 @@ export async function createFolder(
     folder = createThreadEntry({
       title: name,
       renamed: true,
-      systemPrompt: null,
+      promptSource: { type: 'none' },
       children: [unpin(t1), unpin(t2)],
     })
 
@@ -153,7 +153,7 @@ export async function createFolderWithThread(
     folder = createThreadEntry({
       title: `Folder ${folderCount + 1}`,
       renamed: false,
-      systemPrompt: null,
+      promptSource: { type: 'none' },
       children: [unpin(thread)],
     })
 
@@ -279,7 +279,7 @@ export async function duplicateThread(
     duplicate = createThreadEntry({
       title: `${source.title ?? 'New Chat'} (Copy)`,
       renamed: source.renamed,
-      systemPrompt: source.systemPrompt,
+      promptSource: source.promptSource,
       children: [],
     })
 

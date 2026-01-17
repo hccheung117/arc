@@ -25,7 +25,11 @@ export function WorkbenchSidebar({ threads, activeThreadId, onThreadSelect, disp
 
   const handleNewChat = useCallback(
     (persona?: Persona) => {
-      const draft = createDraftThread(persona?.systemPrompt)
+      const draft = createDraftThread(
+        persona
+          ? { promptSource: { type: 'persona', personaId: persona.name } }
+          : undefined,
+      )
       dispatch({ type: 'UPSERT', thread: draft })
       onThreadSelect(draft.id)
     },

@@ -6,6 +6,7 @@
 
 import { z } from 'zod'
 import { contract, op, returns } from '@main/foundation/contract'
+import { PromptSourceSchema } from '@contracts/messages'
 import type { StoredThread } from '@boundary/messages'
 
 // ============================================================================
@@ -15,7 +16,7 @@ import type { StoredThread } from '@boundary/messages'
 export const ThreadPatchSchema = z.object({
   title: z.string().optional(),
   pinned: z.boolean().optional(),
-  systemPrompt: z.string().nullable().optional(),
+  promptSource: PromptSourceSchema.optional(),
 })
 
 // ============================================================================

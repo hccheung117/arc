@@ -3,6 +3,7 @@ import type { Message } from '@renderer/lib/messages'
 import type { Thread } from '@contracts/threads'
 import type { ThreadEvent, Unsubscribe } from '@contracts/events'
 import type { ThreadContextMenuParams, ThreadMenuAction } from '@contracts/ui'
+import type { PromptSource } from '@contracts/messages'
 
 // ============================================================================
 // CHAT THREAD
@@ -33,8 +34,12 @@ export type ChatThread = {
   createdAt: string
   updatedAt: string
   isPinned: boolean
-  systemPrompt: string | null
+  promptSource: PromptSource
   children: ChatThread[]
+}
+
+interface DraftThreadOptions {
+  promptSource?: PromptSource
 }
 
 /**
@@ -43,7 +48,7 @@ export type ChatThread = {
  * Draft threads use a generated cuid2 ID which will become the
  * database conversationId once persisted.
  */
-export function createDraftThread(systemPrompt?: string | null): ChatThread {
+export function createDraftThread(options?: DraftThreadOptions): ChatThread {
   const now = new Date().toISOString()
   return {
     id: createId(),
@@ -54,7 +59,7 @@ export function createDraftThread(systemPrompt?: string | null): ChatThread {
     createdAt: now,
     updatedAt: now,
     isPinned: false,
-    systemPrompt: systemPrompt ?? null,
+    promptSource: options?.promptSource ?? { type: 'none' },
     children: [],
   }
 }
@@ -76,7 +81,7 @@ export function hydrateThread(thread: Thread): ChatThread {
     createdAt: thread.createdAt,
     updatedAt: thread.updatedAt,
     isPinned: thread.pinned,
-    systemPrompt: thread.systemPrompt,
+    promptSource: thread.promptSource,
     children: thread.children.map(hydrateThread),
   }
 }
@@ -90,7 +95,7 @@ export function hydrateThread(thread: Thread): ChatThread {
  * Extracted from local ChatThread and bundled with the first message IPC.
  */
 export type ThreadConfig = {
-  systemPrompt: string | null
+  promptSource: PromptSource
 }
 
 /**
@@ -99,7 +104,7 @@ export type ThreadConfig = {
  */
 export function extractThreadConfig(thread: ChatThread): ThreadConfig {
   return {
-    systemPrompt: thread.systemPrompt,
+    promptSource: thread.promptSource,
   }
 }
 

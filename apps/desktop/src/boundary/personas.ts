@@ -3,9 +3,18 @@
  *
  * Filesystem-based persona storage (markdown files in directories).
  * Exports typed storage accessors; validation helpers remain public.
+ *
+ * PERSONA.md files support optional YAML front matter:
+ *   ---
+ *   name: Display Name
+ *   protected: true
+ *   description: A helpful assistant
+ *   ---
+ *   System prompt content here...
  */
 
 import * as fs from 'fs/promises'
+import matter from 'gray-matter'
 import { z } from 'zod'
 import {
   getAppPersonasDir,
@@ -21,19 +30,30 @@ import {
 
 const PERSONA_NAME_REGEX = /^[a-zA-Z0-9_-]+$/
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- Schema used only for type derivation
-const PersonaSchema = z.object({
-  name: z.string().min(1).max(50).regex(PERSONA_NAME_REGEX),
-  systemPrompt: z.string(),
-  source: z.enum(['profile', 'user']),
-  createdAt: z.string(),
+const FrontMatterSchema = z.object({
+  name: z.string().optional(),
+  protected: z.boolean().optional(),
+  description: z.string().optional(),
 })
 
 // ============================================================================
 // PUBLIC TYPES
 // ============================================================================
 
-export type Persona = z.infer<typeof PersonaSchema>
+export type PersonaFrontMatter = z.infer<typeof FrontMatterSchema>
+
+export interface Persona {
+  /** Directory name (unique identifier) */
+  name: string
+  /** Display name: frontMatter.name ?? name */
+  displayName: string
+  /** Markdown content (body only, no front matter) */
+  systemPrompt: string
+  source: 'profile' | 'user'
+  createdAt: string
+  /** Parsed YAML front matter */
+  frontMatter: PersonaFrontMatter
+}
 
 // ============================================================================
 // VALIDATION HELPERS
@@ -41,6 +61,29 @@ export type Persona = z.infer<typeof PersonaSchema>
 
 export function isValidPersonaName(name: string): boolean {
   return name.length >= 1 && name.length <= 50 && PERSONA_NAME_REGEX.test(name)
+}
+
+// ============================================================================
+// FRONT MATTER PARSING
+// ============================================================================
+
+export interface ParsedPersonaFile {
+  frontMatter: PersonaFrontMatter
+  systemPrompt: string
+}
+
+/**
+ * Parse PERSONA.md content into front matter and system prompt.
+ * Gracefully handles missing/invalid front matter (returns empty object).
+ */
+export function parsePersonaFile(markdown: string): ParsedPersonaFile {
+  const { data, content } = matter(markdown)
+  const parsed = FrontMatterSchema.safeParse(data)
+
+  return {
+    frontMatter: parsed.success ? parsed.data : {},
+    systemPrompt: content.trim(),
+  }
 }
 
 // ============================================================================

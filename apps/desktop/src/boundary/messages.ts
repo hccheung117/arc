@@ -15,7 +15,11 @@ import {
   getThreadAttachmentsDir,
   getThreadAttachmentPath,
 } from '@main/foundation/paths'
-import { BranchInfoSchema } from '@contracts/messages'
+import { BranchInfoSchema, PromptSourceSchema, type PromptSource } from '@contracts/messages'
+
+// Re-export for consumers
+export { PromptSourceSchema }
+export type { PromptSource }
 
 // ============================================================================
 // PRIVATE SCHEMAS
@@ -56,7 +60,7 @@ type StoredThreadType = {
   title: string | null
   pinned: boolean
   renamed: boolean
-  systemPrompt: string | null
+  promptSource: PromptSource
   createdAt: string
   updatedAt: string
   children: StoredThreadType[]
@@ -67,7 +71,7 @@ const StoredThreadSchema: z.ZodType<StoredThreadType> = z.object({
   title: z.string().nullable(),
   pinned: z.boolean(),
   renamed: z.boolean(),
-  systemPrompt: z.string().nullable().default(null),
+  promptSource: PromptSourceSchema,
   createdAt: z.string(),
   updatedAt: z.string(),
   children: z.lazy(() => z.array(StoredThreadSchema)).default([]),

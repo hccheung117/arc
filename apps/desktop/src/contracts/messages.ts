@@ -9,6 +9,18 @@ import { contract, op, returns } from '@main/foundation/contract'
 import type { StoredMessageEvent } from '@boundary/messages'
 
 // ============================================================================
+// PROMPT SOURCE (discriminated union for system prompt configuration)
+// ============================================================================
+
+export const PromptSourceSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('none') }),
+  z.object({ type: z.literal('direct'), content: z.string() }),
+  z.object({ type: z.literal('persona'), personaId: z.string() }),
+])
+
+export type PromptSource = z.infer<typeof PromptSourceSchema>
+
+// ============================================================================
 // SHARED TYPES
 // ============================================================================
 
@@ -37,7 +49,7 @@ const AttachmentInputSchema = z.object({
 })
 
 const ThreadConfigSchema = z.object({
-  systemPrompt: z.string().nullable(),
+  promptSource: PromptSourceSchema,
 })
 
 export const CreateMessageInputSchema = z.object({

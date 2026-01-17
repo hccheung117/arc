@@ -5,6 +5,7 @@
 - **Forward Momentum**: We are in rapid prototyping. Always aim for the best design. **NEVER** consider backward compatibility or compromise for legacy concerns.
 - **Zero Tech Debt**: Fix it now or remove it. **NEVER** knowingly carry tech debt.
 - **Documentation Grounding**: Assumptions drift; documentation grounds us. Prefer verifiable sources over intuition.
+- **Derivation**: Always derive, unless deriving is too expensive.
 
 ## 2. Documentation & Dependencies
 

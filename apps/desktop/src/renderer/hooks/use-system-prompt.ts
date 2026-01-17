@@ -2,6 +2,7 @@ import { useCallback, type RefObject } from 'react'
 import type { ChatThread, ThreadAction } from '@renderer/lib/threads'
 import type { InputMode } from '@renderer/lib/types'
 import type { ComposerRef } from '@renderer/components/composer'
+import type { PromptInfo } from '@renderer/lib/prompts'
 
 interface SystemPromptActions {
   startEdit: () => void
@@ -14,12 +15,14 @@ interface SystemPromptActions {
  * Handles:
  * - Starting edit mode (blocked during streaming)
  * - Saving to local (owner='local') or backend (owner='db') threads
+ * - Protected prompts (read-only, editing shows description only)
  *
  * Note: Auto-persist is no longer needed. Thread config is bundled with the
  * first message during ownership handoff (see use-chat-session.ts).
  */
 export function useSystemPrompt(
   thread: ChatThread,
+  promptInfo: PromptInfo,
   input: InputMode,
   onThreadUpdate: (action: ThreadAction) => void,
   composerRef: RefObject<ComposerRef | null>,
@@ -32,21 +35,38 @@ export function useSystemPrompt(
 
   const save = useCallback(
     async (content: string) => {
-      const newSystemPrompt = content.trim() || null
+      // Protected prompts cannot be modified
+      if (promptInfo.isProtected) {
+        if (input.mode === 'editing') input.cancel()
+        composerRef.current?.setMessage('')
+        return
+      }
+
+      // Convert content to PromptSource
+      const newPromptSource = content.trim()
+        ? { type: 'direct' as const, content: content.trim() }
+        : { type: 'none' as const }
 
       if (thread.owner === 'local') {
-        // Local ownership: update local state only, config bundled with first message
-        onThreadUpdate({ type: 'PATCH', id: thread.id, patch: { systemPrompt: newSystemPrompt } })
+        // Local ownership: update local state
+        onThreadUpdate({
+          type: 'PATCH',
+          id: thread.id,
+          patch: { promptSource: newPromptSource },
+        })
       } else {
         // DB ownership: save to backend immediately
-        await window.arc.threads.update({ threadId: thread.id, patch: { systemPrompt: newSystemPrompt } })
+        await window.arc.threads.update({
+          threadId: thread.id,
+          patch: { promptSource: newPromptSource },
+        })
       }
 
       // Clear editing state
       if (input.mode === 'editing') input.cancel()
       composerRef.current?.setMessage('')
     },
-    [thread.id, thread.owner, onThreadUpdate, input, composerRef],
+    [thread.id, thread.owner, onThreadUpdate, input, composerRef, promptInfo.isProtected],
   )
 
   return { startEdit, save }

@@ -34,7 +34,7 @@ const buildThread = (
   title,
   pinned: false,
   renamed: false,
-  systemPrompt: config?.systemPrompt ?? null,
+  promptSource: config?.promptSource ?? { type: 'none' },
   createdAt: timestamp,
   updatedAt: timestamp,
   children: [],
