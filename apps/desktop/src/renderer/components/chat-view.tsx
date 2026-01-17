@@ -5,6 +5,7 @@ import type { Persona } from '@contracts/personas'
 import type { ChatThread, ThreadAction } from '@renderer/lib/threads'
 import type { DisplayMessage, InputMode } from '@renderer/lib/types'
 import { getPromptInfo } from '@renderer/lib/prompts'
+import { useChatUIStore } from '@renderer/stores/chat-ui-store'
 import { useChatSession } from '@renderer/hooks/use-chat-session'
 import { useScrollStore } from '@renderer/hooks/use-scroll-store'
 import { useEditingSync } from '@renderer/hooks/use-editing-sync'
@@ -27,7 +28,7 @@ function getLastUserMessageId(messages: DisplayMessage[]) {
   return userMsgs.at(-1)?.message.id ?? null
 }
 
-function deriveEditingState(input: InputMode) {
+function deriveEditingState(input: InputMode, isProtected: boolean) {
   const isEditingSystemPrompt = input.mode === 'editing' && input.source.kind === 'system-prompt'
 
   const editingMessageId =
@@ -41,7 +42,7 @@ function deriveEditingState(input: InputMode) {
         : undefined
 
   const composerMode: ComposerMode = isEditingSystemPrompt
-    ? { type: 'edit-system-prompt' }
+    ? { type: 'edit-system-prompt', protected: isProtected }
     : input.mode === 'editing'
       ? { type: 'edit-message' }
       : { type: 'chat' }
@@ -77,7 +78,7 @@ export function ChatView({ thread, models, findPersona, onThreadUpdate }: ChatVi
   )
   const promptInfo = useMemo(() => getPromptInfo(thread.promptSource, persona), [thread.promptSource, persona])
   const lastUserMessageId = useMemo(() => getLastUserMessageId(view.messages), [view.messages])
-  const { isEditingSystemPrompt, editingMessageId, editingLabel, composerMode } = deriveEditingState(view.input)
+  const { isEditingSystemPrompt, editingMessageId, editingLabel, composerMode } = deriveEditingState(view.input, promptInfo.isProtected)
   const isEmpty = view.messages.length === 0 && !view.streamingMessage
 
   // Scroll
@@ -88,7 +89,8 @@ export function ChatView({ thread, models, findPersona, onThreadUpdate }: ChatVi
   const { cancel: cancelEdit } = useEditingSync(
     view.input,
     view.messages,
-    promptInfo,
+    thread.promptSource,
+    persona,
     composerRef,
   )
 
@@ -128,18 +130,24 @@ export function ChatView({ thread, models, findPersona, onThreadUpdate }: ChatVi
   }, [isEditingSystemPrompt, cancelEdit, systemPrompt])
 
   // Promote persona dialog
-  const [promoteDialogOpen, setPromoteDialogOpen] = useState(false)
+  // Store the prompt when dialog opens to avoid subscribing to composer state
+  const [promoteDialogState, setPromoteDialogState] = useState<{ open: false } | { open: true; prompt: string }>({ open: false })
 
   const handlePromote = useCallback(() => {
-    setPromoteDialogOpen(true)
+    const draft = useChatUIStore.getState().getThreadState(thread.id).composer.draft
+    setPromoteDialogState({ open: true, prompt: draft })
+  }, [thread.id])
+
+  const handlePromoteDialogClose = useCallback((open: boolean) => {
+    if (!open) setPromoteDialogState({ open: false })
   }, [])
 
   return (
     <ThreadProvider threadId={thread.id}>
       <PromotePersonaDialog
-        open={promoteDialogOpen}
-        onOpenChange={setPromoteDialogOpen}
-        systemPrompt={promptInfo.displayContent}
+        open={promoteDialogState.open}
+        onOpenChange={handlePromoteDialogClose}
+        systemPrompt={promoteDialogState.open ? promoteDialogState.prompt : ''}
       />
       <div className="flex h-full flex-col overflow-hidden">
         <Header

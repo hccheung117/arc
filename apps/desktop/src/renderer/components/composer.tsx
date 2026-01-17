@@ -10,9 +10,13 @@ import { AttachmentGrid } from './composer-attachments'
 /*
   UX Decision: Always-Enabled Composer
 
-  This component intentionally does NOT accept a `disabled` prop, differing from traditional
-  "lock-safe" UX patterns. The composer remains interactive at all times, allowing users to
-  type freely without artificial blocking states.
+  This component does NOT accept a `disabled` prop. The composer remains interactive at all
+  times, allowing users to type freely without artificial blocking states.
+
+  Protection is a behavior, not a disability. When editing a protected system prompt:
+  - Visual overlay indicates read-only status
+  - Input and send are blocked
+  - The composer still renders; it simply prevents modification
 */
 
 /*
@@ -24,7 +28,7 @@ import { AttachmentGrid } from './composer-attachments'
 export type ComposerMode =
   | { type: 'chat' }
   | { type: 'edit-message' }
-  | { type: 'edit-system-prompt' }
+  | { type: 'edit-system-prompt'; protected: boolean }
 
 export interface ComposerProps {
   threadId: string
@@ -46,11 +50,30 @@ export interface ComposerRef {
 
 const DEFAULT_MODE: ComposerMode = { type: 'chat' }
 
+const MASK_PATTERN = Array.from({ length: 120 }, (_, i) => '•'.repeat((i % 7) + 5))
+
+function ProtectedPromptOverlay() {
+  return (
+    <div className="absolute inset-0 z-10 flex items-center justify-center rounded-md overflow-hidden bg-background/20">
+      <div className="absolute inset-0 p-4 text-xs leading-loose text-muted-foreground select-none blur-[4px] opacity-60 break-all pointer-events-none flex flex-wrap content-start gap-1">
+        {MASK_PATTERN.map((text, i) => (
+          <span key={i}>{text}</span>
+        ))}
+      </div>
+      <span className="relative z-20 text-sm font-medium text-foreground drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)] select-none">
+        Protected Persona
+      </span>
+    </div>
+  )
+}
+
 export const Composer = forwardRef<ComposerRef, ComposerProps>(
   ({ threadId, mode = DEFAULT_MODE, onSend, onStop, isStreaming, isEditing, onCancelEdit, editingLabel, allowEmptySubmit, onPromote }, ref) => {
     const [isDragging, setIsDragging] = useState(false)
     const textareaRef = useRef<HTMLTextAreaElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
+
+    const isSystemPromptProtected = mode.type === 'edit-system-prompt' && mode.protected
 
     const {
       draft: message,
@@ -143,11 +166,11 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault()
-        handleSend()
+        if (canSend) handleSend()
       }
     }
 
-    const canSend = (message.trim() || hasAttachments || allowEmptySubmit) && !isStreaming
+    const canSend = (message.trim() || hasAttachments || allowEmptySubmit) && !isStreaming && !isSystemPromptProtected
 
     return (
       <Card
@@ -169,7 +192,7 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(
               {editingLabel ?? 'Editing message'}
             </span>
             <div className="flex items-center gap-2">
-              {onPromote && (
+              {onPromote && !isSystemPromptProtected && (
                 <button
                   onClick={onPromote}
                   className="text-xs font-medium text-blue-500 hover:text-blue-600 transition-colors flex items-center gap-1"
@@ -188,18 +211,22 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(
           </div>
         )}
 
-        <div className="flex flex-col min-h-0 gap-2">
+        <div className="flex flex-col min-h-0 gap-2 relative">
+          {isSystemPromptProtected && <ProtectedPromptOverlay />}
           <AttachmentGrid attachments={attachments} onRemove={removeAttachment} />
 
           <Textarea
             ref={textareaRef}
-            value={message}
+            value={isSystemPromptProtected ? '' : message}
+            disabled={isSystemPromptProtected}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
-            placeholder="Enter here, press ↵ to send"
-            className="min-h-0 resize-none border-0 p-0 text-body focus-visible:ring-0 focus-visible:ring-offset-0 outline-none shadow-none overflow-y-auto"
-            rows={1}
+            placeholder={isSystemPromptProtected ? '' : 'Enter here, press ↵ to send'}
+            className={`min-h-0 resize-none border-0 p-0 text-body focus-visible:ring-0 focus-visible:ring-offset-0 outline-none shadow-none overflow-y-auto ${
+              isSystemPromptProtected ? 'opacity-0' : ''
+            }`}
+            rows={isSystemPromptProtected ? 3 : 1}
           />
 
           <div className="flex items-center justify-between shrink-0">

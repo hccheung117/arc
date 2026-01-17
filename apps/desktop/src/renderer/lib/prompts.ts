@@ -13,15 +13,12 @@ import type { Persona } from '@contracts/personas'
  *
  * Encapsulates all prompt-related UI logic:
  * - Header button styling (hasPrompt)
- * - Composer editor content (displayContent)
  * - Save blocking (isProtected)
  * - Edit affordances (isEditable)
  */
 export interface PromptInfo {
   /** Whether thread has a prompt (direct or via persona) - for Header blue button */
   hasPrompt: boolean
-  /** Content to display in editor - description for protected, prompt for normal */
-  displayContent: string
   /** Whether prompt is read-only - blocks saves */
   isProtected: boolean
   /** Whether prompt can be edited - for UI affordances */
@@ -44,7 +41,6 @@ export function getPromptInfo(promptSource: PromptSource, persona?: Persona): Pr
     case 'none':
       return {
         hasPrompt: false,
-        displayContent: '',
         isProtected: false,
         isEditable: true,
       }
@@ -52,7 +48,6 @@ export function getPromptInfo(promptSource: PromptSource, persona?: Persona): Pr
     case 'direct':
       return {
         hasPrompt: true,
-        displayContent: promptSource.content,
         isProtected: false,
         isEditable: true,
       }
@@ -62,7 +57,6 @@ export function getPromptInfo(promptSource: PromptSource, persona?: Persona): Pr
       if (!persona) {
         return {
           hasPrompt: true,
-          displayContent: '',
           isProtected: true,
           isEditable: false,
         }
@@ -71,13 +65,28 @@ export function getPromptInfo(promptSource: PromptSource, persona?: Persona): Pr
       const isProtected = persona.frontMatter.protected ?? false
       return {
         hasPrompt: true,
-        // Protected: show description only. Unprotected: show actual content for editing.
-        displayContent: isProtected
-          ? (persona.frontMatter.description ?? '(Persona prompt)')
-          : persona.systemPrompt,
         isProtected,
         isEditable: !isProtected,
       }
     }
+  }
+}
+
+/**
+ * Derive editable content for system prompt editing.
+ * Returns null if the prompt cannot be edited (protected persona).
+ */
+export function getEditableContent(
+  promptSource: PromptSource,
+  persona?: Persona
+): string | null {
+  switch (promptSource.type) {
+    case 'none':
+      return ''
+    case 'direct':
+      return promptSource.content
+    case 'persona':
+      if (!persona || (persona.frontMatter.protected ?? false)) return null
+      return persona.systemPrompt
   }
 }

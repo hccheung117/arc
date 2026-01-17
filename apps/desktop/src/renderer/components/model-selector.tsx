@@ -10,6 +10,7 @@ import {
 import { ScrollArea } from '@renderer/components/ui/scroll-area'
 import { Separator } from '@renderer/components/ui/separator'
 import { cn } from '@renderer/lib/utils'
+import { createTextMeasurer } from '@renderer/lib/measure'
 import type { Model } from '@contracts/models'
 
 interface StoredFavorite {
@@ -22,22 +23,8 @@ function favoriteKey(providerId: string, modelId: string): string {
   return `${providerId}:${modelId}`
 }
 
-// Accurate text measurement using Canvas API
-// Creates canvas once and reuses context for performance
-const measureTextWidth = (() => {
-  let canvas: HTMLCanvasElement | null = null
-  let ctx: CanvasRenderingContext2D | null = null
-
-  return (text: string): number => {
-    if (!canvas) {
-      canvas = document.createElement('canvas')
-      ctx = canvas.getContext('2d')!
-      // Match text-sm: 14px with system font stack from globals.css
-      ctx.font = '14px ui-sans-serif, system-ui, sans-serif'
-    }
-    return ctx!.measureText(text).width
-  }
-})()
+// Module-level measurer (matches text-sm font used in popover items)
+const measureTextWidth = createTextMeasurer('14px ui-sans-serif, system-ui, sans-serif')
 
 // Buffer for UI chrome - calculated from actual CSS values:
 // ScrollArea padding (p-2 × 2): 16px + Item padding (px-2 × 2): 16px +
