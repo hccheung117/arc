@@ -1,10 +1,11 @@
 import { Button } from '@renderer/components/ui/button'
 import { Card } from '@renderer/components/ui/card'
 import { Textarea } from '@renderer/components/ui/textarea'
-import { ImagePlus, Send, Square, Pencil, Sparkles, Save } from 'lucide-react'
+import { ImagePlus, Send, Square, Pencil, Sparkles, Wand2, Save, Loader2 } from 'lucide-react'
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import type { AttachmentInput } from '@contracts/messages'
 import { useComposerStore } from '@renderer/hooks/use-composer-store'
+import { startRefine, stopAIChat, onAIEvent } from '@renderer/lib/messages'
 import { AttachmentGrid } from './composer-attachments'
 
 /*
@@ -41,7 +42,12 @@ export interface ComposerProps {
   editingLabel?: string
   allowEmptySubmit?: boolean
   onPromote?: () => void
+  refineModel?: string
 }
+
+type RefineState =
+  | { status: 'idle' }
+  | { status: 'refining'; streamId: string; original: string }
 
 export interface ComposerRef {
   setMessage: (message: string) => void
@@ -68,12 +74,14 @@ function ProtectedPromptOverlay() {
 }
 
 export const Composer = forwardRef<ComposerRef, ComposerProps>(
-  ({ threadId, mode = DEFAULT_MODE, onSend, onStop, isStreaming, isEditing, onCancelEdit, editingLabel, allowEmptySubmit, onPromote }, ref) => {
+  ({ threadId, mode = DEFAULT_MODE, onSend, onStop, isStreaming, isEditing, onCancelEdit, editingLabel, allowEmptySubmit, onPromote, refineModel }, ref) => {
     const [isDragging, setIsDragging] = useState(false)
     const textareaRef = useRef<HTMLTextAreaElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
+    const [refineState, setRefineState] = useState<RefineState>({ status: 'idle' })
 
     const isSystemPromptProtected = mode.type === 'edit-system-prompt' && mode.protected
+    const isRefining = refineState.status === 'refining'
 
     const {
       draft: message,
@@ -170,7 +178,58 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(
       }
     }
 
-    const canSend = (message.trim() || hasAttachments || allowEmptySubmit) && !isStreaming && !isSystemPromptProtected
+    // Refine handlers
+    const handleRefine = async () => {
+      if (!refineModel || isRefining || !message.trim()) return
+
+      const original = message
+      setMessage('')
+
+      try {
+        const { streamId } = await startRefine(original, refineModel)
+        setRefineState({ status: 'refining', streamId, original })
+      } catch {
+        setMessage(original)
+        setRefineState({ status: 'idle' })
+      }
+    }
+
+    const handleRefineCancel = () => {
+      if (refineState.status !== 'refining') return
+
+      stopAIChat(refineState.streamId)
+      setMessage(refineState.original)
+      setRefineState({ status: 'idle' })
+    }
+
+    // Refine stream subscription
+    const refineBufferRef = useRef('')
+    useEffect(() => {
+      if (refineState.status !== 'refining') return
+
+      refineBufferRef.current = ''
+      const unsubscribe = onAIEvent((event) => {
+        if (event.streamId !== refineState.streamId) return
+
+        switch (event.type) {
+          case 'delta':
+            refineBufferRef.current += event.chunk
+            setMessage(refineBufferRef.current)
+            break
+          case 'complete':
+            setRefineState({ status: 'idle' })
+            break
+          case 'error':
+            setMessage(refineState.original)
+            setRefineState({ status: 'idle' })
+            break
+        }
+      })
+
+      return unsubscribe
+    }, [refineState, setMessage])
+
+    const canSend = (message.trim() || hasAttachments || allowEmptySubmit) && !isStreaming && !isSystemPromptProtected && !isRefining
 
     return (
       <Card
@@ -192,10 +251,30 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(
               {editingLabel ?? 'Editing message'}
             </span>
             <div className="flex items-center gap-2">
+              {refineModel && !isSystemPromptProtected && (
+                <button
+                  onClick={isRefining ? handleRefineCancel : handleRefine}
+                  disabled={!isRefining && !message.trim()}
+                  className="text-xs font-medium text-purple-500 hover:text-purple-600 transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isRefining ? (
+                    <>
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Cancel
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="h-3 w-3" />
+                      Refine
+                    </>
+                  )}
+                </button>
+              )}
               {onPromote && !isSystemPromptProtected && (
                 <button
                   onClick={onPromote}
-                  className="text-xs font-medium text-blue-500 hover:text-blue-600 transition-colors flex items-center gap-1"
+                  disabled={isRefining}
+                  className="text-xs font-medium text-blue-500 hover:text-blue-600 transition-colors flex items-center gap-1 disabled:opacity-50"
                 >
                   <Sparkles className="h-3 w-3" />
                   Promote

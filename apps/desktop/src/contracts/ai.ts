@@ -35,4 +35,17 @@ export const aiContract = contract('ai', {
 
   /** Cancel an active stream */
   stop: op(z.object({ streamId: z.string() }), undefined as void),
+
+  /**
+   * Refine a system prompt draft.
+   * Returns streamId for tracking. Listen to onEvent for streaming data.
+   * Stream emits refined prompt text, does not persist.
+   */
+  refine: op(
+    z.object({
+      prompt: z.string(),
+      model: z.string(),
+    }),
+    returns<ChatResponse>(),
+  ),
 })

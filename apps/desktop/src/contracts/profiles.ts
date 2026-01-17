@@ -23,6 +23,13 @@ export interface ProfileInstallResult {
   providerCount: number
 }
 
+/** Active profile details (subset of ArcFile) */
+export interface ActiveProfileDetails {
+  id: string
+  name: string
+  refineModel?: string
+}
+
 // ============================================================================
 // CONTRACT
 // ============================================================================
@@ -45,4 +52,7 @@ export const profilesContract = contract('profiles', {
 
   /** Activate a profile (or null to deactivate) */
   activate: op(z.object({ profileId: z.string().nullable() }), undefined as void),
+
+  /** Get active profile details */
+  getActiveDetails: op(z.void(), returns<ActiveProfileDetails | null>()),
 })

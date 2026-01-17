@@ -1,4 +1,4 @@
-import { useRef, useCallback, useMemo, useState } from 'react'
+import { useRef, useCallback, useMemo, useState, useEffect } from 'react'
 import type { MessageRole } from '@renderer/lib/messages'
 import type { Model } from '@contracts/models'
 import type { Persona } from '@contracts/personas'
@@ -84,6 +84,27 @@ export function ChatView({ thread, models, findPersona, onThreadUpdate }: ChatVi
   // Scroll
   const [viewport, setViewport] = useState<HTMLDivElement | null>(null)
   const { isAtBottom, scrollToBottom } = useScrollStore(viewport, thread.id, lastUserMessageId)
+
+  // Refine model from active profile
+  const [refineModel, setRefineModel] = useState<string | undefined>(undefined)
+  useEffect(() => {
+    const fetchRefineModel = () => {
+      window.arc.profiles.getActiveDetails().then((profile) => {
+        setRefineModel(profile?.refineModel)
+      })
+    }
+
+    fetchRefineModel()
+
+    // Re-fetch when profile changes
+    const unsubscribe = window.arc.profiles.onEvent((event) => {
+      if (event.type === 'activated' || event.type === 'installed') {
+        fetchRefineModel()
+      }
+    })
+
+    return unsubscribe
+  }, [])
 
   // Editing coordination
   const { cancel: cancelEdit } = useEditingSync(
@@ -201,6 +222,7 @@ export function ChatView({ thread, models, findPersona, onThreadUpdate }: ChatVi
                 editingLabel,
                 allowEmptySubmit: isEditingSystemPrompt,
                 onPromote: isEditingSystemPrompt ? handlePromote : undefined,
+                refineModel: isEditingSystemPrompt ? refineModel : undefined,
               }}
             />
           </div>

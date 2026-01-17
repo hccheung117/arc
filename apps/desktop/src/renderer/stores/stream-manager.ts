@@ -46,7 +46,7 @@ class StreamManager {
 
           // Call the completion callback to add message to tree
           const callback = this.streamCallbacks.get(event.streamId)
-          if (callback) {
+          if (callback && event.message) {
             // Transform stored message to UI message
             callback(transformMessage(event.message, threadId))
             this.streamCallbacks.delete(event.streamId)

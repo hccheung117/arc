@@ -59,6 +59,7 @@ const ArcFileSchema = z.object({
   name: z.string(),
   providers: z.array(ArcFileProviderSchema),
   updateInterval: z.number().min(1).optional(),
+  refineModel: z.string().optional(),
 })
 
 // ============================================================================

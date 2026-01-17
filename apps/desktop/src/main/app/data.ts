@@ -139,5 +139,15 @@ export function registerDataHandlers(ipcMain: IpcMain): void {
       await syncProfileModels()
       emitProfile({ type: 'activated', profileId })
     },
+
+    getActiveDetails: async () => {
+      const profile = await getActiveProfile()
+      if (!profile) return null
+      return {
+        id: profile.id,
+        name: profile.name,
+        refineModel: profile.refineModel,
+      }
+    },
   })
 }

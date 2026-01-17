@@ -36,7 +36,7 @@ export type ProfilesEvent =
 export type AIStreamEvent =
   | { type: 'delta'; streamId: string; chunk: string }
   | { type: 'reasoning'; streamId: string; chunk: string }
-  | { type: 'complete'; streamId: string; message: Message }
+  | { type: 'complete'; streamId: string; message: Message | null }
   | { type: 'error'; streamId: string; error: string }
 
 /** Cleanup function returned by event subscriptions */

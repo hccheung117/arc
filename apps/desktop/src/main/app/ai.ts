@@ -75,7 +75,7 @@ const activeStreams = new Map<string, AbortController>()
 type AIStreamEvent =
   | { type: 'delta'; streamId: string; chunk: string }
   | { type: 'reasoning'; streamId: string; chunk: string }
-  | { type: 'complete'; streamId: string; message: StoredMessageEvent }
+  | { type: 'complete'; streamId: string; message: StoredMessageEvent | null }
   | { type: 'error'; streamId: string; error: string }
 
 function emitAIStreamEvent(event: AIStreamEvent): void {
@@ -249,6 +249,73 @@ function cancelStream(streamId: string): void {
 }
 
 // ============================================================================
+// SYSTEM PROMPT REFINEMENT
+// ============================================================================
+
+const REFINE_META_PROMPT = `You are a system prompt refinement assistant. Your task is to improve the user's draft system prompt.
+
+Improve the prompt by:
+1. Clarifying vague instructions
+2. Adding structure where helpful
+3. Removing redundancy
+4. Improving tone and professionalism
+5. Maintaining the user's original intent
+
+Respond with ONLY the refined system prompt. No explanations, commentary, or meta-text.`
+
+/**
+ * Orchestrates system prompt refinement streaming.
+ * Unlike chat streaming, this does not persist results.
+ */
+async function executeRefineStream(
+  streamId: string,
+  prompt: string,
+  modelId: string,
+  callbacks: {
+    onDelta: (chunk: string) => void
+    onComplete: () => void
+    onError: (error: string) => void
+  },
+): Promise<void> {
+  const abortController = new AbortController()
+  activeStreams.set(streamId, abortController)
+
+  try {
+    const providerId = await lookupModelProvider(modelId)
+    const providerConfig = await getProviderConfig(providerId)
+    const arc = createArc({
+      baseURL: providerConfig.baseUrl ?? undefined,
+      apiKey: providerConfig.apiKey ?? undefined,
+    })
+
+    const result = streamText({
+      model: arc(modelId),
+      messages: [
+        { role: 'system', content: REFINE_META_PROMPT },
+        { role: 'user', content: prompt },
+      ],
+      abortSignal: abortController.signal,
+    })
+
+    for await (const part of result.fullStream) {
+      if (part.type === 'text-delta') {
+        callbacks.onDelta(part.text)
+      }
+    }
+
+    callbacks.onComplete()
+  } catch (err) {
+    if ((err as Error).name !== 'AbortError') {
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+      error('refine', `Refine stream error: ${errorMsg}`)
+      callbacks.onError(errorMsg)
+    }
+  } finally {
+    activeStreams.delete(streamId)
+  }
+}
+
+// ============================================================================
 // REGISTRATION
 // ============================================================================
 
@@ -279,6 +346,22 @@ export function registerAIHandlers(ipcMain: IpcMain): void {
 
     stop: async ({ streamId }) => {
       cancelStream(streamId)
+    },
+
+    refine: async ({ prompt, model }) => {
+      const streamId = createId()
+
+      executeRefineStream(streamId, prompt, model, {
+        onDelta: (chunk) => emitAIStreamEvent({ type: 'delta', streamId, chunk }),
+        onComplete: () => emitAIStreamEvent({ type: 'complete', streamId, message: null }),
+        onError: (err) => emitAIStreamEvent({ type: 'error', streamId, error: err }),
+      }).catch((err) => {
+        const errorMsg = err instanceof Error ? err.message : 'Unknown refine error'
+        error('refine', errorMsg, err as Error)
+        emitAIStreamEvent({ type: 'error', streamId, error: errorMsg })
+      })
+
+      return { streamId }
     },
   })
 }

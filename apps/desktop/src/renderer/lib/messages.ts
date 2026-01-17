@@ -195,6 +195,10 @@ export async function stopAIChat(streamId: string): Promise<void> {
   return window.arc.ai.stop({ streamId })
 }
 
+export async function startRefine(prompt: string, model: string): Promise<ChatResponse> {
+  return window.arc.ai.refine({ prompt, model })
+}
+
 /**
  * Transform stored message to UI message.
  *
