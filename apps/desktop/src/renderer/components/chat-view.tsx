@@ -23,9 +23,14 @@ import { PromotePersonaDialog } from './promote-persona-dialog'
 // Pure derivations
 // ─────────────────────────────────────────────────────────────────────────────
 
-function getLastUserMessageId(messages: DisplayMessage[]) {
+function getScrollTargetId(messages: DisplayMessage[]) {
   const userMsgs = messages.filter((dm) => dm.message.role === 'user')
-  return userMsgs.at(-1)?.message.id ?? null
+  const lastUserMsg = userMsgs.at(-1)
+  if (!lastUserMsg) return null
+
+  const userIndex = messages.findIndex((dm) => dm.message.id === lastUserMsg.message.id)
+  const nextMsg = messages[userIndex + 1]
+  return nextMsg?.message.role === 'assistant' ? nextMsg.message.id : null
 }
 
 function deriveEditingState(input: InputMode, isProtected: boolean) {
@@ -77,13 +82,13 @@ export function ChatView({ thread, models, findPersona, onThreadUpdate }: ChatVi
     [thread.promptSource, findPersona],
   )
   const promptInfo = useMemo(() => getPromptInfo(thread.promptSource, persona), [thread.promptSource, persona])
-  const lastUserMessageId = useMemo(() => getLastUserMessageId(view.messages), [view.messages])
+  const scrollTargetId = useMemo(() => getScrollTargetId(view.messages), [view.messages])
   const { isEditingSystemPrompt, editingMessageId, editingLabel, composerMode } = deriveEditingState(view.input, promptInfo.isProtected)
   const isEmpty = view.messages.length === 0 && !view.streamingMessage
 
   // Scroll
   const [viewport, setViewport] = useState<HTMLDivElement | null>(null)
-  const { isAtBottom, scrollToBottom } = useScrollStore(viewport, thread.id, lastUserMessageId)
+  const { isAtBottom, scrollToBottom } = useScrollStore(viewport, thread.id, scrollTargetId)
 
   // Refine model from active profile
   const [refineModel, setRefineModel] = useState<string | undefined>(undefined)

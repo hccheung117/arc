@@ -4,7 +4,7 @@ import { useChatUIStore } from '@renderer/stores/chat-ui-store'
 /**
  * Simple Scroll Behavior
  *
- * One rule: When user sends a message, scroll to show that message.
+ * One rule: When user sends a message, scroll to show the AI response.
  * No other auto-scrolling. User controls their own viewport.
  *
  * Tab switch: saves/restores scrollTop position.
@@ -16,14 +16,14 @@ const SCROLL_PADDING = 50
 export function useScrollStore(
   viewport: HTMLDivElement | null,
   threadId: string,
-  lastUserMessageId: string | null,
+  scrollTargetId: string | null,
 ): { isAtBottom: boolean; scrollToBottom: () => void } {
   const [isAtBottom, setIsAtBottom] = useState(true)
 
   // Track previous threadId to detect tab switches
   const previousThreadIdRef = useRef<string | null>(null)
 
-  // Track which user message we've scrolled for (prevent duplicate scrolls)
+  // Track which message we've scrolled to (prevent duplicate scrolls)
   const scrolledForMessageRef = useRef<string | null>(null)
 
   // Restore scroll position from store
@@ -94,23 +94,23 @@ export function useScrollStore(
     return () => viewport.removeEventListener('scroll', handleScroll)
   }, [viewport, updateIsAtBottom])
 
-  // Scroll to user message when a new one is sent
+  // Scroll to target message (AI response) when it appears
   useEffect(() => {
-    if (!viewport || !lastUserMessageId) return
+    if (!viewport || !scrollTargetId) return
 
     // Already scrolled for this message
-    if (scrolledForMessageRef.current === lastUserMessageId) return
+    if (scrolledForMessageRef.current === scrollTargetId) return
 
-    scrolledForMessageRef.current = lastUserMessageId
+    scrolledForMessageRef.current = scrollTargetId
 
     requestAnimationFrame(() => {
-      const el = document.getElementById(lastUserMessageId)
+      const el = document.getElementById(scrollTargetId)
       if (el && viewport) {
         viewport.scrollTop = Math.max(0, el.offsetTop - SCROLL_PADDING)
         updateIsAtBottom()
       }
     })
-  }, [viewport, lastUserMessageId, updateIsAtBottom])
+  }, [viewport, scrollTargetId, updateIsAtBottom])
 
   // Manual scroll to bottom
   const scrollToBottom = useCallback(() => {
