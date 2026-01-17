@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useChatUIStore } from '@renderer/features/workbench/stores/chat-ui-store'
+import { useChatUIStore } from '@renderer/stores/chat-ui-store'
 
 /**
  * Simple Scroll Behavior

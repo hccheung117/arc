@@ -4,12 +4,13 @@
 
 ## Code Organization
 
-Shared code at root, feature-specific code in feature directories:
+Layered structure following Laravel-style organization:
 
-- `@renderer/components/` — Shared React components
-- `@renderer/hooks/` — Shared React hooks
-- `@renderer/lib/` — Shared utilities
-- `@renderer/features/<name>/` — Feature-specific code
+- `@renderer/components/` — React components (UI primitives + app components)
+- `@renderer/context/` — React contexts
+- `@renderer/hooks/` — React hooks
+- `@renderer/stores/` — Zustand stores
+- `@renderer/lib/` — Utilities, domain logic, and business logic
 
 ## Data Flow
 

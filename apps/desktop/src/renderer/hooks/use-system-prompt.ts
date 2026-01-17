@@ -1,7 +1,7 @@
 import { useCallback, type RefObject } from 'react'
 import type { ChatThread, ThreadAction } from '@renderer/lib/threads'
-import type { InputMode } from '@renderer/features/workbench/domain/types'
-import type { ComposerRef } from '@renderer/features/workbench/components/composer'
+import type { InputMode } from '@renderer/lib/types'
+import type { ComposerRef } from '@renderer/components/composer'
 
 interface SystemPromptActions {
   startEdit: () => void

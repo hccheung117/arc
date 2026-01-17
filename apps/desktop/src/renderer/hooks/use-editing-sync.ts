@@ -1,6 +1,6 @@
 import { useEffect, useCallback, type RefObject } from 'react'
-import type { InputMode, DisplayMessage } from '@renderer/features/workbench/domain/types'
-import type { ComposerRef } from '@renderer/features/workbench/components/composer'
+import type { InputMode, DisplayMessage } from '@renderer/lib/types'
+import type { ComposerRef } from '@renderer/components/composer'
 
 /**
  * Syncs composer content with editing state and provides cancel handler.

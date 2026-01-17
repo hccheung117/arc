@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
-import type { EditingState } from '@renderer/features/workbench/domain/types'
-import { useChatUIStore } from '@renderer/features/workbench/stores/chat-ui-store'
+import type { EditingState } from '@renderer/lib/types'
+import { useChatUIStore } from '@renderer/stores/chat-ui-store'
 
 interface UseEditingStoreReturn {
   editingState: EditingState | null

@@ -3,8 +3,8 @@ import { Copy, Check, Pencil, GitFork } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { warn, error } from '@renderer/lib/logger'
 import { duplicateThread } from '@renderer/lib/threads'
-import { useThreadId } from '@renderer/features/workbench/context/thread-context'
-import { useMessageId } from '@renderer/features/workbench/context/message-context'
+import { useThreadId } from '@renderer/context/thread-context'
+import { useMessageId } from '@renderer/context/message-context'
 
 interface MessageActionsProps {
   content: string

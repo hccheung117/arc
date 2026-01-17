@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { StreamState, EditingState, ComposerAttachment } from '@renderer/features/workbench/domain/types'
+import type { StreamState, EditingState, ComposerAttachment } from '@renderer/lib/types'
 
 /**
  * Scroll state for a thread

@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
-import type { DisplayMessage } from '@renderer/features/workbench/domain/types'
-import { formatMessagesToMarkdown, generateExportFilename } from '@renderer/features/workbench/domain/export'
+import type { DisplayMessage } from '@renderer/lib/types'
+import { formatMessagesToMarkdown, generateExportFilename } from '@renderer/lib/export'
 
 /**
  * Provides export functionality for chat messages.

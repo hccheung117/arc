@@ -15,7 +15,7 @@ import {
   createFolderWithThread,
   type ChatThread,
 } from '@renderer/lib/threads'
-import { useRename } from '@renderer/features/workbench/hooks/use-rename'
+import { useRename } from '@renderer/hooks/use-rename'
 import { ThreadItem } from './sidebar-thread-item'
 import { useSidebar } from './sidebar-context'
 

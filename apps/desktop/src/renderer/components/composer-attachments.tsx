@@ -1,5 +1,5 @@
 import { X } from 'lucide-react'
-import type { ComposerAttachment } from '@renderer/features/workbench/domain/types'
+import type { ComposerAttachment } from '@renderer/lib/types'
 
 interface AttachmentThumbnailProps {
   attachment: ComposerAttachment

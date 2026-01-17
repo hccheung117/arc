@@ -16,7 +16,7 @@ import {
   type ChatThread,
 } from '@renderer/lib/threads'
 import { useSidebar } from './sidebar-context'
-import { useRename } from '@renderer/features/workbench/hooks/use-rename'
+import { useRename } from '@renderer/hooks/use-rename'
 
 const ThreadIcon = () => (
   <MessageSquare className="h-4 w-4 shrink-0 text-sidebar-foreground/70" />

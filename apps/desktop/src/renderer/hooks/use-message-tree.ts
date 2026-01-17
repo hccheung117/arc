@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import type { Message } from '@renderer/lib/messages'
 import type { BranchInfo } from '@contracts/messages'
-import type { BranchSelections } from '@renderer/features/workbench/domain/types'
-import { resolveTree } from '@renderer/features/workbench/domain/message-tree'
+import type { BranchSelections } from '@renderer/lib/types'
+import { resolveTree } from '@renderer/lib/message-tree'
 import { getMessages } from '@renderer/lib/messages'
 import { getBranchSelections, setBranchSelection } from '@renderer/lib/ui-state-db'
 

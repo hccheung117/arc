@@ -3,7 +3,7 @@ import type { Message } from '@renderer/lib/messages'
 import type { BranchInfo, AttachmentInput, ThreadConfig } from '@contracts/messages'
 import type { Model } from '@contracts/models'
 import { type ChatThread, type ThreadAction, extractThreadConfig } from '@renderer/lib/threads'
-import type { DisplayMessage, InputMode, EditingState, EditSource } from '@renderer/features/workbench/domain/types'
+import type { DisplayMessage, InputMode, EditingState, EditSource } from '@renderer/lib/types'
 import { useModelSelection } from './use-model-selection'
 import { useMessageTree } from './use-message-tree'
 import { useStreamingStore } from './use-streaming-store'
@@ -12,9 +12,9 @@ import {
   sendNewMessage,
   editUserMessage,
   editAssistantMessage,
-} from '@renderer/features/workbench/domain/send-flows'
-import { findEditParent, composeDisplayMessages } from '@renderer/features/workbench/domain/message-tree'
-import { getStreamingMessage } from '@renderer/features/workbench/domain/stream-state'
+} from '@renderer/lib/send-flows'
+import { findEditParent, composeDisplayMessages } from '@renderer/lib/message-tree'
+import { getStreamingMessage } from '@renderer/lib/stream-state'
 import { error as logError } from '@renderer/lib/logger'
 
 // ─────────────────────────────────────────────────────────────────────────────

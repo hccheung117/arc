@@ -7,7 +7,7 @@ import {
 } from '@renderer/components/ui/sidebar'
 import { ThreadItem } from './sidebar-thread-item'
 import { FolderItem } from './sidebar-folder'
-import { groupThreadsWithFolders } from '@renderer/features/workbench/domain/thread-grouping'
+import { groupThreadsWithFolders } from '@renderer/lib/thread-grouping'
 import type { ChatThread } from '@renderer/lib/threads'
 
 interface SidebarListProps {
