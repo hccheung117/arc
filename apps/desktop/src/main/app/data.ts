@@ -17,6 +17,7 @@ import {
   getActiveProfileId,
   getActiveProfile,
   generateProviderId,
+  mergeFavoriteModels,
   type ProfilesEvent,
 } from '@main/lib/profile/operations'
 import { syncModels } from '@main/lib/profile/models'
@@ -121,6 +122,7 @@ export function registerDataHandlers(ipcMain: IpcMain): void {
 
       await activateProfile(result.id)
       await syncProfileModels()
+      await mergeFavoriteModels()
 
       emitProfile({ type: 'installed', profile: result })
       emitProfile({ type: 'activated', profileId: result.id })
@@ -137,6 +139,7 @@ export function registerDataHandlers(ipcMain: IpcMain): void {
     activate: async ({ profileId }) => {
       await activateProfile(profileId)
       await syncProfileModels()
+      await mergeFavoriteModels()
       emitProfile({ type: 'activated', profileId })
     },
 
@@ -146,7 +149,7 @@ export function registerDataHandlers(ipcMain: IpcMain): void {
       return {
         id: profile.id,
         name: profile.name,
-        refineModel: profile.refineModel,
+        modelAssignments: profile.modelAssignments,
       }
     },
   })

@@ -95,7 +95,7 @@ export function ChatView({ thread, models, findPersona, onThreadUpdate }: ChatVi
   useEffect(() => {
     const fetchRefineModel = () => {
       window.arc.profiles.getActiveDetails().then((profile) => {
-        setRefineModel(profile?.refineModel)
+        setRefineModel(profile?.modelAssignments?.refine?.model)
       })
     }
 

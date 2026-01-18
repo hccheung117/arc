@@ -252,3 +252,29 @@ export async function setSetting<T = unknown>(key: string, value: T) {
     }))
   }
 }
+
+/**
+ * Merge favorite models from active profile into user's favorites.
+ * Resolves provider type to providerId via profile's providers.
+ * Deduplicates to avoid adding existing favorites.
+ */
+export async function mergeFavoriteModels() {
+  const profile = await getActiveProfile()
+  if (!profile?.favoriteModels?.length) return
+
+  const newFavorites = profile.favoriteModels
+    .map(({ provider: providerType, model }) => {
+      const match = profile.providers.find((p) => p.type === providerType)
+      if (!match) return null
+      return { providerId: generateProviderId(match), modelId: model }
+    })
+    .filter((f): f is StoredFavorite => f !== null)
+
+  if (!newFavorites.length) return
+
+  await settingsStorage.update((settings) => {
+    const existing = new Set(settings.favorites.map((f) => `${f.providerId}:${f.modelId}`))
+    const toAdd = newFavorites.filter((f) => !existing.has(`${f.providerId}:${f.modelId}`))
+    return toAdd.length ? { ...settings, favorites: [...settings.favorites, ...toAdd] } : settings
+  })
+}

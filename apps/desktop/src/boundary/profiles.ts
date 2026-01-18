@@ -53,13 +53,19 @@ const ArcFileProviderSchema = z.object({
   modelAliases: z.record(z.string(), z.string()).optional(),
 })
 
+const ModelAssignmentSchema = z.object({
+  provider: z.string(),
+  model: z.string(),
+})
+
 const ArcFileSchema = z.object({
   version: z.number(),
   id: z.string(),
   name: z.string(),
   providers: z.array(ArcFileProviderSchema),
   updateInterval: z.number().min(1).optional(),
-  refineModel: z.string().optional(),
+  modelAssignments: z.record(z.string(), ModelAssignmentSchema).optional(),
+  favoriteModels: z.array(ModelAssignmentSchema).optional(),
 })
 
 // ============================================================================
@@ -71,6 +77,7 @@ export type StoredSettings = z.infer<typeof StoredSettingsSchema>
 export type StoredProvider = z.infer<typeof StoredProviderSchema>
 export type ArcModelFilter = z.infer<typeof ArcModelFilterSchema>
 export type ArcFileProvider = z.infer<typeof ArcFileProviderSchema>
+export type ModelAssignment = z.infer<typeof ModelAssignmentSchema>
 export type ArcFile = z.infer<typeof ArcFileSchema>
 
 export const ARC_FILE_VERSION = 0

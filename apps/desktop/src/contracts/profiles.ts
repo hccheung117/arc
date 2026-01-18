@@ -23,11 +23,16 @@ export interface ProfileInstallResult {
   providerCount: number
 }
 
+export interface ModelAssignment {
+  provider: string
+  model: string
+}
+
 /** Active profile details (subset of ArcFile) */
 export interface ActiveProfileDetails {
   id: string
   name: string
-  refineModel?: string
+  modelAssignments?: Record<string, ModelAssignment>
 }
 
 // ============================================================================

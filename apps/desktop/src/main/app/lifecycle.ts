@@ -10,6 +10,7 @@ import {
   activateProfile,
   getActiveProfile,
   generateProviderId,
+  mergeFavoriteModels,
   type ProfilesEvent,
 } from '@main/lib/profile/operations'
 import { syncModels } from '@main/lib/profile/models'
@@ -47,6 +48,7 @@ export async function handleProfileFileOpen(filePath: string): Promise<void> {
 
     await activateProfile(result.id)
     await syncProfileModels()
+    await mergeFavoriteModels()
 
     broadcast<ProfilesEvent>('arc:profiles:event', { type: 'installed', profile: result })
     broadcast<ProfilesEvent>('arc:profiles:event', { type: 'activated', profileId: result.id })
