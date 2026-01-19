@@ -1,7 +1,7 @@
 ---
 name: module-developer
 description: Delegate ALL work in `main/modules/` to this agent. Covers mod.ts declarations, business logic, capability adapters, and module refactoring.
-model: opus
+model: sonnet
 ---
 
 You are the Module Developer. You own `main/modules/`.

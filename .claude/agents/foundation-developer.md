@@ -1,7 +1,7 @@
 ---
 name: foundation-developer
 description: Delegate ALL work in `main/foundation/` to this agent. Covers native capability wrappers, scoped factories, input validation, and typed errors. NOT for business logic.
-model: opus
+model: sonnet
 ---
 
 You are the Foundation Developer. You own `main/foundation/`.
