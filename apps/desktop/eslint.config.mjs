@@ -42,7 +42,6 @@ export default tseslint.config(
       "import-x/core-modules": ["electron"],
     },
     rules: {
-      // Custom rules
       "no-restricted-imports": [
         "error",
         {
@@ -50,7 +49,7 @@ export default tseslint.config(
             {
               group: ["../*"],
               message:
-                "Parent imports (../) are banned. Use aliases (@renderer/, @main/, @arc-types/) instead.",
+                "Parent imports (../) are banned. Use @renderer/ or @main/ aliases instead.",
             },
             {
               group: ["@/*"],
@@ -60,61 +59,106 @@ export default tseslint.config(
             {
               group: ["**/index", "**/index.ts", "**/index.tsx"],
               message:
-                "Barrel files are forbidden. Import directly from the defining module.",
+                "Barrel files are forbidden. Import directly from the source file.",
             },
           ],
         },
       ],
     },
   },
-  // Zod boundary enforcement: only contracts/ and boundary/ may import zod
+  // Global: 500 lines max — refactor into smaller focused units
   {
-    files: ["src/**/*.{ts,tsx}"],
+    files: ["**/*.{ts,tsx}"],
     ignores: [
-      "src/contracts/**",
-      "src/boundary/**",
-      "src/main/foundation/**",
+      // TODO: Refactor into smaller components
+      "src/renderer/components/ui/sidebar.tsx",
     ],
     rules: {
-      "no-restricted-imports": [
+      "max-lines": [
         "error",
-        {
-          paths: [
-            {
-              name: "zod",
-              message:
-                "Zod is only allowed in @contracts/ and @boundary/. See 'Boundary Guard' in CLAUDE.md.",
-            },
-          ],
-        },
+        { max: 500, skipBlankLines: true, skipComments: true },
       ],
     },
   },
+  // Microkernel: 1000 lines for main — if exceeded, split into multiple modules
   {
-    files: ["src/renderer/**/*.{ts,tsx}"],
+    files: ["src/main/**/*.{ts,tsx}"],
+    rules: {
+      "max-lines": [
+        "error",
+        { max: 1000, skipBlankLines: true, skipComments: true },
+      ],
+    },
+  },
+  // Foundation isolation: cannot import from kernel or modules
+  {
+    files: ["src/main/foundation/**/*.{ts,tsx}"],
     rules: {
       "no-restricted-imports": [
         "error",
         {
           patterns: [
             {
-              group: ["../*"],
+              group: ["@main/kernel/*", "@main/kernel"],
               message:
-                "Parent imports (../) are banned. Use @renderer/ or @arc-types/ instead.",
+                "Foundation cannot import from kernel. Foundation is the lowest layer — it provides capabilities, not consumes them.",
             },
             {
-              group: ["@/*"],
+              group: ["@main/modules/*", "@main/modules"],
               message:
-                "The @/ alias is deprecated. Use @renderer/ for renderer code.",
-            },
-            {
-              group: ["**/index", "**/index.ts", "**/index.tsx"],
-              message:
-                "Barrel files are forbidden. Import directly from the defining module.",
+                "Foundation cannot import from modules. Foundation provides capabilities that modules consume via injection.",
             },
           ],
         },
       ],
+    },
+  },
+  // Kernel isolation: cannot import from modules
+  {
+    files: ["src/main/kernel/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@main/modules/*", "@main/modules"],
+              message:
+                "Kernel cannot import from modules. Kernel discovers modules via filesystem, not direct imports.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // Module isolation: cannot import other modules or foundation directly
+  {
+    files: ["src/main/modules/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@main/modules/*/*"],
+              message:
+                "Modules cannot import other modules. Declare dependency in mod.ts 'depends' array and receive via kernel injection.",
+            },
+            {
+              group: ["@main/foundation/*", "@main/foundation"],
+              message:
+                "Modules cannot import foundation directly. Create a capability adapter file (e.g., filesystem.ts) and receive via kernel injection.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  // types.ts files banned in main — derive types from implementation instead
+  {
+    files: ["src/main/**/types.ts"],
+    rules: {
+      "max-lines": ["error", { max: 0 }],
     },
   },
   {
