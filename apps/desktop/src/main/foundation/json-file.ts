@@ -1,5 +1,5 @@
 import { mkdir, readFile } from 'node:fs/promises'
-import { dirname } from 'node:path'
+import { dirname, resolve, sep } from 'node:path'
 import writeFileAtomic from 'write-file-atomic'
 import type { z } from 'zod'
 
@@ -52,5 +52,26 @@ export class JsonFile<T> {
     const current = await this.read()
     const updated = updater(current)
     await this.write(updated)
+  }
+}
+
+export interface ScopedJsonFile {
+  create: <T>(relativePath: string, defaultValue: T, schema: z.ZodType<T>) => JsonFile<T>
+}
+
+export const createJsonFile = (basePath: string): ScopedJsonFile => {
+  const resolvedBase = resolve(basePath)
+
+  const resolvePath = (relativePath: string): string => {
+    const full = resolve(resolvedBase, relativePath)
+    if (!full.startsWith(resolvedBase + sep) && full !== resolvedBase) {
+      throw new Error(`Path traversal blocked: ${relativePath}`)
+    }
+    return full
+  }
+
+  return {
+    create: (relativePath, defaultValue, schema) =>
+      new JsonFile(resolvePath(relativePath), defaultValue, schema),
   }
 }

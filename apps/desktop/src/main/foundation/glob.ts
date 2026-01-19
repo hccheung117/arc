@@ -12,3 +12,11 @@ export function matchesGlob(value: string, pattern: string): boolean {
   const regex = new RegExp('^' + escaped.replace(/\*/g, '.*') + '$')
   return regex.test(value)
 }
+
+export interface Glob {
+  matches: (value: string, pattern: string) => boolean
+}
+
+export const createGlob = (): Glob => ({
+  matches: matchesGlob,
+})

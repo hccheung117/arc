@@ -108,9 +108,42 @@ export function archiveHasEntry(archivePath: string, entryPath: string) {
 /**
  * Creates a ZIP archive from a directory.
  */
-export async function createArchive(sourceDir: string, archivePath: string) {
+export async function writeArchive(sourceDir: string, archivePath: string) {
   const zip = new AdmZip()
   zip.addLocalFolder(sourceDir)
   await fs.mkdir(path.dirname(archivePath), { recursive: true })
   zip.writeZip(archivePath)
+}
+
+export interface ScopedArchive {
+  extract: (archivePath: string, targetDir: string) => Promise<void>
+  write: (sourceDir: string, archivePath: string) => Promise<void>
+  readEntry: (archivePath: string, entryPath: string) => string | null
+  listDirectory: (archivePath: string, dirPath: string) => string[]
+  hasEntry: (archivePath: string, entryPath: string) => boolean
+}
+
+export const createArchive = (basePath: string): ScopedArchive => {
+  const resolvedBase = path.resolve(basePath)
+
+  const resolvePath = (relativePath: string): string => {
+    const full = path.resolve(resolvedBase, relativePath)
+    if (!full.startsWith(resolvedBase + path.sep) && full !== resolvedBase) {
+      throw new Error(`Path traversal blocked: ${relativePath}`)
+    }
+    return full
+  }
+
+  return {
+    extract: (archivePath, targetDir) =>
+      extractArchive(resolvePath(archivePath), resolvePath(targetDir)),
+    write: (sourceDir, archivePath) =>
+      writeArchive(resolvePath(sourceDir), resolvePath(archivePath)),
+    readEntry: (archivePath, entryPath) =>
+      readArchiveEntry(resolvePath(archivePath), entryPath),
+    listDirectory: (archivePath, dirPath) =>
+      listArchiveDirectory(resolvePath(archivePath), dirPath),
+    hasEntry: (archivePath, entryPath) =>
+      archiveHasEntry(resolvePath(archivePath), entryPath),
+  }
 }
