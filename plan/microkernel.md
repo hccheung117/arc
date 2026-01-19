@@ -151,29 +151,86 @@ main/
 │   ├── injector.ts      # Context wiring
 │   └── ipc.ts           # Auto-registration
 ├── modules/             # The Domain (Business Logic)
-│   ├── ai/
-│   ├── messages/
-│   ├── threads/
-│   ├── profiles/
-│   └── ...
+│   └── {name}/          # See Module File Convention below
 ├── foundation/          # The Capabilities (Native Wrappers)
-│   ├── filesystem.ts
-│   ├── network.ts
+│   ├── json-file.ts
+│   ├── json-log.ts
+│   ├── archive.ts
 │   ├── logger.ts
 │   └── ...
 └── main.ts              # Entry Point
 ```
 
+### Module File Convention
+
+Every module follows the same structure with exactly three file types:
+
+```
+modules/{name}/
+├── mod.ts              # Required: Declaration only (defineModule)
+├── business.ts         # Conditional: Domain logic (when not one-liner)
+└── {capability}.ts     # Required per declared capability (defineCapability)
+```
+
+**Rules**:
+1. `mod.ts` — Pure declaration; wires capabilities to API surface
+2. `business.ts` — All domain logic; receives capabilities as parameters; omit if logic is trivial
+3. `{capability}.ts` — Thin adapter defining module-specific usage of a Foundation capability
+4. **No other files permitted** — No sub-folders, no feature splits, no types.ts
+
+### Module File Manifest
+
+```
+modules/
+├── settings/
+│   ├── mod.ts
+│   └── json-file.ts
+├── updater/
+│   ├── mod.ts
+│   ├── business.ts
+│   └── logger.ts
+├── ui/
+│   ├── mod.ts
+│   ├── business.ts
+│   └── json-file.ts
+├── profiles/
+│   ├── mod.ts
+│   ├── business.ts
+│   ├── json-file.ts
+│   ├── archive.ts
+│   └── logger.ts
+├── personas/
+│   ├── mod.ts
+│   ├── business.ts
+│   ├── json-file.ts
+│   └── logger.ts
+├── messages/
+│   ├── mod.ts
+│   ├── business.ts
+│   ├── json-log.ts
+│   └── logger.ts
+├── threads/
+│   ├── mod.ts
+│   ├── business.ts
+│   ├── json-file.ts
+│   ├── json-log.ts
+│   └── logger.ts
+└── ai/
+    ├── mod.ts
+    ├── business.ts
+    └── logger.ts
+```
+
 ### Governance Rules
 1.  **No Cross-Module Imports**: Modules must not import other modules directly.
 2.  **File Size**: Max 1000 lines per file (strict refactor trigger).
-3.  **Integrity**: `mod.ts` declarations must match the actual file tree (e.g., declaring `capabilities: ['filesystem']` requires `filesystem.ts`).
+3.  **Integrity**: `mod.ts` declarations must match the actual file tree (e.g., declaring `capabilities: ['jsonFile']` requires `json-file.ts`).
 4.  **Path Boundary**: Modules can only access disk paths they explicitly declare.
 
 ## 9. Development Strategy: Agent First
 
 The architecture splits responsibilities to suit AI development agents:
 
-- **Kernel Agent**: Maintains the "Spinal Cord" (Infrastructure, Governance).
-- **Foundation Agent**: Builds the "Tools" (Safe, Scoped I/O).
-- **Module Agent**: Builds the "Features" (Domain Logic) using the Tools within the Kernel's rules.
+- **`kernel-developer`**: Maintains the "Spinal Cord" (Infrastructure, Governance).
+- **`foundation-developer`**: Builds the "Tools" (Safe, Scoped I/O).
+- **`module-developer`**: Builds the "Features" (Domain Logic) using the Tools within the Kernel's rules.

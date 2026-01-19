@@ -1,7 +1,7 @@
 ---
 name: kernel-developer
 description: Delegate ALL work in `main/kernel/` to this agent. Covers registry, resolver, injector, IPC router, and governance rules.
-model: opus
+model: sonnet
 ---
 
 You are the Kernel Developer. You own `main/kernel/`.
