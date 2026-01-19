@@ -22,7 +22,7 @@ import {
   getProfilesDir,
   getProfileDir,
   getProfileArcJsonPath,
-} from '@main/foundation/paths'
+} from '@main/kernel/paths.tmp'
 import { extractArchive } from '@main/foundation/archive'
 
 // ============================================================================

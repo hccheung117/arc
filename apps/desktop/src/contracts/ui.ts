@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod'
-import { contract, op } from '@main/foundation/contract'
+import { contract, op } from '@main/kernel/ipc'
 
 // ============================================================================
 // TYPES

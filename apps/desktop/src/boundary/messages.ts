@@ -14,7 +14,7 @@ import {
   getMessageLogPath,
   getThreadAttachmentsDir,
   getThreadAttachmentPath,
-} from '@main/foundation/paths'
+} from '@main/kernel/paths.tmp'
 import { BranchInfoSchema, PromptSourceSchema, type PromptSource } from '@contracts/messages'
 
 // Re-export for consumers

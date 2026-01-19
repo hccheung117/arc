@@ -15,7 +15,7 @@ import {
 } from '@main/lib/profile/operations'
 import { syncModels } from '@main/lib/profile/models'
 import { initAutoUpdate } from '@main/lib/updater/operations'
-import { broadcast } from '@main/foundation/ipc'
+import { broadcast } from '@main/kernel/ipc'
 import { info, error } from '@main/foundation/logger'
 
 async function syncProfileModels(): Promise<void> {

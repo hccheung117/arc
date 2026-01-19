@@ -12,7 +12,7 @@ import {
   showThreadContextMenu,
   showMessageContextMenu,
 } from '@main/lib/ui'
-import { registerHandlers } from '@main/foundation/contract'
+import { registerHandlers } from '@main/kernel/ipc'
 import { uiContract } from '@contracts/ui'
 
 // ============================================================================

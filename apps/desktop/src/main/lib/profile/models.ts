@@ -6,7 +6,7 @@
 
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
-import { getModelsCachePath } from '@main/foundation/paths'
+import { getModelsCachePath } from '@main/kernel/paths.tmp'
 import { info, error } from '@main/foundation/logger'
 import { matchesGlob } from '@main/foundation/glob'
 import { createClient } from '@main/lib/ai/client'

@@ -10,7 +10,7 @@ import { screen, type BrowserWindow } from 'electron'
 import { readFile, mkdir, readdir, unlink } from 'node:fs/promises'
 import { dirname, basename } from 'node:path'
 import writeFileAtomic from 'write-file-atomic'
-import { getWindowStateCachePath } from '@main/foundation/paths'
+import { getWindowStateCachePath } from '@main/kernel/paths.tmp'
 import { warn, error } from '@main/foundation/logger'
 
 // ============================================================================

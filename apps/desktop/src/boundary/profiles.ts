@@ -7,7 +7,7 @@
 
 import { z, ZodError } from 'zod'
 import { JsonFile } from '@main/foundation/json-file'
-import { getSettingsPath, getProfileArcJsonPath } from '@main/foundation/paths'
+import { getSettingsPath, getProfileArcJsonPath } from '@main/kernel/paths.tmp'
 import { readFile } from 'node:fs/promises'
 
 // ============================================================================

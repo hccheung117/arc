@@ -7,7 +7,7 @@
  */
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import { createClient } from '@main/foundation/contract'
+import { createClient } from '@main/kernel/ipc'
 import { threadsContract, foldersContract } from '@contracts/threads'
 import { messagesContract } from '@contracts/messages'
 import { personasContract } from '@contracts/personas'
