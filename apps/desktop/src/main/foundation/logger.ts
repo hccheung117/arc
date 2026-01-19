@@ -180,6 +180,18 @@ const logHttpStreamComplete = (content: string): void => {
 // Public API
 // ─────────────────────────────────────────────────────────────────────────────
 
+export interface Logger {
+  info: (message: string) => void
+  warn: (message: string) => void
+  error: (message: string, err?: Error) => void
+}
+
+export const createLogger = (tag: string): Logger => ({
+  info: (message) => info(tag, message),
+  warn: (message) => warn(tag, message),
+  error: (message, err) => error(tag, message, err),
+})
+
 export const info = (tag: string, message: string): void =>
   log({ level: 'info', tag, message })
 

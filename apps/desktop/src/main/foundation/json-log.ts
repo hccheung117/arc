@@ -1,5 +1,5 @@
 import { appendFile, mkdir, readFile, unlink } from 'node:fs/promises'
-import { dirname } from 'node:path'
+import { dirname, resolve, sep } from 'node:path'
 import type { z } from 'zod'
 
 /**
@@ -67,5 +67,25 @@ export class JsonLog<T> {
       }
       // Other errors are silently ignored - delete is best-effort
     }
+  }
+}
+
+export interface ScopedJsonLog {
+  create: <T>(relativePath: string, schema: z.ZodType<T>) => JsonLog<T>
+}
+
+export const createJsonLog = (basePath: string): ScopedJsonLog => {
+  const resolvedBase = resolve(basePath)
+
+  const resolvePath = (relativePath: string): string => {
+    const full = resolve(resolvedBase, relativePath)
+    if (!full.startsWith(resolvedBase + sep) && full !== resolvedBase) {
+      throw new Error(`Path traversal blocked: ${relativePath}`)
+    }
+    return full
+  }
+
+  return {
+    create: (relativePath, schema) => new JsonLog(resolvePath(relativePath), schema),
   }
 }
