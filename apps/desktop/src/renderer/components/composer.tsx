@@ -183,7 +183,6 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(
       if (!refineModel || isRefining || !message.trim()) return
 
       const original = message
-      setMessage('')
 
       try {
         const { streamId } = await startRefine(original, refineModel)
