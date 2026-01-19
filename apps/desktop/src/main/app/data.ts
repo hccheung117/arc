@@ -22,8 +22,7 @@ import {
 } from '@main/lib/profile/operations'
 import { syncModels } from '@main/lib/profile/models'
 import { info } from '@main/foundation/logger'
-import { broadcast } from '@main/foundation/ipc'
-import { registerHandlers } from '@main/foundation/contract'
+import { broadcast, registerHandlers } from '@main/kernel/ipc'
 import { messagesContract } from '@contracts/messages'
 import { profilesContract } from '@contracts/profiles'
 

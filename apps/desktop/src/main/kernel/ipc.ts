@@ -12,7 +12,21 @@
  */
 
 import type { IpcMain, IpcMainInvokeEvent, IpcRenderer } from 'electron'
+import { BrowserWindow } from 'electron'
 import { z } from 'zod'
+
+// ============================================================================
+// BROADCAST
+// ============================================================================
+
+/**
+ * Broadcasts a message to all open windows.
+ */
+export function broadcast<T>(channel: string, data: T): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send(channel, data)
+  }
+}
 
 // ============================================================================
 // CONTRACT DEFINITION

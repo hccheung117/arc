@@ -13,7 +13,7 @@ import type { StoredThread, StoredThreadIndex, StoredMessageEvent, PromptSource 
 import { threadStorage, messageStorage, attachmentStorage } from '@boundary/messages'
 import { findById, parentOf, updateById, extract } from './tree'
 import { reduceMessageEvents } from './reducer'
-import { getMessageLogPath, getThreadAttachmentsDir } from '@main/foundation/paths'
+import { getMessageLogPath, getThreadAttachmentsDir } from '@main/kernel/paths.tmp'
 
 // ============================================================================
 // THREAD TRANSFORMS (Pure)

@@ -5,7 +5,7 @@
  */
 
 import { z } from 'zod'
-import { contract, op, returns } from '@main/foundation/contract'
+import { contract, op, returns } from '@main/kernel/ipc'
 
 // ============================================================================
 // IPC OUTPUT TYPES

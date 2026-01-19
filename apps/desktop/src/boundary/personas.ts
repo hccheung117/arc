@@ -22,7 +22,7 @@ import {
   getAppPersonaPath,
   getProfilePersonasDir,
   getProfilePersonaPath,
-} from '@main/foundation/paths'
+} from '@main/kernel/paths.tmp'
 
 // ============================================================================
 // PRIVATE SCHEMAS
