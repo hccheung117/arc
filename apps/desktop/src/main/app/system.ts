@@ -10,12 +10,23 @@ import type { IpcMain } from 'electron'
 import { shell, dialog, BrowserWindow } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import { rendererError } from '@main/foundation/logger'
-import { getThreadAttachmentPath } from '@main/kernel/paths.tmp'
-import { getSetting, setSetting } from '@main/lib/profile/operations'
+import { getThreadAttachmentPath, getAppDir } from '@main/kernel/paths.tmp'
 import { registerHandlers } from '@main/kernel/ipc'
 import { settingsContract } from '@contracts/settings'
 import { utilsContract } from '@contracts/utils'
 import { filesContract } from '@contracts/files'
+import { createJsonFile } from '@main/foundation/json-file'
+import { getProviderConfig } from '@main/lib/profile/operations'
+import { createSettingsOperations } from '@main/modules/settings/business'
+import jsonFileAdapter from '@main/modules/settings/json-file'
+
+// ============================================================================
+// TEMPORARY MODULE INSTANCE (until kernel boot is implemented)
+// ============================================================================
+
+const scopedJsonFile = createJsonFile(getAppDir())
+const adaptedJsonFile = jsonFileAdapter.factory(scopedJsonFile)
+const settingsApi = createSettingsOperations(adaptedJsonFile, { getProviderConfig })
 
 // ============================================================================
 // LOGGING (one-way, uses ipcMain.on - not part of contracts)
@@ -34,8 +45,8 @@ function registerLoggingHandlers(ipcMain: IpcMain): void {
 export function registerSystemHandlers(ipcMain: IpcMain): void {
   // Settings
   registerHandlers(ipcMain, settingsContract, {
-    get: async ({ key }) => getSetting(key),
-    set: async ({ key, value }) => setSetting(key, value),
+    get: async ({ key }) => settingsApi.get(key),
+    set: async ({ key, value }) => settingsApi.set(key, value),
   })
 
   // Utils

@@ -154,6 +154,22 @@ export default tseslint.config(
       ],
     },
   },
+  // mod.ts must use 'import type' for adapter imports (type-only, no runtime dependency)
+  // Adapters are imported ONLY for type derivation via ReturnType<typeof adapter.factory>
+  // Runtime injection is handled by the kernel — mod.ts should never import adapters at runtime
+  {
+    files: ["src/main/modules/**/mod.ts"],
+    rules: {
+      "@typescript-eslint/consistent-type-imports": [
+        "error",
+        {
+          prefer: "type-imports",
+          fixStyle: "separate-type-imports",
+          disallowTypeAnnotations: false,
+        },
+      ],
+    },
+  },
   // types.ts files banned in main — derive types from implementation instead
   {
     files: ["src/main/**/types.ts"],

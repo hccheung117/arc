@@ -144,3 +144,29 @@ export const createClient = <C extends Contract>(ipc: IpcRenderer, c: C): Client
 
   return client as Client<C>
 }
+
+// ============================================================================
+// MODULE AUTO-REGISTRATION
+// ============================================================================
+
+/**
+ * Auto-registers IPC handlers for a module.
+ * Derives channel names from module name + operation keys.
+ * Channel format: arc:{moduleName}:{operationName}
+ *
+ * No validation - renderer is trusted code. Domain validation in business logic.
+ */
+export function registerModuleIPC(
+  ipcMain: IpcMain,
+  moduleName: string,
+  api: Record<string, (...args: unknown[]) => unknown>
+): void {
+  for (const operationName of Object.keys(api)) {
+    const ch = channel(moduleName, operationName)
+    const handler = api[operationName]
+
+    ipcMain.handle(ch, async (_event: IpcMainInvokeEvent, input: unknown) => {
+      return handler(input)
+    })
+  }
+}
