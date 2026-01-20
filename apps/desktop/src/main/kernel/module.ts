@@ -33,11 +33,15 @@ export interface ModuleConfig<
   Caps extends readonly CapabilityName[],
   Deps extends readonly string[],
   API extends Record<string, AnyFunction>,
-  Events extends readonly string[]
+  Events extends readonly string[],
+  // AdaptedCaps allows modules to define their own Caps type with adapter return types
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  AdaptedCaps = any
 > {
   capabilities: Caps
   depends: Deps
-  provides: (deps: DependencyProxy<Deps>, caps: Pick<FoundationCapabilities, Caps[number]>) => API
+  // Caps are adapted at runtime by kernel injector; modules cast to their own Caps type
+  provides: (deps: DependencyProxy<Deps>, caps: AdaptedCaps) => API
   emits: Events
   paths: readonly string[]
 }
@@ -69,6 +73,33 @@ export function defineModule<
     paths: config.paths,
     factory: config.provides as (deps: unknown, caps: unknown) => API,
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// defineCapability
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface CapabilityDefinition<Raw, Adapted> {
+  factory: (raw: Raw) => Adapted
+}
+
+/**
+ * Defines a capability adapter for a module.
+ * The factory transforms raw Foundation capabilities into module-specific APIs.
+ *
+ * @example
+ * ```typescript
+ * // modules/personas/json-file.ts
+ * export default defineCapability((fs) => ({
+ *   loadPersona: (id: string) => fs.read(`personas/${id}.json`),
+ *   savePersona: (id: string, data: any) => fs.write(`personas/${id}.json`, data),
+ * }))
+ * ```
+ */
+export function defineCapability<Raw, Adapted>(
+  factory: (raw: Raw) => Adapted
+): CapabilityDefinition<Raw, Adapted> {
+  return { factory }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

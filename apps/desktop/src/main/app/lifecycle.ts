@@ -11,12 +11,15 @@ import {
   getActiveProfile,
   generateProviderId,
   mergeFavoriteModels,
-  type ProfilesEvent,
 } from '@main/lib/profile/operations'
+import type { ProfilesEvent } from '@contracts/events'
 import { syncModels } from '@main/lib/profile/models'
-import { initAutoUpdate } from '@main/lib/updater/operations'
+import { initAutoUpdate } from '@main/modules/updater/business'
+import { createUpdaterLogger } from '@main/modules/updater/logger'
 import { broadcast } from '@main/kernel/ipc'
-import { info, error } from '@main/foundation/logger'
+import { info, error, createLogger } from '@main/foundation/logger'
+
+const updaterLogger = createUpdaterLogger(createLogger('updater'))
 
 async function syncProfileModels(): Promise<void> {
   const profile = await getActiveProfile()
@@ -62,5 +65,5 @@ export async function handleProfileFileOpen(filePath: string): Promise<void> {
  */
 export async function initApp(): Promise<void> {
   const profile = await getActiveProfile()
-  initAutoUpdate(profile?.updateInterval)
+  initAutoUpdate(updaterLogger)(profile?.updateInterval)
 }

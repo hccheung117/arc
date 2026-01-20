@@ -216,44 +216,6 @@ export async function getProviderConfig(providerId: string) {
 }
 
 /**
- * Generic settings get handler.
- * Routes key patterns to appropriate sources.
- */
-export async function getSetting<T = unknown>(key: string) {
-  if (key.startsWith('provider:')) {
-    const providerId = key.slice('provider:'.length)
-    const config = await getProviderConfig(providerId)
-    return config as T
-  }
-
-  if (key === 'favorites') {
-    const settings = await settingsStorage.read()
-    return (settings.favorites ?? []) as T
-  }
-
-  return null
-}
-
-/**
- * Generic settings set handler.
- * Routes key patterns to appropriate updaters.
- * Note: Provider configs are read-only (come from arc files).
- */
-export async function setSetting<T = unknown>(key: string, value: T) {
-  if (key.startsWith('provider:')) {
-    throw new Error('Provider configs are read-only (managed via arc files)')
-  }
-
-  if (key === 'favorites') {
-    const favorites = value as StoredFavorite[]
-    await settingsStorage.update((settings) => ({
-      ...settings,
-      favorites,
-    }))
-  }
-}
-
-/**
  * Merge favorite models from active profile into user's favorites.
  * Resolves provider type to providerId via profile's providers.
  * Deduplicates to avoid adding existing favorites.

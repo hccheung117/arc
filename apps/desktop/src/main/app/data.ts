@@ -18,8 +18,8 @@ import {
   getActiveProfile,
   generateProviderId,
   mergeFavoriteModels,
-  type ProfilesEvent,
 } from '@main/lib/profile/operations'
+import type { ProfilesEvent } from '@contracts/events'
 import { syncModels } from '@main/lib/profile/models'
 import { info } from '@main/foundation/logger'
 import { broadcast, registerHandlers } from '@main/kernel/ipc'
