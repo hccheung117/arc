@@ -62,6 +62,16 @@ Modules are isolated, functional units. They declare their needs (dependencies/c
 ### Module Definition (`mod.ts`)
 
 ```typescript
+// Type imports for compile-time inference (no runtime dependency)
+import type filesystemAdapter from './filesystem'
+import type loggerAdapter from './logger'
+
+// Caps type derived from adapter implementations
+type Caps = {
+  filesystem: ReturnType<typeof filesystemAdapter.factory>
+  logger: ReturnType<typeof loggerAdapter.factory>
+}
+
 export default defineModule({
   // 1. Declare Needs
   capabilities: ['filesystem', 'logger'],  // Governance: Must match physical files
@@ -69,8 +79,8 @@ export default defineModule({
 
   // 2. Define Factory
   // - deps: Proxy to other modules (safe access)
-  // - caps: Injected foundation capabilities (scoped access)
-  provides: (deps, caps) => ({
+  // - caps: Injected adapters (typed via Caps)
+  provides: (deps, caps: Caps) => ({
     list: () => listPersonas(caps.filesystem),
     create: (data) => createPersona(caps.filesystem, data),
     
@@ -82,10 +92,12 @@ export default defineModule({
   }),
   
   // 3. Declare Outputs
-  emits: ['persona:updated'],    // IPC: Allowed events
+  emits: ['persona:updated'],    // IPC: Allowed event channels
   paths: ['data/personas'],      // Governance: Disk ownership
 })
 ```
+
+**IPC is fully automated**: Kernel derives IPC channels from module name + `provides` keys. No contract definition needed.
 
 ## 5. The Foundation (Capabilities)
 
@@ -113,8 +125,23 @@ export default defineCapability({
 ## 6. Communication & Data Flow
 
 ### Request-Response (Renderer → Main)
-- **Zero Boilerplate**: The Renderer imports API types directly from module definitions.
-- **Kernel Routing**: `await personas.list()` in Renderer → Kernel IPC → `modules/personas/mod.ts`.
+- **Zero Boilerplate**: IPC channels derived automatically from module name + `provides` keys.
+- **Kernel Routing**: `await personas.list()` in Renderer → `arc:personas:list` → Kernel → Module.
+- **No Contracts**: Types flow from module `provides` to preload client. TypeScript ensures correctness at compile time.
+
+```
+Renderer                          Kernel                           Module
+────────                          ──────                           ──────
+personas.list()          →        ipc.handle('arc:personas:list')  →  provides.list()
+                                  Channel derived from:
+                                  • Module name: 'personas'
+                                  • Operation key: 'list'
+```
+
+### Validation Strategy
+- **No IPC-level validation**: Renderer is trusted code, not an external client.
+- **Domain validation**: Business logic validates input where domain rules matter.
+- **TypeScript safety**: Compile-time type checking prevents most errors.
 
 ### Event Subscription (Main → Renderer)
 - **Explicit Channels**: Modules declare `emits` in `mod.ts`.
@@ -135,6 +162,12 @@ export default defineCapability({
 - No manual `types.ts` files.
 - **Flow**: Implementation → derives → Type → exported → consumed.
 
+**Capability Types in Modules**
+- `mod.ts` uses `import type` to import adapter types (compile-time only, no runtime dependency)
+- `Caps` type is derived via `ReturnType<typeof adapter.factory>`
+- ESLint enforces `import type` only for adapter imports in `mod.ts`
+- This separates governance (string array) from typing (derived from adapters)
+
 ### Error Handling
 - **Foundation**: Throws typed errors (`NetworkError`).
 - **Modules**: Catch Foundation errors, wrap/handle them, and return `Result<T, E>`; only throw domain errors when it's meant to crash the process.
@@ -146,7 +179,7 @@ export default defineCapability({
 ```
 main/
 ├── kernel/              # The Orchestrator
-│   ├── registry.ts      # Module discovery
+│   ├── registry.ts      # defineModule, defineCapability, module discovery
 │   ├── resolver.ts      # Dependency graph
 │   ├── injector.ts      # Context wiring
 │   └── ipc.ts           # Auto-registration
@@ -163,13 +196,57 @@ main/
 
 ### Module File Convention
 
-Every module follows the same structure with exactly three file types:
+Every module follows the same structure with exactly three file types. This separation ensures testability and clean architecture.
 
 ```
 modules/{name}/
 ├── mod.ts              # Required: Declaration only (defineModule)
 ├── business.ts         # Conditional: Domain logic (when not one-liner)
 └── {capability}.ts     # Required per declared capability (defineCapability)
+```
+
+**1. {capability}.ts — The Adapter (Domain Knowledge)**
+Contains all paths, file formats, and Foundation interactions.
+```typescript
+// modules/personas/json-file.ts
+export default defineCapability((fs) => ({
+  loadPersona: (id: string) => fs.read(`personas/${id}.json`), // Path knowledge here
+  savePersona: (id: string, data: any) => fs.write(`personas/${id}.json`, data),
+  listAll: () => fs.glob('personas/*.json'),
+}))
+```
+
+**2. business.ts — The Logic (Pure Function)**
+Contains algorithms and rules. Receives adapters as parameters. Zero knowledge of paths or Foundation.
+```typescript
+// modules/personas/business.ts
+// Testable by mocking the adapter
+export const createPersona = async (store: PersonaStore, data: any) => {
+  const id = generateId()
+  await store.savePersona(id, { ...data, version: 1 }) // Uses domain method
+  return id
+}
+```
+
+**3. mod.ts — The Wiring (Declaration)**
+Wires capabilities to the API surface. Uses `import type` to derive adapter types.
+```typescript
+// modules/personas/mod.ts
+import type jsonFileAdapter from './json-file'
+import * as biz from './business'
+
+type Caps = {
+  jsonFile: ReturnType<typeof jsonFileAdapter.factory>
+}
+
+export default defineModule({
+  capabilities: ['jsonFile'],
+  provides: (deps, caps: Caps) => ({
+    // caps.jsonFile is correctly typed as the adapter's return type
+    // IPC channel 'arc:personas:create' derived automatically
+    create: (data) => biz.createPersona(caps.jsonFile, data),
+  }),
+})
 ```
 
 **Rules**:
@@ -226,6 +303,7 @@ modules/
 2.  **File Size**: Max 1000 lines per file (strict refactor trigger).
 3.  **Integrity**: `mod.ts` declarations must match the actual file tree (e.g., declaring `capabilities: ['jsonFile']` requires `json-file.ts`).
 4.  **Path Boundary**: Modules can only access disk paths they explicitly declare.
+5.  **Type-Only Adapter Imports**: `mod.ts` must use `import type` for adapter imports (ESLint enforced). Runtime injection is kernel's responsibility.
 
 ## 9. Development Strategy: Agent First
 
