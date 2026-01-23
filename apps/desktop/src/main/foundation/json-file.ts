@@ -59,14 +59,24 @@ export interface ScopedJsonFile {
   create: <T>(relativePath: string, defaultValue: T, schema: z.ZodType<T>) => JsonFile<T>
 }
 
-export const createJsonFile = (basePath: string): ScopedJsonFile => {
-  const resolvedBase = resolve(basePath)
+export const createJsonFile = (dataDir: string, allowedPaths: readonly string[]): ScopedJsonFile => {
+  const resolvedDataDir = resolve(dataDir)
+
+  const rules = allowedPaths.map(p => ({
+    resolved: resolve(resolvedDataDir, p.replace(/\/$/, '')),
+    isDir: p.endsWith('/'),
+  }))
 
   const resolvePath = (relativePath: string): string => {
-    const full = resolve(resolvedBase, relativePath)
-    if (!full.startsWith(resolvedBase + sep) && full !== resolvedBase) {
-      throw new Error(`Path traversal blocked: ${relativePath}`)
-    }
+    const full = resolve(resolvedDataDir, relativePath)
+
+    const allowed = rules.some(rule =>
+      rule.isDir
+        ? (full.startsWith(rule.resolved + sep) || full === rule.resolved)
+        : full === rule.resolved
+    )
+
+    if (!allowed) throw new Error(`Path access denied: ${relativePath}`)
     return full
   }
 

@@ -5,7 +5,7 @@
  * adapted capabilities. Manual registration for now; full discovery in P5.
  */
 
-import type { ModuleDefinition, CapabilityDefinition, FoundationCapabilities } from './module'
+import type { ModuleDefinition, CapabilityDefinition, FoundationCapabilities, PathScopedFactory } from './module'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Capability Mapping
@@ -23,6 +23,9 @@ const CAPABILITY_TO_FOUNDATION: Record<string, keyof FoundationCapabilities> = {
   logger: 'logger',
 }
 
+/** Capabilities that require path scoping (factories, not instances). */
+const PATH_SCOPED: Set<string> = new Set(['jsonFile', 'jsonLog', 'archive'])
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
@@ -33,6 +36,7 @@ export interface ModuleInstance<API = unknown> {
 }
 
 export interface InjectorConfig {
+  dataDir: string
   foundation: FoundationCapabilities
   adapters: Map<string, Map<string, CapabilityDefinition<unknown, unknown>>>
   // adapters structure: moduleName -> capabilityName -> CapabilityDefinition
@@ -74,16 +78,17 @@ export function instantiateModule(
       throw new Error(`Unknown capability "${capName}" in module "${definition.name}"`)
     }
 
-    const rawCap = config.foundation[foundationKey]
-    const adapter = moduleAdapters?.get(capName)
-
-    if (adapter) {
-      // Use the module's adapter to transform raw capability
-      caps[capName] = adapter.factory(rawCap)
+    // Path-scoped capabilities are factories; call with module's paths to get scoped instance
+    let rawCap: unknown
+    if (PATH_SCOPED.has(capName)) {
+      const factory = config.foundation[foundationKey] as PathScopedFactory<unknown>
+      rawCap = factory(config.dataDir, definition.paths)
     } else {
-      // No adapter file - pass raw Foundation capability
-      caps[capName] = rawCap
+      rawCap = config.foundation[foundationKey]
     }
+
+    const adapter = moduleAdapters?.get(capName)
+    caps[capName] = adapter ? adapter.factory(rawCap) : rawCap
   }
 
   const api = definition.factory(deps, caps)

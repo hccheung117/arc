@@ -18,6 +18,7 @@ import { defineModule, defineCapability } from './module'
 describe('createKernel', () => {
   let mockIpcMain: Pick<IpcMain, 'handle'>
   let mockFoundation: FoundationCapabilities
+  const mockDataDir = '/tmp/test-data'
 
   beforeEach(() => {
     mockIpcMain = {
@@ -25,10 +26,10 @@ describe('createKernel', () => {
     }
 
     mockFoundation = {
-      jsonFile: { scope: vi.fn() },
-      jsonLog: { scope: vi.fn() },
-      archive: { scope: vi.fn() },
-      glob: vi.fn(),
+      jsonFile: vi.fn(() => ({ create: vi.fn() })),
+      jsonLog: vi.fn(() => ({ create: vi.fn() })),
+      archive: vi.fn(() => ({ extract: vi.fn(), write: vi.fn(), readEntry: vi.fn(), listDirectory: vi.fn(), hasEntry: vi.fn() })),
+      glob: { matches: vi.fn() },
       logger: {
         info: vi.fn(),
         warn: vi.fn(),
@@ -40,6 +41,7 @@ describe('createKernel', () => {
   it('should register and boot modules in dependency order', () => {
     const kernel = createKernel({
       ipcMain: mockIpcMain,
+      dataDir: mockDataDir,
       foundation: mockFoundation,
     })
 
@@ -77,6 +79,7 @@ describe('createKernel', () => {
   it('should register IPC handlers for all module operations', () => {
     const kernel = createKernel({
       ipcMain: mockIpcMain,
+      dataDir: mockDataDir,
       foundation: mockFoundation,
     })
 
@@ -108,6 +111,7 @@ describe('createKernel', () => {
   it('should inject adapted capabilities when adapters are provided', () => {
     const kernel = createKernel({
       ipcMain: mockIpcMain,
+      dataDir: mockDataDir,
       foundation: mockFoundation,
     })
 
@@ -136,6 +140,7 @@ describe('createKernel', () => {
   it('should throw on missing dependency', () => {
     const kernel = createKernel({
       ipcMain: mockIpcMain,
+      dataDir: mockDataDir,
       foundation: mockFoundation,
     })
 

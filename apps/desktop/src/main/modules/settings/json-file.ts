@@ -8,7 +8,7 @@
 import { z } from 'zod'
 import { defineCapability, type FoundationCapabilities } from '@main/kernel/module'
 
-type ScopedJsonFile = FoundationCapabilities['jsonFile']
+type ScopedJsonFile = ReturnType<FoundationCapabilities['jsonFile']>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Schema
@@ -40,7 +40,7 @@ const DEFAULT_SETTINGS: StoredSettings = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default defineCapability((jsonFile: ScopedJsonFile) => {
-  const file = jsonFile.create('settings.json', DEFAULT_SETTINGS, StoredSettingsSchema)
+  const file = jsonFile.create('app/settings.json', DEFAULT_SETTINGS, StoredSettingsSchema)
   return {
     read: () => file.read(),
     update: (fn: (data: StoredSettings) => StoredSettings) => file.update(fn),
