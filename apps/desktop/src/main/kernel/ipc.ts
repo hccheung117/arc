@@ -29,6 +29,28 @@ export function broadcast<T>(channel: string, data: T): void {
 }
 
 // ============================================================================
+// MODULE EMITTER
+// ============================================================================
+
+/**
+ * Creates a scoped emitter for a module that validates event names
+ * against the module's `emits` declaration and broadcasts to per-event channels.
+ */
+export function createModuleEmitter(
+  moduleName: string,
+  declaredEvents: readonly string[]
+): (event: string, data: unknown) => void {
+  return (event, data) => {
+    if (!declaredEvents.includes(event)) {
+      throw new Error(
+        `Module "${moduleName}" emitted undeclared event "${event}". Declared: [${declaredEvents.join(', ')}]`
+      )
+    }
+    broadcast(channel(moduleName, event), data)
+  }
+}
+
+// ============================================================================
 // CONTRACT DEFINITION
 // ============================================================================
 
