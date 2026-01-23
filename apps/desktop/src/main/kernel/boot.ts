@@ -21,6 +21,7 @@ import { registerModuleIPC } from './ipc'
 
 export interface KernelConfig {
   ipcMain: IpcMain
+  dataDir: string
   foundation: FoundationCapabilities
 }
 
@@ -80,6 +81,7 @@ export function createKernel(config: KernelConfig): Kernel {
         const instance = instantiateModule(
           definition,
           {
+            dataDir: config.dataDir,
             foundation: config.foundation,
             adapters: adapterRegistry,
           },

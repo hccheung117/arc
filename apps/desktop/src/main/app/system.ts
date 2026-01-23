@@ -10,7 +10,7 @@ import type { IpcMain } from 'electron'
 import { shell, dialog, BrowserWindow } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import { rendererError } from '@main/foundation/logger'
-import { getThreadAttachmentPath, getAppDir } from '@main/kernel/paths.tmp'
+import { getThreadAttachmentPath, getDataDir } from '@main/kernel/paths.tmp'
 import { registerHandlers } from '@main/kernel/ipc'
 import { settingsContract } from '@contracts/settings'
 import { utilsContract } from '@contracts/utils'
@@ -24,7 +24,7 @@ import jsonFileAdapter from '@main/modules/settings/json-file'
 // TEMPORARY MODULE INSTANCE (until kernel boot is implemented)
 // ============================================================================
 
-const scopedJsonFile = createJsonFile(getAppDir())
+const scopedJsonFile = createJsonFile(getDataDir(), ['app/settings.json'])
 const adaptedJsonFile = jsonFileAdapter.factory(scopedJsonFile)
 const settingsApi = createSettingsOperations(adaptedJsonFile, { getProviderConfig })
 

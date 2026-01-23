@@ -43,7 +43,7 @@ import { createLogger } from '@main/foundation/logger'
 import { createJsonLog } from '@main/foundation/json-log'
 import { createArchive } from '@main/foundation/archive'
 import { createGlob } from '@main/foundation/glob'
-import { getAppDir } from '@main/kernel/paths.tmp'
+import { getDataDir } from '@main/kernel/paths.tmp'
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -54,13 +54,14 @@ if (started) {
 // Kernel initialization
 // ─────────────────────────────────────────────────────────────────
 
-const appDir = getAppDir()
+const dataDir = getDataDir()
 const kernel = createKernel({
   ipcMain,
+  dataDir,
   foundation: {
-    jsonFile: createJsonFile(appDir),
-    jsonLog: createJsonLog(appDir),
-    archive: createArchive(appDir),
+    jsonFile: createJsonFile,
+    jsonLog: createJsonLog,
+    archive: createArchive,
     glob: createGlob(),
     logger: createLogger('kernel'),
   },

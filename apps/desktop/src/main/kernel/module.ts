@@ -8,10 +8,12 @@ import type { Logger } from '@main/foundation/logger'
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
+export type PathScopedFactory<T> = (dataDir: string, allowedPaths: readonly string[]) => T
+
 export type FoundationCapabilities = {
-  jsonFile: ScopedJsonFile
-  jsonLog: ScopedJsonLog
-  archive: ScopedArchive
+  jsonFile: PathScopedFactory<ScopedJsonFile>
+  jsonLog: PathScopedFactory<ScopedJsonLog>
+  archive: PathScopedFactory<ScopedArchive>
   glob: Glob
   logger: Logger
 }

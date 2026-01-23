@@ -8,7 +8,7 @@
 import { z } from 'zod'
 import { defineCapability, type FoundationCapabilities } from '@main/kernel/module'
 
-type ScopedJsonFile = FoundationCapabilities['jsonFile']
+type ScopedJsonFile = ReturnType<FoundationCapabilities['jsonFile']>
 
 const WindowStateSchema = z.object({
   width: z.number().int().positive(),
@@ -21,7 +21,7 @@ const MIN_SIZE = { width: 700, height: 550 }
 type WindowState = { width: number; height: number }
 
 export default defineCapability((jsonFile: ScopedJsonFile) => {
-  const windowState = jsonFile.create('cache/window-state.cache.json', DEFAULT_SIZE, WindowStateSchema)
+  const windowState = jsonFile.create('app/cache/window-state.cache.json', DEFAULT_SIZE, WindowStateSchema)
   return {
     windowState: {
       read: () => windowState.read(),

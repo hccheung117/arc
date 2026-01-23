@@ -123,14 +123,24 @@ export interface ScopedArchive {
   hasEntry: (archivePath: string, entryPath: string) => boolean
 }
 
-export const createArchive = (basePath: string): ScopedArchive => {
-  const resolvedBase = path.resolve(basePath)
+export const createArchive = (dataDir: string, allowedPaths: readonly string[]): ScopedArchive => {
+  const resolvedDataDir = path.resolve(dataDir)
+
+  const rules = allowedPaths.map(p => ({
+    resolved: path.resolve(resolvedDataDir, p.replace(/\/$/, '')),
+    isDir: p.endsWith('/'),
+  }))
 
   const resolvePath = (relativePath: string): string => {
-    const full = path.resolve(resolvedBase, relativePath)
-    if (!full.startsWith(resolvedBase + path.sep) && full !== resolvedBase) {
-      throw new Error(`Path traversal blocked: ${relativePath}`)
-    }
+    const full = path.resolve(resolvedDataDir, relativePath)
+
+    const allowed = rules.some(rule =>
+      rule.isDir
+        ? (full.startsWith(rule.resolved + path.sep) || full === rule.resolved)
+        : full === rule.resolved
+    )
+
+    if (!allowed) throw new Error(`Path access denied: ${relativePath}`)
     return full
   }
 
