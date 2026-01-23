@@ -182,7 +182,7 @@ main/
 │   ├── registry.ts      # defineModule, defineCapability, module discovery
 │   ├── resolver.ts      # Dependency graph
 │   ├── injector.ts      # Context wiring
-│   └── ipc.ts           # Auto-registration
+│   └── ipc.ts           # Auto-registration, broadcast, module emitter
 ├── modules/             # The Domain (Business Logic)
 │   └── {name}/          # See Module File Convention below
 ├── foundation/          # The Capabilities (Native Wrappers)
@@ -297,6 +297,37 @@ modules/
     ├── business.ts
     └── logger.ts
 ```
+
+### Module Dependency Graph
+
+```
+                    ┌─────────┐
+                    │   ai    │  ← PURE: zero module dependencies
+                    └────▲────┘
+                         │ depends (for fetchModels)
+    ┌──────────┐   ┌─────┴─────┐   ┌───────────┐
+    │ settings │   │ profiles  │   │ messages  │
+    │ deps: [] │   │ deps: [ai]│   │ deps: []  │
+    └──────────┘   └─────▲─────┘   └─────▲─────┘
+                         │               │
+    ┌──────────┐   ┌─────┴─────┐   ┌─────┴─────┐
+    │ updater  │   │ personas  │   │  threads  │
+    │ deps: [] │   │ deps:     │   │ deps:     │
+    └──────────┘   │ [profiles]│   │ [messages]│
+                   └───────────┘   └───────────┘
+    ┌──────────┐
+    │   ui     │
+    │ deps: [] │
+    └──────────┘
+```
+
+**Key Dependencies:**
+- `ai`: Pure module with zero dependencies. Provides `stream()` (receives all data as params) and `fetchModels()` (pure HTTP).
+- `profiles → ai`: Calls `deps.ai.fetchModels()` for HTTP, caches results locally.
+- `personas → profiles`: Needs `getActiveProfileId()` to resolve profile personas.
+- `threads → messages`: Thread operations derive from message tree.
+
+**AI Orchestration**: The renderer gathers data from profiles, personas, and messages, then passes everything to `ai.stream()`. AI does not fetch data from other modules.
 
 ### Governance Rules
 1.  **No Cross-Module Imports**: Modules must not import other modules directly.
