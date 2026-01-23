@@ -1,16 +1,5 @@
 # App Development Guidelines
 
-## Agent-First Development
-
-**MANDATORY:** Always launch the specialized agents for development tasks. Do not attempt to modify core systems without the appropriate agent.
-
-- **Foundation Developer** (@foundation-developer)
-  - Use for: `main/foundation/`
-- **Kernel Developer** (@kernel-developer)
-  - Use for: `main/kernel/`
-- **Module Developer** (@module-developer)
-  - Use for: `main/modules/`
-
 ## Core Mental Models
 
 ### Command Pattern

@@ -35,7 +35,7 @@ The system is divided into three distinct layers, each with a single responsibil
         ▼             ▼             ▼
 ┌──────────────────────────────────────────────────────────────┐
 │  FOUNDATION (Native Capabilities)                            │
-│  • Filesystem  • Network  • Logger  • Archive                │
+│  • json-file  • json-log  • archive  • glob  • logger        │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -55,7 +55,7 @@ The Kernel is the spinal cord of the application. It creates the environment in 
 Modules are isolated, functional units. They declare their needs (dependencies/capabilities) and expose their value (API).
 
 ### Principles
-- **Strict Structure**: A module's internal structure implies its capabilities (e.g., presence of `filesystem.ts` implies file I/O access).
+- **Strict Structure**: A module's internal structure implies its capabilities (e.g., presence of `json-file.ts` implies JSON file I/O).
 - **Loose Coupling**: Modules never import each other directly. They receive dependencies via the Kernel.
 - **Statelessness**: Modules do not hold persistent state in memory. State is derived from disk or passed in.
 
@@ -63,37 +63,37 @@ Modules are isolated, functional units. They declare their needs (dependencies/c
 
 ```typescript
 // Type imports for compile-time inference (no runtime dependency)
-import type filesystemAdapter from './filesystem'
+import type jsonFileAdapter from './json-file'
 import type loggerAdapter from './logger'
 
 // Caps type derived from adapter implementations
 type Caps = {
-  filesystem: ReturnType<typeof filesystemAdapter.factory>
+  jsonFile: ReturnType<typeof jsonFileAdapter.factory>
   logger: ReturnType<typeof loggerAdapter.factory>
 }
 
 export default defineModule({
   // 1. Declare Needs
-  capabilities: ['filesystem', 'logger'],  // Governance: Must match physical files
-  depends: ['profiles'],                   // Graph: Resolution order
+  capabilities: ['jsonFile', 'logger'],  // Governance: Must match physical files
+  depends: ['profiles'],                 // Graph: Resolution order
 
   // 2. Define Factory
   // - deps: Proxy to other modules (safe access)
   // - caps: Injected adapters (typed via Caps)
   provides: (deps, caps: Caps) => ({
-    list: () => listPersonas(caps.filesystem),
-    create: (data) => createPersona(caps.filesystem, data),
+    list: () => listPersonas(caps.jsonFile),
+    create: (data) => createPersona(caps.jsonFile, data),
     
     // Cross-module usage
     assign: async (personaId, profileId) => {
       const profile = await deps.profiles.get(profileId)
-      return link(caps.filesystem, personaId, profile)
+      return link(caps.jsonFile, personaId, profile)
     }
   }),
   
   // 3. Declare Outputs
-  emits: ['persona:updated'],    // IPC: Allowed event channels
-  paths: ['data/personas'],      // Governance: Disk ownership
+  emits: ['persona:updated'],              // IPC: Allowed event channels
+  paths: ['profiles/', 'app/personas/'],   // Governance: Disk ownership (multi-scope)
 })
 ```
 
@@ -107,19 +107,19 @@ The Foundation layer provides safe, standardized wrappers around native system o
 The Foundation provides a **Factory** that the Kernel uses to create scoped instances for Modules.
 
 1.  **Shape**: Transforms raw Node APIs into domain-friendly APIs (`json-file`, `json-log`).
-2.  **Scope**: Restricts access to specific paths or resources.
+2.  **Scope**: Restricts access to declared paths. Factories accept `allowedPaths: string[]` and validate operations against **any** declared path (multi-scope).
 3.  **Security**: Validates inputs and handles errors before they reach the module.
 
 ### Capability Injection
-When a module needs a capability, it defines an adapter file (e.g., `filesystem.ts`). The Kernel detects this file, asks the Foundation for the capability, and injects it.
+When a module needs a capability, it defines an adapter file (e.g., `json-file.ts`). The Kernel detects this file, asks the Foundation for the capability, and injects it.
 
 ```typescript
-// modules/personas/filesystem.ts
+// modules/personas/json-file.ts
 // The Module defines how it uses the capability
-export default defineCapability({
-  load: (fs, name: string) => fs.readText(`personas/${name}.json`),
-  save: (fs, name: string, data: any) => fs.writeJson(`personas/${name}.json`, data),
-})
+export default defineCapability((fs) => ({
+  load: (name: string) => fs.read(`personas/${name}.json`),
+  save: (name: string, data: any) => fs.write(`personas/${name}.json`, data),
+}))
 ```
 
 ## 6. Communication & Data Flow
@@ -302,7 +302,7 @@ modules/
 1.  **No Cross-Module Imports**: Modules must not import other modules directly.
 2.  **File Size**: Max 1000 lines per file (strict refactor trigger).
 3.  **Integrity**: `mod.ts` declarations must match the actual file tree (e.g., declaring `capabilities: ['jsonFile']` requires `json-file.ts`).
-4.  **Path Boundary**: Modules can only access disk paths they explicitly declare.
+4.  **Path Boundary**: Modules can only access disk paths they explicitly declare. Multi-scope declarations (e.g., `paths: ['profiles/', 'app/settings.json']`) are validated against any declared path.
 5.  **Type-Only Adapter Imports**: `mod.ts` must use `import type` for adapter imports (ESLint enforced). Runtime injection is kernel's responsibility.
 
 ## 9. Development Strategy: Agent First
