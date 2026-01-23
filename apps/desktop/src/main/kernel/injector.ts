@@ -66,7 +66,8 @@ export interface InjectorConfig {
 export function instantiateModule(
   definition: ModuleDefinition,
   config: InjectorConfig,
-  deps: Record<string, unknown>
+  deps: Record<string, unknown>,
+  emit: (event: string, data: unknown) => void
 ): ModuleInstance {
   const moduleAdapters = config.adapters.get(definition.name)
 
@@ -91,7 +92,7 @@ export function instantiateModule(
     caps[capName] = adapter ? adapter.factory(rawCap) : rawCap
   }
 
-  const api = definition.factory(deps, caps)
+  const api = definition.factory(deps, caps, emit)
 
   return { name: definition.name, api }
 }

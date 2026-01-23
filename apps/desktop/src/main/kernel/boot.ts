@@ -13,7 +13,7 @@ import type {
 } from './module'
 import { createRegistry, resolveDependencies } from './module'
 import { instantiateModule, registerAdapter } from './injector'
-import { registerModuleIPC } from './ipc'
+import { registerModuleIPC, createModuleEmitter } from './ipc'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -77,7 +77,8 @@ export function createKernel(config: KernelConfig): Kernel {
           deps[depName] = depInstance
         }
 
-        // Instantiate module with foundation and adapters
+        // Instantiate module with foundation, adapters, and scoped emitter
+        const emitter = createModuleEmitter(name, definition.emits)
         const instance = instantiateModule(
           definition,
           {
@@ -85,7 +86,8 @@ export function createKernel(config: KernelConfig): Kernel {
             foundation: config.foundation,
             adapters: adapterRegistry,
           },
-          deps
+          deps,
+          emitter
         )
 
         // Register IPC handlers for module API

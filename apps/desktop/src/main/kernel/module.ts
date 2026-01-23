@@ -28,6 +28,10 @@ export type DependencyProxy<Deps extends readonly string[]> = {
   [K in Deps[number]]: Record<string, (...args: unknown[]) => unknown>
 }
 
+/** Scoped emitter restricted to declared event names at compile time. */
+export type ModuleEmitter<Events extends readonly string[]> =
+  (event: Events[number], data: unknown) => void
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnyFunction = (...args: any[]) => any
 
@@ -43,7 +47,7 @@ export interface ModuleConfig<
   capabilities: Caps
   depends: Deps
   // Caps are adapted at runtime by kernel injector; modules cast to their own Caps type
-  provides: (deps: DependencyProxy<Deps>, caps: AdaptedCaps) => API
+  provides: (deps: DependencyProxy<Deps>, caps: AdaptedCaps, emit: ModuleEmitter<Events>) => API
   emits: Events
   paths: readonly string[]
 }
@@ -54,7 +58,7 @@ export interface ModuleDefinition<API = unknown> {
   depends: readonly string[]
   emits: readonly string[]
   paths: readonly string[]
-  factory: (deps: unknown, caps: unknown) => API
+  factory: (deps: unknown, caps: unknown, emit: (event: string, data: unknown) => void) => API
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -73,7 +77,7 @@ export function defineModule<
     depends: config.depends,
     emits: config.emits,
     paths: config.paths,
-    factory: config.provides as (deps: unknown, caps: unknown) => API,
+    factory: config.provides as (deps: unknown, caps: unknown, emit: (event: string, data: unknown) => void) => API,
   }
 }
 
