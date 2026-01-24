@@ -13,11 +13,6 @@ import { cn } from '@renderer/lib/utils'
 import { createTextMeasurer } from '@renderer/lib/measure'
 import type { Model } from '@contracts/models'
 
-interface StoredFavorite {
-  providerId: string
-  modelId: string
-}
-
 // Composite key for efficient Set lookups
 function favoriteKey(providerId: string, modelId: string): string {
   return `${providerId}:${modelId}`
@@ -89,7 +84,7 @@ export function ModelSelector({
   }, [models])
 
   useEffect(() => {
-    window.arc.settings.get<StoredFavorite[]>({ key: 'favorites' }).then((saved) => {
+    window.arc.settings.getFavorites().then((saved) => {
       if (saved && saved.length > 0) {
         const validFavorites = saved.filter(
           (f) =>
@@ -113,7 +108,7 @@ export function ModelSelector({
           }
         }
         if (validFavorites.length !== saved.length) {
-          window.arc.settings.set({ key: 'favorites', value: validFavorites })
+          window.arc.settings.setFavorites({ favorites: validFavorites })
         }
       }
     })
@@ -131,13 +126,13 @@ export function ModelSelector({
 
       // Convert Set back to array of objects for storage
       // Split only on the first colon to preserve colons in modelId (e.g., "claude-haiku-4-5:thinking")
-      const favoritesArray: StoredFavorite[] = Array.from(next).map((k) => {
+      const favoritesArray = Array.from(next).map((k) => {
         const colonIndex = k.indexOf(':')
         const providerId = k.slice(0, colonIndex)
         const modelId = k.slice(colonIndex + 1)
         return { providerId, modelId }
       })
-      window.arc.settings.set({ key: 'favorites', value: favoritesArray })
+      window.arc.settings.setFavorites({ favorites: favoritesArray })
       return next
     })
   }

@@ -1,40 +1,12 @@
-/**
- * Settings Contract
- *
- * Generic key-value store.
- * Type parameter T is provided by caller at the call site.
- */
-
 import { z } from 'zod'
 import { contract, op } from '@main/kernel/ipc'
 
-// ============================================================================
-// CONTRACT
-// ============================================================================
-
-export const settingsContract = contract('settings', {
-  /** Get a setting value by key */
-  get: op(z.object({ key: z.string() }), null as unknown),
-
-  /** Set a setting value */
-  set: op(
-    z.object({
-      key: z.string(),
-      value: z.unknown(),
-    }),
-    undefined as void,
-  ),
+const FavoriteSchema = z.object({
+  providerId: z.string(),
+  modelId: z.string(),
 })
 
-// ============================================================================
-// CUSTOM CLIENT TYPE (for generics)
-// ============================================================================
-
-/**
- * Settings API with generic type parameters.
- * Used to override the inferred type in preload.
- */
-export interface SettingsAPI {
-  get<T = unknown>(input: { key: string }): Promise<T | null>
-  set<T = unknown>(input: { key: string; value: T }): Promise<void>
-}
+export const settingsContract = contract('settings', {
+  getFavorites: op(z.void(), null as unknown as Array<{ providerId: string; modelId: string }>),
+  setFavorites: op(z.object({ favorites: z.array(FavoriteSchema) }), undefined as void),
+})
