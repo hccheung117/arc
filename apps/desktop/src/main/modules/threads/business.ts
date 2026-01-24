@@ -7,10 +7,9 @@
  */
 
 import { createId } from '@paralleldrive/cuid2'
-// eslint-disable-next-line no-restricted-imports -- Type imports from declared dependency
-import type { StoredThread, StoredThreadIndex, PromptSource } from '@main/modules/messages/business'
-// eslint-disable-next-line no-restricted-imports -- Schema import for local storage instance
-import { StoredThreadIndexSchema } from '@main/modules/messages/business'
+import type { StoredThread, StoredThreadIndex, PromptSource } from './json-file'
+// eslint-disable-next-line no-restricted-imports -- Temporary: schema for storage instance until full cap-based migration
+import { StoredThreadIndexSchema } from './json-file'
 // eslint-disable-next-line no-restricted-imports -- Temporary: storage instance until full cap-based migration
 import { JsonFile } from '@main/foundation/json-file'
 import { getThreadIndexPath } from '@main/kernel/paths.tmp'

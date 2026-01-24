@@ -5,8 +5,8 @@
  */
 
 import { defineCapability, type FoundationCapabilities } from '@main/kernel/module'
-// eslint-disable-next-line no-restricted-imports -- Schema import from declared dependency
-import { StoredMessageEventSchema } from '@main/modules/messages/business'
+// eslint-disable-next-line no-restricted-imports -- Schema from declared dependency (messages)
+import { StoredMessageEventSchema } from '@main/modules/messages/json-log'
 
 type ScopedJsonLog = ReturnType<FoundationCapabilities['jsonLog']>
 

@@ -1,71 +1,56 @@
 /**
  * Messages Module
  *
- * Message CRUD, branching, and thread data lifecycle.
- * Auto-creates threads on first message via emit.
+ * Message CRUD, branching, and data lifecycle.
+ * Pure module with zero dependencies — thread management is handled by threads module.
  */
 
 import { defineModule } from '@main/kernel/module'
-import type { AppendMessageInput } from './business'
+import type jsonLogAdapter from './json-log'
+import type binaryFileAdapter from './binary-file'
+import type loggerAdapter from './logger'
 import {
-  readMessages,
   appendMessage,
+  readMessages,
   deleteThreadData,
   copyThreadData,
-  threadStorage,
-  findById,
+  type AppendMessageInput,
 } from './business'
 
+type Caps = {
+  jsonLog: ReturnType<typeof jsonLogAdapter.factory>
+  binaryFile: ReturnType<typeof binaryFileAdapter.factory>
+  logger: ReturnType<typeof loggerAdapter.factory>
+}
+
 export default defineModule({
-  capabilities: ['jsonLog', 'jsonFile', 'logger'] as const,
+  capabilities: ['jsonLog', 'binaryFile', 'logger'] as const,
   depends: [] as const,
-  provides: (_deps, _caps, emit) => ({
-    list: (input: { threadId: string }) => readMessages(input.threadId),
+  provides: (_deps, caps: Caps) => ({
+    list: (input: { threadId: string }) =>
+      readMessages(caps.jsonLog, input.threadId),
 
-    create: async (input: { threadId: string; input: Omit<Extract<AppendMessageInput, { type: 'new' }>, 'type' | 'threadId'> }) => {
-      const { message, threadCreated } = await appendMessage({
-        type: 'new',
-        threadId: input.threadId,
-        ...input.input,
-      })
+    create: (input: { threadId: string; input: Omit<Extract<AppendMessageInput, { type: 'new' }>, 'type'> }) =>
+      appendMessage(caps.jsonLog, caps.binaryFile, input.threadId, { type: 'new', ...input.input }),
 
-      if (threadCreated) {
-        const index = await threadStorage.read()
-        const thread = findById(index.threads, input.threadId)
-        if (thread) emit('threadCreated', thread)
-      }
-
-      return message
-    },
-
-    createBranch: async (input: { threadId: string; input: Omit<Extract<AppendMessageInput, { type: 'new' }>, 'type' | 'threadId' | 'role'> }) => {
-      const { message } = await appendMessage({
-        type: 'new',
-        threadId: input.threadId,
-        role: 'user',
-        ...input.input,
-      })
-
-      const { branchPoints } = await readMessages(input.threadId)
+    createBranch: async (input: { threadId: string; input: Omit<Extract<AppendMessageInput, { type: 'new' }>, 'type' | 'role'> }) => {
+      const message = await appendMessage(caps.jsonLog, caps.binaryFile, input.threadId, { type: 'new', role: 'user', ...input.input })
+      const { branchPoints } = await readMessages(caps.jsonLog, input.threadId)
       return { message, branchPoints }
     },
 
-    update: async (input: { threadId: string; messageId: string; input: Omit<Extract<AppendMessageInput, { type: 'edit' }>, 'type' | 'threadId' | 'messageId'> }) => {
-      const { message } = await appendMessage({
-        type: 'edit',
-        threadId: input.threadId,
-        messageId: input.messageId,
-        ...input.input,
-      })
-      return message
-    },
+    update: (input: { threadId: string; messageId: string; input: Omit<Extract<AppendMessageInput, { type: 'edit' }>, 'type' | 'messageId'> }) =>
+      appendMessage(caps.jsonLog, caps.binaryFile, input.threadId, { type: 'edit', messageId: input.messageId, ...input.input }),
 
     duplicateData: (input: { sourceId: string; targetId: string; upToMessageId?: string }) =>
-      copyThreadData(input.sourceId, input.targetId, input.upToMessageId),
+      copyThreadData(caps.jsonLog, caps.binaryFile, input.sourceId, input.targetId, input.upToMessageId),
 
     deleteData: (input: { threadId: string }) =>
-      deleteThreadData(input.threadId),
+      deleteThreadData(caps.jsonLog, caps.binaryFile, input.threadId),
+
+    readAttachment: (input: { threadId: string; filename: string }) =>
+      caps.binaryFile.read(input.threadId, input.filename),
   }),
-  emits: ['threadCreated'] as const,
+  emits: [] as const,
   paths: ['app/messages/'],
 })

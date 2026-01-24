@@ -1,101 +1,23 @@
 /**
  * Messages Business Logic
  *
- * Single source of truth for message domain: types, schemas, storage, and operations.
- * Absorbs boundary/messages, contracts/messages types, and lib/messages operations.
+ * Pure domain logic + cap-orchestrated operations.
+ * Zero knowledge of persistence format, paths, or Foundation.
+ * Receives capabilities as parameters.
  */
 
-import * as fs from 'fs/promises'
-import * as path from 'path'
-import { z } from 'zod'
 import { createId } from '@paralleldrive/cuid2'
-// eslint-disable-next-line no-restricted-imports -- Temporary: storage instances until full cap-based migration
-import { JsonFile } from '@main/foundation/json-file'
-// eslint-disable-next-line no-restricted-imports -- Temporary: storage instances until full cap-based migration
-import { JsonLog } from '@main/foundation/json-log'
-import {
-  getThreadIndexPath,
-  getMessageLogPath,
-  getThreadAttachmentsDir,
-  getThreadAttachmentPath,
-} from '@main/kernel/paths.tmp'
+import type { StoredAttachment, StoredMessageEvent, Usage } from './json-log'
+import type jsonLogAdapter from './json-log'
+import type binaryFileAdapter from './binary-file'
 
-// ============================================================================
-// SCHEMAS
-// ============================================================================
-
-export const PromptSourceSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('none') }),
-  z.object({ type: z.literal('direct'), content: z.string() }),
-  z.object({ type: z.literal('persona'), personaId: z.string() }),
-])
-
-const StoredAttachmentSchema = z.object({
-  type: z.literal('image'),
-  path: z.string(),
-  mimeType: z.string(),
-})
-
-const UsageSchema = z.object({
-  inputTokens: z.number().optional(),
-  outputTokens: z.number().optional(),
-  totalTokens: z.number().optional(),
-  reasoningTokens: z.number().optional(),
-  cachedInputTokens: z.number().optional(),
-})
-
-export const StoredMessageEventSchema = z.object({
-  id: z.string(),
-  role: z.enum(['user', 'assistant', 'system']).optional(),
-  content: z.string().optional(),
-  reasoning: z.string().optional(),
-  createdAt: z.string().optional(),
-  updatedAt: z.string().optional(),
-  deleted: z.boolean().optional(),
-  parentId: z.string().nullable().optional(),
-  attachments: z.array(StoredAttachmentSchema).optional(),
-  modelId: z.string().optional(),
-  providerId: z.string().optional(),
-  usage: UsageSchema.optional(),
-})
-
-// Recursive type requires explicit annotation
-type StoredThreadType = {
-  id: string
-  title: string | null
-  pinned: boolean
-  renamed: boolean
-  promptSource: PromptSource
-  createdAt: string
-  updatedAt: string
-  children: StoredThreadType[]
-}
-
-const StoredThreadSchema: z.ZodType<StoredThreadType> = z.object({
-  id: z.string(),
-  title: z.string().nullable(),
-  pinned: z.boolean(),
-  renamed: z.boolean(),
-  promptSource: PromptSourceSchema,
-  createdAt: z.string(),
-  updatedAt: z.string(),
-  children: z.lazy(() => z.array(StoredThreadSchema)).default([]),
-})
-
-export const StoredThreadIndexSchema = z.object({
-  threads: z.array(StoredThreadSchema),
-})
+// Re-export types for external consumers (source is json-log cap)
+export type { StoredAttachment, StoredMessageEvent, Usage } from './json-log'
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-export type PromptSource = z.infer<typeof PromptSourceSchema>
-export type StoredAttachment = z.infer<typeof StoredAttachmentSchema>
-export type Usage = z.infer<typeof UsageSchema>
-export type StoredMessageEvent = z.infer<typeof StoredMessageEventSchema>
-export type StoredThread = StoredThreadType
-export type StoredThreadIndex = z.infer<typeof StoredThreadIndexSchema>
 export type MessageRole = 'user' | 'assistant' | 'system'
 
 export type BranchInfo = {
@@ -111,68 +33,33 @@ export type AttachmentInput = {
   name?: string
 }
 
-export type ThreadConfig = {
-  promptSource: PromptSource
+interface BaseMessageFields {
+  content: string
+  modelId: string
+  providerId: string
+  attachments?: AttachmentInput[]
+  reasoning?: string
+  usage?: Usage
 }
 
-// ============================================================================
-// STORAGE ACCESSORS
-// ============================================================================
+export type AppendMessageInput =
+  | (BaseMessageFields & {
+      type: 'new'
+      role: MessageRole
+      parentId: string | null
+    })
+  | (BaseMessageFields & { type: 'edit'; messageId: string })
 
-const threadIndexFile = () =>
-  new JsonFile<StoredThreadIndex>(getThreadIndexPath(), { threads: [] }, StoredThreadIndexSchema)
-
-const messageLogFile = (threadId: string) =>
-  new JsonLog<StoredMessageEvent>(getMessageLogPath(threadId), StoredMessageEventSchema)
-
-export const threadStorage = {
-  read: () => threadIndexFile().read(),
-  write: (data: StoredThreadIndex) => threadIndexFile().write(data),
-  update: (updater: (data: StoredThreadIndex) => StoredThreadIndex) => threadIndexFile().update(updater),
+export interface ReadMessagesResult {
+  messages: StoredMessageEvent[]
+  branchPoints: BranchInfo[]
 }
 
-export const messageStorage = {
-  read: (threadId: string) => messageLogFile(threadId).read(),
-  append: (threadId: string, event: StoredMessageEvent) => messageLogFile(threadId).append(event),
-  delete: (threadId: string) => messageLogFile(threadId).delete(),
-}
+type JsonLogCap = ReturnType<typeof jsonLogAdapter.factory>
+type BinaryFileCap = ReturnType<typeof binaryFileAdapter.factory>
 
 // ============================================================================
-// ATTACHMENTS
-// ============================================================================
-
-const MIME_TO_EXT: Record<string, string> = {
-  'image/png': 'png',
-  'image/jpeg': 'jpg',
-  'image/gif': 'gif',
-  'image/webp': 'webp',
-}
-
-export const attachmentStorage = {
-  build(messageId: string, index: number, mimeType: string): StoredAttachment {
-    const ext = MIME_TO_EXT[mimeType] || 'png'
-    const filename = `${messageId}-${index}.${ext}`
-    return { type: 'image', path: filename, mimeType }
-  },
-
-  async write(threadId: string, filename: string, data: string): Promise<void> {
-    await fs.mkdir(getThreadAttachmentsDir(threadId), { recursive: true })
-    const absolutePath = getThreadAttachmentPath(threadId, filename)
-    const buffer = Buffer.from(data, 'base64')
-    await fs.writeFile(absolutePath, buffer)
-  },
-
-  async deleteAll(threadId: string): Promise<void> {
-    try {
-      await fs.rm(getThreadAttachmentsDir(threadId), { recursive: true, force: true })
-    } catch {
-      // Directory may not exist
-    }
-  },
-}
-
-// ============================================================================
-// BRANCH COMPUTATION
+// REDUCER (pure)
 // ============================================================================
 
 function computeBranchPoints(childrenMap: Map<string | null, string[]>): BranchInfo[] {
@@ -185,14 +72,7 @@ function computeBranchPoints(childrenMap: Map<string | null, string[]>): BranchI
   return branchPoints
 }
 
-// ============================================================================
-// MESSAGE EVENT REDUCER
-// ============================================================================
-
-export function reduceMessageEvents(events: StoredMessageEvent[]): {
-  messages: StoredMessageEvent[]
-  branchPoints: BranchInfo[]
-} {
+export function reduceMessageEvents(events: StoredMessageEvent[]): ReadMessagesResult {
   const messagesById = new Map<string, StoredMessageEvent>()
   for (const event of events) {
     const existing = messagesById.get(event.id)
@@ -228,124 +108,23 @@ export function reduceMessageEvents(events: StoredMessageEvent[]): {
 }
 
 // ============================================================================
-// TREE PRIMITIVES (used by thread effects)
+// EVENT BUILDER (pure)
 // ============================================================================
 
-export function findById(tree: StoredThread[], id: string): StoredThread | undefined {
-  for (const t of tree) {
-    if (t.id === id) return t
-    const found = findById(t.children, id)
-    if (found) return found
-  }
-}
-
-export function updateById(
-  tree: StoredThread[],
-  id: string,
-  fn: (t: StoredThread) => StoredThread,
-): StoredThread[] {
-  return tree.map((t) =>
-    t.id === id ? fn(t) : { ...t, children: updateById(t.children, id, fn) },
-  )
-}
-
-// ============================================================================
-// PURE BUILDERS
-// ============================================================================
-
-const now = () => new Date().toISOString()
-
-const generateTitle = (content: string): string => {
-  const firstLine = content.split('\n')[0].trim()
-  if (!firstLine) return 'New Chat'
-  return firstLine.length > 100 ? firstLine.slice(0, 100) : firstLine
-}
-
-const buildThread = (
-  id: string,
-  timestamp: string,
-  title: string | null,
-  config?: ThreadConfig,
-): StoredThread => ({
-  id,
-  title,
-  pinned: false,
-  renamed: false,
-  promptSource: config?.promptSource ?? { type: 'none' },
-  createdAt: timestamp,
-  updatedAt: timestamp,
-  children: [],
-})
-
-// ============================================================================
-// THREAD EFFECTS (composable)
-// ============================================================================
-
-type ThreadEffect = (threadId: string, timestamp: string) => Promise<boolean>
-
-const touchThread: ThreadEffect = async (threadId, timestamp) => {
-  await threadStorage.update((index) => ({
-    threads: updateById(index.threads, threadId, (t) => ({ ...t, updatedAt: timestamp })),
-  }))
-  return false
-}
-
-const ensureThread =
-  (title: string | null, config?: ThreadConfig): ThreadEffect =>
-  async (threadId, timestamp) => {
-    let created = false
-    await threadStorage.update((index) => {
-      const exists = findById(index.threads, threadId) !== undefined
-      if (exists) {
-        return {
-          threads: updateById(index.threads, threadId, (t) => ({ ...t, updatedAt: timestamp })),
-        }
-      }
-      created = true
-      return { threads: [...index.threads, buildThread(threadId, timestamp, title, config)] }
-    })
-    return created
-  }
-
-// ============================================================================
-// APPEND MESSAGE
-// ============================================================================
-
-interface BaseMessageFields {
-  threadId: string
-  content: string
-  modelId: string
-  providerId: string
-  attachments?: AttachmentInput[]
-  reasoning?: string
-  usage?: Usage
-}
-
-export type AppendMessageInput =
-  | (BaseMessageFields & {
-      type: 'new'
-      role: MessageRole
-      parentId: string | null
-      threadConfig?: ThreadConfig
-    })
-  | (BaseMessageFields & { type: 'edit'; messageId: string })
-
-export interface AppendMessageResult {
-  message: StoredMessageEvent
-  threadCreated: boolean
-}
-
-/**
- * Appends a message event to the log.
- * Effect ordering: log append → thread index → attachment data.
- */
-export async function appendMessage(input: AppendMessageInput): Promise<AppendMessageResult> {
+function buildMessageEvent(
+  input: AppendMessageInput,
+  buildFilename: (messageId: string, index: number, mimeType: string) => string,
+): { event: StoredMessageEvent; attachmentMeta: StoredAttachment[] | undefined } {
   const isNew = input.type === 'new'
   const id = isNew ? createId() : input.messageId
-  const timestamp = now()
+  const timestamp = new Date().toISOString()
 
-  const attachments: StoredAttachment[] | undefined = input.attachments?.length
-    ? input.attachments.map((att, i) => attachmentStorage.build(id, i, att.mimeType))
+  const attachmentMeta: StoredAttachment[] | undefined = input.attachments?.length
+    ? input.attachments.map((att, i) => ({
+        type: 'image' as const,
+        path: buildFilename(id, i, att.mimeType),
+        mimeType: att.mimeType,
+      }))
     : undefined
 
   const event: StoredMessageEvent = {
@@ -355,104 +134,92 @@ export async function appendMessage(input: AppendMessageInput): Promise<AppendMe
     providerId: input.providerId,
     reasoning: input.reasoning,
     usage: input.usage,
-    attachments,
+    attachments: attachmentMeta,
     ...(isNew
       ? { role: input.role, parentId: input.parentId, createdAt: timestamp }
       : { updatedAt: timestamp }),
   }
 
-  const title = isNew && input.role === 'user' ? generateTitle(input.content) : null
-  const config = isNew && input.type === 'new' ? input.threadConfig : undefined
-  const threadEffect = isNew ? ensureThread(title, config) : touchThread
+  return { event, attachmentMeta }
+}
 
-  await messageStorage.append(input.threadId, event)
-  const threadCreated = await threadEffect(input.threadId, timestamp)
+// ============================================================================
+// CAP-ORCHESTRATED OPERATIONS
+// ============================================================================
 
-  if (input.attachments?.length && attachments) {
+/**
+ * Appends a message event + writes attachments.
+ * Effect ordering: log append → attachment writes.
+ */
+export async function appendMessage(
+  jsonLog: JsonLogCap,
+  binaryFile: BinaryFileCap,
+  threadId: string,
+  input: AppendMessageInput,
+) {
+  const { event, attachmentMeta } = buildMessageEvent(input, binaryFile.buildFilename)
+
+  await jsonLog.append(threadId, event)
+
+  if (input.attachments?.length && attachmentMeta) {
     await Promise.all(
       input.attachments.map((att, i) =>
-        attachmentStorage.write(input.threadId, attachments[i].path, att.data),
+        binaryFile.write(threadId, attachmentMeta[i].path, att.data),
       ),
     )
   }
 
-  return { message: event, threadCreated }
+  return event
 }
 
-// ============================================================================
-// READ MESSAGES
-// ============================================================================
-
-export interface ReadMessagesResult {
-  messages: StoredMessageEvent[]
-  branchPoints: BranchInfo[]
-}
-
-export async function readMessages(threadId: string): Promise<ReadMessagesResult> {
-  const events = await messageStorage.read(threadId)
+/** Reads events and reduces to messages + branch points. */
+export async function readMessages(jsonLog: JsonLogCap, threadId: string) {
+  const events = await jsonLog.read(threadId)
   return reduceMessageEvents(events)
 }
 
-// ============================================================================
-// DATA OPERATIONS (exposed to threads module via deps)
-// ============================================================================
-
-/**
- * Deletes message log and attachments for a thread.
- */
-export async function deleteThreadData(threadId: string): Promise<void> {
-  await messageStorage.delete(threadId)
-  await attachmentStorage.deleteAll(threadId)
+/** Deletes message log + attachments for a thread. */
+export async function deleteThreadData(jsonLog: JsonLogCap, binaryFile: BinaryFileCap, threadId: string) {
+  await jsonLog.delete(threadId)
+  await binaryFile.deleteAll(threadId)
 }
 
-/**
- * Copies message log and attachments from source to target thread.
- * If upToMessageId provided, filters to only the branch path to that message.
- */
+/** Copies message log + attachments from source to target. */
 export async function copyThreadData(
+  jsonLog: JsonLogCap,
+  binaryFile: BinaryFileCap,
   sourceId: string,
   targetId: string,
   upToMessageId?: string,
-): Promise<void> {
-  const sourcePath = getMessageLogPath(sourceId)
-
-  try {
-    await fs.access(sourcePath)
-  } catch {
-    return
-  }
-
+) {
   if (upToMessageId) {
-    const events = await messageStorage.read(sourceId)
-    const { filtered, attachmentPaths } = filterMessageEvents(events, upToMessageId)
+    const events = await jsonLog.read(sourceId)
+    const { filtered, attachmentPaths } = filterAncestry(events, upToMessageId)
 
     for (const event of filtered) {
-      await messageStorage.append(targetId, event)
+      await jsonLog.append(targetId, event)
     }
 
-    await copySelectiveAttachments(sourceId, targetId, attachmentPaths)
+    if (attachmentPaths.length > 0) {
+      await binaryFile.copySelective(sourceId, targetId, attachmentPaths)
+    }
   } else {
-    await fs.copyFile(sourcePath, getMessageLogPath(targetId))
-
-    const sourceAttachmentsDir = getThreadAttachmentsDir(sourceId)
-    const targetAttachmentsDir = getThreadAttachmentsDir(targetId)
-
-    try {
-      await fs.cp(sourceAttachmentsDir, targetAttachmentsDir, { recursive: true })
-    } catch {
-      // No attachments directory
+    const events = await jsonLog.read(sourceId)
+    for (const event of events) {
+      await jsonLog.append(targetId, event)
     }
+    await binaryFile.copyAll(sourceId, targetId)
   }
 }
 
 // ============================================================================
-// INTERNAL HELPERS
+// ANCESTRY FILTER (pure)
 // ============================================================================
 
-function filterMessageEvents(
+function filterAncestry(
   events: StoredMessageEvent[],
   upToMessageId: string,
-): { filtered: StoredMessageEvent[]; attachmentPaths: Set<string> } {
+): { filtered: StoredMessageEvent[]; attachmentPaths: string[] } {
   const { messages } = reduceMessageEvents(events)
 
   const target = messages.find((m) => m.id === upToMessageId)
@@ -468,38 +235,14 @@ function filterMessageEvents(
 
   const filtered = events.filter((e) => ancestryIds.has(e.id))
 
-  const attachmentPaths = new Set<string>()
+  const attachmentPaths: string[] = []
   for (const event of filtered) {
     if (event.attachments) {
       for (const att of event.attachments) {
-        attachmentPaths.add(att.path)
+        attachmentPaths.push(att.path)
       }
     }
   }
 
   return { filtered, attachmentPaths }
-}
-
-async function copySelectiveAttachments(
-  sourceId: string,
-  targetId: string,
-  paths: Set<string>,
-): Promise<void> {
-  if (paths.size === 0) return
-
-  const sourceDir = getThreadAttachmentsDir(sourceId)
-  const targetDir = getThreadAttachmentsDir(targetId)
-
-  await fs.mkdir(targetDir, { recursive: true })
-
-  for (const relativePath of paths) {
-    const sourcePath = path.join(sourceDir, relativePath)
-    const targetPath = path.join(targetDir, relativePath)
-
-    try {
-      await fs.copyFile(sourcePath, targetPath)
-    } catch {
-      // Attachment missing - skip
-    }
-  }
 }

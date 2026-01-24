@@ -1,11 +1,11 @@
 import type { AIStreamEvent, Unsubscribe } from '@contracts/events'
 import type {
   AttachmentInput,
-  ThreadConfig,
   BranchInfo,
   StoredMessageEvent,
   MessageRole,
 } from '@main/modules/messages/business'
+import type { ThreadConfig } from '@main/modules/threads/json-file'
 import type { ChatResponse } from '@contracts/ai'
 
 // ============================================================================

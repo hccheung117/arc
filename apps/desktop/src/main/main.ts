@@ -38,7 +38,7 @@ import uiModule from '@main/modules/ui/mod'
 import uiJsonFileAdapter from '@main/modules/ui/json-file'
 import messagesModule from '@main/modules/messages/mod'
 import messagesJsonLogAdapter from '@main/modules/messages/json-log'
-import messagesJsonFileAdapter from '@main/modules/messages/json-file'
+import messagesBinaryFileAdapter from '@main/modules/messages/binary-file'
 import messagesLoggerAdapter from '@main/modules/messages/logger'
 import threadsModule from '@main/modules/threads/mod'
 import threadsJsonFileAdapter from '@main/modules/threads/json-file'
@@ -49,6 +49,7 @@ import updaterLoggerAdapter from '@main/modules/updater/logger'
 import { createJsonFile } from '@main/foundation/json-file'
 import { createLogger } from '@main/foundation/logger'
 import { createJsonLog } from '@main/foundation/json-log'
+import { createBinaryFile } from '@main/foundation/binary-file'
 import { createArchive } from '@main/foundation/archive'
 import { createGlob } from '@main/foundation/glob'
 import { getDataDir } from '@main/kernel/paths.tmp'
@@ -69,6 +70,7 @@ const kernel = createKernel({
   foundation: {
     jsonFile: createJsonFile,
     jsonLog: createJsonLog,
+    binaryFile: createBinaryFile,
     archive: createArchive,
     glob: createGlob(),
     logger: createLogger('kernel'),
@@ -82,7 +84,7 @@ kernel.register('ui', uiModule, {
 
 kernel.register('messages', messagesModule, {
   jsonLog: messagesJsonLogAdapter,
-  jsonFile: messagesJsonFileAdapter,
+  binaryFile: messagesBinaryFileAdapter,
   logger: messagesLoggerAdapter,
 })
 
@@ -171,7 +173,10 @@ app.on('ready', async () => {
   createWindow(size)
   registerProfileHandlers(ipcMain)
   // Messages + threads + UI handlers auto-registered via kernel.boot()
-  registerAIHandlers(ipcMain)
+  registerAIHandlers(ipcMain, {
+    messages: kernel.getModule('messages')!,
+    threads: kernel.getModule('threads')!,
+  })
   registerSystemHandlers(ipcMain)
   registerPersonaHandlers(ipcMain)
   initApp(updater)

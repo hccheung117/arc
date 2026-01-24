@@ -1,6 +1,6 @@
 import { createId } from '@paralleldrive/cuid2'
 import type { Message } from '@renderer/lib/messages'
-import type { StoredThread, PromptSource } from '@main/modules/messages/business'
+import type { StoredThread, PromptSource } from '@main/modules/threads/json-file'
 import type { ThreadEvent, Unsubscribe } from '@contracts/events'
 import type { ThreadContextMenuParams, ThreadMenuAction } from '@contracts/ui'
 

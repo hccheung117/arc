@@ -18,13 +18,14 @@ import type { ModuleDefinition, CapabilityDefinition, FoundationCapabilities, Pa
 const CAPABILITY_TO_FOUNDATION: Record<string, keyof FoundationCapabilities> = {
   jsonFile: 'jsonFile',
   jsonLog: 'jsonLog',
+  binaryFile: 'binaryFile',
   archive: 'archive',
   glob: 'glob',
   logger: 'logger',
 }
 
 /** Capabilities that require path scoping (factories, not instances). */
-const PATH_SCOPED: Set<string> = new Set(['jsonFile', 'jsonLog', 'archive'])
+const PATH_SCOPED: Set<string> = new Set(['jsonFile', 'jsonLog', 'binaryFile', 'archive'])
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
