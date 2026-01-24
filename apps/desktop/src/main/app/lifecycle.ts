@@ -14,12 +14,8 @@ import {
 } from '@main/lib/profile/operations'
 import type { ProfilesEvent } from '@contracts/events'
 import { syncModels } from '@main/lib/profile/models'
-import { initAutoUpdate } from '@main/modules/updater/business'
-import { createUpdaterLogger } from '@main/modules/updater/logger'
 import { broadcast } from '@main/kernel/ipc'
-import { info, error, createLogger } from '@main/foundation/logger'
-
-const updaterLogger = createUpdaterLogger(createLogger('updater'))
+import { info, error } from '@main/foundation/logger'
 
 async function syncProfileModels(): Promise<void> {
   const profile = await getActiveProfile()
@@ -60,10 +56,7 @@ export async function handleProfileFileOpen(filePath: string): Promise<void> {
   }
 }
 
-/**
- * Initialize all app systems on startup.
- */
-export async function initApp(): Promise<void> {
+export async function initApp(updater: { init: (intervalMinutes?: number) => void }): Promise<void> {
   const profile = await getActiveProfile()
-  initAutoUpdate(updaterLogger)(profile?.updateInterval)
+  updater.init(profile?.updateInterval)
 }
