@@ -16,9 +16,9 @@ export function AttachmentImage({ attachment, conversationId }: AttachmentImageP
 
   const handleClick = useCallback(async () => {
     try {
-      const absolutePath = await window.arc.utils.getThreadAttachmentPath({
+      const absolutePath = await window.arc.messages.getAttachmentPath({
         threadId: conversationId,
-        relativePath: attachment.path,
+        filename: attachment.path,
       })
       await window.arc.utils.openFile({ filePath: absolutePath })
     } catch (err) {

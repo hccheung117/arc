@@ -11,6 +11,7 @@ import { dirname, resolve, sep } from 'node:path'
  */
 
 export interface ScopedBinaryFile {
+  resolve: (relativePath: string) => string
   write: (relativePath: string, buffer: Buffer) => Promise<void>
   read: (relativePath: string) => Promise<Buffer | null>
   delete: (relativePath: string) => Promise<void>
@@ -42,6 +43,8 @@ export const createBinaryFile = (dataDir: string, allowedPaths: readonly string[
   }
 
   return {
+    resolve: resolvePath,
+
     async write(relativePath, buffer) {
       const full = resolvePath(relativePath)
       await mkdir(dirname(full), { recursive: true })

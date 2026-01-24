@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve, sep } from 'node:path'
+import { dialog, BrowserWindow } from 'electron'
 import matter, { stringify } from 'gray-matter'
 
 export interface MarkdownContent {
@@ -7,9 +8,15 @@ export interface MarkdownContent {
   body: string
 }
 
+export interface SaveAsOptions {
+  defaultPath?: string
+  filters?: Array<{ name: string; extensions: string[] }>
+}
+
 export interface ScopedMarkdownFile {
   read: (relativePath: string) => Promise<MarkdownContent | null>
   write: (relativePath: string, body: string, frontMatter?: Record<string, unknown>) => Promise<void>
+  saveAs: (content: string, options?: SaveAsOptions) => Promise<string | null>
 }
 
 export const createMarkdownFile = (dataDir: string, allowedPaths: readonly string[]): ScopedMarkdownFile => {
@@ -54,6 +61,17 @@ export const createMarkdownFile = (dataDir: string, allowedPaths: readonly strin
         : body
 
       await writeFile(full, content, 'utf-8')
+    },
+
+    async saveAs(content, options) {
+      const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+      const result = await dialog.showSaveDialog(window, {
+        defaultPath: options?.defaultPath,
+        filters: options?.filters,
+      })
+      if (result.canceled || !result.filePath) return null
+      await writeFile(result.filePath, content, 'utf-8')
+      return result.filePath
     },
   }
 }
