@@ -2,32 +2,41 @@
  * IPC Preload Module
  *
  * Exposes window.arc API via contextBridge.
- * Messages and threads use module-based channels (arc:{module}:{op}).
- * Other domains use contract-generated clients.
+ * All domains use direct ipcRenderer.invoke calls with arc:{module}:{op} channels.
  */
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import { createClient } from '@main/kernel/ipc'
-import { settingsContract } from '@contracts/settings'
-import { uiContract } from '@contracts/ui'
-import { utilsContract } from '@contracts/utils'
 import type { StoredMessageEvent, BranchInfo } from '@main/modules/messages/business'
 import type { StoredThread, PromptSource } from '@main/modules/threads/json-file'
-import type { Unsubscribe, AIUsage } from '@contracts/events'
 import type { Persona } from '@main/modules/personas/business'
 import type { ProfileInstallResult, ProfileInfo, ProviderConfig, Model } from '@main/modules/profiles/business'
 import type { ArcFile } from '@main/modules/profiles/json-file'
-import type { StreamInput, RefineInput, FetchModelsInput } from '@main/modules/ai/business'
+import type { StreamInput, RefineInput, FetchModelsInput, Usage } from '@main/modules/ai/business'
+import type { ThreadContextMenuParams, ThreadMenuAction, MessageMenuAction } from '@main/modules/ui/business'
 
 // ============================================================================
-// CONTRACT-GENERATED CLIENTS
+// DIRECT IPC CLIENTS
 // ============================================================================
 
-const settings = createClient(ipcRenderer, settingsContract)
-const ui = createClient(ipcRenderer, uiContract)
-const utils = createClient(ipcRenderer, utilsContract)
+const settings = {
+  getFavorites: (): Promise<Array<{ providerId: string; modelId: string }>> =>
+    ipcRenderer.invoke('arc:settings:getFavorites'),
+  setFavorites: (input: { favorites: Array<{ providerId: string; modelId: string }> }): Promise<void> =>
+    ipcRenderer.invoke('arc:settings:setFavorites', input),
+}
 
-// Module-based AI client (IPC channels derived from module name + operation keys)
+const ui = {
+  showThreadContextMenu: (input: ThreadContextMenuParams): Promise<ThreadMenuAction | null> =>
+    ipcRenderer.invoke('arc:ui:showThreadContextMenu', input),
+  showMessageContextMenu: (input: { hasEditOption: boolean }): Promise<MessageMenuAction | null> =>
+    ipcRenderer.invoke('arc:ui:showMessageContextMenu', input),
+}
+
+const utils = {
+  openFile: (input: { filePath: string }): Promise<void> =>
+    ipcRenderer.invoke('arc:ui:openFile', input),
+}
+
 const ai = {
   stream: (input: StreamInput): Promise<{ streamId: string }> =>
     ipcRenderer.invoke('arc:ai:stream', input),
@@ -42,7 +51,6 @@ const ai = {
     ipcRenderer.invoke('arc:ai:fetchModels', input),
 }
 
-// Module-based profiles client
 interface ActiveProfileDetails {
   id: string
   name: string
@@ -81,7 +89,6 @@ const profiles = {
     ipcRenderer.invoke('arc:profiles:lookupModelProvider', input),
 }
 
-// Module-based personas client
 const personas = {
   list: (): Promise<Persona[]> =>
     ipcRenderer.invoke('arc:personas:list'),
@@ -102,9 +109,6 @@ const personas = {
     ipcRenderer.invoke('arc:personas:resolve', input),
 }
 
-// ============================================================================
-// MODULE-BASED CLIENTS (messages + threads)
-// ============================================================================
 
 type CreateMessageInput = {
   role: 'user' | 'assistant' | 'system'
@@ -197,7 +201,7 @@ const threads = {
   reorderInFolder: (input: { folderId: string; orderedChildIds: string[] }): Promise<void> =>
     ipcRenderer.invoke('arc:threads:reorderInFolder', input),
 
-  onEvent: (callback: (event: ThreadEvent) => void): Unsubscribe => {
+  onEvent: (callback: (event: ThreadEvent) => void): () => void => {
     const onCreated = (_: Electron.IpcRendererEvent, data: StoredThread) =>
       callback({ type: 'created', thread: data })
     const onUpdated = (_: Electron.IpcRendererEvent, data: StoredThread) =>
@@ -226,7 +230,7 @@ const threads = {
 // ============================================================================
 
 const createEventSubscription = <T>(channel: string) => {
-  return (callback: (event: T) => void): Unsubscribe => {
+  return (callback: (event: T) => void): () => void => {
     const listener = (_event: Electron.IpcRendererEvent, data: T) => callback(data)
     ipcRenderer.on(channel, listener)
     return () => ipcRenderer.removeListener(channel, listener)
@@ -241,22 +245,22 @@ export interface ArcAPI {
   threads: typeof threads
   messages: typeof messages
   ai: typeof ai & {
-    onDelta(callback: (data: { streamId: string; chunk: string }) => void): Unsubscribe
-    onReasoning(callback: (data: { streamId: string; chunk: string }) => void): Unsubscribe
-    onComplete(callback: (data: { streamId: string; content: string; reasoning: string; usage: AIUsage }) => void): Unsubscribe
-    onError(callback: (data: { streamId: string; error: string }) => void): Unsubscribe
+    onDelta(callback: (data: { streamId: string; chunk: string }) => void): () => void
+    onReasoning(callback: (data: { streamId: string; chunk: string }) => void): () => void
+    onComplete(callback: (data: { streamId: string; content: string; reasoning: string; usage: Usage }) => void): () => void
+    onError(callback: (data: { streamId: string; error: string }) => void): () => void
   }
   settings: typeof settings
   ui: typeof ui
   personas: typeof personas & {
-    onCreated(callback: (data: Persona) => void): Unsubscribe
-    onUpdated(callback: (data: Persona) => void): Unsubscribe
-    onDeleted(callback: (data: string) => void): Unsubscribe
+    onCreated(callback: (data: Persona) => void): () => void
+    onUpdated(callback: (data: Persona) => void): () => void
+    onDeleted(callback: (data: string) => void): () => void
   }
   profiles: typeof profiles & {
-    onInstalled(callback: (data: ProfileInstallResult) => void): Unsubscribe
-    onUninstalled(callback: (data: string) => void): Unsubscribe
-    onActivated(callback: (data: string | null) => void): Unsubscribe
+    onInstalled(callback: (data: ProfileInstallResult) => void): () => void
+    onUninstalled(callback: (data: string) => void): () => void
+    onActivated(callback: (data: string | null) => void): () => void
   }
   utils: typeof utils & {
     getFilePath(file: File): string
@@ -275,7 +279,7 @@ const arcAPI: ArcAPI = {
     ...ai,
     onDelta: createEventSubscription<{ streamId: string; chunk: string }>('arc:ai:delta'),
     onReasoning: createEventSubscription<{ streamId: string; chunk: string }>('arc:ai:reasoning'),
-    onComplete: createEventSubscription<{ streamId: string; content: string; reasoning: string; usage: AIUsage }>('arc:ai:complete'),
+    onComplete: createEventSubscription<{ streamId: string; content: string; reasoning: string; usage: Usage }>('arc:ai:complete'),
     onError: createEventSubscription<{ streamId: string; error: string }>('arc:ai:error'),
   },
 
