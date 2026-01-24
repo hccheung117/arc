@@ -1,4 +1,4 @@
-import { copyFile as fsCopyFile, cp, mkdir, readFile, rm, unlink, writeFile } from 'node:fs/promises'
+import { copyFile as fsCopyFile, cp, mkdir, readFile, rename as fsRename, rm, unlink, writeFile } from 'node:fs/promises'
 import { dirname, resolve, sep } from 'node:path'
 
 /**
@@ -15,6 +15,7 @@ export interface ScopedBinaryFile {
   read: (relativePath: string) => Promise<Buffer | null>
   delete: (relativePath: string) => Promise<void>
   deleteDir: (relativePath: string) => Promise<void>
+  rename: (srcPath: string, dstPath: string) => Promise<void>
   copyFile: (srcPath: string, dstPath: string) => Promise<void>
   copyDir: (srcPath: string, dstPath: string) => Promise<void>
 }
@@ -72,6 +73,13 @@ export const createBinaryFile = (dataDir: string, allowedPaths: readonly string[
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') return
         throw error
       }
+    },
+
+    async rename(srcPath, dstPath) {
+      const src = resolvePath(srcPath)
+      const dst = resolvePath(dstPath)
+      await mkdir(dirname(dst), { recursive: true })
+      await fsRename(src, dst)
     },
 
     async copyFile(srcPath, dstPath) {

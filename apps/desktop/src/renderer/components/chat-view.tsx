@@ -1,6 +1,6 @@
 import { useRef, useCallback, useMemo, useState, useEffect } from 'react'
 import type { MessageRole } from '@renderer/lib/messages'
-import type { Model } from '@contracts/models'
+import type { Model } from '@main/modules/profiles/business'
 import type { Persona } from '@contracts/personas'
 import type { ChatThread, ThreadAction } from '@renderer/lib/threads'
 import type { DisplayMessage, InputMode } from '@renderer/lib/types'
@@ -102,13 +102,9 @@ export function ChatView({ thread, models, findPersona, onThreadUpdate }: ChatVi
     fetchRefineModel()
 
     // Re-fetch when profile changes
-    const unsubscribe = window.arc.profiles.onEvent((event) => {
-      if (event.type === 'activated' || event.type === 'installed') {
-        fetchRefineModel()
-      }
-    })
-
-    return unsubscribe
+    const unsub1 = window.arc.profiles.onInstalled(fetchRefineModel)
+    const unsub2 = window.arc.profiles.onActivated(fetchRefineModel)
+    return () => { unsub1(); unsub2() }
   }, [])
 
   // Editing coordination

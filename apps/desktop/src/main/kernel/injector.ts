@@ -25,7 +25,7 @@ const CAPABILITY_TO_FOUNDATION: Record<string, keyof FoundationCapabilities> = {
 }
 
 /** Capabilities that require path scoping (factories, not instances). */
-const PATH_SCOPED: Set<string> = new Set(['jsonFile', 'jsonLog', 'binaryFile', 'archive'])
+const PATH_SCOPED: Set<string> = new Set(['jsonFile', 'jsonLog', 'binaryFile', 'archive', 'glob'])
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types

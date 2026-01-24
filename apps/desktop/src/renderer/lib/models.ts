@@ -1,5 +1,5 @@
-import type { Model } from '@contracts/models'
+import type { Model } from '@main/modules/profiles/business'
 
 export async function getModels(): Promise<Model[]> {
-  return window.arc.models.list()
+  return window.arc.profiles.listModels()
 }

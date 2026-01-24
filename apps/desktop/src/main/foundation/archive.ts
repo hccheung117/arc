@@ -121,6 +121,7 @@ export interface ScopedArchive {
   readEntry: (archivePath: string, entryPath: string) => string | null
   listDirectory: (archivePath: string, dirPath: string) => string[]
   hasEntry: (archivePath: string, entryPath: string) => boolean
+  extractExternal: (externalAbsPath: string, targetDir: string) => Promise<void>
 }
 
 export const createArchive = (dataDir: string, allowedPaths: readonly string[]): ScopedArchive => {
@@ -155,5 +156,7 @@ export const createArchive = (dataDir: string, allowedPaths: readonly string[]):
       listArchiveDirectory(resolvePath(archivePath), dirPath),
     hasEntry: (archivePath, entryPath) =>
       archiveHasEntry(resolvePath(archivePath), entryPath),
+    extractExternal: (externalAbsPath, targetDir) =>
+      extractArchive(externalAbsPath, resolvePath(targetDir)),
   }
 }

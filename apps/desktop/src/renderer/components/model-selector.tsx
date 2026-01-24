@@ -11,7 +11,7 @@ import { ScrollArea } from '@renderer/components/ui/scroll-area'
 import { Separator } from '@renderer/components/ui/separator'
 import { cn } from '@renderer/lib/utils'
 import { createTextMeasurer } from '@renderer/lib/measure'
-import type { Model } from '@contracts/models'
+import type { Model } from '@main/modules/profiles/business'
 
 // Composite key for efficient Set lookups
 function favoriteKey(providerId: string, modelId: string): string {

@@ -186,7 +186,7 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(
 
       try {
         // Resolve provider config for the refine model
-        const modelsList = await window.arc.models.list()
+        const modelsList = await window.arc.profiles.listModels()
         const model = modelsList.find((m) => m.id === refineModel)
         if (!model) throw new Error(`Model ${refineModel} not found`)
         const providerConfig = await window.arc.profiles.getProviderConfig({ providerId: model.provider.id })

@@ -6,7 +6,9 @@
  */
 
 import matter from 'gray-matter'
-import { getActiveProfileId } from '@main/lib/profile/operations'
+import { z } from 'zod'
+import { JsonFile } from '@main/foundation/json-file'
+import { getSettingsPath } from '@main/kernel/paths.tmp'
 import {
   userPersonaStorage,
   profilePersonaStorage,
@@ -14,6 +16,17 @@ import {
   parsePersonaFile,
   type Persona,
 } from '@boundary/personas'
+
+// Temporary bridge until personas module migration (Round 3.8)
+const SettingsSchema = z.object({
+  activeProfileId: z.string().nullable(),
+  favorites: z.array(z.object({ providerId: z.string(), modelId: z.string() })),
+})
+
+async function getActiveProfileId(): Promise<string | null> {
+  const file = new JsonFile(getSettingsPath(), { activeProfileId: null, favorites: [] }, SettingsSchema)
+  return (await file.read()).activeProfileId
+}
 
 // ============================================================================
 // LIST PERSONAS

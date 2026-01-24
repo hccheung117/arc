@@ -9,15 +9,15 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { createClient } from '@main/kernel/ipc'
 import { personasContract } from '@contracts/personas'
-import { profilesContract } from '@contracts/profiles'
 import { settingsContract } from '@contracts/settings'
-import { modelsContract } from '@contracts/models'
 import { uiContract } from '@contracts/ui'
 import { utilsContract } from '@contracts/utils'
 import { filesContract } from '@contracts/files'
 import type { StoredMessageEvent, BranchInfo } from '@main/modules/messages/business'
 import type { StoredThread } from '@main/modules/threads/json-file'
-import type { PersonasEvent, ProfilesEvent, Unsubscribe, AIUsage } from '@contracts/events'
+import type { PersonasEvent, Unsubscribe, AIUsage } from '@contracts/events'
+import type { ProfileInstallResult, ProfileInfo, ProviderConfig, Model } from '@main/modules/profiles/business'
+import type { ArcFile } from '@main/modules/profiles/json-file'
 import type { StreamInput, RefineInput, FetchModelsInput } from '@main/modules/ai/business'
 
 // ============================================================================
@@ -25,9 +25,7 @@ import type { StreamInput, RefineInput, FetchModelsInput } from '@main/modules/a
 // ============================================================================
 
 const personas = createClient(ipcRenderer, personasContract)
-const profiles = createClient(ipcRenderer, profilesContract)
 const settings = createClient(ipcRenderer, settingsContract)
-const models = createClient(ipcRenderer, modelsContract)
 const ui = createClient(ipcRenderer, uiContract)
 const utils = createClient(ipcRenderer, utilsContract)
 const files = createClient(ipcRenderer, filesContract)
@@ -45,6 +43,45 @@ const ai = {
 
   fetchModels: (input: FetchModelsInput): Promise<Array<{ id: string }>> =>
     ipcRenderer.invoke('arc:ai:fetchModels', input),
+}
+
+// Module-based profiles client
+interface ActiveProfileDetails {
+  id: string
+  name: string
+  modelAssignments?: Record<string, { provider: string; model: string }>
+}
+
+const profiles = {
+  install: (input: { filePath: string }): Promise<ProfileInstallResult> =>
+    ipcRenderer.invoke('arc:profiles:install', input),
+
+  uninstall: (input: { profileId: string }): Promise<void> =>
+    ipcRenderer.invoke('arc:profiles:uninstall', input),
+
+  activate: (input: { profileId: string | null }): Promise<void> =>
+    ipcRenderer.invoke('arc:profiles:activate', input),
+
+  list: (): Promise<ProfileInfo[]> =>
+    ipcRenderer.invoke('arc:profiles:list'),
+
+  getActiveId: (): Promise<string | null> =>
+    ipcRenderer.invoke('arc:profiles:getActiveId'),
+
+  getActive: (): Promise<ArcFile | null> =>
+    ipcRenderer.invoke('arc:profiles:getActive'),
+
+  getActiveDetails: (): Promise<ActiveProfileDetails | null> =>
+    ipcRenderer.invoke('arc:profiles:getActiveDetails'),
+
+  getProviderConfig: (input: { providerId: string }): Promise<ProviderConfig> =>
+    ipcRenderer.invoke('arc:profiles:getProviderConfig', input),
+
+  listModels: (): Promise<Model[]> =>
+    ipcRenderer.invoke('arc:profiles:listModels'),
+
+  lookupModelProvider: (input: { modelId: string }): Promise<string> =>
+    ipcRenderer.invoke('arc:profiles:lookupModelProvider', input),
 }
 
 // ============================================================================
@@ -179,7 +216,6 @@ const createEventSubscription = <T>(channel: string) => {
 export interface ArcAPI {
   threads: typeof threads
   messages: typeof messages
-  models: typeof models
   ai: typeof ai & {
     onDelta(callback: (data: { streamId: string; chunk: string }) => void): Unsubscribe
     onReasoning(callback: (data: { streamId: string; chunk: string }) => void): Unsubscribe
@@ -192,7 +228,9 @@ export interface ArcAPI {
     onEvent(callback: (event: PersonasEvent) => void): Unsubscribe
   }
   profiles: typeof profiles & {
-    onEvent(callback: (event: ProfilesEvent) => void): Unsubscribe
+    onInstalled(callback: (data: ProfileInstallResult) => void): Unsubscribe
+    onUninstalled(callback: (data: string) => void): Unsubscribe
+    onActivated(callback: (data: string | null) => void): Unsubscribe
   }
   utils: typeof utils & {
     getFilePath(file: File): string
@@ -207,8 +245,6 @@ const arcAPI: ArcAPI = {
   threads,
 
   messages,
-
-  models,
 
   ai: {
     ...ai,
@@ -229,7 +265,9 @@ const arcAPI: ArcAPI = {
 
   profiles: {
     ...profiles,
-    onEvent: createEventSubscription<ProfilesEvent>('arc:profiles:event'),
+    onInstalled: createEventSubscription<ProfileInstallResult>('arc:profiles:installed'),
+    onUninstalled: createEventSubscription<string>('arc:profiles:uninstalled'),
+    onActivated: createEventSubscription<string | null>('arc:profiles:activated'),
   },
 
   utils: {
