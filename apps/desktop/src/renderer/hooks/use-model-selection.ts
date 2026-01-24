@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { Model } from '@contracts/models'
+import type { Model } from '@main/modules/profiles/business'
 import type { Message } from '@renderer/lib/messages'
 
 const STORAGE_KEY = 'arc:selectedModelId'

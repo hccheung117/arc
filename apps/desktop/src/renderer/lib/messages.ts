@@ -255,7 +255,7 @@ export async function prepareStreamContext(
 ): Promise<StreamContext> {
   const [{ messages: storedMessages }, modelsList] = await Promise.all([
     window.arc.messages.list({ threadId }),
-    window.arc.models.list(),
+    window.arc.profiles.listModels(),
   ])
 
   const model = modelsList.find((m) => m.id === modelId)

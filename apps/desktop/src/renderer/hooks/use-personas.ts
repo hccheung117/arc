@@ -35,12 +35,16 @@ export function usePersonas() {
     })
 
     // Re-fetch when profile changes (profile personas may have changed)
-    const unsubProfiles = window.arc.profiles.onEvent(fetchPersonas)
+    const unsubInstalled = window.arc.profiles.onInstalled(fetchPersonas)
+    const unsubUninstalled = window.arc.profiles.onUninstalled(fetchPersonas)
+    const unsubActivated = window.arc.profiles.onActivated(fetchPersonas)
 
     return () => {
       mounted = false
       unsubPersonas()
-      unsubProfiles()
+      unsubInstalled()
+      unsubUninstalled()
+      unsubActivated()
     }
   }, [])
 

@@ -35,12 +35,8 @@ export function useProfileImport(): {
 
   // Subscribe to profile events (handles success for both paths)
   useEffect(() => {
-    return window.arc.profiles.onEvent((event) => {
-      if (event.type === 'installed') {
-        showToast(
-          `Installed profile: ${event.profile.name} (${event.profile.providerCount} providers)`
-        )
-      }
+    return window.arc.profiles.onInstalled((profile) => {
+      showToast(`Installed profile: ${profile.name} (${profile.providerCount} providers)`)
     })
   }, [showToast])
 

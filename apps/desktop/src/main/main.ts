@@ -28,10 +28,8 @@ import {
 import path from 'node:path'
 import started from 'electron-squirrel-startup'
 import { buildAppMenu } from './menu'
-import { registerProfileHandlers } from '@main/app/data'
 import { registerSystemHandlers } from '@main/app/system'
 import { registerPersonaHandlers } from '@main/app/personas'
-import { initApp, handleProfileFileOpen } from '@main/app/lifecycle'
 import { createKernel } from '@main/kernel/boot'
 import aiModule from '@main/modules/ai/mod'
 import aiLoggerAdapter from '@main/modules/ai/logger'
@@ -45,6 +43,12 @@ import threadsModule from '@main/modules/threads/mod'
 import threadsJsonFileAdapter from '@main/modules/threads/json-file'
 import updaterModule from '@main/modules/updater/mod'
 import updaterLoggerAdapter from '@main/modules/updater/logger'
+import profilesModule from '@main/modules/profiles/mod'
+import profilesJsonFileAdapter from '@main/modules/profiles/json-file'
+import profilesArchiveAdapter from '@main/modules/profiles/archive'
+import profilesGlobAdapter from '@main/modules/profiles/glob'
+import profilesBinaryFileAdapter from '@main/modules/profiles/binary-file'
+import profilesLoggerAdapter from '@main/modules/profiles/logger'
 import { createJsonFile } from '@main/foundation/json-file'
 import { createLogger } from '@main/foundation/logger'
 import { createJsonLog } from '@main/foundation/json-log'
@@ -52,9 +56,6 @@ import { createBinaryFile } from '@main/foundation/binary-file'
 import { createArchive } from '@main/foundation/archive'
 import { createGlob } from '@main/foundation/glob'
 import { getDataDir } from '@main/kernel/paths.tmp'
-import { registerHandlers } from '@main/kernel/ipc'
-import { modelsContract } from '@contracts/models'
-import { listModels } from '@main/lib/profile/models'
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -74,7 +75,7 @@ const kernel = createKernel({
     jsonLog: createJsonLog,
     binaryFile: createBinaryFile,
     archive: createArchive,
-    glob: createGlob(),
+    glob: createGlob,
     logger: createLogger('kernel'),
   },
 })
@@ -102,6 +103,14 @@ kernel.register('updater', updaterModule, {
   logger: updaterLoggerAdapter,
 })
 
+kernel.register('profiles', profilesModule, {
+  jsonFile: profilesJsonFileAdapter,
+  archive: profilesArchiveAdapter,
+  glob: profilesGlobAdapter,
+  binaryFile: profilesBinaryFileAdapter,
+  logger: profilesLoggerAdapter,
+})
+
 // Boot kernel (instantiates modules, registers IPC)
 kernel.boot()
 
@@ -118,6 +127,12 @@ const minSize = getMinSize()
 
 type UpdaterApi = { init: (intervalMinutes?: number) => void }
 const updater = kernel.getModule<UpdaterApi>('updater')!
+
+type ProfilesApi = {
+  install: (input: { filePath: string }) => Promise<unknown>
+  getActive: () => Promise<{ updateInterval?: number } | null>
+}
+const profilesApi = kernel.getModule<ProfilesApi>('profiles')!
 
 // ─────────────────────────────────────────────────────────────────
 // Config builders (pure)
@@ -175,13 +190,12 @@ app.on('ready', async () => {
 
   const size = await readWindowState()
   createWindow(size)
-  registerProfileHandlers(ipcMain)
-  // Messages + threads + UI + AI handlers auto-registered via kernel.boot()
-  // Temporary bridge: models.list stays here until profiles module owns it (Round 3.7)
-  registerHandlers(ipcMain, modelsContract, { list: async () => listModels() })
   registerSystemHandlers(ipcMain)
   registerPersonaHandlers(ipcMain)
-  initApp(updater)
+
+  // Initialize updater with profile's update interval
+  const activeProfile = await profilesApi.getActive() as { updateInterval?: number } | null
+  updater.init(activeProfile?.updateInterval)
 })
 
 app.on('activate', async () => {
@@ -193,8 +207,13 @@ app.on('activate', async () => {
   }
 })
 
-// Handle .arc file drops on dock icon (macOS) and file associations
 app.on('open-file', async (event, filePath) => {
   event.preventDefault()
-  await handleProfileFileOpen(filePath)
+  if (filePath.toLowerCase().endsWith('.arc')) {
+    try {
+      await profilesApi.install({ filePath })
+    } catch {
+      // Error logged by module
+    }
+  }
 })

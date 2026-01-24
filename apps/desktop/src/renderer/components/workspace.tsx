@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
 import { ChatView } from './chat-view'
-import type { Model } from '@contracts/models'
+import type { Model } from '@main/modules/profiles/business'
 import { getModels } from '@renderer/lib/models'
 import { usePersonas } from '@renderer/hooks/use-personas'
 import type { ChatThread, ThreadAction } from '@renderer/lib/threads'
@@ -47,7 +47,10 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate }: Workspace
     fetchModels()
 
     // Re-fetch when profile changes (install/uninstall/activate)
-    return window.arc.profiles.onEvent(fetchModels)
+    const unsub1 = window.arc.profiles.onInstalled(fetchModels)
+    const unsub2 = window.arc.profiles.onUninstalled(fetchModels)
+    const unsub3 = window.arc.profiles.onActivated(fetchModels)
+    return () => { unsub1(); unsub2(); unsub3() }
   }, [])
 
   // Find the active thread (recursive search through folder children)
