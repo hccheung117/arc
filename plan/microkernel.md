@@ -35,7 +35,7 @@ The system is divided into three distinct layers, each with a single responsibil
         ▼             ▼             ▼
 ┌──────────────────────────────────────────────────────────────┐
 │  FOUNDATION (Native Capabilities)                            │
-│  • json-file  • json-log  • archive  • glob  • logger        │
+│  • json-file  • json-log  • binary-file  • archive  • logger │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -113,13 +113,21 @@ The Foundation provides a **Factory** that the Kernel uses to create scoped inst
 ### Capability Injection
 When a module needs a capability, it defines an adapter file (e.g., `json-file.ts`). The Kernel detects this file, asks the Foundation for the capability, and injects it.
 
+The adapter file is not a thin wrapper — it's a **library for business**. It absorbs schemas, paths, and format concerns, exposing only high-level domain-aware APIs.
+
 ```typescript
 // modules/personas/json-file.ts
-// The Module defines how it uses the capability
-export default defineCapability((fs) => ({
-  load: (name: string) => fs.read(`personas/${name}.json`),
-  save: (name: string, data: any) => fs.write(`personas/${name}.json`, data),
-}))
+// Library for business — substantial, not thin
+export default defineCapability((fs) => {
+  const PersonaSchema = z.object({ id: z.string(), name: z.string(), ... })
+  
+  return {
+    loadPersona: (id: string) => fs.read(`personas/${id}.json`, PersonaSchema),
+    savePersona: (id: string, data: Persona) => fs.write(`personas/${id}.json`, data),
+    listAll: () => fs.glob('personas/*.json'),
+    deletePersona: (id: string) => fs.delete(`personas/${id}.json`),
+  }
+})
 ```
 
 ## 6. Communication & Data Flow
@@ -188,6 +196,7 @@ main/
 ├── foundation/          # The Capabilities (Native Wrappers)
 │   ├── json-file.ts
 │   ├── json-log.ts
+│   ├── binary-file.ts
 │   ├── archive.ts
 │   ├── logger.ts
 │   └── ...
@@ -205,26 +214,43 @@ modules/{name}/
 └── {capability}.ts     # Required per declared capability (defineCapability)
 ```
 
-**1. {capability}.ts — The Adapter (Domain Knowledge)**
-Contains all paths, file formats, and Foundation interactions.
+**1. {capability}.ts — The Library for Business**
+Cap files are libraries that serve `business.ts`. They anticipate what business needs and provide high-level, domain-aware APIs that make business's job easy. They absorb all persistence complexity: schemas, paths, formats, validation, error handling.
+
+**Design Mindset**: "I am `json-log.ts` in the messages module. What does business need to do with message logs? Let me provide easy-to-use APIs so business can focus on domain logic."
+
 ```typescript
-// modules/personas/json-file.ts
-export default defineCapability((fs) => ({
-  loadPersona: (id: string) => fs.read(`personas/${id}.json`), // Path knowledge here
-  savePersona: (id: string, data: any) => fs.write(`personas/${id}.json`, data),
-  listAll: () => fs.glob('personas/*.json'),
-}))
+// modules/messages/json-log.ts
+// Substantial — not a thin wrapper
+export default defineCapability((log) => {
+  const schema = z.object({ id: z.string(), content: z.string(), ... })
+  
+  return {
+    // High-level, domain-aware API
+    appendEvent: (threadId: string, event: MessageEvent) => 
+      log.append(`app/messages/${threadId}.jsonl`, schema.parse(event)),
+    
+    readHistory: (threadId: string) => 
+      log.read(`app/messages/${threadId}.jsonl`, schema),
+    
+    deleteThread: (threadId: string) => 
+      log.delete(`app/messages/${threadId}.jsonl`),
+  }
+})
 ```
 
-**2. business.ts — The Logic (Pure Function)**
-Contains algorithms and rules. Receives adapters as parameters. Zero knowledge of paths or Foundation.
+**2. business.ts — Pure Domain Logic**
+Contains algorithms, rules, and orchestration. Receives capabilities as parameters. Zero knowledge of paths, schemas, or persistence format.
 ```typescript
-// modules/personas/business.ts
-// Testable by mocking the adapter
-export const createPersona = async (store: PersonaStore, data: any) => {
-  const id = generateId()
-  await store.savePersona(id, { ...data, version: 1 }) // Uses domain method
-  return id
+// modules/messages/business.ts
+// Pure domain logic — no persistence knowledge
+export const appendMessage = async (
+  store: MessageStore,  // Receives cap
+  input: AppendInput
+) => {
+  const event = buildMessageEvent(input)  // Pure transform
+  await store.appendEvent(input.threadId, event)  // Cap handles persistence
+  return event
 }
 ```
 
@@ -251,8 +277,8 @@ export default defineModule({
 
 **Rules**:
 1. `mod.ts` — Pure declaration; wires capabilities to API surface
-2. `business.ts` — All domain logic; receives capabilities as parameters; omit if logic is trivial
-3. `{capability}.ts` — Thin adapter defining module-specific usage of a Foundation capability
+2. `business.ts` — Pure domain logic; receives capabilities as parameters; omit if logic is trivial
+3. `{capability}.ts` — Library for business; absorbs persistence complexity; provides high-level domain-aware APIs
 4. **No other files permitted** — No sub-folders, no feature splits, no types.ts
 
 ### Module File Manifest
@@ -285,12 +311,14 @@ modules/
 │   ├── mod.ts
 │   ├── business.ts
 │   ├── json-log.ts
+│   ├── binary-file.ts
 │   └── logger.ts
 ├── threads/
 │   ├── mod.ts
 │   ├── business.ts
 │   ├── json-file.ts
 │   ├── json-log.ts
+│   ├── binary-file.ts
 │   └── logger.ts
 └── ai/
     ├── mod.ts
