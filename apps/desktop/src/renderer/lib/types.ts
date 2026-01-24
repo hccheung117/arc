@@ -1,5 +1,6 @@
 import type { Message, MessageRole } from '@renderer/lib/messages'
-import type { BranchInfo, AttachmentInput, ThreadConfig } from '@main/modules/messages/business'
+import type { BranchInfo, AttachmentInput } from '@main/modules/messages/business'
+import type { ThreadConfig } from '@main/modules/threads/json-file'
 import type { Model } from '@contracts/models'
 
 /**

@@ -5,7 +5,7 @@
  * Single source of truth for all prompt-related UI logic.
  */
 
-import type { PromptSource } from '@main/modules/messages/business'
+import type { PromptSource } from '@main/modules/threads/json-file'
 import type { Persona } from '@contracts/personas'
 
 /**

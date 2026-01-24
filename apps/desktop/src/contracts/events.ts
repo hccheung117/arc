@@ -5,7 +5,8 @@
  * These are NOT part of request-response contracts.
  */
 
-import type { StoredThread, StoredMessageEvent } from '@main/modules/messages/business'
+import type { StoredMessageEvent } from '@main/modules/messages/business'
+import type { StoredThread } from '@main/modules/threads/json-file'
 import type { Persona } from './personas'
 import type { ProfileInstallResult } from './profiles'
 

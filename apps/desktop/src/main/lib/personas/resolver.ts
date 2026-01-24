@@ -5,7 +5,7 @@
  * Called at AI API time to inject resolved prompts into streaming context.
  */
 
-import type { PromptSource } from '@main/modules/messages/business'
+import type { PromptSource } from '@main/modules/threads/json-file'
 import { warn } from '@main/foundation/logger'
 import { getPersona } from './operations'
 

@@ -5,7 +5,6 @@
  * Uses AI SDK for streaming with Arc custom provider.
  */
 
-import * as fs from 'fs/promises'
 import type { IpcMain } from 'electron'
 import { createId } from '@paralleldrive/cuid2'
 import { streamText, type LanguageModelUsage } from 'ai'
@@ -14,14 +13,24 @@ import { listModels, lookupModelProvider } from '@main/lib/profile/models'
 import { resolvePromptSource } from '@main/lib/personas/resolver'
 import { createArc } from '@main/lib/ai/provider'
 import type { StoredMessageEvent } from '@main/modules/messages/business'
-import { threadStorage, readMessages, appendMessage } from '@main/modules/messages/business'
-import { findById } from '@main/modules/threads/business'
+import type { StoredThread } from '@main/modules/threads/json-file'
 import { getProviderConfig } from '@main/lib/profile/operations'
-import { getThreadAttachmentPath } from '@main/kernel/paths.tmp'
 import { error } from '@main/foundation/logger'
 import { broadcast, registerHandlers } from '@main/kernel/ipc'
 import { modelsContract } from '@contracts/models'
 import { aiContract } from '@contracts/ai'
+
+// Module APIs injected from kernel
+export type AIHandlerDeps = {
+  messages: {
+    list: (input: { threadId: string }) => Promise<{ messages: StoredMessageEvent[]; branchPoints: unknown[] }>
+    create: (input: { threadId: string; input: { role: 'assistant'; content: string; parentId: string | null; modelId: string; providerId: string; reasoning?: string; usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number; reasoningTokens?: number } } }) => Promise<StoredMessageEvent>
+    readAttachment: (input: { threadId: string; filename: string }) => Promise<Buffer | null>
+  }
+  threads: {
+    list: () => Promise<StoredThread[]>
+  }
+}
 
 // ============================================================================
 // MESSAGE CONVERSION
@@ -29,23 +38,28 @@ import { aiContract } from '@contracts/ai'
 
 /**
  * Convert stored messages to AI SDK format.
- * Handles multimodal content by loading attachments from disk.
+ * Handles multimodal content by loading attachments via messages module.
  */
-async function convertToModelMessages(messages: StoredMessageEvent[], threadId: string): Promise<ModelMessage[]> {
+async function convertToModelMessages(
+  messages: StoredMessageEvent[],
+  threadId: string,
+  readAttachment: AIHandlerDeps['messages']['readAttachment'],
+): Promise<ModelMessage[]> {
   return Promise.all(
     messages.map(async (message): Promise<ModelMessage> => {
       if (message.role === 'user' && message.attachments?.length) {
-        const imageParts = await Promise.all(
+        const imageResults = await Promise.all(
           message.attachments.map(async (att) => {
-            const buffer = await fs.readFile(getThreadAttachmentPath(threadId, att.path))
-            const base64 = buffer.toString('base64')
+            const buffer = await readAttachment({ threadId, filename: att.path })
+            if (!buffer) return null
             return {
               type: 'image' as const,
-              image: `data:${att.mimeType};base64,${base64}`,
+              image: `data:${att.mimeType};base64,${buffer.toString('base64')}`,
               mediaType: att.mimeType,
             }
           }),
         )
+        const imageParts = imageResults.filter((p) => p !== null)
         return {
           role: 'user',
           content: [...imageParts, { type: 'text' as const, text: message.content! }],
@@ -106,14 +120,14 @@ interface StreamContext {
   threadId: string
 }
 
-async function prepareStreamContext(threadId: string, modelId: string): Promise<StreamContext> {
-  const [{ messages: threadMessages }, threadIndex, providerId] = await Promise.all([
-    readMessages(threadId),
-    threadStorage.read(),
+async function prepareStreamContext(deps: AIHandlerDeps, threadId: string, modelId: string): Promise<StreamContext> {
+  const [{ messages: threadMessages }, threads, providerId] = await Promise.all([
+    deps.messages.list({ threadId }),
+    deps.threads.list(),
     lookupModelProvider(modelId),
   ])
 
-  const thread = findById(threadIndex.threads, threadId)
+  const thread = threads.find((t: StoredThread) => t.id === threadId)
   const providerConfig = await getProviderConfig(providerId)
   const parentId = threadMessages.at(-1)?.id ?? null
 
@@ -122,7 +136,7 @@ async function prepareStreamContext(threadId: string, modelId: string): Promise<
     ? await resolvePromptSource(thread.promptSource)
     : null
 
-  const baseMessages = await convertToModelMessages(threadMessages, threadId)
+  const baseMessages = await convertToModelMessages(threadMessages, threadId, deps.messages.readAttachment)
   const messages = resolvedSystemPrompt
     ? [{ role: 'system' as const, content: resolvedSystemPrompt }, ...baseMessages]
     : baseMessages
@@ -182,17 +196,18 @@ async function consumeStream(
 // STREAM PERSISTENCE
 // ============================================================================
 
-async function persistStreamResult(ctx: StreamContext, result: StreamResult) {
-  return appendMessage({
-    type: 'new',
+async function persistStreamResult(deps: AIHandlerDeps, ctx: StreamContext, result: StreamResult) {
+  return deps.messages.create({
     threadId: ctx.threadId,
-    role: 'assistant',
-    content: result.content,
-    parentId: ctx.parentId,
-    modelId: ctx.modelId,
-    providerId: ctx.providerId,
-    reasoning: result.reasoning || undefined,
-    usage: result.usage,
+    input: {
+      role: 'assistant',
+      content: result.content,
+      parentId: ctx.parentId,
+      modelId: ctx.modelId,
+      providerId: ctx.providerId,
+      reasoning: result.reasoning || undefined,
+      usage: result.usage,
+    },
   })
 }
 
@@ -206,6 +221,7 @@ async function persistStreamResult(ctx: StreamContext, result: StreamResult) {
  * Flow: prepare context → consume stream → persist result
  */
 async function executeStream(
+  deps: AIHandlerDeps,
   streamId: string,
   threadId: string,
   modelId: string,
@@ -220,9 +236,9 @@ async function executeStream(
   activeStreams.set(streamId, abortController)
 
   try {
-    const ctx = await prepareStreamContext(threadId, modelId)
+    const ctx = await prepareStreamContext(deps, threadId, modelId)
     const result = await consumeStream(ctx, abortController.signal, callbacks.onDelta, callbacks.onReasoning)
-    const { message } = await persistStreamResult(ctx, result)
+    const message = await persistStreamResult(deps, ctx, result)
     callbacks.onComplete(message)
   } catch (err) {
     if ((err as Error).name !== 'AbortError') {
@@ -317,7 +333,7 @@ async function executeRefineStream(
 // REGISTRATION
 // ============================================================================
 
-export function registerAIHandlers(ipcMain: IpcMain): void {
+export function registerAIHandlers(ipcMain: IpcMain, deps: AIHandlerDeps): void {
   // Models
   registerHandlers(ipcMain, modelsContract, {
     list: async () => listModels(),
@@ -328,7 +344,7 @@ export function registerAIHandlers(ipcMain: IpcMain): void {
     chat: async ({ threadId, model }) => {
       const streamId = createId()
 
-      executeStream(streamId, threadId, model, {
+      executeStream(deps, streamId, threadId, model, {
         onDelta: (chunk) => emitAIStreamEvent({ type: 'delta', streamId, chunk }),
         onReasoning: (chunk) => emitAIStreamEvent({ type: 'reasoning', streamId, chunk }),
         onComplete: (message) => emitAIStreamEvent({ type: 'complete', streamId, message }),

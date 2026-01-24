@@ -16,7 +16,8 @@ import { aiContract } from '@contracts/ai'
 import { uiContract } from '@contracts/ui'
 import { utilsContract } from '@contracts/utils'
 import { filesContract } from '@contracts/files'
-import type { StoredMessageEvent, StoredThread, BranchInfo } from '@main/modules/messages/business'
+import type { StoredMessageEvent, BranchInfo } from '@main/modules/messages/business'
+import type { StoredThread } from '@main/modules/threads/json-file'
 import type { PersonasEvent, ProfilesEvent, AIStreamEvent, Unsubscribe } from '@contracts/events'
 
 // ============================================================================
