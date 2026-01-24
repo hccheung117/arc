@@ -6,7 +6,6 @@
  */
 
 import type { StoredThread } from '@main/modules/threads/json-file'
-import type { Persona } from './personas'
 
 // ============================================================================
 // EVENT TYPES
@@ -17,12 +16,6 @@ export type ThreadEvent =
   | { type: 'created'; thread: StoredThread }
   | { type: 'updated'; thread: StoredThread }
   | { type: 'deleted'; id: string }
-
-/** Persona lifecycle events */
-export type PersonasEvent =
-  | { type: 'created'; persona: Persona }
-  | { type: 'updated'; persona: Persona }
-  | { type: 'deleted'; name: string }
 
 /** AI stream events (IPC-safe: error is string, not Error object) */
 export type AIStreamEvent =

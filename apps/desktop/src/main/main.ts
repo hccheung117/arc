@@ -29,7 +29,6 @@ import path from 'node:path'
 import started from 'electron-squirrel-startup'
 import { buildAppMenu } from './menu'
 import { registerSystemHandlers } from '@main/app/system'
-import { registerPersonaHandlers } from '@main/app/personas'
 import { createKernel } from '@main/kernel/boot'
 import aiModule from '@main/modules/ai/mod'
 import aiLoggerAdapter from '@main/modules/ai/logger'
@@ -49,10 +48,16 @@ import profilesArchiveAdapter from '@main/modules/profiles/archive'
 import profilesGlobAdapter from '@main/modules/profiles/glob'
 import profilesBinaryFileAdapter from '@main/modules/profiles/binary-file'
 import profilesLoggerAdapter from '@main/modules/profiles/logger'
+import personasModule from '@main/modules/personas/mod'
+import personasMarkdownFileAdapter from '@main/modules/personas/markdown-file'
+import personasBinaryFileAdapter from '@main/modules/personas/binary-file'
+import personasGlobAdapter from '@main/modules/personas/glob'
+import personasLoggerAdapter from '@main/modules/personas/logger'
 import { createJsonFile } from '@main/foundation/json-file'
 import { createLogger } from '@main/foundation/logger'
 import { createJsonLog } from '@main/foundation/json-log'
 import { createBinaryFile } from '@main/foundation/binary-file'
+import { createMarkdownFile } from '@main/foundation/markdown-file'
 import { createArchive } from '@main/foundation/archive'
 import { createGlob } from '@main/foundation/glob'
 import { getDataDir } from '@main/kernel/paths.tmp'
@@ -74,6 +79,7 @@ const kernel = createKernel({
     jsonFile: createJsonFile,
     jsonLog: createJsonLog,
     binaryFile: createBinaryFile,
+    markdownFile: createMarkdownFile,
     archive: createArchive,
     glob: createGlob,
     logger: createLogger('kernel'),
@@ -109,6 +115,13 @@ kernel.register('profiles', profilesModule, {
   glob: profilesGlobAdapter,
   binaryFile: profilesBinaryFileAdapter,
   logger: profilesLoggerAdapter,
+})
+
+kernel.register('personas', personasModule, {
+  markdownFile: personasMarkdownFileAdapter,
+  binaryFile: personasBinaryFileAdapter,
+  glob: personasGlobAdapter,
+  logger: personasLoggerAdapter,
 })
 
 // Boot kernel (instantiates modules, registers IPC)
@@ -191,7 +204,6 @@ app.on('ready', async () => {
   const size = await readWindowState()
   createWindow(size)
   registerSystemHandlers(ipcMain)
-  registerPersonaHandlers(ipcMain)
 
   // Initialize updater with profile's update interval
   const activeProfile = await profilesApi.getActive() as { updateInterval?: number } | null

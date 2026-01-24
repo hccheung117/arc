@@ -72,32 +72,6 @@ export function getWindowStateCachePath() {
 }
 
 // ============================================================================
-// APP / PERSONAS
-// ============================================================================
-
-/**
- * Returns the app personas directory path.
- * User-created personas that can shadow profile personas.
- */
-export function getAppPersonasDir() {
-  return path.join(getAppDir(), 'personas')
-}
-
-/**
- * Returns the directory path for a user persona.
- */
-export function getAppPersonaDir(name: string) {
-  return path.join(getAppPersonasDir(), name)
-}
-
-/**
- * Returns the PERSONA.md file path for a user persona.
- */
-export function getAppPersonaPath(name: string) {
-  return path.join(getAppPersonaDir(name), 'PERSONA.md')
-}
-
-// ============================================================================
 // APP / MESSAGES
 // ============================================================================
 
@@ -163,23 +137,3 @@ export function getProfileArcJsonPath(profileId: string) {
   return path.join(getProfileDir(profileId), 'arc.json')
 }
 
-/**
- * Returns the personas directory path for an installed profile.
- */
-export function getProfilePersonasDir(profileId: string) {
-  return path.join(getProfileDir(profileId), 'personas')
-}
-
-/**
- * Returns the directory path for a profile persona.
- */
-export function getProfilePersonaDir(profileId: string, name: string) {
-  return path.join(getProfilePersonasDir(profileId), name)
-}
-
-/**
- * Returns the PERSONA.md file path for a profile persona.
- */
-export function getProfilePersonaPath(profileId: string, name: string) {
-  return path.join(getProfilePersonaDir(profileId, name), 'PERSONA.md')
-}

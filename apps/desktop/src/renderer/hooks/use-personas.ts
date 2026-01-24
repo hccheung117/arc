@@ -6,7 +6,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
-import type { Persona } from '@contracts/personas'
+import type { Persona } from '@main/modules/personas/business'
 
 export function usePersonas() {
   const [personas, setPersonas] = useState<Persona[]>([])
@@ -23,15 +23,17 @@ export function usePersonas() {
     fetchPersonas()
 
     // Handle user persona CRUD events incrementally
-    const unsubPersonas = window.arc.personas.onEvent((event) => {
+    const unsubCreated = window.arc.personas.onCreated((persona) => {
       if (!mounted) return
-      if (event.type === 'created') {
-        setPersonas((prev) => [...prev, event.persona])
-      } else if (event.type === 'updated') {
-        setPersonas((prev) => prev.map((p) => (p.name === event.persona.name ? event.persona : p)))
-      } else if (event.type === 'deleted') {
-        setPersonas((prev) => prev.filter((p) => p.name !== event.name))
-      }
+      setPersonas((prev) => [...prev, persona])
+    })
+    const unsubUpdated = window.arc.personas.onUpdated((persona) => {
+      if (!mounted) return
+      setPersonas((prev) => prev.map((p) => (p.name === persona.name ? persona : p)))
+    })
+    const unsubDeleted = window.arc.personas.onDeleted((name) => {
+      if (!mounted) return
+      setPersonas((prev) => prev.filter((p) => p.name !== name))
     })
 
     // Re-fetch when profile changes (profile personas may have changed)
@@ -41,7 +43,9 @@ export function usePersonas() {
 
     return () => {
       mounted = false
-      unsubPersonas()
+      unsubCreated()
+      unsubUpdated()
+      unsubDeleted()
       unsubInstalled()
       unsubUninstalled()
       unsubActivated()

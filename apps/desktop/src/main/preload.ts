@@ -8,14 +8,14 @@
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { createClient } from '@main/kernel/ipc'
-import { personasContract } from '@contracts/personas'
 import { settingsContract } from '@contracts/settings'
 import { uiContract } from '@contracts/ui'
 import { utilsContract } from '@contracts/utils'
 import { filesContract } from '@contracts/files'
 import type { StoredMessageEvent, BranchInfo } from '@main/modules/messages/business'
-import type { StoredThread } from '@main/modules/threads/json-file'
-import type { PersonasEvent, Unsubscribe, AIUsage } from '@contracts/events'
+import type { StoredThread, PromptSource } from '@main/modules/threads/json-file'
+import type { Unsubscribe, AIUsage } from '@contracts/events'
+import type { Persona } from '@main/modules/personas/business'
 import type { ProfileInstallResult, ProfileInfo, ProviderConfig, Model } from '@main/modules/profiles/business'
 import type { ArcFile } from '@main/modules/profiles/json-file'
 import type { StreamInput, RefineInput, FetchModelsInput } from '@main/modules/ai/business'
@@ -24,7 +24,6 @@ import type { StreamInput, RefineInput, FetchModelsInput } from '@main/modules/a
 // CONTRACT-GENERATED CLIENTS
 // ============================================================================
 
-const personas = createClient(ipcRenderer, personasContract)
 const settings = createClient(ipcRenderer, settingsContract)
 const ui = createClient(ipcRenderer, uiContract)
 const utils = createClient(ipcRenderer, utilsContract)
@@ -82,6 +81,27 @@ const profiles = {
 
   lookupModelProvider: (input: { modelId: string }): Promise<string> =>
     ipcRenderer.invoke('arc:profiles:lookupModelProvider', input),
+}
+
+// Module-based personas client
+const personas = {
+  list: (): Promise<Persona[]> =>
+    ipcRenderer.invoke('arc:personas:list'),
+
+  get: (input: { name: string }): Promise<Persona | null> =>
+    ipcRenderer.invoke('arc:personas:get', input),
+
+  create: (input: { name: string; systemPrompt: string }): Promise<Persona> =>
+    ipcRenderer.invoke('arc:personas:create', input),
+
+  update: (input: { name: string; systemPrompt: string }): Promise<Persona> =>
+    ipcRenderer.invoke('arc:personas:update', input),
+
+  delete: (input: { name: string }): Promise<void> =>
+    ipcRenderer.invoke('arc:personas:delete', input),
+
+  resolve: (input: { promptSource: PromptSource }): Promise<string | null> =>
+    ipcRenderer.invoke('arc:personas:resolve', input),
 }
 
 // ============================================================================
@@ -225,7 +245,9 @@ export interface ArcAPI {
   settings: typeof settings
   ui: typeof ui
   personas: typeof personas & {
-    onEvent(callback: (event: PersonasEvent) => void): Unsubscribe
+    onCreated(callback: (data: Persona) => void): Unsubscribe
+    onUpdated(callback: (data: Persona) => void): Unsubscribe
+    onDeleted(callback: (data: string) => void): Unsubscribe
   }
   profiles: typeof profiles & {
     onInstalled(callback: (data: ProfileInstallResult) => void): Unsubscribe
@@ -260,7 +282,9 @@ const arcAPI: ArcAPI = {
 
   personas: {
     ...personas,
-    onEvent: createEventSubscription<PersonasEvent>('arc:personas:event'),
+    onCreated: createEventSubscription<Persona>('arc:personas:created'),
+    onUpdated: createEventSubscription<Persona>('arc:personas:updated'),
+    onDeleted: createEventSubscription<string>('arc:personas:deleted'),
   },
 
   profiles: {

@@ -6,7 +6,7 @@
  */
 
 import type { PromptSource } from '@main/modules/threads/json-file'
-import type { Persona } from '@contracts/personas'
+import type { Persona } from '@main/modules/personas/business'
 
 /**
  * UI-facing prompt information derived from PromptSource.
