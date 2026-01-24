@@ -34,9 +34,8 @@ import { registerSystemHandlers } from '@main/app/system'
 import { registerPersonaHandlers } from '@main/app/personas'
 import { initApp, handleProfileFileOpen } from '@main/app/lifecycle'
 import { createKernel } from '@main/kernel/boot'
-import uiModule, { MIN_SIZE } from '@main/modules/ui/mod'
+import uiModule from '@main/modules/ui/mod'
 import uiJsonFileAdapter from '@main/modules/ui/json-file'
-import uiLoggerAdapter from '@main/modules/ui/logger'
 import messagesModule from '@main/modules/messages/mod'
 import messagesJsonLogAdapter from '@main/modules/messages/json-log'
 import messagesJsonFileAdapter from '@main/modules/messages/json-file'
@@ -79,7 +78,6 @@ const kernel = createKernel({
 // Register modules with adapters
 kernel.register('ui', uiModule, {
   jsonFile: uiJsonFileAdapter,
-  logger: uiLoggerAdapter,
 })
 
 kernel.register('messages', messagesModule, {
@@ -103,12 +101,14 @@ kernel.boot()
 
 // Get UI module API for direct usage
 type UiApi = {
+  getMinSize: () => { width: number; height: number }
   readWindowState: () => Promise<{ width: number; height: number }>
   trackWindowState: (window: BrowserWindow) => void
   setupEditableContextMenu: (window: BrowserWindow) => void
 }
 const ui = kernel.getModule<UiApi>('ui')!
-const { readWindowState, trackWindowState, setupEditableContextMenu } = ui
+const { getMinSize, readWindowState, trackWindowState, setupEditableContextMenu } = ui
+const minSize = getMinSize()
 
 type UpdaterApi = { init: (intervalMinutes?: number) => void }
 const updater = kernel.getModule<UpdaterApi>('updater')!
@@ -119,8 +119,8 @@ const updater = kernel.getModule<UpdaterApi>('updater')!
 
 const buildWindowConfig = (size: { width: number; height: number }): BrowserWindowConstructorOptions => ({
   ...size,
-  minWidth: MIN_SIZE.width,
-  minHeight: MIN_SIZE.height,
+  minWidth: minSize.width,
+  minHeight: minSize.height,
   autoHideMenuBar: process.platform !== 'darwin',
   webPreferences: {
     preload: path.join(__dirname, 'preload.js'),

@@ -1,38 +1,10 @@
-/**
- * UI Business Logic
- *
- * Context menus and window state management.
- * Pure utilities for native menus with side effects isolated to window tracking.
- */
-
 import { type BrowserWindow, Menu, type MenuItemConstructorOptions, screen } from 'electron'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Business Interfaces
+// Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-interface WindowState {
-  width: number
-  height: number
-}
-
-interface WindowStateStore {
-  read(): Promise<WindowState>
-  write(data: WindowState): Promise<void>
-}
-
-interface UIConstants {
-  DEFAULT_SIZE: WindowState
-  MIN_SIZE: WindowState
-}
-
-interface Logger {
-  warn(msg: string): void
-  error(msg: string, err: Error): void
-}
-
-const DEFAULT_SIZE: WindowState = { width: 800, height: 600 }
-export const MIN_SIZE: WindowState = { width: 700, height: 550 }
+const MIN_SIZE = { width: 700, height: 550 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Menu Types
@@ -96,7 +68,7 @@ interface ThreadContextMenuParams {
 
 type ThreadMenuAction = 'rename' | 'duplicate' | 'togglePin' | 'delete' | 'newFolder' | 'removeFromFolder' | `moveToFolder:${string}`
 
-export const showThreadContextMenu = ({ isPinned, isInFolder, folders }: ThreadContextMenuParams) => {
+const showThreadContextMenu = ({ isPinned, isInFolder, folders }: ThreadContextMenuParams) => {
   const folderSubmenu: MenuItem<ThreadMenuAction>[] = [
     ...folders.map((f) => ({ label: f.title, action: `moveToFolder:${f.id}` as const })),
     ...(folders.length > 0 ? [{ type: 'separator' } as const] : []),
@@ -121,9 +93,7 @@ export const showThreadContextMenu = ({ isPinned, isInFolder, folders }: ThreadC
 // Message Context Menu
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type MessageMenuAction = 'copy' | 'edit'
-
-export const showMessageContextMenu = (hasEditOption: boolean) =>
+const showMessageContextMenu = (hasEditOption: boolean) =>
   createContextMenu(hasEditOption
     ? [{ label: 'Copy', action: 'copy' }, { label: 'Edit', action: 'edit' }]
     : [{ label: 'Copy', action: 'copy' }])
@@ -175,7 +145,7 @@ const editOperations: MenuItemConstructorOptions[] = [
   { role: 'selectAll' },
 ]
 
-export const setupEditableContextMenu = (window: BrowserWindow) => {
+const setupEditableContextMenu = (window: BrowserWindow) => {
   window.webContents.on('context-menu', (_event, params) => {
     if (!params.isEditable) return
     Menu.buildFromTemplate([
@@ -186,17 +156,7 @@ export const setupEditableContextMenu = (window: BrowserWindow) => {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Menu Operations Factory
-// ─────────────────────────────────────────────────────────────────────────────
-
-export const createMenuOperations = () => ({
-  showThreadContextMenu,
-  showMessageContextMenu,
-  setupEditableContextMenu,
-})
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Window State Helpers
+// Window State
 // ─────────────────────────────────────────────────────────────────────────────
 
 const fitToDisplay = (window: BrowserWindow): void => {
@@ -212,34 +172,31 @@ const fitToDisplay = (window: BrowserWindow): void => {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Window State
-// ─────────────────────────────────────────────────────────────────────────────
-
-export interface WindowStateOperations {
-  readWindowState: () => Promise<WindowState>
-  writeWindowState: (size: WindowState) => Promise<void>
-  trackWindowState: (window: BrowserWindow) => void
+interface WindowStateStore {
+  readWindowState(): Promise<{ width: number; height: number }>
+  writeWindowState(size: { width: number; height: number }): Promise<void>
 }
 
-export const createWindowStateOperations = (
-  store: { windowState: WindowStateStore; constants: UIConstants },
-  logger: Logger
-): WindowStateOperations => {
-  const readWindowState = async (): Promise<WindowState> => {
+interface Logger {
+  warn(msg: string): void
+  error(msg: string, err: Error): void
+}
+
+const createWindowStateOperations = (store: WindowStateStore, logger: Logger) => {
+  const readWindowState = async () => {
     try {
-      return await store.windowState.read()
+      return await store.readWindowState()
     } catch {
       logger.warn('Failed to restore window size, using default')
-      return DEFAULT_SIZE
+      return { width: 800, height: 600 }
     }
   }
 
-  const writeWindowState = async (size: WindowState): Promise<void> => {
-    await store.windowState.write(size)
+  const writeWindowState = async (size: { width: number; height: number }) => {
+    await store.writeWindowState(size)
   }
 
-  const trackWindowState = (window: BrowserWindow): void => {
+  const trackWindowState = (window: BrowserWindow) => {
     fitToDisplay(window)
 
     let debounceTimer: NodeJS.Timeout | null = null
@@ -264,3 +221,15 @@ export const createWindowStateOperations = (
 
   return { readWindowState, writeWindowState, trackWindowState }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Module API Factory
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const createOperations = (store: WindowStateStore, logger: Logger) => ({
+  getMinSize: () => MIN_SIZE,
+  showThreadContextMenu,
+  showMessageContextMenu,
+  setupEditableContextMenu,
+  ...createWindowStateOperations(store, logger),
+})
