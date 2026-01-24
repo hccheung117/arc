@@ -1,4 +1,4 @@
-import { type BrowserWindow, Menu, type MenuItemConstructorOptions, screen } from 'electron'
+import { type BrowserWindow, Menu, type MenuItemConstructorOptions, screen, shell } from 'electron'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -60,13 +60,15 @@ interface FolderInfo {
   title: string
 }
 
-interface ThreadContextMenuParams {
+export interface ThreadContextMenuParams {
   isPinned: boolean
   isInFolder: boolean
   folders: FolderInfo[]
 }
 
-type ThreadMenuAction = 'rename' | 'duplicate' | 'togglePin' | 'delete' | 'newFolder' | 'removeFromFolder' | `moveToFolder:${string}`
+export type ThreadMenuAction = 'rename' | 'duplicate' | 'togglePin' | 'delete' | 'newFolder' | 'removeFromFolder' | `moveToFolder:${string}`
+
+export type MessageMenuAction = 'copy' | 'edit'
 
 const showThreadContextMenu = ({ isPinned, isInFolder, folders }: ThreadContextMenuParams) => {
   const folderSubmenu: MenuItem<ThreadMenuAction>[] = [
@@ -93,7 +95,7 @@ const showThreadContextMenu = ({ isPinned, isInFolder, folders }: ThreadContextM
 // Message Context Menu
 // ─────────────────────────────────────────────────────────────────────────────
 
-const showMessageContextMenu = (hasEditOption: boolean) =>
+const showMessageContextMenu = ({ hasEditOption }: { hasEditOption: boolean }) =>
   createContextMenu(hasEditOption
     ? [{ label: 'Copy', action: 'copy' }, { label: 'Edit', action: 'edit' }]
     : [{ label: 'Copy', action: 'copy' }])
@@ -231,5 +233,6 @@ export const createOperations = (store: WindowStateStore, logger: Logger) => ({
   showThreadContextMenu,
   showMessageContextMenu,
   setupEditableContextMenu,
+  openFile: async ({ filePath }: { filePath: string }) => { await shell.openPath(filePath) },
   ...createWindowStateOperations(store, logger),
 })

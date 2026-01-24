@@ -1,8 +1,12 @@
 import { createId } from '@paralleldrive/cuid2'
 import type { Message } from '@renderer/lib/messages'
 import type { StoredThread, PromptSource } from '@main/modules/threads/json-file'
-import type { ThreadEvent, Unsubscribe } from '@contracts/events'
-import type { ThreadContextMenuParams, ThreadMenuAction } from '@contracts/ui'
+import type { ThreadContextMenuParams, ThreadMenuAction } from '@main/modules/ui/business'
+
+type ThreadEvent =
+  | { type: 'created'; thread: StoredThread }
+  | { type: 'updated'; thread: StoredThread }
+  | { type: 'deleted'; id: string }
 
 // ============================================================================
 // CHAT THREAD
@@ -139,7 +143,7 @@ export async function renameThread(threadId: string, title: string): Promise<voi
   await window.arc.threads.update({ threadId, patch: { title } })
 }
 
-export function onThreadEvent(callback: (event: ThreadEvent) => void): Unsubscribe {
+export function onThreadEvent(callback: (event: ThreadEvent) => void): () => void {
   return window.arc.threads.onEvent(callback)
 }
 

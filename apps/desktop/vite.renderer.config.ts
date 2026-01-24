@@ -9,7 +9,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@renderer': path.resolve(__dirname, './src/renderer'),
-      '@contracts': path.resolve(__dirname, './src/contracts'),
     },
   },
   build: {

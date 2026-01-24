@@ -1,4 +1,4 @@
-import type { Unsubscribe, AIUsage } from '@contracts/events'
+import type { Usage } from '@main/modules/ai/business'
 import type {
   AttachmentInput,
   BranchInfo,
@@ -346,21 +346,21 @@ export interface AICompleteData {
   streamId: string
   content: string
   reasoning: string
-  usage: AIUsage
+  usage: Usage
 }
 
-export function onAIDelta(callback: (data: { streamId: string; chunk: string }) => void): Unsubscribe {
+export function onAIDelta(callback: (data: { streamId: string; chunk: string }) => void): () => void {
   return window.arc.ai.onDelta(callback)
 }
 
-export function onAIReasoning(callback: (data: { streamId: string; chunk: string }) => void): Unsubscribe {
+export function onAIReasoning(callback: (data: { streamId: string; chunk: string }) => void): () => void {
   return window.arc.ai.onReasoning(callback)
 }
 
-export function onAIComplete(callback: (data: AICompleteData) => void): Unsubscribe {
+export function onAIComplete(callback: (data: AICompleteData) => void): () => void {
   return window.arc.ai.onComplete(callback)
 }
 
-export function onAIError(callback: (data: { streamId: string; error: string }) => void): Unsubscribe {
+export function onAIError(callback: (data: { streamId: string; error: string }) => void): () => void {
   return window.arc.ai.onError(callback)
 }

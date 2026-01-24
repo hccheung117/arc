@@ -18,7 +18,6 @@
     "paths": {
       "@renderer/*": ["./src/renderer/*"],
       "@main/*": ["./src/main/*"],
-      "@contracts/*": ["./src/contracts/*"],
       "@boundary/*": ["./src/boundary/*"]
     }
   },
