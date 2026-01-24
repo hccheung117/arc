@@ -3,6 +3,7 @@ import type { ScopedJsonLog } from '@main/foundation/json-log'
 import type { ScopedBinaryFile } from '@main/foundation/binary-file'
 import type { ScopedArchive } from '@main/foundation/archive'
 import type { ScopedGlob } from '@main/foundation/glob'
+import type { ScopedMarkdownFile } from '@main/foundation/markdown-file'
 import type { Logger } from '@main/foundation/logger'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -17,6 +18,7 @@ export type FoundationCapabilities = {
   binaryFile: PathScopedFactory<ScopedBinaryFile>
   archive: PathScopedFactory<ScopedArchive>
   glob: PathScopedFactory<ScopedGlob>
+  markdownFile: PathScopedFactory<ScopedMarkdownFile>
   logger: Logger
 }
 

@@ -3,7 +3,7 @@ import { PenSquare, ChevronDown } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { PersonaSelector } from '@renderer/components/persona-selector'
 import { usePersonas } from '@renderer/hooks/use-personas'
-import type { Persona } from '@contracts/personas'
+import type { Persona } from '@main/modules/personas/business'
 
 interface NewChatButtonProps {
   onNewChat: (persona?: Persona) => void

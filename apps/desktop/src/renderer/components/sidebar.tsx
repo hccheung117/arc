@@ -11,7 +11,7 @@ import { SidebarProvider } from './sidebar-context'
 import { NewChatButton } from './new-chat-button'
 import { isFolder } from '@renderer/lib/thread-grouping'
 import { createDraftThread, type ChatThread, type ThreadAction } from '@renderer/lib/threads'
-import type { Persona } from '@contracts/personas'
+import type { Persona } from '@main/modules/personas/business'
 
 interface WorkbenchSidebarProps {
   threads: ChatThread[]

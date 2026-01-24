@@ -1,7 +1,7 @@
 import { useRef, useCallback, useMemo, useState, useEffect } from 'react'
 import type { MessageRole } from '@renderer/lib/messages'
 import type { Model } from '@main/modules/profiles/business'
-import type { Persona } from '@contracts/personas'
+import type { Persona } from '@main/modules/personas/business'
 import type { ChatThread, ThreadAction } from '@renderer/lib/threads'
 import type { DisplayMessage, InputMode } from '@renderer/lib/types'
 import { getPromptInfo } from '@renderer/lib/prompts'

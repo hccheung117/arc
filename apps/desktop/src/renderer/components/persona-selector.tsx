@@ -6,7 +6,7 @@ import {
   PopoverTrigger,
 } from '@renderer/components/ui/popover'
 import { createTextMeasurer } from '@renderer/lib/measure'
-import type { Persona } from '@contracts/personas'
+import type { Persona } from '@main/modules/personas/business'
 
 // Module-level measurer (matches text-sm in popover items)
 const measureText = createTextMeasurer('14px ui-sans-serif, system-ui, sans-serif')
