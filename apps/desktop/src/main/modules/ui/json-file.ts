@@ -1,10 +1,3 @@
-/**
- * UI JSON File Capability Adapter
- *
- * Provides window state persistence using the ScopedJsonFile capability.
- * Window state is stored in app/cache/window-state.cache.json.
- */
-
 import { z } from 'zod'
 import { defineCapability, type FoundationCapabilities } from '@main/kernel/module'
 
@@ -16,17 +9,11 @@ const WindowStateSchema = z.object({
 })
 
 const DEFAULT_SIZE = { width: 800, height: 600 }
-const MIN_SIZE = { width: 700, height: 550 }
-
-type WindowState = { width: number; height: number }
 
 export default defineCapability((jsonFile: ScopedJsonFile) => {
-  const windowState = jsonFile.create('app/cache/window-state.cache.json', DEFAULT_SIZE, WindowStateSchema)
+  const file = jsonFile.create('app/cache/window-state.cache.json', DEFAULT_SIZE, WindowStateSchema)
   return {
-    windowState: {
-      read: () => windowState.read(),
-      write: (data: WindowState) => windowState.write(data),
-    },
-    constants: { DEFAULT_SIZE, MIN_SIZE },
+    readWindowState: () => file.read(),
+    writeWindowState: (size: { width: number; height: number }) => file.write(size),
   }
 })
