@@ -1,5 +1,5 @@
 import type { Message as MessageType } from '@renderer/lib/messages'
-import type { BranchInfo } from '@contracts/messages'
+import type { BranchInfo } from '@main/modules/messages/business'
 import { MessageUser } from './message-user'
 import { MessageAssistant } from './message-assistant'
 

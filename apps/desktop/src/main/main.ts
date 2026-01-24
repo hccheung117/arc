@@ -28,8 +28,7 @@ import {
 import path from 'node:path'
 import started from 'electron-squirrel-startup'
 import { buildAppMenu } from './menu'
-import { registerDataHandlers } from '@main/app/data'
-import { registerThreadHandlers } from '@main/app/threads'
+import { registerProfileHandlers } from '@main/app/data'
 import { registerAIHandlers } from '@main/app/ai'
 import { registerSystemHandlers } from '@main/app/system'
 import { registerPersonaHandlers } from '@main/app/personas'
@@ -38,6 +37,14 @@ import { createKernel } from '@main/kernel/boot'
 import uiModule, { MIN_SIZE } from '@main/modules/ui/mod'
 import uiJsonFileAdapter from '@main/modules/ui/json-file'
 import uiLoggerAdapter from '@main/modules/ui/logger'
+import messagesModule from '@main/modules/messages/mod'
+import messagesJsonLogAdapter from '@main/modules/messages/json-log'
+import messagesJsonFileAdapter from '@main/modules/messages/json-file'
+import messagesLoggerAdapter from '@main/modules/messages/logger'
+import threadsModule from '@main/modules/threads/mod'
+import threadsJsonFileAdapter from '@main/modules/threads/json-file'
+import threadsJsonLogAdapter from '@main/modules/threads/json-log'
+import threadsLoggerAdapter from '@main/modules/threads/logger'
 import { createJsonFile } from '@main/foundation/json-file'
 import { createLogger } from '@main/foundation/logger'
 import { createJsonLog } from '@main/foundation/json-log'
@@ -67,10 +74,22 @@ const kernel = createKernel({
   },
 })
 
-// Register UI module with adapters
+// Register modules with adapters
 kernel.register('ui', uiModule, {
   jsonFile: uiJsonFileAdapter,
   logger: uiLoggerAdapter,
+})
+
+kernel.register('messages', messagesModule, {
+  jsonLog: messagesJsonLogAdapter,
+  jsonFile: messagesJsonFileAdapter,
+  logger: messagesLoggerAdapter,
+})
+
+kernel.register('threads', threadsModule, {
+  jsonFile: threadsJsonFileAdapter,
+  jsonLog: threadsJsonLogAdapter,
+  logger: threadsLoggerAdapter,
 })
 
 // Boot kernel (instantiates modules, registers IPC)
@@ -141,9 +160,8 @@ app.on('ready', async () => {
 
   const size = await readWindowState()
   createWindow(size)
-  registerDataHandlers(ipcMain)
-  registerThreadHandlers(ipcMain)
-  // UI handlers auto-registered via kernel.boot()
+  registerProfileHandlers(ipcMain)
+  // Messages + threads + UI handlers auto-registered via kernel.boot()
   registerAIHandlers(ipcMain)
   registerSystemHandlers(ipcMain)
   registerPersonaHandlers(ipcMain)

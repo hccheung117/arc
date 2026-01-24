@@ -1,9 +1,8 @@
 import { createId } from '@paralleldrive/cuid2'
 import type { Message } from '@renderer/lib/messages'
-import type { Thread } from '@contracts/threads'
+import type { StoredThread, PromptSource } from '@main/modules/messages/business'
 import type { ThreadEvent, Unsubscribe } from '@contracts/events'
 import type { ThreadContextMenuParams, ThreadMenuAction } from '@contracts/ui'
-import type { PromptSource } from '@contracts/messages'
 
 // ============================================================================
 // CHAT THREAD
@@ -71,7 +70,7 @@ export function createDraftThread(options?: DraftThreadOptions): ChatThread {
  * - title: null → 'Untitled'
  * - pinned → isPinned
  */
-export function hydrateThread(thread: Thread): ChatThread {
+export function hydrateThread(thread: StoredThread): ChatThread {
   return {
     id: thread.id,
     messages: [],
@@ -167,15 +166,15 @@ export async function toggleThreadPin(threadId: string, isPinned: boolean): Prom
 }
 
 export async function removeThreadFromFolder(threadId: string): Promise<void> {
-  await window.arc.folders.moveToRoot({ threadId })
+  await window.arc.threads.moveToRoot({ threadId })
 }
 
 export async function moveThreadToFolder(threadId: string, folderId: string): Promise<void> {
-  await window.arc.folders.moveThread({ threadId, folderId })
+  await window.arc.threads.moveToFolder({ threadId, folderId })
 }
 
 export async function createFolderWithThread(threadId: string): Promise<{ id: string }> {
-  const folder = await window.arc.folders.createWithThread({ threadId })
+  const folder = await window.arc.threads.createFolderWithThread({ threadId })
   return { id: folder.id }
 }
 

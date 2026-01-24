@@ -1,5 +1,5 @@
 import { useEffect, useCallback, type RefObject } from 'react'
-import type { PromptSource } from '@contracts/messages'
+import type { PromptSource } from '@main/modules/messages/business'
 import type { Persona } from '@contracts/personas'
 import type { InputMode, DisplayMessage } from '@renderer/lib/types'
 import type { ComposerRef } from '@renderer/components/composer'

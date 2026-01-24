@@ -5,9 +5,8 @@
  * These are NOT part of request-response contracts.
  */
 
-import type { Thread } from './threads'
+import type { StoredThread, StoredMessageEvent } from '@main/modules/messages/business'
 import type { Persona } from './personas'
-import type { Message } from './messages'
 import type { ProfileInstallResult } from './profiles'
 
 // ============================================================================
@@ -16,8 +15,8 @@ import type { ProfileInstallResult } from './profiles'
 
 /** Thread lifecycle events */
 export type ThreadEvent =
-  | { type: 'created'; thread: Thread }
-  | { type: 'updated'; thread: Thread }
+  | { type: 'created'; thread: StoredThread }
+  | { type: 'updated'; thread: StoredThread }
   | { type: 'deleted'; id: string }
 
 /** Persona lifecycle events */
@@ -36,7 +35,7 @@ export type ProfilesEvent =
 export type AIStreamEvent =
   | { type: 'delta'; streamId: string; chunk: string }
   | { type: 'reasoning'; streamId: string; chunk: string }
-  | { type: 'complete'; streamId: string; message: Message | null }
+  | { type: 'complete'; streamId: string; message: StoredMessageEvent | null }
   | { type: 'error'; streamId: string; error: string }
 
 /** Cleanup function returned by event subscriptions */

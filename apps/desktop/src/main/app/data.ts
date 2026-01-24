@@ -1,14 +1,10 @@
 /**
- * Data IPC Handlers
+ * Profile IPC Handlers
  *
- * Orchestration layer for messages and profiles.
- * Thread/folder handlers are in app/threads.ts.
+ * Orchestration layer for profile management.
  */
 
 import type { IpcMain } from 'electron'
-import type { StoredThread } from '@boundary/messages'
-import { threadStorage } from '@boundary/messages'
-import { appendMessage, readMessages } from '@main/lib/messages/operations'
 import {
   installProfile,
   uninstallProfile,
@@ -23,18 +19,7 @@ import type { ProfilesEvent } from '@contracts/events'
 import { syncModels } from '@main/lib/profile/models'
 import { info } from '@main/foundation/logger'
 import { broadcast, registerHandlers } from '@main/kernel/ipc'
-import { messagesContract } from '@contracts/messages'
 import { profilesContract } from '@contracts/profiles'
-
-// ============================================================================
-// THREAD EVENTS (for message creation side effect)
-// ============================================================================
-
-type ThreadEvent = { type: 'created'; thread: StoredThread }
-
-function emitThread(event: ThreadEvent): void {
-  broadcast('arc:threads:event', event)
-}
 
 // ============================================================================
 // PROFILES HELPER
@@ -60,56 +45,7 @@ const emitProfile = (event: ProfilesEvent) => broadcast<ProfilesEvent>('arc:prof
 // REGISTRATION
 // ============================================================================
 
-export function registerDataHandlers(ipcMain: IpcMain): void {
-  // Messages
-  registerHandlers(ipcMain, messagesContract, {
-    list: async ({ threadId }) => readMessages(threadId),
-
-    create: async ({ threadId, input }) => {
-      const { message, threadCreated } = await appendMessage({
-        type: 'new',
-        threadId,
-        ...input,
-      })
-
-      if (threadCreated) {
-        const index = await threadStorage.read()
-        const thread = index.threads.find((t) => t.id === threadId)
-        if (thread) emitThread({ type: 'created', thread })
-      }
-
-      return message
-    },
-
-    createBranch: async ({ threadId, input }) => {
-      const { message } = await appendMessage({
-        type: 'new',
-        threadId,
-        role: 'user',
-        content: input.content,
-        parentId: input.parentId,
-        attachments: input.attachments,
-        modelId: input.modelId,
-        providerId: input.providerId,
-        threadConfig: input.threadConfig,
-      })
-
-      const { branchPoints } = await readMessages(threadId)
-      return { message, branchPoints }
-    },
-
-    update: async ({ threadId, messageId, input }) => {
-      const { message } = await appendMessage({
-        type: 'edit',
-        threadId,
-        messageId,
-        ...input,
-      })
-      return message
-    },
-  })
-
-  // Profiles
+export function registerProfileHandlers(ipcMain: IpcMain): void {
   registerHandlers(ipcMain, profilesContract, {
     list: async () => listProfiles(),
 
