@@ -39,6 +39,12 @@ export interface ActiveProfileDetails {
 // CONTRACT
 // ============================================================================
 
+export interface ProviderConfig {
+  type: string
+  apiKey: string | null
+  baseUrl: string | null
+}
+
 export const profilesContract = contract('profiles', {
   /** List installed profiles */
   list: op(z.void(), [] as ProfileInfo[]),
@@ -60,4 +66,7 @@ export const profilesContract = contract('profiles', {
 
   /** Get active profile details */
   getActiveDetails: op(z.void(), returns<ActiveProfileDetails | null>()),
+
+  /** Get provider config by stable ID */
+  getProviderConfig: op(z.object({ providerId: z.string() }), returns<ProviderConfig>()),
 })

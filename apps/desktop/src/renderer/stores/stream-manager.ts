@@ -1,7 +1,26 @@
 import type { Message } from '@renderer/lib/messages'
-import { onAIEvent, stopAIChat, transformMessage } from '@renderer/lib/messages'
+import {
+  onAIDelta,
+  onAIReasoning,
+  onAIComplete,
+  onAIError,
+  stopAIChat,
+  createMessage,
+  type AICompleteData,
+} from '@renderer/lib/messages'
 import { error as logError } from '@renderer/lib/logger'
 import { useChatUIStore } from './chat-ui-store'
+
+/**
+ * Stream context tracked per stream for completion handling
+ */
+interface StreamRegistration {
+  threadId: string
+  modelId: string
+  providerId: string
+  parentId: string | null
+  onComplete: (message: Message) => void
+}
 
 /**
  * Stream Manager - Global stream subscription handler
@@ -11,15 +30,15 @@ import { useChatUIStore } from './chat-ui-store'
  * - New model: Single global subscription routes events to store by streamId→threadId
  *
  * Stream continues regardless of which thread is visible.
+ * On completion, persists the assistant message via messages module.
  */
 class StreamManager {
-  private streamToThread: Map<string, string> = new Map()
-  private streamCallbacks: Map<string, (message: Message) => void> = new Map()
-  private unsubscribe: (() => void) | null = null
+  private streams: Map<string, StreamRegistration> = new Map()
+  private unsubscribes: (() => void)[] = []
   private initialized = false
 
   /**
-   * Initialize the global stream subscription
+   * Initialize the global stream subscriptions
    *
    * Call once on app startup (e.g., in workbench.tsx).
    * Safe to call multiple times - will only subscribe once.
@@ -28,57 +47,78 @@ class StreamManager {
     if (this.initialized) return
     this.initialized = true
 
-    this.unsubscribe = onAIEvent((event) => {
-      const threadId = this.streamToThread.get(event.streamId)
-      if (!threadId) return
+    this.unsubscribes.push(
+      onAIDelta(({ streamId, chunk }) => {
+        const reg = this.streams.get(streamId)
+        if (!reg) return
+        useChatUIStore.getState().applyDelta(reg.threadId, chunk)
+      }),
 
-      switch (event.type) {
-        case 'delta':
-          useChatUIStore.getState().applyDelta(threadId, event.chunk)
-          break
+      onAIReasoning(({ streamId, chunk }) => {
+        const reg = this.streams.get(streamId)
+        if (!reg) return
+        useChatUIStore.getState().applyReasoning(reg.threadId, chunk)
+      }),
 
-        case 'reasoning':
-          useChatUIStore.getState().applyReasoning(threadId, event.chunk)
-          break
+      onAIComplete((data) => {
+        const reg = this.streams.get(data.streamId)
+        if (!reg) return
 
-        case 'complete': {
-          useChatUIStore.getState().completeStream(threadId)
+        useChatUIStore.getState().completeStream(reg.threadId)
+        this.persistAndCallback(data, reg)
+        this.streams.delete(data.streamId)
+      }),
 
-          // Call the completion callback to add message to tree
-          const callback = this.streamCallbacks.get(event.streamId)
-          if (callback && event.message) {
-            // Transform stored message to UI message
-            callback(transformMessage(event.message, threadId))
-            this.streamCallbacks.delete(event.streamId)
-          }
+      onAIError(({ streamId, error }) => {
+        const reg = this.streams.get(streamId)
+        if (!reg) return
 
-          this.streamToThread.delete(event.streamId)
-          break
-        }
+        logError('stream-manager', `Stream error: ${error}`)
+        useChatUIStore.getState().failStream(reg.threadId, error)
+        this.streams.delete(streamId)
+      }),
+    )
+  }
 
-        case 'error':
-          logError('stream-manager', `Stream error: ${event.error}`)
-          useChatUIStore.getState().failStream(threadId, event.error)
-          this.streamToThread.delete(event.streamId)
-          this.streamCallbacks.delete(event.streamId)
-          break
-      }
-    })
+  /**
+   * Persist the completed assistant message and invoke callback
+   */
+  private async persistAndCallback(data: AICompleteData, reg: StreamRegistration) {
+    try {
+      const message = await createMessage(
+        reg.threadId,
+        'assistant',
+        data.content,
+        reg.parentId,
+        reg.modelId,
+        reg.providerId,
+        undefined, // no attachments for assistant
+        undefined, // no thread config
+        data.reasoning || undefined,
+        data.usage,
+      )
+      reg.onComplete(message)
+    } catch (err) {
+      logError('stream-manager', 'Failed to persist assistant message', err as Error)
+      useChatUIStore.getState().failStream(reg.threadId, 'Failed to save response')
+    }
   }
 
   /**
    * Register a new stream
    *
-   * Called when starting a stream. Maps streamId to threadId so events
-   * can be routed to the correct thread state.
-   *
-   * @param streamId - The stream ID returned from startAIChat
-   * @param threadId - The thread this stream belongs to
-   * @param onComplete - Callback to add the completed message to the tree
+   * Called when starting a stream. Maps streamId to context so events
+   * can be routed and completion can persist the message.
    */
-  registerStream(streamId: string, threadId: string, onComplete: (message: Message) => void) {
-    this.streamToThread.set(streamId, threadId)
-    this.streamCallbacks.set(streamId, onComplete)
+  registerStream(
+    streamId: string,
+    threadId: string,
+    modelId: string,
+    providerId: string,
+    parentId: string | null,
+    onComplete: (message: Message) => void,
+  ) {
+    this.streams.set(streamId, { threadId, modelId, providerId, parentId, onComplete })
     useChatUIStore.getState().startStream(threadId, streamId)
   }
 
@@ -96,8 +136,7 @@ class StreamManager {
     stopAIChat(streamId)
     useChatUIStore.getState().resetStream(threadId)
 
-    this.streamToThread.delete(streamId)
-    this.streamCallbacks.delete(streamId)
+    this.streams.delete(streamId)
   }
 
   /**
@@ -123,12 +162,11 @@ class StreamManager {
    * Cleanup - called on app shutdown
    */
   destroy() {
-    if (this.unsubscribe) {
-      this.unsubscribe()
-      this.unsubscribe = null
+    for (const unsub of this.unsubscribes) {
+      unsub()
     }
-    this.streamToThread.clear()
-    this.streamCallbacks.clear()
+    this.unsubscribes = []
+    this.streams.clear()
     this.initialized = false
   }
 }

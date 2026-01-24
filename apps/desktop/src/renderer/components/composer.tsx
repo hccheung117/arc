@@ -5,7 +5,7 @@ import { ImagePlus, Send, Square, Pencil, Sparkles, Wand2, Save, Loader2 } from 
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import type { AttachmentInput } from '@main/modules/messages/business'
 import { useComposerStore } from '@renderer/hooks/use-composer-store'
-import { startRefine, stopAIChat, onAIEvent } from '@renderer/lib/messages'
+import { startRefine, stopAIChat, onAIDelta, onAIComplete, onAIError } from '@renderer/lib/messages'
 import { AttachmentGrid } from './composer-attachments'
 
 /*
@@ -185,7 +185,14 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(
       const original = message
 
       try {
-        const { streamId } = await startRefine(original, refineModel)
+        // Resolve provider config for the refine model
+        const modelsList = await window.arc.models.list()
+        const model = modelsList.find((m) => m.id === refineModel)
+        if (!model) throw new Error(`Model ${refineModel} not found`)
+        const providerConfig = await window.arc.profiles.getProviderConfig({ providerId: model.provider.id })
+        const provider = { baseURL: providerConfig.baseUrl ?? undefined, apiKey: providerConfig.apiKey ?? undefined }
+
+        const { streamId } = await startRefine(original, refineModel, provider)
         setRefineState({ status: 'refining', streamId, original })
       } catch {
         setMessage(original)
@@ -207,25 +214,30 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(
       if (refineState.status !== 'refining') return
 
       refineBufferRef.current = ''
-      const unsubscribe = onAIEvent((event) => {
-        if (event.streamId !== refineState.streamId) return
+      const streamId = refineState.streamId
 
-        switch (event.type) {
-          case 'delta':
-            refineBufferRef.current += event.chunk
-            setMessage(refineBufferRef.current)
-            break
-          case 'complete':
-            setRefineState({ status: 'idle' })
-            break
-          case 'error':
-            setMessage(refineState.original)
-            setRefineState({ status: 'idle' })
-            break
-        }
+      const unsubDelta = onAIDelta((data) => {
+        if (data.streamId !== streamId) return
+        refineBufferRef.current += data.chunk
+        setMessage(refineBufferRef.current)
       })
 
-      return unsubscribe
+      const unsubComplete = onAIComplete((data) => {
+        if (data.streamId !== streamId) return
+        setRefineState({ status: 'idle' })
+      })
+
+      const unsubError = onAIError((data) => {
+        if (data.streamId !== streamId) return
+        setMessage(refineState.original)
+        setRefineState({ status: 'idle' })
+      })
+
+      return () => {
+        unsubDelta()
+        unsubComplete()
+        unsubError()
+      }
     }, [refineState, setMessage])
 
     const canSend = (message.trim() || hasAttachments || allowEmptySubmit) && !isStreaming && !isSystemPromptProtected && !isRefining

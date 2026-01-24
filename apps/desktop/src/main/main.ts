@@ -29,11 +29,12 @@ import path from 'node:path'
 import started from 'electron-squirrel-startup'
 import { buildAppMenu } from './menu'
 import { registerProfileHandlers } from '@main/app/data'
-import { registerAIHandlers } from '@main/app/ai'
 import { registerSystemHandlers } from '@main/app/system'
 import { registerPersonaHandlers } from '@main/app/personas'
 import { initApp, handleProfileFileOpen } from '@main/app/lifecycle'
 import { createKernel } from '@main/kernel/boot'
+import aiModule from '@main/modules/ai/mod'
+import aiLoggerAdapter from '@main/modules/ai/logger'
 import uiModule from '@main/modules/ui/mod'
 import uiJsonFileAdapter from '@main/modules/ui/json-file'
 import messagesModule from '@main/modules/messages/mod'
@@ -51,6 +52,9 @@ import { createBinaryFile } from '@main/foundation/binary-file'
 import { createArchive } from '@main/foundation/archive'
 import { createGlob } from '@main/foundation/glob'
 import { getDataDir } from '@main/kernel/paths.tmp'
+import { registerHandlers } from '@main/kernel/ipc'
+import { modelsContract } from '@contracts/models'
+import { listModels } from '@main/lib/profile/models'
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -76,6 +80,10 @@ const kernel = createKernel({
 })
 
 // Register modules with adapters
+kernel.register('ai', aiModule, {
+  logger: aiLoggerAdapter,
+})
+
 kernel.register('ui', uiModule, {
   jsonFile: uiJsonFileAdapter,
 })
@@ -168,11 +176,9 @@ app.on('ready', async () => {
   const size = await readWindowState()
   createWindow(size)
   registerProfileHandlers(ipcMain)
-  // Messages + threads + UI handlers auto-registered via kernel.boot()
-  registerAIHandlers(ipcMain, {
-    messages: kernel.getModule('messages')!,
-    threads: kernel.getModule('threads')!,
-  })
+  // Messages + threads + UI + AI handlers auto-registered via kernel.boot()
+  // Temporary bridge: models.list stays here until profiles module owns it (Round 3.7)
+  registerHandlers(ipcMain, modelsContract, { list: async () => listModels() })
   registerSystemHandlers(ipcMain)
   registerPersonaHandlers(ipcMain)
   initApp(updater)

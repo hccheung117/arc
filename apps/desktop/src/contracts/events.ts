@@ -5,7 +5,6 @@
  * These are NOT part of request-response contracts.
  */
 
-import type { StoredMessageEvent } from '@main/modules/messages/business'
 import type { StoredThread } from '@main/modules/threads/json-file'
 import type { Persona } from './personas'
 import type { ProfileInstallResult } from './profiles'
@@ -36,8 +35,15 @@ export type ProfilesEvent =
 export type AIStreamEvent =
   | { type: 'delta'; streamId: string; chunk: string }
   | { type: 'reasoning'; streamId: string; chunk: string }
-  | { type: 'complete'; streamId: string; message: StoredMessageEvent | null }
+  | { type: 'complete'; streamId: string; content: string; reasoning: string; usage: AIUsage }
   | { type: 'error'; streamId: string; error: string }
+
+export interface AIUsage {
+  inputTokens: number
+  outputTokens: number
+  totalTokens: number
+  reasoningTokens?: number
+}
 
 /** Cleanup function returned by event subscriptions */
 export type Unsubscribe = () => void
