@@ -45,6 +45,8 @@ import threadsModule from '@main/modules/threads/mod'
 import threadsJsonFileAdapter from '@main/modules/threads/json-file'
 import threadsJsonLogAdapter from '@main/modules/threads/json-log'
 import threadsLoggerAdapter from '@main/modules/threads/logger'
+import updaterModule from '@main/modules/updater/mod'
+import updaterLoggerAdapter from '@main/modules/updater/logger'
 import { createJsonFile } from '@main/foundation/json-file'
 import { createLogger } from '@main/foundation/logger'
 import { createJsonLog } from '@main/foundation/json-log'
@@ -92,6 +94,10 @@ kernel.register('threads', threadsModule, {
   logger: threadsLoggerAdapter,
 })
 
+kernel.register('updater', updaterModule, {
+  logger: updaterLoggerAdapter,
+})
+
 // Boot kernel (instantiates modules, registers IPC)
 kernel.boot()
 
@@ -103,6 +109,9 @@ type UiApi = {
 }
 const ui = kernel.getModule<UiApi>('ui')!
 const { readWindowState, trackWindowState, setupEditableContextMenu } = ui
+
+type UpdaterApi = { init: (intervalMinutes?: number) => void }
+const updater = kernel.getModule<UpdaterApi>('updater')!
 
 // ─────────────────────────────────────────────────────────────────
 // Config builders (pure)
@@ -165,7 +174,7 @@ app.on('ready', async () => {
   registerAIHandlers(ipcMain)
   registerSystemHandlers(ipcMain)
   registerPersonaHandlers(ipcMain)
-  initApp()
+  initApp(updater)
 })
 
 app.on('activate', async () => {
