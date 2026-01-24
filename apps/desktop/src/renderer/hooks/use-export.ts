@@ -1,24 +1,11 @@
 import { useCallback } from 'react'
-import type { DisplayMessage } from '@renderer/lib/types'
-import { formatMessagesToMarkdown, generateExportFilename } from '@renderer/lib/export'
 
 /**
  * Provides export functionality for chat messages.
- *
- * Shows a save dialog first, then generates markdown only if user confirms.
+ * Delegates to messages module which handles formatting, dialog, and file write.
  */
-export function useExport(messages: DisplayMessage[]) {
+export function useExport(threadId: string) {
   return useCallback(async () => {
-    const msgs = messages.map((dm) => dm.message)
-    if (msgs.length === 0) return
-
-    const filePath = await window.arc.files.showSaveDialog({
-      defaultPath: generateExportFilename(),
-      filters: [{ name: 'Markdown', extensions: ['md'] }],
-    })
-
-    if (filePath) {
-      await window.arc.files.writeFile({ filePath, content: formatMessagesToMarkdown(msgs) })
-    }
-  }, [messages])
+    await window.arc.messages.export({ threadId })
+  }, [threadId])
 }

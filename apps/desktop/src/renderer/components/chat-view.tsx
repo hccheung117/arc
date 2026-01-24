@@ -127,7 +127,7 @@ export function ChatView({ thread, models, findPersona, onThreadUpdate }: ChatVi
   )
 
   // Export
-  const handleExport = useExport(view.messages)
+  const handleExport = useExport(thread.id)
 
   // Simple handlers
   const handleEditMessage = useCallback(

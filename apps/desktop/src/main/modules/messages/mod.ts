@@ -8,6 +8,7 @@
 import { defineModule } from '@main/kernel/module'
 import type jsonLogAdapter from './json-log'
 import type binaryFileAdapter from './binary-file'
+import type markdownFileAdapter from './markdown-file'
 import type loggerAdapter from './logger'
 import {
   appendMessage,
@@ -20,11 +21,12 @@ import {
 type Caps = {
   jsonLog: ReturnType<typeof jsonLogAdapter.factory>
   binaryFile: ReturnType<typeof binaryFileAdapter.factory>
+  markdownFile: ReturnType<typeof markdownFileAdapter.factory>
   logger: ReturnType<typeof loggerAdapter.factory>
 }
 
 export default defineModule({
-  capabilities: ['jsonLog', 'binaryFile', 'logger'] as const,
+  capabilities: ['jsonLog', 'binaryFile', 'markdownFile', 'logger'] as const,
   depends: [] as const,
   provides: (_deps, caps: Caps) => ({
     list: (input: { threadId: string }) =>
@@ -50,6 +52,14 @@ export default defineModule({
 
     readAttachment: (input: { threadId: string; filename: string }) =>
       caps.binaryFile.read(input.threadId, input.filename),
+
+    getAttachmentPath: (input: { threadId: string; filename: string }) =>
+      caps.binaryFile.getAbsolutePath(input.threadId, input.filename),
+
+    export: async (input: { threadId: string }) => {
+      const { messages } = await readMessages(caps.jsonLog, input.threadId)
+      return caps.markdownFile.exportChat(messages)
+    },
   }),
   emits: [] as const,
   paths: ['app/messages/'],

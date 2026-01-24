@@ -30,6 +30,8 @@ import started from 'electron-squirrel-startup'
 import { buildAppMenu } from './menu'
 import { registerSystemHandlers } from '@main/app/system'
 import { createKernel } from '@main/kernel/boot'
+import settingsModule from '@main/modules/settings/mod'
+import settingsJsonFileAdapter from '@main/modules/settings/json-file'
 import aiModule from '@main/modules/ai/mod'
 import aiLoggerAdapter from '@main/modules/ai/logger'
 import uiModule from '@main/modules/ui/mod'
@@ -37,6 +39,7 @@ import uiJsonFileAdapter from '@main/modules/ui/json-file'
 import messagesModule from '@main/modules/messages/mod'
 import messagesJsonLogAdapter from '@main/modules/messages/json-log'
 import messagesBinaryFileAdapter from '@main/modules/messages/binary-file'
+import messagesMarkdownFileAdapter from '@main/modules/messages/markdown-file'
 import messagesLoggerAdapter from '@main/modules/messages/logger'
 import threadsModule from '@main/modules/threads/mod'
 import threadsJsonFileAdapter from '@main/modules/threads/json-file'
@@ -60,7 +63,6 @@ import { createBinaryFile } from '@main/foundation/binary-file'
 import { createMarkdownFile } from '@main/foundation/markdown-file'
 import { createArchive } from '@main/foundation/archive'
 import { createGlob } from '@main/foundation/glob'
-import { getDataDir } from '@main/kernel/paths.tmp'
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -71,7 +73,7 @@ if (started) {
 // Kernel initialization
 // ─────────────────────────────────────────────────────────────────
 
-const dataDir = getDataDir()
+const dataDir = path.join(app.getPath('userData'), 'arcfs')
 const kernel = createKernel({
   ipcMain,
   dataDir,
@@ -87,6 +89,10 @@ const kernel = createKernel({
 })
 
 // Register modules with adapters
+kernel.register('settings', settingsModule, {
+  jsonFile: settingsJsonFileAdapter,
+})
+
 kernel.register('ai', aiModule, {
   logger: aiLoggerAdapter,
 })
@@ -98,6 +104,7 @@ kernel.register('ui', uiModule, {
 kernel.register('messages', messagesModule, {
   jsonLog: messagesJsonLogAdapter,
   binaryFile: messagesBinaryFileAdapter,
+  markdownFile: messagesMarkdownFileAdapter,
   logger: messagesLoggerAdapter,
 })
 

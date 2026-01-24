@@ -11,7 +11,6 @@ import { createClient } from '@main/kernel/ipc'
 import { settingsContract } from '@contracts/settings'
 import { uiContract } from '@contracts/ui'
 import { utilsContract } from '@contracts/utils'
-import { filesContract } from '@contracts/files'
 import type { StoredMessageEvent, BranchInfo } from '@main/modules/messages/business'
 import type { StoredThread, PromptSource } from '@main/modules/threads/json-file'
 import type { Unsubscribe, AIUsage } from '@contracts/events'
@@ -27,7 +26,6 @@ import type { StreamInput, RefineInput, FetchModelsInput } from '@main/modules/a
 const settings = createClient(ipcRenderer, settingsContract)
 const ui = createClient(ipcRenderer, uiContract)
 const utils = createClient(ipcRenderer, utilsContract)
-const files = createClient(ipcRenderer, filesContract)
 
 // Module-based AI client (IPC channels derived from module name + operation keys)
 const ai = {
@@ -152,6 +150,12 @@ const messages = {
 
   readAttachment: (input: { threadId: string; filename: string }): Promise<Buffer | null> =>
     ipcRenderer.invoke('arc:messages:readAttachment', input),
+
+  export: (input: { threadId: string }): Promise<string | null> =>
+    ipcRenderer.invoke('arc:messages:export', input),
+
+  getAttachmentPath: (input: { threadId: string; filename: string }): Promise<string> =>
+    ipcRenderer.invoke('arc:messages:getAttachmentPath', input),
 }
 
 type ThreadPatch = {
@@ -260,7 +264,6 @@ export interface ArcAPI {
   log: {
     error(tag: string, message: string, stack?: string): void
   }
-  files: typeof files
 }
 
 const arcAPI: ArcAPI = {
@@ -304,7 +307,6 @@ const arcAPI: ArcAPI = {
       ipcRenderer.send('arc:log:error', tag, message, stack),
   },
 
-  files,
 }
 
 contextBridge.exposeInMainWorld('arc', arcAPI)
