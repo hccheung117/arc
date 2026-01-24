@@ -1,31 +1,13 @@
 /**
  * Threads Business Logic
  *
- * Single source of truth for thread hierarchy operations.
- * Absorbs lib/messages/commands, lib/messages/threads, lib/messages/tree.
- * Uses deps.messages for data operations (delete, duplicate).
+ * Pure domain logic for thread hierarchy operations.
+ * Zero knowledge of persistence format, paths, or Foundation.
+ * Receives storage capability as parameter.
  */
 
 import { createId } from '@paralleldrive/cuid2'
 import type { StoredThread, StoredThreadIndex, PromptSource } from './json-file'
-// eslint-disable-next-line no-restricted-imports -- Temporary: schema for storage instance until full cap-based migration
-import { StoredThreadIndexSchema } from './json-file'
-// eslint-disable-next-line no-restricted-imports -- Temporary: storage instance until full cap-based migration
-import { JsonFile } from '@main/foundation/json-file'
-import { getThreadIndexPath } from '@main/kernel/paths.tmp'
-
-// ============================================================================
-// STORAGE
-// ============================================================================
-
-const threadIndexFile = () =>
-  new JsonFile<StoredThreadIndex>(getThreadIndexPath(), { threads: [] }, StoredThreadIndexSchema)
-
-const threadStorage = {
-  read: () => threadIndexFile().read(),
-  write: (data: StoredThreadIndex) => threadIndexFile().write(data),
-  update: (updater: (data: StoredThreadIndex) => StoredThreadIndex) => threadIndexFile().update(updater),
-}
 
 // ============================================================================
 // TYPES
@@ -47,9 +29,15 @@ export type Effect<T> = {
   events: ThreadEvent[]
 }
 
-type MessagesDep = {
+export type MessagesDep = {
   deleteData: (input: { threadId: string }) => Promise<void>
   duplicateData: (input: { sourceId: string; targetId: string; upToMessageId?: string }) => Promise<void>
+}
+
+export type ThreadStorage = {
+  read: () => Promise<StoredThreadIndex>
+  write: (data: StoredThreadIndex) => Promise<void>
+  update: (updater: (data: StoredThreadIndex) => StoredThreadIndex) => Promise<void>
 }
 
 // ============================================================================
@@ -157,8 +145,8 @@ const removeThread =
 // QUERIES
 // ============================================================================
 
-export async function listThreads(): Promise<StoredThread[]> {
-  const { threads } = await threadStorage.read()
+export async function listThreads(storage: ThreadStorage): Promise<StoredThread[]> {
+  const { threads } = await storage.read()
   return [...threads].sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
   )
@@ -169,21 +157,23 @@ export async function listThreads(): Promise<StoredThread[]> {
 // ============================================================================
 
 export async function executeDelete(
+  storage: ThreadStorage,
   messages: MessagesDep,
   threadId: string,
 ): Promise<Effect<void>> {
-  await threadStorage.update(removeThread(threadId))
+  await storage.update(removeThread(threadId))
   await messages.deleteData({ threadId })
   return { result: undefined, events: [{ type: 'deleted', id: threadId }] }
 }
 
 export async function executeUpdate(
+  storage: ThreadStorage,
   threadId: string,
   patch: ThreadPatch,
 ): Promise<Effect<StoredThread>> {
   let result: StoredThread | undefined
 
-  await threadStorage.update((index) => {
+  await storage.update((index) => {
     const thread = findById(index.threads, threadId)
     if (!thread) throw new Error(`Thread not found: ${threadId}`)
 
@@ -200,6 +190,7 @@ export async function executeUpdate(
 }
 
 export async function executeDuplicate(
+  storage: ThreadStorage,
   messages: MessagesDep,
   threadId: string,
   upToMessageId?: string,
@@ -207,7 +198,7 @@ export async function executeDuplicate(
   let duplicate: StoredThread | undefined
   let parentFolder: StoredThread | undefined
 
-  await threadStorage.update((index) => {
+  await storage.update((index) => {
     const source = findById(index.threads, threadId)
     if (!source) throw new Error(`Thread not found: ${threadId}`)
 
@@ -252,12 +243,13 @@ export async function executeDuplicate(
 // ============================================================================
 
 export async function executeCreateFolder(
+  storage: ThreadStorage,
   name: string,
   threadIds: [string, string],
 ): Promise<Effect<StoredThread>> {
   let folder: StoredThread | undefined
 
-  await threadStorage.update((index) => {
+  await storage.update((index) => {
     const [t1, after1] = extract(index.threads, threadIds[0])
     if (!t1) throw new Error(`Thread not found: ${threadIds[0]}`)
 
@@ -287,11 +279,12 @@ export async function executeCreateFolder(
 }
 
 export async function executeCreateFolderWithThread(
+  storage: ThreadStorage,
   threadId: string,
 ): Promise<Effect<StoredThread>> {
   let folder: StoredThread | undefined
 
-  await threadStorage.update((index) => {
+  await storage.update((index) => {
     const [thread, remaining] = extract(index.threads, threadId)
     if (!thread) throw new Error(`Thread not found: ${threadId}`)
 
@@ -319,13 +312,14 @@ export async function executeCreateFolderWithThread(
 }
 
 export async function executeMoveToFolder(
+  storage: ThreadStorage,
   threadId: string,
   folderId: string,
 ): Promise<Effect<StoredThread | undefined>> {
   let targetFolder: StoredThread | undefined
   let sourceFolder: StoredThread | undefined
 
-  await threadStorage.update((index) => {
+  await storage.update((index) => {
     if (!findById(index.threads, folderId)) {
       throw new Error(`Folder not found: ${folderId}`)
     }
@@ -354,7 +348,7 @@ export async function executeMoveToFolder(
 
   if (sourceFolder) {
     if (sourceFolder.children.length === 0) {
-      await threadStorage.update(removeThread(sourceFolder.id))
+      await storage.update(removeThread(sourceFolder.id))
       events.push({ type: 'deleted', id: sourceFolder.id })
     } else {
       events.push({ type: 'updated', thread: sourceFolder })
@@ -369,12 +363,13 @@ export async function executeMoveToFolder(
 }
 
 export async function executeMoveToRoot(
+  storage: ThreadStorage,
   threadId: string,
 ): Promise<Effect<StoredThread | undefined>> {
   let moved: StoredThread | undefined
   let updatedParent: StoredThread | undefined
 
-  await threadStorage.update((index) => {
+  await storage.update((index) => {
     const parent = parentOf(index.threads, threadId)
     if (!parent) return index
 
@@ -393,7 +388,7 @@ export async function executeMoveToRoot(
   const events: ThreadEvent[] = []
 
   if (updatedParent.children.length === 0) {
-    await threadStorage.update(removeThread(updatedParent.id))
+    await storage.update(removeThread(updatedParent.id))
     events.push({ type: 'deleted', id: updatedParent.id })
   } else {
     events.push({ type: 'updated', thread: updatedParent })
@@ -405,12 +400,13 @@ export async function executeMoveToRoot(
 }
 
 export async function executeReorderInFolder(
+  storage: ThreadStorage,
   folderId: string,
   orderedIds: string[],
 ): Promise<Effect<StoredThread | undefined>> {
   let updatedFolder: StoredThread | undefined
 
-  await threadStorage.update((index) => {
+  await storage.update((index) => {
     const folder = findById(index.threads, folderId)
     if (!folder) throw new Error(`Folder not found: ${folderId}`)
 

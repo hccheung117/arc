@@ -61,6 +61,12 @@ export type ThreadConfig = {
 
 const DEFAULT_INDEX: StoredThreadIndex = { threads: [] }
 
-export default defineCapability((jsonFile: ScopedJsonFile) => ({
-  threadIndex: jsonFile.create('app/messages/index.json', DEFAULT_INDEX, StoredThreadIndexSchema),
-}))
+export default defineCapability((jsonFile: ScopedJsonFile) => {
+  const index = jsonFile.create('app/messages/index.json', DEFAULT_INDEX, StoredThreadIndexSchema)
+
+  return {
+    read: () => index.read(),
+    write: (data: StoredThreadIndex) => index.write(data),
+    update: (updater: (data: StoredThreadIndex) => StoredThreadIndex) => index.update(updater),
+  }
+})

@@ -42,8 +42,6 @@ import messagesBinaryFileAdapter from '@main/modules/messages/binary-file'
 import messagesLoggerAdapter from '@main/modules/messages/logger'
 import threadsModule from '@main/modules/threads/mod'
 import threadsJsonFileAdapter from '@main/modules/threads/json-file'
-import threadsJsonLogAdapter from '@main/modules/threads/json-log'
-import threadsLoggerAdapter from '@main/modules/threads/logger'
 import updaterModule from '@main/modules/updater/mod'
 import updaterLoggerAdapter from '@main/modules/updater/logger'
 import { createJsonFile } from '@main/foundation/json-file'
@@ -90,8 +88,6 @@ kernel.register('messages', messagesModule, {
 
 kernel.register('threads', threadsModule, {
   jsonFile: threadsJsonFileAdapter,
-  jsonLog: threadsJsonLogAdapter,
-  logger: threadsLoggerAdapter,
 })
 
 kernel.register('updater', updaterModule, {
