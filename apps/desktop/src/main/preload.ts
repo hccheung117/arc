@@ -12,13 +12,13 @@ import { personasContract } from '@contracts/personas'
 import { profilesContract } from '@contracts/profiles'
 import { settingsContract } from '@contracts/settings'
 import { modelsContract } from '@contracts/models'
-import { aiContract } from '@contracts/ai'
 import { uiContract } from '@contracts/ui'
 import { utilsContract } from '@contracts/utils'
 import { filesContract } from '@contracts/files'
 import type { StoredMessageEvent, BranchInfo } from '@main/modules/messages/business'
 import type { StoredThread } from '@main/modules/threads/json-file'
-import type { PersonasEvent, ProfilesEvent, AIStreamEvent, Unsubscribe } from '@contracts/events'
+import type { PersonasEvent, ProfilesEvent, Unsubscribe, AIUsage } from '@contracts/events'
+import type { StreamInput, RefineInput, FetchModelsInput } from '@main/modules/ai/business'
 
 // ============================================================================
 // CONTRACT-GENERATED CLIENTS
@@ -28,10 +28,24 @@ const personas = createClient(ipcRenderer, personasContract)
 const profiles = createClient(ipcRenderer, profilesContract)
 const settings = createClient(ipcRenderer, settingsContract)
 const models = createClient(ipcRenderer, modelsContract)
-const ai = createClient(ipcRenderer, aiContract)
 const ui = createClient(ipcRenderer, uiContract)
 const utils = createClient(ipcRenderer, utilsContract)
 const files = createClient(ipcRenderer, filesContract)
+
+// Module-based AI client (IPC channels derived from module name + operation keys)
+const ai = {
+  stream: (input: StreamInput): Promise<{ streamId: string }> =>
+    ipcRenderer.invoke('arc:ai:stream', input),
+
+  stop: (input: { streamId: string }): Promise<void> =>
+    ipcRenderer.invoke('arc:ai:stop', input),
+
+  refine: (input: RefineInput): Promise<{ streamId: string }> =>
+    ipcRenderer.invoke('arc:ai:refine', input),
+
+  fetchModels: (input: FetchModelsInput): Promise<Array<{ id: string }>> =>
+    ipcRenderer.invoke('arc:ai:fetchModels', input),
+}
 
 // ============================================================================
 // MODULE-BASED CLIENTS (messages + threads)
@@ -45,6 +59,8 @@ type CreateMessageInput = {
   modelId: string
   providerId: string
   threadConfig?: { promptSource: { type: 'none' } | { type: 'direct'; content: string } | { type: 'persona'; personaId: string } }
+  reasoning?: string
+  usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number; reasoningTokens?: number }
 }
 
 type CreateBranchInput = {
@@ -76,6 +92,9 @@ const messages = {
 
   update: (input: { threadId: string; messageId: string; input: UpdateMessageInput }): Promise<StoredMessageEvent> =>
     ipcRenderer.invoke('arc:messages:update', input),
+
+  readAttachment: (input: { threadId: string; filename: string }): Promise<Buffer | null> =>
+    ipcRenderer.invoke('arc:messages:readAttachment', input),
 }
 
 type ThreadPatch = {
@@ -162,7 +181,10 @@ export interface ArcAPI {
   messages: typeof messages
   models: typeof models
   ai: typeof ai & {
-    onEvent(callback: (event: AIStreamEvent) => void): Unsubscribe
+    onDelta(callback: (data: { streamId: string; chunk: string }) => void): Unsubscribe
+    onReasoning(callback: (data: { streamId: string; chunk: string }) => void): Unsubscribe
+    onComplete(callback: (data: { streamId: string; content: string; reasoning: string; usage: AIUsage }) => void): Unsubscribe
+    onError(callback: (data: { streamId: string; error: string }) => void): Unsubscribe
   }
   settings: typeof settings
   ui: typeof ui
@@ -190,7 +212,10 @@ const arcAPI: ArcAPI = {
 
   ai: {
     ...ai,
-    onEvent: createEventSubscription<AIStreamEvent>('arc:ai:event'),
+    onDelta: createEventSubscription<{ streamId: string; chunk: string }>('arc:ai:delta'),
+    onReasoning: createEventSubscription<{ streamId: string; chunk: string }>('arc:ai:reasoning'),
+    onComplete: createEventSubscription<{ streamId: string; content: string; reasoning: string; usage: AIUsage }>('arc:ai:complete'),
+    onError: createEventSubscription<{ streamId: string; error: string }>('arc:ai:error'),
   },
 
   settings,

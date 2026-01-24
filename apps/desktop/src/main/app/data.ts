@@ -12,6 +12,7 @@ import {
   listProfiles,
   getActiveProfileId,
   getActiveProfile,
+  getProviderConfig,
   generateProviderId,
   mergeFavoriteModels,
 } from '@main/lib/profile/operations'
@@ -87,5 +88,7 @@ export function registerProfileHandlers(ipcMain: IpcMain): void {
         modelAssignments: profile.modelAssignments,
       }
     },
+
+    getProviderConfig: async ({ providerId }) => getProviderConfig(providerId),
   })
 }

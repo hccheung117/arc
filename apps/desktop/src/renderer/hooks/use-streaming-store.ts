@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import type { Message } from '@renderer/lib/messages'
-import { startAIChat } from '@renderer/lib/messages'
+import { prepareStreamContext, startAIStream } from '@renderer/lib/messages'
 import { useChatUIStore } from '@renderer/stores/chat-ui-store'
 import { streamManager } from '@renderer/stores/stream-manager'
 import { getStreamingMessage } from '@renderer/lib/stream-state'
@@ -27,6 +27,8 @@ interface UseStreamingStoreReturn {
  * Reads streaming state from the global store, delegates stream management
  * to the stream-manager. Stream continues even when switching tabs.
  *
+ * Orchestrates: gathers context → calls ai.stream → registers with manager.
+ *
  * @param threadId - The thread ID
  * @param parentId - Parent message ID for the streaming message display
  */
@@ -38,8 +40,19 @@ export function useStreamingStore(
 
   const start = useCallback(
     async (modelId: string, onComplete: (message: Message) => void) => {
-      const { streamId } = await startAIChat(threadId, modelId)
-      streamManager.registerStream(streamId, threadId, onComplete)
+      // Orchestration: gather all data from modules
+      const ctx = await prepareStreamContext(threadId, modelId)
+      // Call pure AI module with pre-gathered context
+      const { streamId } = await startAIStream(ctx)
+      // Register with stream manager for event routing and persistence
+      streamManager.registerStream(
+        streamId,
+        threadId,
+        modelId,
+        ctx.providerId,
+        ctx.parentId,
+        onComplete,
+      )
       return streamId
     },
     [threadId],
