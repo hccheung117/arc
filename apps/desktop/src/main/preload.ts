@@ -10,7 +10,7 @@ import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import { createClient } from '@main/kernel/ipc'
 import { personasContract } from '@contracts/personas'
 import { profilesContract } from '@contracts/profiles'
-import { settingsContract, type SettingsAPI } from '@contracts/settings'
+import { settingsContract } from '@contracts/settings'
 import { modelsContract } from '@contracts/models'
 import { aiContract } from '@contracts/ai'
 import { uiContract } from '@contracts/ui'
@@ -25,7 +25,7 @@ import type { PersonasEvent, ProfilesEvent, AIStreamEvent, Unsubscribe } from '@
 
 const personas = createClient(ipcRenderer, personasContract)
 const profiles = createClient(ipcRenderer, profilesContract)
-const settings = createClient(ipcRenderer, settingsContract) as SettingsAPI
+const settings = createClient(ipcRenderer, settingsContract)
 const models = createClient(ipcRenderer, modelsContract)
 const ai = createClient(ipcRenderer, aiContract)
 const ui = createClient(ipcRenderer, uiContract)
@@ -163,7 +163,7 @@ export interface ArcAPI {
   ai: typeof ai & {
     onEvent(callback: (event: AIStreamEvent) => void): Unsubscribe
   }
-  settings: SettingsAPI
+  settings: typeof settings
   ui: typeof ui
   personas: typeof personas & {
     onEvent(callback: (event: PersonasEvent) => void): Unsubscribe

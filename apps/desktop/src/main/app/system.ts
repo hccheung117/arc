@@ -16,8 +16,6 @@ import { settingsContract } from '@contracts/settings'
 import { utilsContract } from '@contracts/utils'
 import { filesContract } from '@contracts/files'
 import { createJsonFile } from '@main/foundation/json-file'
-import { getProviderConfig } from '@main/lib/profile/operations'
-import { createSettingsOperations } from '@main/modules/settings/business'
 import jsonFileAdapter from '@main/modules/settings/json-file'
 
 // ============================================================================
@@ -25,8 +23,7 @@ import jsonFileAdapter from '@main/modules/settings/json-file'
 // ============================================================================
 
 const scopedJsonFile = createJsonFile(getDataDir(), ['app/settings.json'])
-const adaptedJsonFile = jsonFileAdapter.factory(scopedJsonFile)
-const settingsApi = createSettingsOperations(adaptedJsonFile, { getProviderConfig })
+const settingsCap = jsonFileAdapter.factory(scopedJsonFile)
 
 // ============================================================================
 // LOGGING (one-way, uses ipcMain.on - not part of contracts)
@@ -45,8 +42,8 @@ function registerLoggingHandlers(ipcMain: IpcMain): void {
 export function registerSystemHandlers(ipcMain: IpcMain): void {
   // Settings
   registerHandlers(ipcMain, settingsContract, {
-    get: async ({ key }) => settingsApi.get(key),
-    set: async ({ key, value }) => settingsApi.set(key, value),
+    getFavorites: () => settingsCap.readFavorites(),
+    setFavorites: ({ favorites }) => settingsCap.writeFavorites(favorites),
   })
 
   // Utils
