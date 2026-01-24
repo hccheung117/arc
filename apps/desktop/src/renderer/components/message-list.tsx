@@ -1,5 +1,5 @@
 import type { Message as MessageType, MessageRole } from '@renderer/lib/messages'
-import type { BranchInfo } from '@contracts/messages'
+import type { BranchInfo } from '@main/modules/messages/business'
 import type { StreamingMessage } from '@renderer/lib/stream-state'
 import { ScrollArea } from '@renderer/components/ui/scroll-area'
 import { MessageProvider } from '@renderer/context/message-context'

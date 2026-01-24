@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react'
 import type { Message } from '@renderer/lib/messages'
-import type { BranchInfo, AttachmentInput, ThreadConfig } from '@contracts/messages'
+import type { BranchInfo, AttachmentInput, ThreadConfig } from '@main/modules/messages/business'
 import type { Model } from '@contracts/models'
 import { type ChatThread, type ThreadAction, extractThreadConfig } from '@renderer/lib/threads'
 import type { DisplayMessage, InputMode, EditingState, EditSource } from '@renderer/lib/types'

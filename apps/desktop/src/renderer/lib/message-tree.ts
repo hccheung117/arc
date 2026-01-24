@@ -1,5 +1,5 @@
 import type { Message } from '@renderer/lib/messages'
-import type { BranchInfo } from '@contracts/messages'
+import type { BranchInfo } from '@main/modules/messages/business'
 import type { BranchSelections, TreeResolution, DisplayMessage } from './types'
 
 /**

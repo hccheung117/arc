@@ -3,9 +3,9 @@ import type {
   AttachmentInput,
   ThreadConfig,
   BranchInfo,
-  Message as StoredMessage,
+  StoredMessageEvent,
   MessageRole,
-} from '@contracts/messages'
+} from '@main/modules/messages/business'
 import type { ChatResponse } from '@contracts/ai'
 
 // ============================================================================
@@ -65,7 +65,7 @@ export type { MessageRole }
  * IPC returns storage format (event sourcing, optional fields).
  * UI expects view model format (required fields, conversationId).
  */
-function toMessage(stored: StoredMessage, conversationId: string): Message {
+function toMessage(stored: StoredMessageEvent, conversationId: string): Message {
   return {
     id: stored.id,
     conversationId,
@@ -205,7 +205,7 @@ export async function startRefine(prompt: string, model: string): Promise<ChatRe
  * Exported for use by stream-manager when handling AIStreamEvent completion.
  * The threadId must be tracked separately since events don't include it.
  */
-export function transformMessage(stored: StoredMessage, conversationId: string): Message {
+export function transformMessage(stored: StoredMessageEvent, conversationId: string): Message {
   return toMessage(stored, conversationId)
 }
 
