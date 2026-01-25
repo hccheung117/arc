@@ -30,7 +30,9 @@ class JsonFile<T> {
     try {
       const content = await readFile(this.filePath, 'utf-8')
       const parsed = JSON.parse(content)
-      return this.schema.parse(parsed)
+      // Merge with defaults to handle schema evolution (new fields added over time)
+      const merged = { ...this.defaultValue, ...parsed }
+      return this.schema.parse(merged)
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         return this.defaultValue

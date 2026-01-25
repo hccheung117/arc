@@ -82,7 +82,7 @@ const toPersona = (name: string, parsed: ParsedPersona, source: 'profile' | 'use
 // ============================================================================
 
 export async function listPersonas(caps: Caps, activeProfile: string | null): Promise<Persona[]> {
-  const { markdownFile, glob } = caps
+  const { markdownFile, glob, logger } = caps
 
   // Gather profile personas
   const profilePersonas: Persona[] = []
@@ -90,7 +90,11 @@ export async function listPersonas(caps: Caps, activeProfile: string | null): Pr
     const profileNames = await glob.listProfilePersonaNames(activeProfile)
     for (const name of profileNames) {
       const parsed = await markdownFile.readProfilePersona(activeProfile, name)
-      if (parsed) profilePersonas.push(toPersona(name, parsed, 'profile'))
+      if (parsed) {
+        profilePersonas.push(toPersona(name, parsed, 'profile'))
+      } else {
+        logger.warn(`Skipping profile persona "${name}": missing PERSONA.md`)
+      }
     }
   }
 
@@ -99,7 +103,11 @@ export async function listPersonas(caps: Caps, activeProfile: string | null): Pr
   const userPersonas: Persona[] = []
   for (const name of userNames) {
     const parsed = await markdownFile.readUserPersona(name)
-    if (parsed) userPersonas.push(toPersona(name, parsed, 'user'))
+    if (parsed) {
+      userPersonas.push(toPersona(name, parsed, 'user'))
+    } else {
+      logger.warn(`Skipping user persona "${name}": missing PERSONA.md`)
+    }
   }
 
   // Merge: user personas shadow profile personas

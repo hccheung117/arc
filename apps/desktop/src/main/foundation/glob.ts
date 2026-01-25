@@ -37,7 +37,9 @@ export const createGlob = (dataDir: string, allowedPaths: readonly string[]): Sc
     matches: matchesGlob,
     async readdir(relativePath) {
       try {
-        return await readdir(resolvePath(relativePath))
+        const entries = await readdir(resolvePath(relativePath))
+        // Filter out hidden files (e.g., .DS_Store on macOS)
+        return entries.filter(name => !name.startsWith('.'))
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
         throw error
