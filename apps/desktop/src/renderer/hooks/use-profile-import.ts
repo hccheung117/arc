@@ -21,9 +21,16 @@ export function useProfileImport(): {
     async (filePath: string) => {
       try {
         await window.arc.profiles.install({ filePath })
-      } catch (error) {
-        showToast(`Error: ${error instanceof Error ? error.message : 'Install failed'}`)
+      } catch {
+        showToast('This profile file is invalid or corrupted.')
       }
+    },
+    [showToast]
+  )
+
+  const handleReject = useCallback(
+    (fileName: string) => {
+      showToast(`Cannot install "${fileName}". Only .arc profile files are supported.`)
     },
     [showToast]
   )
@@ -31,6 +38,7 @@ export function useProfileImport(): {
   const { isDragging } = useFileDrop({
     extension: '.arc',
     onDrop: handleImport,
+    onReject: handleReject,
   })
 
   // Subscribe to profile events (handles success for both paths)

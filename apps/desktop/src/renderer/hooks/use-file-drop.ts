@@ -5,9 +5,10 @@ import { info } from '@renderer/lib/logger'
  * Generic hook for managing file drag/drop state.
  * Filters drops by file extension and extracts Electron file paths.
  */
-export function useFileDrop({ extension, onDrop }: {
+export function useFileDrop({ extension, onDrop, onReject }: {
   extension: string
   onDrop: (filePath: string) => void
+  onReject?: (fileName: string) => void
 }): { isDragging: boolean } {
   const [isDragging, setIsDragging] = useState(false)
   const [, setDragCounter] = useState(0)
@@ -48,6 +49,7 @@ export function useFileDrop({ extension, onDrop }: {
 
       const file = files[0]
       if (!file.name.toLowerCase().endsWith(extension.toLowerCase())) {
+        onReject?.(file.name)
         return
       }
 
@@ -58,7 +60,7 @@ export function useFileDrop({ extension, onDrop }: {
         onDrop(filePath)
       }
     },
-    [extension, onDrop]
+    [extension, onDrop, onReject]
   )
 
   useEffect(() => {
