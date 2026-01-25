@@ -23,6 +23,7 @@ const CAPABILITY_TO_FOUNDATION: Record<string, keyof FoundationCapabilities> = {
   glob: 'glob',
   markdownFile: 'markdownFile',
   logger: 'logger',
+  http: 'http',
 }
 
 /** Capabilities that require path scoping (factories, not instances). */

@@ -35,6 +35,7 @@ import { createBinaryFile } from '@main/foundation/binary-file'
 import { createMarkdownFile } from '@main/foundation/markdown-file'
 import { createArchive } from '@main/foundation/archive'
 import { createGlob } from '@main/foundation/glob'
+import { createHttp } from '@main/foundation/http'
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -57,6 +58,7 @@ const kernel = createKernel({
     archive: createArchive,
     glob: createGlob,
     logger: createLogger('kernel'),
+    http: createHttp(),
   },
 })
 
