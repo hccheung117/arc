@@ -14,7 +14,7 @@
     "outDir": "dist",
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
-    "types": ["@electron-forge/plugin-vite/forge-vite-env"],
+    "types": ["@electron-forge/plugin-vite/forge-vite-env", "vite/client"],
     "paths": {
       "@renderer/*": ["./src/renderer/*"],
       "@main/*": ["./src/main/*"],

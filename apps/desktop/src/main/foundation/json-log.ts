@@ -22,7 +22,7 @@ import type { z } from 'zod'
  * await log.delete() // Remove the log file
  * ```
  */
-export class JsonLog<T> {
+class JsonLog<T> {
   constructor(
     private readonly filePath: string,
     private readonly schema: z.ZodType<T>

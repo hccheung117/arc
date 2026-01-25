@@ -1,19 +1,16 @@
 /**
  * Kernel Boot
  *
- * Orchestrates module registration, dependency resolution, instantiation, and IPC setup.
+ * Orchestrates module discovery, dependency resolution, instantiation, and IPC setup.
  * Entry point for the micro-kernel architecture.
  */
 
 import type { IpcMain } from 'electron'
-import type {
-  FoundationCapabilities,
-  ModuleDefinition,
-  CapabilityDefinition,
-} from './module'
+import type { FoundationCapabilities, CapabilityDefinition } from './module'
 import { createRegistry, resolveDependencies } from './module'
 import { instantiateModule, registerAdapter } from './injector'
 import { registerModuleIPC, createModuleEmitter } from './ipc'
+import { discoverModules } from './discovery'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -26,15 +23,7 @@ export interface KernelConfig {
 }
 
 export interface Kernel {
-  /** Register a module definition with optional capability adapters */
-  register(
-    name: string,
-    definition: ModuleDefinition,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    adapters?: Record<string, CapabilityDefinition<any, any>>
-  ): void
-
-  /** Resolve dependencies, instantiate modules in order, register IPC */
+  /** Discover modules, resolve dependencies, instantiate in order, register IPC */
   boot(): void
 
   /** Get instantiated module API by name */
@@ -51,19 +40,23 @@ export function createKernel(config: KernelConfig): Kernel {
   const instances = new Map<string, unknown>()
 
   return {
-    register(name, definition, adapters) {
-      registry.register(name, definition)
+    boot() {
+      // Discover all modules and adapters
+      const discovered = discoverModules()
 
-      if (adapters) {
+      // Register discovered modules
+      for (const { name, definition, adapters } of discovered) {
+        registry.register(name, definition)
+
         for (const [capName, adapter] of Object.entries(adapters)) {
           registerAdapter(adapterRegistry, name, capName, adapter)
         }
       }
-    },
 
-    boot() {
+      // Resolve dependency order
       const order = resolveDependencies(registry)
 
+      // Instantiate modules in dependency order
       for (const name of order) {
         const definition = registry.get(name)!
 

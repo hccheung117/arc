@@ -19,7 +19,7 @@ import type { z } from 'zod'
  * await settings.update(data => ({ ...data, locale: 'en' }))
  * ```
  */
-export class JsonFile<T> {
+class JsonFile<T> {
   constructor(
     private readonly filePath: string,
     private readonly defaultValue: T,

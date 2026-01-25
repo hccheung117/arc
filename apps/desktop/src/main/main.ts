@@ -30,32 +30,6 @@ import started from 'electron-squirrel-startup'
 import { buildAppMenu } from './menu'
 import { registerSystemHandlers } from '@main/app/system'
 import { createKernel } from '@main/kernel/boot'
-import settingsModule from '@main/modules/settings/mod'
-import settingsJsonFileAdapter from '@main/modules/settings/json-file'
-import aiModule from '@main/modules/ai/mod'
-import aiLoggerAdapter from '@main/modules/ai/logger'
-import uiModule from '@main/modules/ui/mod'
-import uiJsonFileAdapter from '@main/modules/ui/json-file'
-import messagesModule from '@main/modules/messages/mod'
-import messagesJsonLogAdapter from '@main/modules/messages/json-log'
-import messagesBinaryFileAdapter from '@main/modules/messages/binary-file'
-import messagesMarkdownFileAdapter from '@main/modules/messages/markdown-file'
-import messagesLoggerAdapter from '@main/modules/messages/logger'
-import threadsModule from '@main/modules/threads/mod'
-import threadsJsonFileAdapter from '@main/modules/threads/json-file'
-import updaterModule from '@main/modules/updater/mod'
-import updaterLoggerAdapter from '@main/modules/updater/logger'
-import profilesModule from '@main/modules/profiles/mod'
-import profilesJsonFileAdapter from '@main/modules/profiles/json-file'
-import profilesArchiveAdapter from '@main/modules/profiles/archive'
-import profilesGlobAdapter from '@main/modules/profiles/glob'
-import profilesBinaryFileAdapter from '@main/modules/profiles/binary-file'
-import profilesLoggerAdapter from '@main/modules/profiles/logger'
-import personasModule from '@main/modules/personas/mod'
-import personasMarkdownFileAdapter from '@main/modules/personas/markdown-file'
-import personasBinaryFileAdapter from '@main/modules/personas/binary-file'
-import personasGlobAdapter from '@main/modules/personas/glob'
-import personasLoggerAdapter from '@main/modules/personas/logger'
 import { createJsonFile } from '@main/foundation/json-file'
 import { createLogger } from '@main/foundation/logger'
 import { createJsonLog } from '@main/foundation/json-log'
@@ -88,53 +62,10 @@ const kernel = createKernel({
   },
 })
 
-// Register modules with adapters
-kernel.register('settings', settingsModule, {
-  jsonFile: settingsJsonFileAdapter,
-})
-
-kernel.register('ai', aiModule, {
-  logger: aiLoggerAdapter,
-})
-
-kernel.register('ui', uiModule, {
-  jsonFile: uiJsonFileAdapter,
-})
-
-kernel.register('messages', messagesModule, {
-  jsonLog: messagesJsonLogAdapter,
-  binaryFile: messagesBinaryFileAdapter,
-  markdownFile: messagesMarkdownFileAdapter,
-  logger: messagesLoggerAdapter,
-})
-
-kernel.register('threads', threadsModule, {
-  jsonFile: threadsJsonFileAdapter,
-})
-
-kernel.register('updater', updaterModule, {
-  logger: updaterLoggerAdapter,
-})
-
-kernel.register('profiles', profilesModule, {
-  jsonFile: profilesJsonFileAdapter,
-  archive: profilesArchiveAdapter,
-  glob: profilesGlobAdapter,
-  binaryFile: profilesBinaryFileAdapter,
-  logger: profilesLoggerAdapter,
-})
-
-kernel.register('personas', personasModule, {
-  markdownFile: personasMarkdownFileAdapter,
-  binaryFile: personasBinaryFileAdapter,
-  glob: personasGlobAdapter,
-  logger: personasLoggerAdapter,
-})
-
-// Boot kernel (instantiates modules, registers IPC)
+// Boot kernel (discovers modules, resolves dependencies, instantiates, registers IPC)
 kernel.boot()
 
-// Get UI module API for direct usage
+// Get module APIs for direct usage in main.ts
 type UiApi = {
   getMinSize: () => { width: number; height: number }
   readWindowState: () => Promise<{ width: number; height: number }>

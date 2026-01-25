@@ -1,8 +1,8 @@
 /**
  * Module Injector
  *
- * Wires modules by detecting capability adapter files and injecting
- * adapted capabilities. Manual registration for now; full discovery in P5.
+ * Wires modules by injecting adapted capabilities. Adapters transform
+ * raw Foundation capabilities into domain-specific APIs for each module.
  */
 
 import type { ModuleDefinition, CapabilityDefinition, FoundationCapabilities, PathScopedFactory } from './module'
