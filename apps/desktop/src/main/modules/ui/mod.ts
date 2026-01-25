@@ -1,10 +1,11 @@
-import { defineModule, type FoundationCapabilities } from '@main/kernel/module'
+import { defineModule } from '@main/kernel/module'
 import type jsonFileAdapter from './json-file'
+import type loggerAdapter from './logger'
 import { createOperations } from './business'
 
 type Caps = {
   jsonFile: ReturnType<typeof jsonFileAdapter.factory>
-  logger: FoundationCapabilities['logger']
+  logger: ReturnType<typeof loggerAdapter.factory>
 }
 
 export default defineModule({

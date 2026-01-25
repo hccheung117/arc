@@ -94,7 +94,17 @@ export function instantiateModule(
     caps[capName] = adapter ? adapter.factory(rawCap) : rawCap
   }
 
-  const api = definition.factory(deps, caps, emit)
+  // Guard caps access: crash immediately if module accesses undeclared capability
+  const guardedCaps = new Proxy(caps, {
+    get(target, prop) {
+      if (typeof prop === 'string' && !(prop in target)) {
+        throw new Error(`Module "${definition.name}" accessed undeclared capability "${prop}"`)
+      }
+      return target[prop as keyof typeof target]
+    },
+  })
+
+  const api = definition.factory(deps, guardedCaps, emit)
 
   return { name: definition.name, api }
 }

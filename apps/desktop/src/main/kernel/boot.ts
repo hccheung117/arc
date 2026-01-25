@@ -11,6 +11,7 @@ import { createRegistry, resolveDependencies } from './module'
 import { instantiateModule, registerAdapter } from './injector'
 import { registerModuleIPC, createModuleEmitter } from './ipc'
 import { discoverModules } from './discovery'
+import { validateAll } from './governance'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -43,6 +44,9 @@ export function createKernel(config: KernelConfig): Kernel {
     boot() {
       // Discover all modules and adapters
       const discovered = discoverModules()
+
+      // Validate governance rules before proceeding
+      validateAll(discovered)
 
       // Register discovered modules
       for (const { name, definition, adapters } of discovered) {
