@@ -34,8 +34,8 @@ The system is divided into three distinct layers, each with a single responsibil
         │ Injects     │ Injects     │ Injects
         ▼             ▼             ▼
 ┌──────────────────────────────────────────────────────────────┐
-│  FOUNDATION (Native Capabilities)                            │
-│  • json-file  • json-log  • binary-file  • archive  • logger │
+│  FOUNDATION (Native Capabilities)                                        │
+│  • json-file  • json-log  • binary-file  • markdown-file  • archive  • logger │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -109,6 +109,31 @@ The Foundation provides a **Factory** that the Kernel uses to create scoped inst
 1.  **Shape**: Transforms raw Node APIs into domain-friendly APIs (`json-file`, `json-log`).
 2.  **Scope**: Restricts access to declared paths. Factories accept `allowedPaths: string[]` and validate operations against **any** declared path (multi-scope).
 3.  **Security**: Validates inputs and handles errors before they reach the module.
+
+### Capability Taxonomy
+
+```
+SANDBOXED (path-scoped to module's declared paths[])
+────────────────────────────────────────────────────
+json-file     - JSON read/write
+json-log      - Append-only event log
+binary-file   - Raw buffer I/O
+archive       - Zip/unzip operations
+glob          - File pattern matching
+markdown-file - Markdown with frontmatter (read/write)
+
+NETWORK (host-scoped, streaming-aware)
+──────────────────────────────────────
+http          - HTTP client with streaming support (SSE, chunked)
+              - Scoped by allowed hosts/endpoints
+
+UNSANDBOXED (explicit user consent)
+───────────────────────────────────
+markdown-file.saveAs - Export to user-chosen location via dialog
+                       User picks path → implicit consent
+```
+
+Unsandboxed operations are safe because they require user interaction (dialog) before any file is written outside the app's data directory.
 
 ### Capability Injection
 When a module needs a capability, it defines an adapter file (e.g., `json-file.ts`). The Kernel detects this file, asks the Foundation for the capability, and injects it.
@@ -187,21 +212,30 @@ personas.list()          →        ipc.handle('arc:personas:list')  →  provid
 ```
 main/
 ├── kernel/              # The Orchestrator
-│   ├── registry.ts      # defineModule, defineCapability, module discovery
-│   ├── resolver.ts      # Dependency graph
-│   ├── injector.ts      # Context wiring
-│   └── ipc.ts           # Auto-registration, broadcast, module emitter
+│   ├── boot.ts          # Kernel bootstrap sequence
+│   ├── discovery.ts     # Module discovery from filesystem
+│   ├── governance.ts    # Architectural rule enforcement
+│   ├── injector.ts      # Capability injection
+│   ├── ipc.ts           # Auto-registration, broadcast, module emitter
+│   └── module.ts        # defineModule, defineCapability
 ├── modules/             # The Domain (Business Logic)
 │   └── {name}/          # See Module File Convention below
 ├── foundation/          # The Capabilities (Native Wrappers)
+│   ├── archive.ts
+│   ├── binary-file.ts
+│   ├── glob.ts
+│   ├── http.ts
 │   ├── json-file.ts
 │   ├── json-log.ts
-│   ├── binary-file.ts
-│   ├── archive.ts
 │   ├── logger.ts
-│   └── ...
+│   └── markdown-file.ts
+├── preload.ts           # Electron preload script
 └── main.ts              # Entry Point
 ```
+
+**Acceptable ancillary files** (not shown above):
+- `CLAUDE.md` — Project documentation for AI assistants
+- `{name}.test.ts` — Test files collocated with implementation
 
 ### Module File Convention
 
@@ -285,42 +319,46 @@ export default defineModule({
 
 ```
 modules/
-├── settings/
-│   ├── mod.ts
-│   └── json-file.ts
-├── updater/
+├── ai/
 │   ├── mod.ts
 │   ├── business.ts
-│   └── logger.ts
-├── ui/
-│   ├── mod.ts
-│   ├── business.ts
-│   └── json-file.ts
-├── profiles/
-│   ├── mod.ts
-│   ├── business.ts
-│   ├── json-file.ts
-│   ├── archive.ts
-│   └── logger.ts
-├── personas/
-│   ├── mod.ts
-│   ├── business.ts
-│   ├── json-file.ts
+│   ├── http.ts
 │   └── logger.ts
 ├── messages/
 │   ├── mod.ts
 │   ├── business.ts
-│   ├── json-log.ts
 │   ├── binary-file.ts
+│   ├── json-log.ts
+│   ├── logger.ts
+│   └── markdown-file.ts
+├── personas/
+│   ├── mod.ts
+│   ├── business.ts
+│   ├── binary-file.ts
+│   ├── glob.ts
+│   ├── logger.ts
+│   └── markdown-file.ts
+├── profiles/
+│   ├── mod.ts
+│   ├── business.ts
+│   ├── archive.ts
+│   ├── binary-file.ts
+│   ├── glob.ts
+│   ├── json-file.ts
 │   └── logger.ts
+├── settings/
+│   ├── mod.ts
+│   └── json-file.ts
 ├── threads/
 │   ├── mod.ts
 │   ├── business.ts
+│   └── json-file.ts
+├── ui/
+│   ├── mod.ts
+│   ├── business.ts
 │   ├── json-file.ts
-│   ├── json-log.ts
-│   ├── binary-file.ts
 │   └── logger.ts
-└── ai/
+└── updater/
     ├── mod.ts
     ├── business.ts
     └── logger.ts
