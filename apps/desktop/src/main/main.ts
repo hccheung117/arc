@@ -15,7 +15,7 @@
  * - Direct IPC handler implementations
  *
  * If you're writing more than a one-liner in an event handler,
- * extract it to the appropriate layer (foundation/, lib/, or app/).
+ * extract it to the appropriate layer (foundation/, lib/, or modules/).
  */
 
 import {
@@ -28,7 +28,6 @@ import {
 import path from 'node:path'
 import started from 'electron-squirrel-startup'
 import { buildAppMenu } from './menu'
-import { registerSystemHandlers } from '@main/app/system'
 import { createKernel } from '@main/kernel/boot'
 import { createJsonFile } from '@main/foundation/json-file'
 import { createLogger } from '@main/foundation/logger'
@@ -141,7 +140,6 @@ app.on('ready', async () => {
 
   const size = await readWindowState()
   createWindow(size)
-  registerSystemHandlers(ipcMain)
 
   // Initialize updater with profile's update interval
   const activeProfile = await profilesApi.getActive() as { updateInterval?: number } | null
