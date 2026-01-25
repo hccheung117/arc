@@ -75,15 +75,15 @@ const toPersona = (name: string, parsed: ParsedPersona, source: 'profile' | 'use
 // OPERATIONS
 // ============================================================================
 
-export async function listPersonas(caps: Caps, activeProfileId: string | null): Promise<Persona[]> {
+export async function listPersonas(caps: Caps, activeProfile: string | null): Promise<Persona[]> {
   const { markdownFile, glob } = caps
 
   // Gather profile personas
   const profilePersonas: Persona[] = []
-  if (activeProfileId) {
-    const profileNames = await glob.listProfilePersonaNames(activeProfileId)
+  if (activeProfile) {
+    const profileNames = await glob.listProfilePersonaNames(activeProfile)
     for (const name of profileNames) {
-      const parsed = await markdownFile.readProfilePersona(activeProfileId, name)
+      const parsed = await markdownFile.readProfilePersona(activeProfile, name)
       if (parsed) profilePersonas.push(toPersona(name, parsed, 'profile'))
     }
   }
@@ -106,7 +106,7 @@ export async function listPersonas(caps: Caps, activeProfileId: string | null): 
   return merged.sort((a, b) => a.displayName.localeCompare(b.displayName))
 }
 
-export async function getPersona(caps: Caps, activeProfileId: string | null, name: string): Promise<Persona | null> {
+export async function getPersona(caps: Caps, activeProfile: string | null, name: string): Promise<Persona | null> {
   const { markdownFile } = caps
 
   // User layer first (shadow)
@@ -114,8 +114,8 @@ export async function getPersona(caps: Caps, activeProfileId: string | null, nam
   if (userParsed) return toPersona(name, userParsed, 'user')
 
   // Profile layer
-  if (activeProfileId) {
-    const profileParsed = await markdownFile.readProfilePersona(activeProfileId, name)
+  if (activeProfile) {
+    const profileParsed = await markdownFile.readProfilePersona(activeProfile, name)
     if (profileParsed) return toPersona(name, profileParsed, 'profile')
   }
 
@@ -184,7 +184,7 @@ export async function deletePersona(caps: Caps, name: string): Promise<void> {
 
 export async function resolvePromptSource(
   caps: Caps,
-  activeProfileId: string | null,
+  activeProfile: string | null,
   promptSource: PromptSource
 ): Promise<string | null> {
   switch (promptSource.type) {
@@ -195,7 +195,7 @@ export async function resolvePromptSource(
       return promptSource.content
 
     case 'persona': {
-      const persona = await getPersona(caps, activeProfileId, promptSource.personaId)
+      const persona = await getPersona(caps, activeProfile, promptSource.personaId)
 
       if (!persona) {
         caps.logger.warn(
