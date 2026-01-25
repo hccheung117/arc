@@ -1,4 +1,4 @@
-import type { Usage } from '@main/modules/ai/business'
+import type { Usage, Message as AIMessage } from '@main/modules/ai/business'
 import type {
   AttachmentInput,
   BranchInfo,
@@ -6,7 +6,6 @@ import type {
   MessageRole,
 } from '@main/modules/messages/business'
 import type { ThreadConfig } from '@main/modules/threads/json-file'
-import type { ModelMessage } from '@ai-sdk/provider-utils'
 
 // ============================================================================
 // RENDERER VIEW MODEL TYPES
@@ -199,12 +198,12 @@ export async function updateMessage(
  * Convert stored messages to AI SDK format.
  * Loads attachments via IPC and encodes as base64 data URLs.
  */
-async function convertToModelMessages(
+async function convertToAIMessages(
   messages: StoredMessageEvent[],
   threadId: string,
-): Promise<ModelMessage[]> {
+): Promise<AIMessage[]> {
   return Promise.all(
-    messages.map(async (message): Promise<ModelMessage> => {
+    messages.map(async (message): Promise<AIMessage> => {
       if (message.role === 'user' && message.attachments?.length) {
         const imageResults = await Promise.all(
           message.attachments.map(async (att) => {
@@ -239,7 +238,7 @@ export interface StreamContext {
   provider: { baseURL?: string; apiKey?: string }
   modelId: string
   systemPrompt: string | null
-  messages: ModelMessage[]
+  messages: AIMessage[]
   parentId: string | null
   threadId: string
   providerId: string
@@ -271,7 +270,7 @@ export async function prepareStreamContext(
     ? await resolvePromptSourceForStream(thread.promptSource)
     : null
 
-  const messages = await convertToModelMessages(storedMessages, threadId)
+  const messages = await convertToAIMessages(storedMessages, threadId)
   const parentId = storedMessages.at(-1)?.id ?? null
 
   return {

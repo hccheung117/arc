@@ -5,6 +5,7 @@ import type { ScopedArchive } from '@main/foundation/archive'
 import type { ScopedGlob } from '@main/foundation/glob'
 import type { ScopedMarkdownFile } from '@main/foundation/markdown-file'
 import type { Logger } from '@main/foundation/logger'
+import type { Http } from '@main/foundation/http'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -20,6 +21,7 @@ export type FoundationCapabilities = {
   glob: PathScopedFactory<ScopedGlob>
   markdownFile: PathScopedFactory<ScopedMarkdownFile>
   logger: Logger
+  http: Http
 }
 
 export type CapabilityName = keyof FoundationCapabilities
