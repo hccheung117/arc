@@ -27,7 +27,6 @@ import {
 } from 'electron'
 import path from 'node:path'
 import started from 'electron-squirrel-startup'
-import { buildAppMenu } from './menu'
 import { createKernel } from '@main/kernel/boot'
 import { createJsonFile } from '@main/foundation/json-file'
 import { createLogger } from '@main/foundation/logger'
@@ -67,12 +66,13 @@ kernel.boot()
 // Get module APIs for direct usage in main.ts
 type UiApi = {
   getMinSize: () => { width: number; height: number }
+  buildAppMenu: () => Electron.Menu
   readWindowState: () => Promise<{ width: number; height: number }>
   trackWindowState: (window: BrowserWindow) => void
   setupEditableContextMenu: (window: BrowserWindow) => void
 }
 const ui = kernel.getModule<UiApi>('ui')!
-const { getMinSize, readWindowState, trackWindowState, setupEditableContextMenu } = ui
+const { getMinSize, buildAppMenu, readWindowState, trackWindowState, setupEditableContextMenu } = ui
 const minSize = getMinSize()
 
 type UpdaterApi = { init: (intervalMinutes?: number) => void }
