@@ -17,8 +17,7 @@
     "types": ["@electron-forge/plugin-vite/forge-vite-env", "vite/client"],
     "paths": {
       "@renderer/*": ["./src/renderer/*"],
-      "@main/*": ["./src/main/*"],
-      "@boundary/*": ["./src/boundary/*"]
+      "@main/*": ["./src/main/*"]
     }
   },
   "include": ["src/**/*", "*.config.ts", "forge.env.d.ts"]
