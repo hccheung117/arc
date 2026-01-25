@@ -5,6 +5,7 @@ import { ImagePlus, Send, Square, Pencil, Sparkles, Wand2, Save, Loader2 } from 
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import type { AttachmentInput } from '@main/modules/messages/business'
 import { useComposerStore } from '@renderer/hooks/use-composer-store'
+import { useShortcuts } from '@renderer/hooks/use-shortcuts'
 import { startRefine, stopAIChat, onAIDelta, onAIComplete, onAIError } from '@renderer/lib/messages'
 import { AttachmentGrid } from './composer-attachments'
 
@@ -79,6 +80,7 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(
     const textareaRef = useRef<HTMLTextAreaElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
     const [refineState, setRefineState] = useState<RefineState>({ status: 'idle' })
+    const { shortcuts } = useShortcuts()
 
     const isSystemPromptProtected = mode.type === 'edit-system-prompt' && mode.protected
     const isRefining = refineState.status === 'refining'
@@ -172,7 +174,11 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(
     }
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
+      const shouldSend = shortcuts.send === 'shift+enter'
+        ? e.key === 'Enter' && e.shiftKey
+        : e.key === 'Enter' && !e.shiftKey
+
+      if (shouldSend) {
         e.preventDefault()
         if (canSend) handleSend()
       }
@@ -312,7 +318,7 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
-            placeholder={isSystemPromptProtected ? '' : 'Enter here, press ↵ to send'}
+            placeholder={isSystemPromptProtected ? '' : shortcuts.send === 'shift+enter' ? 'Enter here, press ⇧↵ to send' : 'Enter here, press ↵ to send'}
             className={`min-h-0 resize-none border-0 p-0 text-body focus-visible:ring-0 focus-visible:ring-offset-0 outline-none shadow-none overflow-y-auto ${
               isSystemPromptProtected ? 'opacity-0' : ''
             }`}

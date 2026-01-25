@@ -52,10 +52,16 @@ type Caps = {
 // VALIDATION
 // ============================================================================
 
-const PERSONA_NAME_REGEX = /^[a-zA-Z0-9_-]+$/
+// File system reserved characters (cross-platform)
+const FORBIDDEN_CHARS = /[/\\:*?"<>|]/
+// Leading/trailing whitespace or dots cause file system issues
+const EDGE_WHITESPACE_OR_DOT = /^[\s.]|[\s.]$/
 
 export function isValidPersonaName(name: string): boolean {
-  return name.length >= 1 && name.length <= 50 && PERSONA_NAME_REGEX.test(name)
+  if (name.length < 1 || name.length > 50) return false
+  if (FORBIDDEN_CHARS.test(name)) return false
+  if (EDGE_WHITESPACE_OR_DOT.test(name)) return false
+  return true
 }
 
 // ============================================================================
@@ -127,7 +133,7 @@ export async function createPersona(caps: Caps, name: string, systemPrompt: stri
 
   if (!isValidPersonaName(name)) {
     throw new Error(
-      'Persona name must be 1-50 characters, using only letters, numbers, underscore, and hyphen'
+      'Persona name must be 1-50 characters without special characters (/ \\ : * ? " < > |)'
     )
   }
 
