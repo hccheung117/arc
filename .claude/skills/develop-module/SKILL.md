@@ -30,6 +30,8 @@ For each selected capability, apply this thinking process:
 4. "What complexity should I absorb?" — low level details, e.g., schemas, paths, format, atomicity, error handling, caching, HTTP, retries
 5. "What high-level API should I expose?" — only what's needed, easy to call, hard to misuse
 
+**Error Handling Strategy**: Foundation throws typed errors; modules catch and return `Result<T, E>`.
+
 **Present designed APIs to user for approval before writing code.**
 
 ## Phase 4: Scaffold
