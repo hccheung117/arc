@@ -15,6 +15,9 @@ export default defineModule({
     getFavorites: () => caps.jsonFile.readFavorites(),
     setFavorites: (input: { favorites: Array<{ provider: string; model: string }> }) =>
       caps.jsonFile.writeFavorites(input.favorites),
+    getShortcuts: () => caps.jsonFile.readShortcuts(),
+    setShortcuts: (input: { shortcuts: { send: 'enter' | 'shift+enter' } }) =>
+      caps.jsonFile.writeShortcuts(input.shortcuts),
   }),
   emits: [] as const,
   paths: ['app/settings.json'],

@@ -23,6 +23,10 @@ const settings = {
     ipcRenderer.invoke('arc:settings:getFavorites'),
   setFavorites: (input: { favorites: Array<{ provider: string; model: string }> }): Promise<void> =>
     ipcRenderer.invoke('arc:settings:setFavorites', input),
+  getShortcuts: (): Promise<{ send: 'enter' | 'shift+enter' }> =>
+    ipcRenderer.invoke('arc:settings:getShortcuts'),
+  setShortcuts: (input: { shortcuts: { send: 'enter' | 'shift+enter' } }): Promise<void> =>
+    ipcRenderer.invoke('arc:settings:setShortcuts', input),
 }
 
 const ui = {
