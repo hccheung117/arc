@@ -13,16 +13,6 @@ type ScopedJsonFile = ReturnType<FoundationCapabilities['jsonFile']>
 // Schemas
 // ─────────────────────────────────────────────────────────────────────────────
 
-const StoredFavoriteSchema = z.object({
-  providerId: z.string(),
-  modelId: z.string(),
-})
-
-const StoredSettingsSchema = z.object({
-  activeProfileId: z.string().nullable(),
-  favorites: z.array(StoredFavoriteSchema),
-})
-
 const ArcModelFilterSchema = z.object({
   mode: z.enum(['allow', 'deny']),
   rules: z.array(z.string()),
@@ -54,7 +44,7 @@ const ArcFileSchema = z.object({
 const CachedModelSchema = z.object({
   id: z.string(),
   name: z.string(),
-  providerId: z.string(),
+  provider: z.string(),
   providerName: z.string(),
   providerType: z.literal('openai'),
   fetchedAt: z.string(),
@@ -68,8 +58,6 @@ const ModelCacheSchema = z.object({
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type StoredFavorite = z.infer<typeof StoredFavoriteSchema>
-export type StoredSettings = z.infer<typeof StoredSettingsSchema>
 export type ArcFile = z.infer<typeof ArcFileSchema>
 export type ArcFileProvider = z.infer<typeof ArcFileProviderSchema>
 export type ArcModelFilter = z.infer<typeof ArcModelFilterSchema>
@@ -85,19 +73,12 @@ export type ArcFileValidationResult =
 // Capability
 // ─────────────────────────────────────────────────────────────────────────────
 
-const DEFAULT_SETTINGS: StoredSettings = { activeProfileId: null, favorites: [] }
 const DEFAULT_CACHE = { models: [] as CachedModel[] }
 
 export default defineCapability((jsonFile: ScopedJsonFile) => {
-  const settingsFile = jsonFile.create('app/settings.json', DEFAULT_SETTINGS, StoredSettingsSchema)
   const cacheFile = jsonFile.create('app/cache/models.cache.json', DEFAULT_CACHE, ModelCacheSchema)
 
   return {
-    settings: {
-      read: () => settingsFile.read(),
-      update: (updater: (data: StoredSettings) => StoredSettings) => settingsFile.update(updater),
-    },
-
     arcFile: {
       validate(content: string): ArcFileValidationResult {
         let parsed: unknown

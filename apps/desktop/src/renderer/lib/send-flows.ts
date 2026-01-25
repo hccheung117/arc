@@ -62,7 +62,7 @@ export async function editUserMessage(ctx: EditContext): Promise<SendResult> {
  * 2. No new branch, no AI response needed
  */
 export async function editAssistantMessage(ctx: EditContext): Promise<SendResult> {
-  if (!ctx.originalMessage?.modelId || !ctx.originalMessage?.providerId) {
+  if (!ctx.originalMessage?.model || !ctx.originalMessage?.provider) {
     throw new Error('Cannot edit message: missing model info')
   }
 
@@ -70,8 +70,8 @@ export async function editAssistantMessage(ctx: EditContext): Promise<SendResult
     ctx.threadId,
     ctx.messageId,
     ctx.content,
-    ctx.originalMessage.modelId,
-    ctx.originalMessage.providerId,
+    ctx.originalMessage.model,
+    ctx.originalMessage.provider,
   )
 
   const { messages } = await getMessages(ctx.threadId)

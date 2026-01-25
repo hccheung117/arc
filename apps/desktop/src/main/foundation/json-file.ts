@@ -23,7 +23,7 @@ class JsonFile<T> {
   constructor(
     private readonly filePath: string,
     private readonly defaultValue: T,
-    private readonly schema: z.ZodType<T>
+    private readonly schema: z.ZodType<T>,
   ) {}
 
   async read(): Promise<T> {

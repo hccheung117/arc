@@ -31,13 +31,13 @@ export default defineModule({
 
     return {
       list: async () => {
-        const activeProfileId = await profiles.getActiveId()
-        return biz.listPersonas(caps, activeProfileId)
+        const activeProfile = await profiles.getActiveId()
+        return biz.listPersonas(caps, activeProfile)
       },
 
       get: async (input: { name: string }) => {
-        const activeProfileId = await profiles.getActiveId()
-        return biz.getPersona(caps, activeProfileId, input.name)
+        const activeProfile = await profiles.getActiveId()
+        return biz.getPersona(caps, activeProfile, input.name)
       },
 
       create: async (input: { name: string; systemPrompt: string }) => {
@@ -58,8 +58,8 @@ export default defineModule({
       },
 
       resolve: async (input: { promptSource: biz.PromptSource }) => {
-        const activeProfileId = await profiles.getActiveId()
-        return biz.resolvePromptSource(caps, activeProfileId, input.promptSource)
+        const activeProfile = await profiles.getActiveId()
+        return biz.resolvePromptSource(caps, activeProfile, input.promptSource)
       },
     }
   },

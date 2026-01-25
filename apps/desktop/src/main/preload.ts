@@ -19,9 +19,9 @@ import type { ThreadContextMenuParams, ThreadMenuAction, MessageMenuAction } fro
 // ============================================================================
 
 const settings = {
-  getFavorites: (): Promise<Array<{ providerId: string; modelId: string }>> =>
+  getFavorites: (): Promise<Array<{ provider: string; model: string }>> =>
     ipcRenderer.invoke('arc:settings:getFavorites'),
-  setFavorites: (input: { favorites: Array<{ providerId: string; modelId: string }> }): Promise<void> =>
+  setFavorites: (input: { favorites: Array<{ provider: string; model: string }> }): Promise<void> =>
     ipcRenderer.invoke('arc:settings:setFavorites', input),
 }
 
@@ -115,8 +115,8 @@ type CreateMessageInput = {
   content: string
   parentId: string | null
   attachments?: { type: 'image'; data: string; mimeType: string; name?: string }[]
-  modelId: string
-  providerId: string
+  model: string
+  provider: string
   threadConfig?: { promptSource: { type: 'none' } | { type: 'direct'; content: string } | { type: 'persona'; personaId: string } }
   reasoning?: string
   usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number; reasoningTokens?: number }
@@ -126,15 +126,15 @@ type CreateBranchInput = {
   parentId: string | null
   content: string
   attachments?: { type: 'image'; data: string; mimeType: string; name?: string }[]
-  modelId: string
-  providerId: string
+  model: string
+  provider: string
   threadConfig?: { promptSource: { type: 'none' } | { type: 'direct'; content: string } | { type: 'persona'; personaId: string } }
 }
 
 type UpdateMessageInput = {
   content: string
-  modelId: string
-  providerId: string
+  model: string
+  provider: string
   attachments?: { type: 'image'; data: string; mimeType: string; name?: string }[]
   reasoning?: string
 }

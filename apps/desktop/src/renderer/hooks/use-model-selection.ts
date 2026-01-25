@@ -28,8 +28,8 @@ export function useModelSelection(
     if (models.length === 0) return
 
     // Try to use last message's model
-    if (lastMessage?.modelId) {
-      const model = models.find((m) => m.id === lastMessage.modelId)
+    if (lastMessage?.model) {
+      const model = models.find((m) => m.id === lastMessage.model)
       if (model) {
         setSelectedModelState(model)
         return
@@ -46,7 +46,7 @@ export function useModelSelection(
 
     // Fallback to first model
     setSelectedModelState(models[0])
-  }, [models, lastMessage?.modelId])
+  }, [models, lastMessage?.model])
 
   // Wrap setter to persist selection
   const setSelectedModel = useCallback((model: Model | null) => {

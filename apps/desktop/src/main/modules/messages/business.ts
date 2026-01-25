@@ -35,8 +35,8 @@ export type AttachmentInput = {
 
 interface BaseMessageFields {
   content: string
-  modelId: string
-  providerId: string
+  model: string
+  provider: string
   attachments?: AttachmentInput[]
   reasoning?: string
   usage?: Usage
@@ -130,8 +130,8 @@ function buildMessageEvent(
   const event: StoredMessageEvent = {
     id,
     content: input.content,
-    modelId: input.modelId,
-    providerId: input.providerId,
+    model: input.model,
+    provider: input.provider,
     reasoning: input.reasoning,
     usage: input.usage,
     attachments: attachmentMeta,

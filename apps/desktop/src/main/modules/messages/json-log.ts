@@ -38,8 +38,8 @@ export const StoredMessageEventSchema = z.object({
   deleted: z.boolean().optional(),
   parentId: z.string().nullable().optional(),
   attachments: z.array(StoredAttachmentSchema).optional(),
-  modelId: z.string().optional(),
-  providerId: z.string().optional(),
+  model: z.string().optional(),
+  provider: z.string().optional(),
   usage: UsageSchema.optional(),
 })
 

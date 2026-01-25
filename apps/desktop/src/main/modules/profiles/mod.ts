@@ -23,19 +23,20 @@ type Caps = {
 
 export default defineModule({
   capabilities: ['jsonFile', 'archive', 'glob', 'binaryFile', 'logger'] as const,
-  depends: ['ai'] as const,
+  depends: ['ai', 'settings'] as const,
   provides: (deps, caps: Caps, emit) => {
     const { jsonFile, archive, glob, binaryFile, logger } = caps
     const ai = deps.ai as biz.AiDep
+    const settings = deps.settings as biz.SettingsDep
 
     return {
       install: async (input: { filePath: string }) => {
         logger.info(`Install request: ${input.filePath}`)
         const result = await biz.installProfile(jsonFile, archive, binaryFile, input.filePath)
 
-        await biz.activateProfile(jsonFile, glob, binaryFile, result.id)
-        await biz.syncModels(jsonFile, binaryFile, glob, ai, logger)
-        await biz.mergeFavoriteModels(jsonFile, binaryFile)
+        await biz.activateProfile(settings, jsonFile, glob, binaryFile, result.id)
+        await biz.syncModels(settings, jsonFile, binaryFile, glob, ai, logger)
+        await biz.mergeFavoriteModels(settings, jsonFile, binaryFile)
 
         emit('installed', result)
         emit('activated', result.id)
@@ -44,26 +45,26 @@ export default defineModule({
       },
 
       uninstall: async (input: { profileId: string }) => {
-        await biz.uninstallProfile(jsonFile, binaryFile, input.profileId)
-        await biz.syncModels(jsonFile, binaryFile, glob, ai, logger)
+        await biz.uninstallProfile(settings, binaryFile, input.profileId)
+        await biz.syncModels(settings, jsonFile, binaryFile, glob, ai, logger)
         emit('uninstalled', input.profileId)
       },
 
       activate: async (input: { profileId: string | null }) => {
-        await biz.activateProfile(jsonFile, glob, binaryFile, input.profileId)
-        await biz.syncModels(jsonFile, binaryFile, glob, ai, logger)
-        await biz.mergeFavoriteModels(jsonFile, binaryFile)
+        await biz.activateProfile(settings, jsonFile, glob, binaryFile, input.profileId)
+        await biz.syncModels(settings, jsonFile, binaryFile, glob, ai, logger)
+        await biz.mergeFavoriteModels(settings, jsonFile, binaryFile)
         emit('activated', input.profileId)
       },
 
       list: () => biz.listProfiles(jsonFile, glob, binaryFile),
 
-      getActiveId: () => biz.getActiveProfileId(jsonFile),
+      getActiveId: () => settings.getActiveProfile(),
 
-      getActive: () => biz.getActiveProfile(jsonFile, binaryFile),
+      getActive: () => biz.getActiveProfile(settings, jsonFile, binaryFile),
 
       getActiveDetails: async () => {
-        const profile = await biz.getActiveProfile(jsonFile, binaryFile)
+        const profile = await biz.getActiveProfile(settings, jsonFile, binaryFile)
         if (!profile) return null
         return {
           id: profile.id,
@@ -73,7 +74,7 @@ export default defineModule({
       },
 
       getProviderConfig: (input: { providerId: string }) =>
-        biz.getProviderConfig(jsonFile, binaryFile, input.providerId),
+        biz.getProviderConfig(settings, jsonFile, binaryFile, input.providerId),
 
       listModels: () => biz.listModels(jsonFile),
 
@@ -82,5 +83,5 @@ export default defineModule({
     }
   },
   emits: ['installed', 'uninstalled', 'activated'] as const,
-  paths: ['profiles/', 'app/settings.json', 'app/cache/'],
+  paths: ['profiles/', 'app/cache/'],
 })

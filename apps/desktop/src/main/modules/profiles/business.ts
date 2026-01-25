@@ -6,25 +6,23 @@
  */
 
 import { createHash } from 'crypto'
-import type {
-  ArcFile,
-  ArcModelFilter,
-  CachedModel,
-  StoredFavorite,
-  StoredSettings,
-  ArcFileValidationResult,
-} from './json-file'
+import type { ArcFile, ArcModelFilter, CachedModel, ArcFileValidationResult } from './json-file'
 import type { Logger } from './logger'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
+type StoredFavorite = { provider: string; model: string }
+
+export type SettingsDep = {
+  getActiveProfile: () => Promise<string | null>
+  setActiveProfile: (input: { id: string | null }) => Promise<void>
+  getFavorites: () => Promise<StoredFavorite[]>
+  setFavorites: (input: { favorites: StoredFavorite[] }) => Promise<void>
+}
+
 export type JsonFileCap = {
-  settings: {
-    read: () => Promise<StoredSettings>
-    update: (updater: (data: StoredSettings) => StoredSettings) => void
-  }
   arcFile: {
     validate: (content: string) => ArcFileValidationResult
   }
@@ -107,17 +105,17 @@ function passesFilter(modelId: string, filter: ArcModelFilter | null, matches: G
 
 function transformModels(
   raw: Array<{ id: string }>,
-  provider: ProviderInput,
+  providerInput: ProviderInput,
   timestamp: string,
   matches: GlobCap['matches'],
 ): CachedModel[] {
   return raw
-    .filter(m => passesFilter(m.id, provider.filter ?? null, matches))
+    .filter(m => passesFilter(m.id, providerInput.filter ?? null, matches))
     .map(m => ({
       id: m.id,
-      name: provider.aliases?.[m.id] ?? m.id,
-      providerId: provider.id,
-      providerName: provider.providerName,
+      name: providerInput.aliases?.[m.id] ?? m.id,
+      provider: providerInput.id,
+      providerName: providerInput.providerName,
       providerType: 'openai' as const,
       fetchedAt: timestamp,
     }))
@@ -127,7 +125,7 @@ function toPublicModel(cached: CachedModel): Model {
   return {
     id: cached.id,
     name: cached.name,
-    provider: { id: cached.providerId, name: cached.providerName, type: cached.providerType },
+    provider: { id: cached.provider, name: cached.providerName, type: cached.providerType },
   }
 }
 
@@ -181,15 +179,15 @@ export async function installProfile(
 }
 
 export async function uninstallProfile(
-  jsonFile: JsonFileCap,
+  settings: SettingsDep,
   binaryFile: BinaryFileCap,
   profileId: string,
 ): Promise<void> {
   await binaryFile.deleteDir(`profiles/${profileId}`)
-  await jsonFile.settings.update(settings => ({
-    ...settings,
-    activeProfileId: settings.activeProfileId === profileId ? null : settings.activeProfileId,
-  }))
+  const activeProfile = await settings.getActiveProfile()
+  if (activeProfile === profileId) {
+    await settings.setActiveProfile({ id: null })
+  }
 }
 
 export async function listProfiles(
@@ -220,6 +218,7 @@ export async function listProfiles(
 }
 
 export async function activateProfile(
+  settings: SettingsDep,
   jsonFile: JsonFileCap,
   glob: GlobCap,
   binaryFile: BinaryFileCap,
@@ -231,34 +230,31 @@ export async function activateProfile(
       throw new Error(`Profile ${profileId} not found`)
     }
   }
-  await jsonFile.settings.update(settings => ({ ...settings, activeProfileId: profileId }))
+  await settings.setActiveProfile({ id: profileId })
 }
 
 export async function getActiveProfile(
+  settings: SettingsDep,
   jsonFile: JsonFileCap,
   binaryFile: BinaryFileCap,
 ): Promise<ArcFile | null> {
-  const settings = await jsonFile.settings.read()
-  if (!settings.activeProfileId) return null
+  const activeProfile = await settings.getActiveProfile()
+  if (!activeProfile) return null
 
-  const buf = await binaryFile.readFile(`profiles/${settings.activeProfileId}/arc.json`)
+  const buf = await binaryFile.readFile(`profiles/${activeProfile}/arc.json`)
   if (!buf) return null
 
   const validation = jsonFile.arcFile.validate(buf.toString('utf-8'))
   return validation.valid ? validation.data : null
 }
 
-export async function getActiveProfileId(jsonFile: JsonFileCap): Promise<string | null> {
-  const settings = await jsonFile.settings.read()
-  return settings.activeProfileId
-}
-
 export async function getProviderConfig(
+  settings: SettingsDep,
   jsonFile: JsonFileCap,
   binaryFile: BinaryFileCap,
   providerId: string,
 ): Promise<ProviderConfig> {
-  const profile = await getActiveProfile(jsonFile, binaryFile)
+  const profile = await getActiveProfile(settings, jsonFile, binaryFile)
   if (!profile) throw new Error('No active profile')
 
   const provider = profile.providers.find(p => generateProviderId(p) === providerId)
@@ -276,13 +272,14 @@ export async function getProviderConfig(
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function syncModels(
+  settings: SettingsDep,
   jsonFile: JsonFileCap,
   binaryFile: BinaryFileCap,
   glob: GlobCap,
   aiDep: AiDep,
   logger: Logger,
 ): Promise<void> {
-  const profile = await getActiveProfile(jsonFile, binaryFile)
+  const profile = await getActiveProfile(settings, jsonFile, binaryFile)
   const providers = profile ? extractProviders(profile) : []
 
   if (providers.length === 0) {
@@ -322,7 +319,7 @@ export async function lookupModelProvider(jsonFile: JsonFileCap, modelId: string
   const cached = await jsonFile.modelsCache.read()
   const model = cached.find(m => m.id === modelId)
   if (!model) throw new Error(`Model ${modelId} not found`)
-  return model.providerId
+  return model.provider
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -330,25 +327,27 @@ export async function lookupModelProvider(jsonFile: JsonFileCap, modelId: string
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function mergeFavoriteModels(
+  settings: SettingsDep,
   jsonFile: JsonFileCap,
   binaryFile: BinaryFileCap,
 ): Promise<void> {
-  const profile = await getActiveProfile(jsonFile, binaryFile)
+  const profile = await getActiveProfile(settings, jsonFile, binaryFile)
   if (!profile?.favoriteModels?.length) return
 
   const newFavorites = profile.favoriteModels
     .map(({ provider: providerType, model }) => {
       const match = profile.providers.find(p => p.type === providerType)
       if (!match) return null
-      return { providerId: generateProviderId(match), modelId: model } as StoredFavorite
+      return { provider: generateProviderId(match), model } as StoredFavorite
     })
     .filter((f): f is StoredFavorite => f !== null)
 
   if (!newFavorites.length) return
 
-  await jsonFile.settings.update(settings => {
-    const existing = new Set(settings.favorites.map(f => `${f.providerId}:${f.modelId}`))
-    const toAdd = newFavorites.filter(f => !existing.has(`${f.providerId}:${f.modelId}`))
-    return toAdd.length ? { ...settings, favorites: [...settings.favorites, ...toAdd] } : settings
-  })
+  const currentFavorites = await settings.getFavorites()
+  const existing = new Set(currentFavorites.map(f => `${f.provider}:${f.model}`))
+  const toAdd = newFavorites.filter(f => !existing.has(`${f.provider}:${f.model}`))
+  if (toAdd.length) {
+    await settings.setFavorites({ favorites: [...currentFavorites, ...toAdd] })
+  }
 }

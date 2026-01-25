@@ -90,13 +90,13 @@ export function ModelSelector({
           (f) =>
             f &&
             typeof f === 'object' &&
-            f.providerId &&
-            f.modelId &&
-            f.providerId !== 'undefined' &&
-            f.modelId !== 'undefined'
+            f.provider &&
+            f.model &&
+            f.provider !== 'undefined' &&
+            f.model !== 'undefined'
         )
         if (validFavorites.length > 0) {
-          const keys = validFavorites.map((f) => favoriteKey(f.providerId, f.modelId))
+          const keys = validFavorites.map((f) => favoriteKey(f.provider, f.model))
           setFavorites(new Set(keys))
 
           // Only show favorites tab if at least one favorite matches available models
@@ -125,12 +125,12 @@ export function ModelSelector({
       }
 
       // Convert Set back to array of objects for storage
-      // Split only on the first colon to preserve colons in modelId (e.g., "claude-haiku-4-5:thinking")
+      // Split only on the first colon to preserve colons in model (e.g., "claude-haiku-4-5:thinking")
       const favoritesArray = Array.from(next).map((k) => {
         const colonIndex = k.indexOf(':')
-        const providerId = k.slice(0, colonIndex)
-        const modelId = k.slice(colonIndex + 1)
-        return { providerId, modelId }
+        const provider = k.slice(0, colonIndex)
+        const model = k.slice(colonIndex + 1)
+        return { provider, model }
       })
       window.arc.settings.setFavorites({ favorites: favoritesArray })
       return next

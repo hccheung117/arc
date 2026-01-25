@@ -46,8 +46,8 @@ export interface Message {
   parentId: string | null
   error?: Error
   attachments?: MessageAttachment[]
-  modelId?: string
-  providerId?: string
+  model?: string
+  provider?: string
 }
 
 export type MessageStatus = 'pending' | 'streaming' | 'complete' | 'failed'
@@ -81,8 +81,8 @@ function toMessage(stored: StoredMessageEvent, conversationId: string): Message 
       mimeType: a.mimeType,
       url: `arc://attachment/${conversationId}/${a.path}`,
     })),
-    modelId: stored.modelId,
-    providerId: stored.providerId,
+    model: stored.model,
+    provider: stored.provider,
   }
 }
 
@@ -117,8 +117,8 @@ export async function createMessage(
   role: MessageRole,
   content: string,
   parentId: string | null,
-  modelId: string,
-  providerId: string,
+  model: string,
+  provider: string,
   attachments?: AttachmentInput[],
   threadConfig?: ThreadConfig,
   reasoning?: string,
@@ -131,8 +131,8 @@ export async function createMessage(
       content,
       parentId,
       attachments,
-      modelId,
-      providerId,
+      model,
+      provider,
       threadConfig,
       reasoning,
       usage,
@@ -145,8 +145,8 @@ export async function createBranch(
   conversationId: string,
   parentId: string | null,
   content: string,
-  modelId: string,
-  providerId: string,
+  model: string,
+  provider: string,
   attachments?: AttachmentInput[],
   threadConfig?: ThreadConfig,
 ): Promise<CreateBranchResult> {
@@ -156,8 +156,8 @@ export async function createBranch(
       parentId,
       content,
       attachments,
-      modelId,
-      providerId,
+      model,
+      provider,
       threadConfig,
     },
   })
@@ -171,8 +171,8 @@ export async function updateMessage(
   conversationId: string,
   messageId: string,
   content: string,
-  modelId: string,
-  providerId: string,
+  model: string,
+  provider: string,
   attachments?: AttachmentInput[],
   reasoning?: string,
 ): Promise<Message> {
@@ -181,8 +181,8 @@ export async function updateMessage(
     messageId,
     input: {
       content,
-      modelId,
-      providerId,
+      model,
+      provider,
       attachments,
       reasoning,
     },
