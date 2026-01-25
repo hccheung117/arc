@@ -42,7 +42,7 @@ function validateArchiveEntries(zip: AdmZip, targetDir: string) {
  * Creates the target directory if it doesn't exist.
  * Validates paths to prevent directory traversal attacks.
  */
-export async function extractArchive(archivePath: string, targetDir: string) {
+async function extractArchive(archivePath: string, targetDir: string) {
   await fs.mkdir(targetDir, { recursive: true })
 
   const zip = openArchive(archivePath)
@@ -54,7 +54,7 @@ export async function extractArchive(archivePath: string, targetDir: string) {
  * Reads a file from a ZIP archive without extracting.
  * Returns null if entry not found or on error.
  */
-export function readArchiveEntry(archivePath: string, entryPath: string) {
+function readArchiveEntry(archivePath: string, entryPath: string) {
   try {
     const zip = openArchive(archivePath)
     const entry = zip.getEntry(entryPath)
@@ -69,7 +69,7 @@ export function readArchiveEntry(archivePath: string, entryPath: string) {
  * Lists entries in a directory within a ZIP archive.
  * Returns empty array on error.
  */
-export function listArchiveDirectory(archivePath: string, dirPath: string) {
+function listArchiveDirectory(archivePath: string, dirPath: string) {
   try {
     const zip = openArchive(archivePath)
     const normalizedDir = dirPath.endsWith('/') ? dirPath : `${dirPath}/`
@@ -96,7 +96,7 @@ export function listArchiveDirectory(archivePath: string, dirPath: string) {
 /**
  * Checks if an archive contains a specific entry.
  */
-export function archiveHasEntry(archivePath: string, entryPath: string) {
+function archiveHasEntry(archivePath: string, entryPath: string) {
   try {
     const zip = openArchive(archivePath)
     return zip.getEntry(entryPath) !== null
@@ -108,7 +108,7 @@ export function archiveHasEntry(archivePath: string, entryPath: string) {
 /**
  * Creates a ZIP archive from a directory.
  */
-export async function writeArchive(sourceDir: string, archivePath: string) {
+async function writeArchive(sourceDir: string, archivePath: string) {
   const zip = new AdmZip()
   zip.addLocalFolder(sourceDir)
   await fs.mkdir(path.dirname(archivePath), { recursive: true })
