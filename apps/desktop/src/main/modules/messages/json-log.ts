@@ -62,4 +62,7 @@ export default defineCapability((jsonLog: ScopedJsonLog) => ({
 
   delete: (threadId: string) =>
     jsonLog.create(logPath(threadId), StoredMessageEventSchema).delete(),
+
+  copy: (sourceId: string, targetId: string) =>
+    jsonLog.copyFile(logPath(sourceId), logPath(targetId)),
 }))

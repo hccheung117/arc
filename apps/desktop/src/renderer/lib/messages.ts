@@ -5,7 +5,7 @@ import type {
   StoredMessageEvent,
   MessageRole,
 } from '@main/modules/messages/business'
-import type { ThreadConfig } from '@main/modules/threads/json-file'
+import type { ThreadConfig, Prompt } from '@main/modules/threads/json-file'
 
 // ============================================================================
 // RENDERER VIEW MODEL TYPES
@@ -194,10 +194,54 @@ export async function updateMessage(
 // AI ORCHESTRATION
 // ============================================================================
 
+export interface StreamContext {
+  provider: { baseURL?: string; apiKey?: string }
+  modelId: string
+  systemPrompt: string | null
+  messages: AIMessage[]
+  parentId: string | null
+  threadId: string
+  providerId: string
+}
+
 /**
- * Convert stored messages to AI SDK format.
- * Loads attachments via IPC and encodes as base64 data URLs.
+ * Gather all data needed for an AI stream.
+ * Parallel IPC calls to domain endpoints.
  */
+export async function prepareStreamContext(
+  prompt: Prompt,
+  threadId: string,
+  modelId: string,
+  leafMessageId: string | null,
+): Promise<StreamContext> {
+  // Parallel calls to endpoints
+  const [messagesResult, streamConfig, systemPrompt] = await Promise.all([
+    leafMessageId
+      ? window.arc.messages.getConversation({ threadId, leafMessageId })
+      : window.arc.messages.list({ threadId }).then((r) => convertToAIMessages(r.messages, threadId)),
+    window.arc.profiles.getStreamConfig({ modelId }),
+    window.arc.personas.resolve({ prompt }),
+  ])
+
+  // Derive parentId: use provided leafMessageId, or last message from fetched list
+  const parentId = leafMessageId ?? (messagesResult.length > 0 ? await getLastMessageId(threadId) : null)
+
+  return {
+    provider: { baseURL: streamConfig.baseURL ?? undefined, apiKey: streamConfig.apiKey ?? undefined },
+    modelId: streamConfig.modelId,
+    systemPrompt,
+    messages: messagesResult,
+    parentId,
+    threadId,
+    providerId: streamConfig.providerId,
+  }
+}
+
+async function getLastMessageId(threadId: string): Promise<string | null> {
+  const { messages } = await window.arc.messages.list({ threadId })
+  return messages.at(-1)?.id ?? null
+}
+
 async function convertToAIMessages(
   messages: StoredMessageEvent[],
   threadId: string,
@@ -209,7 +253,6 @@ async function convertToAIMessages(
           message.attachments.map(async (att) => {
             const buffer = await window.arc.messages.readAttachment({ threadId, filename: att.path })
             if (!buffer) return null
-            // IPC transfers Buffer as Uint8Array; convert to base64
             const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer as ArrayBuffer)
             const base64 = btoa(String.fromCharCode(...bytes))
             return {
@@ -232,75 +275,6 @@ async function convertToAIMessages(
       }
     }),
   )
-}
-
-export interface StreamContext {
-  provider: { baseURL?: string; apiKey?: string }
-  modelId: string
-  systemPrompt: string | null
-  messages: AIMessage[]
-  parentId: string | null
-  threadId: string
-  providerId: string
-}
-
-/**
- * Gather all data needed for an AI stream.
- * Orchestration logic — calls messages, profiles, and personas modules.
- */
-export async function prepareStreamContext(
-  threadId: string,
-  modelId: string,
-): Promise<StreamContext> {
-  const [{ messages: storedMessages }, modelsList] = await Promise.all([
-    window.arc.messages.list({ threadId }),
-    window.arc.profiles.listModels(),
-  ])
-
-  const model = modelsList.find((m) => m.id === modelId)
-  if (!model) throw new Error(`Model ${modelId} not found`)
-
-  const providerId = model.provider.id
-  const providerConfig = await window.arc.profiles.getProviderConfig({ providerId })
-
-  // Resolve system prompt from thread's promptSource
-  const threads = await window.arc.threads.list()
-  const thread = threads.find((t) => t.id === threadId)
-  const systemPrompt = thread?.promptSource
-    ? await resolvePromptSourceForStream(thread.promptSource)
-    : null
-
-  const messages = await convertToAIMessages(storedMessages, threadId)
-  const parentId = storedMessages.at(-1)?.id ?? null
-
-  return {
-    provider: { baseURL: providerConfig.baseUrl ?? undefined, apiKey: providerConfig.apiKey ?? undefined },
-    modelId,
-    systemPrompt,
-    messages,
-    parentId,
-    threadId,
-    providerId,
-  }
-}
-
-/**
- * Resolve a PromptSource to its content for streaming.
- */
-async function resolvePromptSourceForStream(
-  promptSource: { type: 'none' } | { type: 'direct'; content: string } | { type: 'persona'; personaId: string },
-): Promise<string | null> {
-  switch (promptSource.type) {
-    case 'none':
-      return null
-    case 'direct':
-      return promptSource.content
-    case 'persona': {
-      const personas = await window.arc.personas.list()
-      const persona = personas.find((p: { name: string }) => p.name === promptSource.personaId)
-      return persona?.systemPrompt ?? null
-    }
-  }
 }
 
 /**

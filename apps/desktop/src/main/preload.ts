@@ -6,10 +6,10 @@
  */
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { StoredMessageEvent, BranchInfo } from '@main/modules/messages/business'
-import type { StoredThread, PromptSource } from '@main/modules/threads/json-file'
+import type { StoredMessageEvent, BranchInfo, AIMessage } from '@main/modules/messages/business'
+import type { StoredThread, Prompt } from '@main/modules/threads/json-file'
 import type { Persona } from '@main/modules/personas/business'
-import type { ProfileInstallResult, ProfileInfo, ProviderConfig, Model } from '@main/modules/profiles/business'
+import type { ProfileInstallResult, ProfileInfo, ProviderConfig, Model, StreamConfig } from '@main/modules/profiles/business'
 import type { ArcFile } from '@main/modules/profiles/json-file'
 import type { StreamInput, RefineInput, FetchModelsInput, Usage } from '@main/modules/ai/business'
 import type { ThreadContextMenuParams, ThreadMenuAction, MessageMenuAction } from '@main/modules/ui/business'
@@ -91,6 +91,9 @@ const profiles = {
 
   lookupModelProvider: (input: { modelId: string }): Promise<string> =>
     ipcRenderer.invoke('arc:profiles:lookupModelProvider', input),
+
+  getStreamConfig: (input: { modelId: string }): Promise<StreamConfig> =>
+    ipcRenderer.invoke('arc:profiles:getStreamConfig', input),
 }
 
 const personas = {
@@ -109,7 +112,7 @@ const personas = {
   delete: (input: { name: string }): Promise<void> =>
     ipcRenderer.invoke('arc:personas:delete', input),
 
-  resolve: (input: { promptSource: PromptSource }): Promise<string | null> =>
+  resolve: (input: { prompt: Prompt }): Promise<string | null> =>
     ipcRenderer.invoke('arc:personas:resolve', input),
 }
 
@@ -121,7 +124,7 @@ type CreateMessageInput = {
   attachments?: { type: 'image'; data: string; mimeType: string; name?: string }[]
   model: string
   provider: string
-  threadConfig?: { promptSource: { type: 'none' } | { type: 'direct'; content: string } | { type: 'persona'; personaId: string } }
+  threadConfig?: { prompt: { type: 'none' } | { type: 'inline'; content: string } | { type: 'persona'; ref: string } }
   reasoning?: string
   usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number; reasoningTokens?: number }
 }
@@ -132,7 +135,7 @@ type CreateBranchInput = {
   attachments?: { type: 'image'; data: string; mimeType: string; name?: string }[]
   model: string
   provider: string
-  threadConfig?: { promptSource: { type: 'none' } | { type: 'direct'; content: string } | { type: 'persona'; personaId: string } }
+  threadConfig?: { prompt: { type: 'none' } | { type: 'inline'; content: string } | { type: 'persona'; ref: string } }
 }
 
 type UpdateMessageInput = {
@@ -164,12 +167,15 @@ const messages = {
 
   getAttachmentPath: (input: { threadId: string; filename: string }): Promise<string> =>
     ipcRenderer.invoke('arc:messages:getAttachmentPath', input),
+
+  getConversation: (input: { threadId: string; leafMessageId: string }): Promise<AIMessage[]> =>
+    ipcRenderer.invoke('arc:messages:getConversation', input),
 }
 
 type ThreadPatch = {
   title?: string
   pinned?: boolean
-  promptSource?: { type: 'none' } | { type: 'direct'; content: string } | { type: 'persona'; personaId: string }
+  prompt?: { type: 'none' } | { type: 'inline'; content: string } | { type: 'persona'; ref: string }
 }
 
 type ThreadEvent =
@@ -190,11 +196,8 @@ const threads = {
   duplicate: (input: { threadId: string; upToMessageId?: string }): Promise<StoredThread> =>
     ipcRenderer.invoke('arc:threads:duplicate', input),
 
-  createFolder: (input: { name: string; threadId1: string; threadId2: string }): Promise<StoredThread> =>
-    ipcRenderer.invoke('arc:threads:createFolder', input),
-
-  createFolderWithThread: (input: { threadId: string }): Promise<StoredThread> =>
-    ipcRenderer.invoke('arc:threads:createFolderWithThread', input),
+  folderThreads: (input: { threadIds: string[]; name?: string }): Promise<StoredThread> =>
+    ipcRenderer.invoke('arc:threads:folderThreads', input),
 
   moveToFolder: (input: { threadId: string; folderId: string }): Promise<void> =>
     ipcRenderer.invoke('arc:threads:moveToFolder', input),

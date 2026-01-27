@@ -204,10 +204,7 @@ export async function copyThreadData(
       await binaryFile.copySelective(sourceId, targetId, attachmentPaths)
     }
   } else {
-    const events = await jsonLog.read(sourceId)
-    for (const event of events) {
-      await jsonLog.append(targetId, event)
-    }
+    await jsonLog.copy(sourceId, targetId)
     await binaryFile.copyAll(sourceId, targetId)
   }
 }
@@ -245,4 +242,76 @@ function filterAncestry(
   }
 
   return { filtered, attachmentPaths }
+}
+
+function walkAncestry(messages: StoredMessageEvent[], leafMessageId: string, threadId: string): StoredMessageEvent[] {
+  const target = messages.find((m) => m.id === leafMessageId)
+  if (!target) throw new Error(`Message ${leafMessageId} not found in thread ${threadId}`)
+
+  const ancestry: StoredMessageEvent[] = []
+  let current: StoredMessageEvent | undefined = target
+
+  while (current) {
+    ancestry.unshift(current)
+    current = current.parentId ? messages.find((m) => m.id === current!.parentId) : undefined
+  }
+
+  return ancestry
+}
+
+// ============================================================================
+// AI MESSAGE TYPES
+// ============================================================================
+
+type TextPart = { type: 'text'; text: string }
+type ImagePart = { type: 'image'; image: string; mediaType?: string }
+type ContentPart = TextPart | ImagePart
+
+export interface AIMessage {
+  role: 'system' | 'user' | 'assistant'
+  content: string | ContentPart[]
+}
+
+// ============================================================================
+// CONVERSATION FOR AI STREAMING
+// ============================================================================
+
+export async function getConversation(
+  jsonLog: JsonLogCap,
+  binaryFile: BinaryFileCap,
+  threadId: string,
+  leafMessageId: string,
+): Promise<AIMessage[]> {
+  const events = await jsonLog.read(threadId)
+  const { messages } = reduceMessageEvents(events)
+  const ancestry = walkAncestry(messages, leafMessageId, threadId)
+
+  return Promise.all(
+    ancestry.map(async (message): Promise<AIMessage> => {
+      if (message.role === 'user' && message.attachments?.length) {
+        const imageParts = await Promise.all(
+          message.attachments.map(async (att): Promise<ImagePart | null> => {
+            const buffer = await binaryFile.read(threadId, att.path)
+            if (!buffer) return null
+            const base64 = buffer.toString('base64')
+            return {
+              type: 'image',
+              image: `data:${att.mimeType};base64,${base64}`,
+              mediaType: att.mimeType,
+            }
+          }),
+        )
+        const validParts = imageParts.filter((p): p is ImagePart => p !== null)
+        // content! — AppendMessageInput requires content; all persisted messages have it
+        const content: ContentPart[] = [...validParts, { type: 'text', text: message.content! }]
+        return { role: 'user', content }
+      }
+
+      // content! — AppendMessageInput requires content; all persisted messages have it
+      return {
+        role: message.role as 'user' | 'assistant' | 'system',
+        content: message.content!,
+      }
+    }),
+  )
 }

@@ -209,7 +209,7 @@ export function useChatSession(
         switchBranch: tree.switchBranch,
         startStreaming: async () => {
           onThreadUpdate({ type: 'PATCH', id: thread.id, patch: { status: 'streaming' } })
-          await streaming.start(selectedModel.id, handleStreamComplete)
+          await streaming.start(selectedModel.id, thread.prompt, handleStreamComplete)
         },
       }
 

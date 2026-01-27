@@ -12,7 +12,7 @@ import {
   deleteThread,
   toggleThreadPin,
   moveThreadToFolder,
-  createFolderWithThread,
+  folderThreads,
   type ChatThread,
 } from '@renderer/lib/threads'
 import { useRename } from '@renderer/hooks/use-rename'
@@ -98,7 +98,7 @@ export function FolderItem({
         await toggleThreadPin(folder.id, folder.isPinned)
         break
       case 'newFolder': {
-        const newFolder = await createFolderWithThread(folder.id)
+        const newFolder = await folderThreads([folder.id])
         setRenamingFolderId(newFolder.id)
         break
       }

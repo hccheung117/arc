@@ -14,10 +14,10 @@ type ScopedJsonFile = ReturnType<FoundationCapabilities['jsonFile']>
 // Schemas (thread index data — owned by threads module)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const PromptSourceSchema = z.discriminatedUnion('type', [
+export const PromptSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('none') }),
-  z.object({ type: z.literal('direct'), content: z.string() }),
-  z.object({ type: z.literal('persona'), personaId: z.string() }),
+  z.object({ type: z.literal('inline'), content: z.string() }),
+  z.object({ type: z.literal('persona'), ref: z.string() }),
 ])
 
 // Recursive type requires explicit annotation
@@ -26,7 +26,7 @@ type StoredThreadType = {
   title: string | null
   pinned: boolean
   renamed: boolean
-  promptSource: PromptSource
+  prompt: Prompt
   createdAt: string
   updatedAt: string
   children: StoredThreadType[]
@@ -37,7 +37,7 @@ const StoredThreadSchema: z.ZodType<StoredThreadType> = z.object({
   title: z.string().nullable(),
   pinned: z.boolean(),
   renamed: z.boolean(),
-  promptSource: PromptSourceSchema,
+  prompt: PromptSchema,
   createdAt: z.string(),
   updatedAt: z.string(),
   children: z.lazy(() => z.array(StoredThreadSchema)).default([]),
@@ -47,12 +47,12 @@ export const StoredThreadIndexSchema = z.object({
   threads: z.array(StoredThreadSchema),
 })
 
-export type PromptSource = z.infer<typeof PromptSourceSchema>
+export type Prompt = z.infer<typeof PromptSchema>
 export type StoredThread = StoredThreadType
 export type StoredThreadIndex = z.infer<typeof StoredThreadIndexSchema>
 
 export type ThreadConfig = {
-  promptSource: PromptSource
+  prompt: Prompt
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

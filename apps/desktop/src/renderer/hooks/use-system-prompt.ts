@@ -42,9 +42,9 @@ export function useSystemPrompt(
         return
       }
 
-      // Convert content to PromptSource
-      const newPromptSource = content.trim()
-        ? { type: 'direct' as const, content: content.trim() }
+      // Convert content to Prompt
+      const newPrompt = content.trim()
+        ? { type: 'inline' as const, content: content.trim() }
         : { type: 'none' as const }
 
       if (thread.owner === 'local') {
@@ -52,13 +52,13 @@ export function useSystemPrompt(
         onThreadUpdate({
           type: 'PATCH',
           id: thread.id,
-          patch: { promptSource: newPromptSource },
+          patch: { prompt: newPrompt },
         })
       } else {
         // DB ownership: save to backend immediately
         await window.arc.threads.update({
           threadId: thread.id,
-          patch: { promptSource: newPromptSource },
+          patch: { prompt: newPrompt },
         })
       }
 

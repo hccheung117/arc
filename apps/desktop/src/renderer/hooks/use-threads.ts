@@ -56,7 +56,7 @@ function threadsReducer(state: ChatThread[], action: ThreadAction): ChatThread[]
               return {
                 ...action.thread,
                 owner: 'local', // Keep local ownership until explicitly transferred
-                promptSource: existing.promptSource, // Preserve local prompt config
+                prompt: existing.prompt, // Preserve local prompt config
               }
             }
             // DB owns it, accept backend values

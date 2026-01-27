@@ -57,9 +57,9 @@ export default defineModule({
         emit('deleted', input.name)
       },
 
-      resolve: async (input: { promptSource: biz.PromptSource }) => {
+      resolve: async (input: { prompt: biz.Prompt }) => {
         const activeProfile = await profiles.getActiveId()
-        return biz.resolvePromptSource(caps, activeProfile, input.promptSource)
+        return biz.resolvePrompt(caps, activeProfile, input.prompt)
       },
     }
   },

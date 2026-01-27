@@ -11,7 +11,7 @@ import {
   toggleThreadPin,
   removeThreadFromFolder,
   moveThreadToFolder,
-  createFolderWithThread,
+  folderThreads,
   duplicateThread,
   type ChatThread,
 } from '@renderer/lib/threads'
@@ -101,7 +101,7 @@ export function ThreadItem({ thread, variant = 'default' }: ThreadItemProps) {
         await removeThreadFromFolder(thread.id)
         break
       case 'newFolder': {
-        const folder = await createFolderWithThread(thread.id)
+        const folder = await folderThreads([thread.id])
         setRenamingFolderId(folder.id)
         break
       }
