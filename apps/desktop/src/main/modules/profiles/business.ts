@@ -2,10 +2,10 @@
  * Profiles Business Logic
  *
  * Domain logic for profile lifecycle, provider configuration, and model discovery.
- * Receives capabilities as parameters; zero knowledge of persistence format.
+ * Receives context object; zero knowledge of persistence format.
  */
 
-import { createHash } from 'crypto'
+import { createHash, randomUUID } from 'crypto'
 import type { ArcFile, ArcModelFilter, CachedModel, ArcFileValidationResult } from './json-file'
 import type { Logger } from './logger'
 
@@ -15,14 +15,14 @@ import type { Logger } from './logger'
 
 type StoredFavorite = { provider: string; model: string }
 
-export type SettingsDep = {
+type SettingsDep = {
   getActiveProfile: () => Promise<string | null>
   setActiveProfile: (input: { id: string | null }) => Promise<void>
   getFavorites: () => Promise<StoredFavorite[]>
   setFavorites: (input: { favorites: StoredFavorite[] }) => Promise<void>
 }
 
-export type JsonFileCap = {
+type JsonFileCap = {
   arcFile: {
     validate: (content: string) => ArcFileValidationResult
   }
@@ -32,23 +32,33 @@ export type JsonFileCap = {
   }
 }
 
-export type ArchiveCap = {
+type ArchiveCap = {
   extractExternal: (externalAbsPath: string, targetDir: string) => Promise<void>
 }
 
-export type GlobCap = {
+type GlobCap = {
   listProfileDirs: () => Promise<string[]>
   matches: (value: string, pattern: string) => boolean
 }
 
-export type BinaryFileCap = {
+type BinaryFileCap = {
   deleteDir: (relativePath: string) => Promise<void>
   rename: (srcPath: string, dstPath: string) => Promise<void>
   readFile: (relativePath: string) => Promise<Buffer | null>
 }
 
-export type AiDep = {
+type AiDep = {
   fetchModels: (input: { baseUrl?: string; apiKey?: string }) => Promise<Array<{ id: string }>>
+}
+
+export type Ctx = {
+  settings: SettingsDep
+  jsonFile: JsonFileCap
+  archive: ArchiveCap
+  glob: GlobCap
+  binaryFile: BinaryFileCap
+  ai: AiDep
+  logger: Logger
 }
 
 export interface ProfileInfo {
@@ -94,7 +104,7 @@ export function generateProviderId(provider: {
   baseUrl?: string | null
 }) {
   const input = `${provider.type}|${provider.apiKey ?? ''}|${provider.baseUrl ?? ''}`
-  return createHash('sha256').update(input).digest('hex').slice(0, 8)
+  return createHash('sha256').update(input).digest('hex').slice(0, 16)
 }
 
 function passesFilter(modelId: string, filter: ArcModelFilter | null, matches: GlobCap['matches']): boolean {
@@ -144,13 +154,9 @@ function extractProviders(profile: ArcFile): ProviderInput[] {
 // Profile Lifecycle
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function installProfile(
-  jsonFile: JsonFileCap,
-  archive: ArchiveCap,
-  binaryFile: BinaryFileCap,
-  archivePath: string,
-): Promise<ProfileInstallResult> {
-  const tempDir = `profiles/.installing-${Date.now()}`
+export async function installProfile(ctx: Ctx, archivePath: string): Promise<ProfileInstallResult> {
+  const { jsonFile, archive, binaryFile } = ctx
+  const tempDir = `profiles/.installing-${randomUUID()}`
 
   try {
     await archive.extractExternal(archivePath, tempDir)
@@ -178,11 +184,8 @@ export async function installProfile(
   }
 }
 
-export async function uninstallProfile(
-  settings: SettingsDep,
-  binaryFile: BinaryFileCap,
-  profileId: string,
-): Promise<void> {
+export async function uninstallProfile(ctx: Ctx, profileId: string): Promise<void> {
+  const { settings, binaryFile } = ctx
   await binaryFile.deleteDir(`profiles/${profileId}`)
   const activeProfile = await settings.getActiveProfile()
   if (activeProfile === profileId) {
@@ -190,17 +193,12 @@ export async function uninstallProfile(
   }
 }
 
-export async function listProfiles(
-  jsonFile: JsonFileCap,
-  glob: GlobCap,
-  binaryFile: BinaryFileCap,
-): Promise<ProfileInfo[]> {
+export async function listProfiles(ctx: Ctx): Promise<ProfileInfo[]> {
+  const { jsonFile, glob, binaryFile } = ctx
   const entries = await glob.listProfileDirs()
   const profiles: ProfileInfo[] = []
 
   for (const entry of entries) {
-    if (entry.startsWith('.')) continue
-
     const buf = await binaryFile.readFile(`profiles/${entry}/arc.json`)
     if (!buf) continue
 
@@ -217,15 +215,10 @@ export async function listProfiles(
   return profiles
 }
 
-export async function activateProfile(
-  settings: SettingsDep,
-  jsonFile: JsonFileCap,
-  glob: GlobCap,
-  binaryFile: BinaryFileCap,
-  profileId: string | null,
-): Promise<void> {
+export async function activateProfile(ctx: Ctx, profileId: string | null): Promise<void> {
+  const { settings } = ctx
   if (profileId) {
-    const profiles = await listProfiles(jsonFile, glob, binaryFile)
+    const profiles = await listProfiles(ctx)
     if (!profiles.some(p => p.id === profileId)) {
       throw new Error(`Profile ${profileId} not found`)
     }
@@ -233,11 +226,8 @@ export async function activateProfile(
   await settings.setActiveProfile({ id: profileId })
 }
 
-export async function getActiveProfile(
-  settings: SettingsDep,
-  jsonFile: JsonFileCap,
-  binaryFile: BinaryFileCap,
-): Promise<ArcFile | null> {
+export async function getActiveProfile(ctx: Ctx): Promise<ArcFile | null> {
+  const { settings, jsonFile, binaryFile } = ctx
   const activeProfile = await settings.getActiveProfile()
   if (!activeProfile) return null
 
@@ -248,13 +238,8 @@ export async function getActiveProfile(
   return validation.valid ? validation.data : null
 }
 
-export async function getProviderConfig(
-  settings: SettingsDep,
-  jsonFile: JsonFileCap,
-  binaryFile: BinaryFileCap,
-  providerId: string,
-): Promise<ProviderConfig> {
-  const profile = await getActiveProfile(settings, jsonFile, binaryFile)
+export async function getProviderConfig(ctx: Ctx, providerId: string): Promise<ProviderConfig> {
+  const profile = await getActiveProfile(ctx)
   if (!profile) throw new Error('No active profile')
 
   const provider = profile.providers.find(p => generateProviderId(p) === providerId)
@@ -271,25 +256,24 @@ export async function getProviderConfig(
 // Model Discovery
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function syncModels(
-  settings: SettingsDep,
-  jsonFile: JsonFileCap,
-  binaryFile: BinaryFileCap,
-  glob: GlobCap,
-  aiDep: AiDep,
-  logger: Logger,
-): Promise<void> {
-  const profile = await getActiveProfile(settings, jsonFile, binaryFile)
+export interface SyncResult {
+  modelCount: number
+  failures: Array<{ provider: string; error: string }>
+}
+
+export async function syncModels(ctx: Ctx): Promise<SyncResult> {
+  const { jsonFile, glob, ai, logger } = ctx
+  const profile = await getActiveProfile(ctx)
   const providers = profile ? extractProviders(profile) : []
 
   if (providers.length === 0) {
     await jsonFile.modelsCache.write([])
-    return
+    return { modelCount: 0, failures: [] }
   }
 
   const results = await Promise.allSettled(
     providers.map(async provider => {
-      const raw = await aiDep.fetchModels({
+      const raw = await ai.fetchModels({
         baseUrl: provider.baseUrl ?? undefined,
         apiKey: provider.apiKey ?? undefined,
       })
@@ -298,40 +282,67 @@ export async function syncModels(
   )
 
   const models: CachedModel[] = []
-  for (const result of results) {
+  const failures: Array<{ provider: string; error: string }> = []
+
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i]
     if (result.status === 'fulfilled') {
       models.push(...result.value)
     } else {
-      logger.error('Provider fetch failed', result.reason as Error)
+      const provider = providers[i]
+      const error = result.reason instanceof Error ? result.reason.message : 'Unknown error'
+      failures.push({ provider: provider.providerName, error })
+      logger.error(`Provider "${provider.providerName}" fetch failed`, result.reason as Error)
     }
   }
 
   await jsonFile.modelsCache.write(models)
   logger.info(`Cache updated with ${models.length} model(s)`)
+
+  return { modelCount: models.length, failures }
 }
 
-export async function listModels(jsonFile: JsonFileCap): Promise<Model[]> {
-  const cached = await jsonFile.modelsCache.read()
+export async function listModels(ctx: Ctx): Promise<Model[]> {
+  const cached = await ctx.jsonFile.modelsCache.read()
   return cached.map(toPublicModel)
 }
 
-export async function lookupModelProvider(jsonFile: JsonFileCap, modelId: string): Promise<string> {
-  const cached = await jsonFile.modelsCache.read()
+export async function lookupModelProvider(ctx: Ctx, modelId: string): Promise<string> {
+  const cached = await ctx.jsonFile.modelsCache.read()
   const model = cached.find(m => m.id === modelId)
   if (!model) throw new Error(`Model ${modelId} not found`)
   return model.provider
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Stream Configuration
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface StreamConfig {
+  modelId: string
+  providerId: string
+  baseURL: string | null
+  apiKey: string | null
+}
+
+export async function getStreamConfig(ctx: Ctx, modelId: string): Promise<StreamConfig> {
+  const providerId = await lookupModelProvider(ctx, modelId)
+  const providerConfig = await getProviderConfig(ctx, providerId)
+  return {
+    modelId,
+    providerId,
+    baseURL: providerConfig.baseUrl,
+    apiKey: providerConfig.apiKey,
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Favorites
 // ─────────────────────────────────────────────────────────────────────────────
 
-export async function mergeFavoriteModels(
-  settings: SettingsDep,
-  jsonFile: JsonFileCap,
-  binaryFile: BinaryFileCap,
-): Promise<void> {
-  const profile = await getActiveProfile(settings, jsonFile, binaryFile)
+export async function mergeFavoriteModels(ctx: Ctx): Promise<void> {
+  const { settings } = ctx
+  const profile = await getActiveProfile(ctx)
   if (!profile?.favoriteModels?.length) return
 
   const newFavorites = profile.favoriteModels

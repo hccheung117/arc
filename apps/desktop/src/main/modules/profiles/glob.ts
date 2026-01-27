@@ -9,6 +9,9 @@ import { defineCapability, type FoundationCapabilities } from '@main/kernel/modu
 type ScopedGlob = ReturnType<FoundationCapabilities['glob']>
 
 export default defineCapability((glob: ScopedGlob) => ({
-  listProfileDirs: () => glob.readdir('profiles'),
+  listProfileDirs: async () => {
+    const entries = await glob.readdir('profiles')
+    return entries.filter(e => !e.startsWith('.'))
+  },
   matches: glob.matches,
 }))

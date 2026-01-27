@@ -34,6 +34,23 @@ export interface FetchModelsInput {
 type Emit = (event: 'delta' | 'reasoning' | 'complete' | 'error', data: unknown) => void
 type Http = ReturnType<typeof httpAdapter.factory>
 
+const extractErrorMessage = (err: unknown): string => {
+  if (!(err instanceof Error)) return 'Unknown error'
+
+  const httpErr = err as { body?: string }
+  if (httpErr.body) {
+    try {
+      const parsed = JSON.parse(httpErr.body)
+      if (parsed.error?.message) return parsed.error.message
+      if (parsed.message) return parsed.message
+    } catch {
+      return httpErr.body
+    }
+  }
+
+  return err.message
+}
+
 // ============================================================================
 // STREAM STATE
 // ============================================================================
@@ -94,7 +111,7 @@ export function stream(input: StreamInput, emit: Emit, http: Http, logger: Logge
       }
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
-        const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+        const errorMsg = extractErrorMessage(err)
         logger.error(`Stream error: ${errorMsg}`, err instanceof Error ? err : undefined)
         emit('error', { streamId, error: errorMsg })
       }
@@ -152,7 +169,7 @@ export function refine(input: RefineInput, emit: Emit, http: Http, logger: Logge
       }
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
-        const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+        const errorMsg = extractErrorMessage(err)
         logger.error(`Refine stream error: ${errorMsg}`, err instanceof Error ? err : undefined)
         emit('error', { streamId, error: errorMsg })
       }

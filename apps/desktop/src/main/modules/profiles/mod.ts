@@ -21,50 +21,57 @@ type Caps = {
   logger: ReturnType<typeof loggerAdapter.factory>
 }
 
+type Deps = {
+  ai: biz.Ctx['ai']
+  settings: biz.Ctx['settings']
+}
+
 export default defineModule({
   capabilities: ['jsonFile', 'archive', 'glob', 'binaryFile', 'logger'] as const,
   depends: ['ai', 'settings'] as const,
   provides: (deps, caps: Caps, emit) => {
-    const { jsonFile, archive, glob, binaryFile, logger } = caps
-    const ai = deps.ai as biz.AiDep
-    const settings = deps.settings as biz.SettingsDep
+    const ctx: biz.Ctx = { ...caps, ...(deps as Deps) }
 
     return {
       install: async (input: { filePath: string }) => {
-        logger.info(`Install request: ${input.filePath}`)
-        const result = await biz.installProfile(jsonFile, archive, binaryFile, input.filePath)
+        ctx.logger.info(`Install request: ${input.filePath}`)
+        const result = await biz.installProfile(ctx, input.filePath)
 
-        await biz.activateProfile(settings, jsonFile, glob, binaryFile, result.id)
-        await biz.syncModels(settings, jsonFile, binaryFile, glob, ai, logger)
-        await biz.mergeFavoriteModels(settings, jsonFile, binaryFile)
+        try {
+          await biz.activateProfile(ctx, result.id)
+          await biz.syncModels(ctx)
+          await biz.mergeFavoriteModels(ctx)
+        } catch (error) {
+          await biz.uninstallProfile(ctx, result.id).catch(() => {})
+          throw error
+        }
 
         emit('installed', result)
         emit('activated', result.id)
-
         return result
       },
 
       uninstall: async (input: { profileId: string }) => {
-        await biz.uninstallProfile(settings, binaryFile, input.profileId)
-        await biz.syncModels(settings, jsonFile, binaryFile, glob, ai, logger)
+        await biz.uninstallProfile(ctx, input.profileId)
+        await biz.syncModels(ctx)
         emit('uninstalled', input.profileId)
       },
 
       activate: async (input: { profileId: string | null }) => {
-        await biz.activateProfile(settings, jsonFile, glob, binaryFile, input.profileId)
-        await biz.syncModels(settings, jsonFile, binaryFile, glob, ai, logger)
-        await biz.mergeFavoriteModels(settings, jsonFile, binaryFile)
+        await biz.activateProfile(ctx, input.profileId)
+        await biz.syncModels(ctx)
+        await biz.mergeFavoriteModels(ctx)
         emit('activated', input.profileId)
       },
 
-      list: () => biz.listProfiles(jsonFile, glob, binaryFile),
+      list: () => biz.listProfiles(ctx),
 
-      getActiveId: () => settings.getActiveProfile(),
+      getActiveId: () => ctx.settings.getActiveProfile(),
 
-      getActive: () => biz.getActiveProfile(settings, jsonFile, binaryFile),
+      getActive: () => biz.getActiveProfile(ctx),
 
       getActiveDetails: async () => {
-        const profile = await biz.getActiveProfile(settings, jsonFile, binaryFile)
+        const profile = await biz.getActiveProfile(ctx)
         if (!profile) return null
         return {
           id: profile.id,
@@ -74,12 +81,15 @@ export default defineModule({
       },
 
       getProviderConfig: (input: { providerId: string }) =>
-        biz.getProviderConfig(settings, jsonFile, binaryFile, input.providerId),
+        biz.getProviderConfig(ctx, input.providerId),
 
-      listModels: () => biz.listModels(jsonFile),
+      listModels: () => biz.listModels(ctx),
 
       lookupModelProvider: (input: { modelId: string }) =>
-        biz.lookupModelProvider(jsonFile, input.modelId),
+        biz.lookupModelProvider(ctx, input.modelId),
+
+      getStreamConfig: (input: { modelId: string }) =>
+        biz.getStreamConfig(ctx, input.modelId),
     }
   },
   emits: ['installed', 'uninstalled', 'activated'] as const,

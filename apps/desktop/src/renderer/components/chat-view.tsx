@@ -78,10 +78,10 @@ export function ChatView({ thread, models, findPersona, onThreadUpdate }: ChatVi
 
   // Derived state (pure)
   const persona = useMemo(
-    () => thread.promptSource.type === 'persona' ? findPersona(thread.promptSource.personaId) : undefined,
-    [thread.promptSource, findPersona],
+    () => thread.prompt.type === 'persona' ? findPersona(thread.prompt.ref) : undefined,
+    [thread.prompt, findPersona],
   )
-  const promptInfo = useMemo(() => getPromptInfo(thread.promptSource, persona), [thread.promptSource, persona])
+  const promptInfo = useMemo(() => getPromptInfo(thread.prompt, persona), [thread.prompt, persona])
   const scrollTargetId = useMemo(() => getScrollTargetId(view.messages), [view.messages])
   const { isEditingSystemPrompt, editingMessageId, editingLabel, composerMode } = deriveEditingState(view.input, promptInfo.isProtected)
   const isEmpty = view.messages.length === 0 && !view.streamingMessage
@@ -111,7 +111,7 @@ export function ChatView({ thread, models, findPersona, onThreadUpdate }: ChatVi
   const { cancel: cancelEdit } = useEditingSync(
     view.input,
     view.messages,
-    thread.promptSource,
+    thread.prompt,
     persona,
     composerRef,
   )

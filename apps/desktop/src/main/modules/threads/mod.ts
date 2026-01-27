@@ -13,8 +13,7 @@ import {
   executeDelete,
   executeUpdate,
   executeDuplicate,
-  executeCreateFolder,
-  executeCreateFolderWithThread,
+  executeFolderThreads,
   executeMoveToFolder,
   executeMoveToRoot,
   executeReorderInFolder,
@@ -57,14 +56,8 @@ export default defineModule({
         return result
       },
 
-      createFolder: async (input: { name: string; threadId1: string; threadId2: string }) => {
-        const { result, events } = await executeCreateFolder(storage, input.name, [input.threadId1, input.threadId2])
-        broadcastEvents(events, emit)
-        return result
-      },
-
-      createFolderWithThread: async (input: { threadId: string }) => {
-        const { result, events } = await executeCreateFolderWithThread(storage, input.threadId)
+      folderThreads: async (input: { threadIds: string[]; name?: string }) => {
+        const { result, events } = await executeFolderThreads(storage, input.threadIds, input.name)
         broadcastEvents(events, emit)
         return result
       },

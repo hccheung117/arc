@@ -7,7 +7,7 @@
  */
 
 import { createId } from '@paralleldrive/cuid2'
-import type { StoredThread, StoredThreadIndex, PromptSource } from './json-file'
+import type { StoredThread, StoredThreadIndex, Prompt } from './json-file'
 
 // ============================================================================
 // TYPES
@@ -16,7 +16,7 @@ import type { StoredThread, StoredThreadIndex, PromptSource } from './json-file'
 export type ThreadPatch = {
   title?: string
   pinned?: boolean
-  promptSource?: PromptSource
+  prompt?: Prompt
 }
 
 export type ThreadEvent =
@@ -80,18 +80,16 @@ function extract(tree: StoredThread[], id: string): [StoredThread | undefined, S
     return [tree[idx], [...tree.slice(0, idx), ...tree.slice(idx + 1)]]
   }
 
-  let extracted: StoredThread | undefined
-  const remaining = tree.map((t) => {
-    if (extracted) return t
-    const [found, children] = extract(t.children, id)
-    if (found) {
-      extracted = found
-      return { ...t, children }
-    }
-    return t
-  })
-
-  return [extracted, remaining]
+  return tree.reduce<[StoredThread | undefined, StoredThread[]]>(
+    ([found, acc], t) => {
+      if (found) return [found, [...acc, t]]
+      const [extracted, children] = extract(t.children, id)
+      return extracted
+        ? [extracted, [...acc, { ...t, children }]]
+        : [undefined, [...acc, t]]
+    },
+    [undefined, []],
+  )
 }
 
 // ============================================================================
@@ -102,10 +100,22 @@ const now = () => new Date().toISOString()
 
 const unpin = (t: StoredThread): StoredThread => ({ ...t, pinned: false })
 
+const removeChildFromParent = (parent: StoredThread, childId: string): StoredThread => ({
+  ...parent,
+  children: parent.children.filter((c) => c.id !== childId),
+  updatedAt: now(),
+})
+
+const appendToFolder = (folder: StoredThread, child: StoredThread): StoredThread => ({
+  ...folder,
+  children: [...folder.children, unpin(child)],
+  updatedAt: now(),
+})
+
 interface NewThreadConfig {
   title: string
   renamed: boolean
-  promptSource: PromptSource
+  prompt: Prompt
   children: StoredThread[]
 }
 
@@ -116,7 +126,7 @@ const createThreadEntry = (config: NewThreadConfig): StoredThread => {
     title: config.title,
     pinned: false,
     renamed: config.renamed,
-    promptSource: config.promptSource,
+    prompt: config.prompt,
     createdAt: timestamp,
     updatedAt: timestamp,
     children: config.children,
@@ -129,7 +139,7 @@ const applyPatch =
     ...t,
     ...(patch.title !== undefined && { title: patch.title, renamed: true, updatedAt: now() }),
     ...(patch.pinned !== undefined && { pinned: patch.pinned }),
-    ...(patch.promptSource !== undefined && { promptSource: patch.promptSource, updatedAt: now() }),
+    ...(patch.prompt !== undefined && { prompt: patch.prompt, updatedAt: now() }),
   })
 
 const removeThread =
@@ -150,6 +160,21 @@ export async function listThreads(storage: ThreadStorage): Promise<StoredThread[
   return [...threads].sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
   )
+}
+
+// ============================================================================
+// EFFECT HELPERS
+// ============================================================================
+
+async function handleFolderAfterRemoval(
+  storage: ThreadStorage,
+  folder: StoredThread,
+): Promise<ThreadEvent> {
+  if (folder.children.length === 0) {
+    await storage.update(removeThread(folder.id))
+    return { type: 'deleted', id: folder.id }
+  }
+  return { type: 'updated', thread: folder }
 }
 
 // ============================================================================
@@ -209,18 +234,19 @@ export async function executeDuplicate(
     duplicate = createThreadEntry({
       title: `${source.title ?? 'New Chat'} (Copy)`,
       renamed: source.renamed,
-      promptSource: source.promptSource,
+      prompt: source.prompt,
       children: [],
     })
 
     const parent = parentOf(index.threads, threadId)
 
     if (parent) {
-      const appendChild = (folder: StoredThread): StoredThread => {
-        parentFolder = { ...folder, children: [...folder.children, duplicate!], updatedAt: now() }
-        return parentFolder
+      return {
+        threads: updateById(index.threads, parent.id, (folder) => {
+          parentFolder = appendToFolder(folder, duplicate!)
+          return parentFolder
+        }),
       }
-      return { threads: updateById(index.threads, parent.id, appendChild) }
     }
 
     return { threads: [duplicate, ...index.threads] }
@@ -242,59 +268,35 @@ export async function executeDuplicate(
 // FOLDER OPERATIONS
 // ============================================================================
 
-export async function executeCreateFolder(
+export async function executeFolderThreads(
   storage: ThreadStorage,
-  name: string,
-  threadIds: [string, string],
+  threadIds: string[],
+  name?: string,
 ): Promise<Effect<StoredThread>> {
+  if (threadIds.length === 0) throw new Error('At least one thread required')
+
   let folder: StoredThread | undefined
 
   await storage.update((index) => {
-    const [t1, after1] = extract(index.threads, threadIds[0])
-    if (!t1) throw new Error(`Thread not found: ${threadIds[0]}`)
+    let remaining = index.threads
+    const threads: StoredThread[] = []
 
-    const [t2, after2] = extract(after1, threadIds[1])
-    if (!t2) throw new Error(`Thread not found: ${threadIds[1]}`)
-
-    folder = createThreadEntry({
-      title: name,
-      renamed: true,
-      promptSource: { type: 'none' },
-      children: [unpin(t1), unpin(t2)],
-    })
-
-    return { threads: [folder, ...after2] }
-  })
-
-  if (!folder) throw new Error('Failed to create folder')
-
-  return {
-    result: folder,
-    events: [
-      { type: 'deleted', id: threadIds[0] },
-      { type: 'deleted', id: threadIds[1] },
-      { type: 'created', thread: folder },
-    ],
-  }
-}
-
-export async function executeCreateFolderWithThread(
-  storage: ThreadStorage,
-  threadId: string,
-): Promise<Effect<StoredThread>> {
-  let folder: StoredThread | undefined
-
-  await storage.update((index) => {
-    const [thread, remaining] = extract(index.threads, threadId)
-    if (!thread) throw new Error(`Thread not found: ${threadId}`)
+    for (const id of threadIds) {
+      const [thread, next] = extract(remaining, id)
+      if (!thread) throw new Error(`Thread not found: ${id}`)
+      threads.push(thread)
+      remaining = next
+    }
 
     const folderCount = index.threads.filter((t) => t.children.length > 0).length
+    const folderName = name ?? `Folder ${folderCount + 1}`
+    const renamed = name !== undefined
 
     folder = createThreadEntry({
-      title: `Folder ${folderCount + 1}`,
-      renamed: false,
-      promptSource: { type: 'none' },
-      children: [unpin(thread)],
+      title: folderName,
+      renamed,
+      prompt: { type: 'none' },
+      children: threads.map(unpin),
     })
 
     return { threads: [folder, ...remaining] }
@@ -305,7 +307,7 @@ export async function executeCreateFolderWithThread(
   return {
     result: folder,
     events: [
-      { type: 'deleted', id: threadId },
+      ...threadIds.map((id) => ({ type: 'deleted' as const, id })),
       { type: 'created', thread: folder },
     ],
   }
@@ -330,32 +332,23 @@ export async function executeMoveToFolder(
 
     let withUpdatedSource = remaining
     if (parent) {
-      sourceFolder = { ...parent, children: parent.children.filter(c => c.id !== threadId), updatedAt: now() }
+      sourceFolder = removeChildFromParent(parent, threadId)
       withUpdatedSource = updateById(remaining, parent.id, () => sourceFolder!)
     }
 
-    const appendChild = (folder: StoredThread): StoredThread => {
-      targetFolder = { ...folder, children: [...folder.children, unpin(thread)], updatedAt: now() }
-      return targetFolder
+    return {
+      threads: updateById(withUpdatedSource, folderId, (folder) => {
+        targetFolder = appendToFolder(folder, thread)
+        return targetFolder
+      }),
     }
-
-    return { threads: updateById(withUpdatedSource, folderId, appendChild) }
   })
 
   if (!targetFolder) return { result: undefined, events: [] }
 
-  const events: ThreadEvent[] = []
-
-  if (sourceFolder) {
-    if (sourceFolder.children.length === 0) {
-      await storage.update(removeThread(sourceFolder.id))
-      events.push({ type: 'deleted', id: sourceFolder.id })
-    } else {
-      events.push({ type: 'updated', thread: sourceFolder })
-    }
-  } else {
-    events.push({ type: 'deleted', id: threadId })
-  }
+  const events: ThreadEvent[] = sourceFolder
+    ? [await handleFolderAfterRemoval(storage, sourceFolder)]
+    : [{ type: 'deleted' as const, id: threadId }]
 
   events.push({ type: 'updated', thread: targetFolder })
 
@@ -377,7 +370,7 @@ export async function executeMoveToRoot(
     if (!thread) throw new Error(`Thread not found: ${threadId}`)
 
     moved = thread
-    updatedParent = { ...parent, children: parent.children.filter(c => c.id !== threadId), updatedAt: now() }
+    updatedParent = removeChildFromParent(parent, threadId)
     const withUpdatedParent = updateById(remaining, parent.id, () => updatedParent!)
 
     return { threads: [...withUpdatedParent, thread] }
@@ -385,16 +378,10 @@ export async function executeMoveToRoot(
 
   if (!moved || !updatedParent) return { result: undefined, events: [] }
 
-  const events: ThreadEvent[] = []
-
-  if (updatedParent.children.length === 0) {
-    await storage.update(removeThread(updatedParent.id))
-    events.push({ type: 'deleted', id: updatedParent.id })
-  } else {
-    events.push({ type: 'updated', thread: updatedParent })
-  }
-
-  events.push({ type: 'created', thread: moved })
+  const events: ThreadEvent[] = [
+    await handleFolderAfterRemoval(storage, updatedParent),
+    { type: 'created', thread: moved },
+  ]
 
   return { result: moved, events }
 }

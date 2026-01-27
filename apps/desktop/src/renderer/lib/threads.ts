@@ -1,6 +1,6 @@
 import { createId } from '@paralleldrive/cuid2'
 import type { Message } from '@renderer/lib/messages'
-import type { StoredThread, PromptSource } from '@main/modules/threads/json-file'
+import type { StoredThread, Prompt } from '@main/modules/threads/json-file'
 import type { ThreadContextMenuParams, ThreadMenuAction } from '@main/modules/ui/business'
 
 type ThreadEvent =
@@ -37,12 +37,12 @@ export type ChatThread = {
   createdAt: string
   updatedAt: string
   isPinned: boolean
-  promptSource: PromptSource
+  prompt: Prompt
   children: ChatThread[]
 }
 
 interface DraftThreadOptions {
-  promptSource?: PromptSource
+  prompt?: Prompt
 }
 
 /**
@@ -62,7 +62,7 @@ export function createDraftThread(options?: DraftThreadOptions): ChatThread {
     createdAt: now,
     updatedAt: now,
     isPinned: false,
-    promptSource: options?.promptSource ?? { type: 'none' },
+    prompt: options?.prompt ?? { type: 'none' },
     children: [],
   }
 }
@@ -84,7 +84,7 @@ export function hydrateThread(thread: StoredThread): ChatThread {
     createdAt: thread.createdAt,
     updatedAt: thread.updatedAt,
     isPinned: thread.pinned,
-    promptSource: thread.promptSource,
+    prompt: thread.prompt,
     children: thread.children.map(hydrateThread),
   }
 }
@@ -98,7 +98,7 @@ export function hydrateThread(thread: StoredThread): ChatThread {
  * Extracted from local ChatThread and bundled with the first message IPC.
  */
 export type ThreadConfig = {
-  promptSource: PromptSource
+  prompt: Prompt
 }
 
 /**
@@ -107,7 +107,7 @@ export type ThreadConfig = {
  */
 export function extractThreadConfig(thread: ChatThread): ThreadConfig {
   return {
-    promptSource: thread.promptSource,
+    prompt: thread.prompt,
   }
 }
 
@@ -177,8 +177,8 @@ export async function moveThreadToFolder(threadId: string, folderId: string): Pr
   await window.arc.threads.moveToFolder({ threadId, folderId })
 }
 
-export async function createFolderWithThread(threadId: string): Promise<{ id: string }> {
-  const folder = await window.arc.threads.createFolderWithThread({ threadId })
+export async function folderThreads(threadIds: string[], name?: string): Promise<{ id: string }> {
+  const folder = await window.arc.threads.folderThreads({ threadIds, name })
   return { id: folder.id }
 }
 

@@ -1,15 +1,15 @@
 /**
- * Prompt Source Derivation
+ * Prompt Derivation
  *
- * Pure functions for deriving UI-facing prompt properties from PromptSource.
+ * Pure functions for deriving UI-facing prompt properties from Prompt.
  * Single source of truth for all prompt-related UI logic.
  */
 
-import type { PromptSource } from '@main/modules/threads/json-file'
+import type { Prompt } from '@main/modules/threads/json-file'
 import type { Persona } from '@main/modules/personas/business'
 
 /**
- * UI-facing prompt information derived from PromptSource.
+ * UI-facing prompt information derived from Prompt.
  *
  * Encapsulates all prompt-related UI logic:
  * - Header button styling (hasPrompt)
@@ -26,18 +26,18 @@ export interface PromptInfo {
 }
 
 /**
- * Derive all UI-needed prompt properties from PromptSource.
+ * Derive all UI-needed prompt properties from Prompt.
  *
  * Logic:
  * - type='none' → no prompt, editable
- * - type='direct' → has prompt, show content, editable
+ * - type='inline' → has prompt, show content, editable
  * - type='persona' → lookup persona, show description if protected, content otherwise
  *
- * When promptSource.type='persona', pass the resolved Persona to get correct UI state.
+ * When prompt.type='persona', pass the resolved Persona to get correct UI state.
  * If persona not provided for persona type, returns safe defaults (protected, empty content).
  */
-export function getPromptInfo(promptSource: PromptSource, persona?: Persona): PromptInfo {
-  switch (promptSource.type) {
+export function getPromptInfo(prompt: Prompt, persona?: Persona): PromptInfo {
+  switch (prompt.type) {
     case 'none':
       return {
         hasPrompt: false,
@@ -45,7 +45,7 @@ export function getPromptInfo(promptSource: PromptSource, persona?: Persona): Pr
         isEditable: true,
       }
 
-    case 'direct':
+    case 'inline':
       return {
         hasPrompt: true,
         isProtected: false,
@@ -77,14 +77,14 @@ export function getPromptInfo(promptSource: PromptSource, persona?: Persona): Pr
  * Returns null if the prompt cannot be edited (protected persona).
  */
 export function getEditableContent(
-  promptSource: PromptSource,
+  prompt: Prompt,
   persona?: Persona
 ): string | null {
-  switch (promptSource.type) {
+  switch (prompt.type) {
     case 'none':
       return ''
-    case 'direct':
-      return promptSource.content
+    case 'inline':
+      return prompt.content
     case 'persona':
       if (!persona || (persona.frontMatter.protected ?? false)) return null
       return persona.systemPrompt

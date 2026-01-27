@@ -1,4 +1,4 @@
-import { appendFile, mkdir, readFile, unlink } from 'node:fs/promises'
+import { appendFile, copyFile as fsCopyFile, mkdir, readFile, unlink } from 'node:fs/promises'
 import { dirname, resolve, sep } from 'node:path'
 import type { z } from 'zod'
 
@@ -72,6 +72,7 @@ class JsonLog<T> {
 
 export interface ScopedJsonLog {
   create: <T>(relativePath: string, schema: z.ZodType<T>) => JsonLog<T>
+  copyFile: (srcPath: string, dstPath: string) => Promise<void>
 }
 
 export const createJsonLog = (dataDir: string, allowedPaths: readonly string[]): ScopedJsonLog => {
@@ -97,5 +98,17 @@ export const createJsonLog = (dataDir: string, allowedPaths: readonly string[]):
 
   return {
     create: (relativePath, schema) => new JsonLog(resolvePath(relativePath), schema),
+
+    async copyFile(srcPath, dstPath) {
+      const src = resolvePath(srcPath)
+      const dst = resolvePath(dstPath)
+      await mkdir(dirname(dst), { recursive: true })
+      try {
+        await fsCopyFile(src, dst)
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return
+        throw error
+      }
+    },
   }
 }

@@ -9,12 +9,12 @@ import { defineModule } from '@main/kernel/module'
 import type jsonLogAdapter from './json-log'
 import type binaryFileAdapter from './binary-file'
 import type markdownFileAdapter from './markdown-file'
-import type loggerAdapter from './logger'
 import {
   appendMessage,
   readMessages,
   deleteThreadData,
   copyThreadData,
+  getConversation,
   type AppendMessageInput,
 } from './business'
 
@@ -22,11 +22,10 @@ type Caps = {
   jsonLog: ReturnType<typeof jsonLogAdapter.factory>
   binaryFile: ReturnType<typeof binaryFileAdapter.factory>
   markdownFile: ReturnType<typeof markdownFileAdapter.factory>
-  logger: ReturnType<typeof loggerAdapter.factory>
 }
 
 export default defineModule({
-  capabilities: ['jsonLog', 'binaryFile', 'markdownFile', 'logger'] as const,
+  capabilities: ['jsonLog', 'binaryFile', 'markdownFile'] as const,
   depends: [] as const,
   provides: (_deps, caps: Caps) => ({
     list: (input: { threadId: string }) =>
@@ -60,6 +59,9 @@ export default defineModule({
       const { messages } = await readMessages(caps.jsonLog, input.threadId)
       return caps.markdownFile.exportChat(messages)
     },
+
+    getConversation: (input: { threadId: string; leafMessageId: string }) =>
+      getConversation(caps.jsonLog, caps.binaryFile, input.threadId, input.leafMessageId),
   }),
   emits: [] as const,
   paths: ['app/messages/'],

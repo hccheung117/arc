@@ -12,10 +12,10 @@ import type { Logger } from './logger'
 // TYPES
 // ============================================================================
 
-export type PromptSource =
+export type Prompt =
   | { type: 'none' }
-  | { type: 'direct'; content: string }
-  | { type: 'persona'; personaId: string }
+  | { type: 'inline'; content: string }
+  | { type: 'persona'; ref: string }
 
 export interface Persona {
   name: string
@@ -196,24 +196,24 @@ export async function deletePersona(caps: Caps, name: string): Promise<void> {
   await binaryFile.deleteUserPersonaDir(name)
 }
 
-export async function resolvePromptSource(
+export async function resolvePrompt(
   caps: Caps,
   activeProfile: string | null,
-  promptSource: PromptSource
+  prompt: Prompt
 ): Promise<string | null> {
-  switch (promptSource.type) {
+  switch (prompt.type) {
     case 'none':
       return null
 
-    case 'direct':
-      return promptSource.content
+    case 'inline':
+      return prompt.content
 
     case 'persona': {
-      const persona = await getPersona(caps, activeProfile, promptSource.personaId)
+      const persona = await getPersona(caps, activeProfile, prompt.ref)
 
       if (!persona) {
         caps.logger.warn(
-          `Persona "${promptSource.personaId}" not found (may have been deleted or profile changed)`
+          `Persona "${prompt.ref}" not found (may have been deleted or profile changed)`
         )
         return null
       }

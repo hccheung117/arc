@@ -1,5 +1,5 @@
 import { useEffect, useCallback, type RefObject } from 'react'
-import type { PromptSource } from '@main/modules/threads/json-file'
+import type { Prompt } from '@main/modules/threads/json-file'
 import type { Persona } from '@main/modules/personas/business'
 import type { InputMode, DisplayMessage } from '@renderer/lib/types'
 import type { ComposerRef } from '@renderer/components/composer'
@@ -14,7 +14,7 @@ import { getEditableContent } from '@renderer/lib/prompts'
 export function useEditingSync(
   input: InputMode,
   messages: DisplayMessage[],
-  promptSource: PromptSource,
+  prompt: Prompt,
   persona: Persona | undefined,
   composerRef: RefObject<ComposerRef | null>,
 ) {
@@ -24,7 +24,7 @@ export function useEditingSync(
     const { source } = input
 
     if (source.kind === 'system-prompt') {
-      const content = getEditableContent(promptSource, persona)
+      const content = getEditableContent(prompt, persona)
       // If null (protected), don't populate composer - caller handles UI
       if (content !== null) {
         composerRef.current?.setMessage(content)
@@ -34,7 +34,7 @@ export function useEditingSync(
       if (dm) composerRef.current?.setMessage(dm.message.content)
     }
     composerRef.current?.focus()
-  }, [input, messages, promptSource, persona, composerRef])
+  }, [input, messages, prompt, persona, composerRef])
 
   const cancel = useCallback(() => {
     if (input.mode === 'editing') input.cancel()
