@@ -60,11 +60,10 @@ Update todo on completion.
 
 ## Phase 6: Quality Review
 
-1. Run **parallel review agents**:
-   - Architecture review agent
-   - Convention review agent
-   - Compliance review agent
-   - Code review agent
+1. Run **parallel review agents** for:
+   - Code quality
+   - Architecture compliance
+   - Convention compliance
 2. Summarize and fix issues
 3. Mark workflow complete
 
