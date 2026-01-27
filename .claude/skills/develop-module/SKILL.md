@@ -34,14 +34,63 @@ For each selected capability, apply this thinking process:
 
 **Present designed APIs to user for approval before writing code.**
 
-## Phase 4: Scaffold
+## Phase 4: Module Surface Design
+
+Design the `provides:` API in `mod.ts` — this is what consumers call via IPC.
+
+### Identify Primitives
+
+1. "What is the smallest set of operations that can express all use cases?"
+2. For each proposed operation: "Can this be expressed by composing other operations?"
+   - If yes: "What do we lose by not having it?" (atomicity? performance?)
+3. "What data does the consumer already have vs. need to fetch?"
+
+### Test Against Reality
+
+4. For compound operations:
+   - "Does the UI gesture map 1:1 to this operation?"
+   - "Would splitting it cause partial failure states?"
+   - "Would splitting it multiply IPC round trips?"
+
+5. For convenience methods:
+   - "Does the consumer already have the inputs to do this themselves?"
+   - "Am I hiding complexity or just adding indirection?"
+
+### Shape Signatures
+
+6. For each input parameter:
+   - "Is this the most general form?" (e.g., `ids[]` vs `id1, id2`)
+   - "Could two parameters be one with a sentinel value?" (e.g., `parentId | null` vs separate ops)
+
+7. For each return type:
+   - "Does the consumer need this data, or do they already have it?"
+   - "If returning void, how will the consumer know what happened?" (events?)
+
+### Check Boundaries
+
+8. For operations touching another module:
+   - "Should this live here, or in the other module?"
+   - "Am I re-implementing something that module already provides?"
+
+9. "What would a new consumer need that current consumers don't?"
+   - "Does the API allow it, or would I need to add more methods?"
+
+### Decision Framework
+
+- **Keep compound ops when**: IPC cost is real, atomicity matters, UI gesture is 1:1
+- **Remove convenience methods when**: consumer already has inputs, it's just indirection
+- **Generalize signatures when**: current form is overly specific to one use case
+
+**Present designed surface to user for approval before scaffolding.**
+
+## Phase 5: Scaffold
 
 Write the module files:
 - mod.ts
 - business.ts
 - {cap}.ts (one per capability)
 
-## Phase 5: Validate
+## Phase 6: Validate
 
 Run these checks after scaffolding:
 
