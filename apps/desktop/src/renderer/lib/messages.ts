@@ -211,6 +211,7 @@ export interface StreamContext {
 export async function prepareStreamContext(
   prompt: Prompt,
   threadId: string,
+  providerId: string,
   modelId: string,
   leafMessageId: string | null,
 ): Promise<StreamContext> {
@@ -219,7 +220,7 @@ export async function prepareStreamContext(
     leafMessageId
       ? window.arc.messages.getConversation({ threadId, leafMessageId })
       : window.arc.messages.list({ threadId }).then((r) => convertToAIMessages(r.messages, threadId)),
-    window.arc.profiles.getStreamConfig({ modelId }),
+    window.arc.profiles.getStreamConfig({ providerId, modelId }),
     window.arc.personas.resolve({ prompt }),
   ])
 

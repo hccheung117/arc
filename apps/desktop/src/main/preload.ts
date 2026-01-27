@@ -89,10 +89,7 @@ const profiles = {
   listModels: (): Promise<Model[]> =>
     ipcRenderer.invoke('arc:profiles:listModels'),
 
-  lookupModelProvider: (input: { modelId: string }): Promise<string> =>
-    ipcRenderer.invoke('arc:profiles:lookupModelProvider', input),
-
-  getStreamConfig: (input: { modelId: string }): Promise<StreamConfig> =>
+  getStreamConfig: (input: { providerId: string; modelId: string }): Promise<StreamConfig> =>
     ipcRenderer.invoke('arc:profiles:getStreamConfig', input),
 }
 

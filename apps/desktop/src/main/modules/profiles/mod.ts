@@ -85,11 +85,8 @@ export default defineModule({
 
       listModels: () => biz.listModels(ctx),
 
-      lookupModelProvider: (input: { modelId: string }) =>
-        biz.lookupModelProvider(ctx, input.modelId),
-
-      getStreamConfig: (input: { modelId: string }) =>
-        biz.getStreamConfig(ctx, input.modelId),
+      getStreamConfig: (input: { providerId: string; modelId: string }) =>
+        biz.getStreamConfig(ctx, input.providerId, input.modelId),
     }
   },
   emits: ['installed', 'uninstalled', 'activated'] as const,
