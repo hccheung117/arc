@@ -5,7 +5,7 @@
  * Receives context object; zero knowledge of persistence format.
  */
 
-import { createHash, randomUUID } from 'crypto'
+import { randomUUID } from 'crypto'
 import type { ArcFile, ArcModelFilter, CachedModel, ArcFileValidationResult } from './json-file'
 import type { Logger } from './logger'
 
@@ -98,15 +98,6 @@ interface ProviderInput {
 // Pure Functions
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function generateProviderId(provider: {
-  type: string
-  apiKey?: string | null
-  baseUrl?: string | null
-}) {
-  const input = `${provider.type}|${provider.apiKey ?? ''}|${provider.baseUrl ?? ''}`
-  return createHash('sha256').update(input).digest('hex').slice(0, 16)
-}
-
 function passesFilter(modelId: string, filter: ArcModelFilter | null, matches: GlobCap['matches']): boolean {
   if (!filter || filter.rules.length === 0) return true
   const hit = filter.rules.some(rule => matches(modelId, rule))
@@ -141,7 +132,7 @@ function toPublicModel(cached: CachedModel): Model {
 
 function extractProviders(profile: ArcFile): ProviderInput[] {
   return profile.providers.map(p => ({
-    id: generateProviderId(p),
+    id: p.id,
     baseUrl: p.baseUrl,
     apiKey: p.apiKey,
     filter: p.modelFilter,
@@ -242,7 +233,7 @@ export async function getProviderConfig(ctx: Ctx, providerId: string): Promise<P
   const profile = await getActiveProfile(ctx)
   if (!profile) throw new Error('No active profile')
 
-  const provider = profile.providers.find(p => generateProviderId(p) === providerId)
+  const provider = profile.providers.find(p => p.id === providerId)
   if (!provider) throw new Error(`Provider ${providerId} not found in active profile`)
 
   return {
@@ -307,13 +298,6 @@ export async function listModels(ctx: Ctx): Promise<Model[]> {
   return cached.map(toPublicModel)
 }
 
-export async function lookupModelProvider(ctx: Ctx, modelId: string): Promise<string> {
-  const cached = await ctx.jsonFile.modelsCache.read()
-  const model = cached.find(m => m.id === modelId)
-  if (!model) throw new Error(`Model ${modelId} not found`)
-  return model.provider
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Stream Configuration
 // ─────────────────────────────────────────────────────────────────────────────
@@ -325,8 +309,12 @@ export interface StreamConfig {
   apiKey: string | null
 }
 
-export async function getStreamConfig(ctx: Ctx, modelId: string): Promise<StreamConfig> {
-  const providerId = await lookupModelProvider(ctx, modelId)
+export async function getStreamConfig(ctx: Ctx, providerId: string, modelId: string): Promise<StreamConfig> {
+  // Validate the model+provider combo exists in cache
+  const cached = await ctx.jsonFile.modelsCache.read()
+  const model = cached.find(m => m.id === modelId && m.provider === providerId)
+  if (!model) throw new Error(`Model ${modelId} not found for provider ${providerId}`)
+
   const providerConfig = await getProviderConfig(ctx, providerId)
   return {
     modelId,
@@ -346,14 +334,6 @@ export async function mergeFavoriteModels(ctx: Ctx): Promise<void> {
   if (!profile?.favoriteModels?.length) return
 
   const newFavorites = profile.favoriteModels
-    .map(({ provider: providerType, model }) => {
-      const match = profile.providers.find(p => p.type === providerType)
-      if (!match) return null
-      return { provider: generateProviderId(match), model } as StoredFavorite
-    })
-    .filter((f): f is StoredFavorite => f !== null)
-
-  if (!newFavorites.length) return
 
   const currentFavorites = await settings.getFavorites()
   const existing = new Set(currentFavorites.map(f => `${f.provider}:${f.model}`))

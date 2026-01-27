@@ -15,7 +15,7 @@ interface UseStreamingStoreReturn {
   /** Streaming message for display (null if not streaming) */
   streamingMessage: StreamingMessageDisplay
   /** Start a new stream */
-  start: (modelId: string, prompt: Prompt, onComplete: (message: Message) => void) => Promise<string>
+  start: (providerId: string, modelId: string, prompt: Prompt, onComplete: (message: Message) => void) => Promise<string>
   /** Stop the current stream */
   stop: () => void
   /** Reset to idle state */
@@ -40,9 +40,9 @@ export function useStreamingStore(
   const streamState = useChatUIStore((state) => state.getThreadState(threadId).streaming)
 
   const start = useCallback(
-    async (modelId: string, prompt: Prompt, onComplete: (message: Message) => void) => {
+    async (providerId: string, modelId: string, prompt: Prompt, onComplete: (message: Message) => void) => {
       // Orchestration: gather all data from modules
-      const ctx = await prepareStreamContext(prompt, threadId, modelId, parentId)
+      const ctx = await prepareStreamContext(prompt, threadId, providerId, modelId, parentId)
       // Call pure AI module with pre-gathered context
       const { streamId } = await startAIStream(ctx)
       // Register with stream manager for event routing and persistence

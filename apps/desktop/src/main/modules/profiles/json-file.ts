@@ -19,6 +19,7 @@ const ArcModelFilterSchema = z.object({
 })
 
 const ArcFileProviderSchema = z.object({
+  id: z.string().min(1),
   type: z.string(),
   baseUrl: z.string().optional(),
   apiKey: z.string().optional(),
@@ -93,6 +94,34 @@ export default defineCapability((jsonFile: ScopedJsonFile) => {
           if (arcFile.version > ARC_FILE_VERSION) {
             return { valid: false, error: `Unsupported version ${arcFile.version}. Maximum supported: ${ARC_FILE_VERSION}` }
           }
+
+          // Validate unique provider IDs
+          const providerIds = new Set<string>()
+          for (const provider of arcFile.providers) {
+            if (providerIds.has(provider.id)) {
+              return { valid: false, error: `Duplicate provider id: ${provider.id}` }
+            }
+            providerIds.add(provider.id)
+          }
+
+          // Validate favoriteModels references
+          if (arcFile.favoriteModels) {
+            for (const fav of arcFile.favoriteModels) {
+              if (!providerIds.has(fav.provider)) {
+                return { valid: false, error: `favoriteModels references unknown provider: ${fav.provider}` }
+              }
+            }
+          }
+
+          // Validate modelAssignments references
+          if (arcFile.modelAssignments) {
+            for (const [key, assignment] of Object.entries(arcFile.modelAssignments)) {
+              if (!providerIds.has(assignment.provider)) {
+                return { valid: false, error: `modelAssignments.${key} references unknown provider: ${assignment.provider}` }
+              }
+            }
+          }
+
           return { valid: true, data: arcFile }
         } catch (error) {
           if (error instanceof z.ZodError) {
