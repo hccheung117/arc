@@ -5,7 +5,7 @@ import type {
   StoredMessageEvent,
   MessageRole,
 } from '@main/modules/messages/business'
-import type { ThreadConfig, Prompt } from '@main/modules/threads/json-file'
+import type { Prompt } from '@main/modules/threads/json-file'
 
 // ============================================================================
 // RENDERER VIEW MODEL TYPES
@@ -120,7 +120,6 @@ export async function createMessage(
   model: string,
   provider: string,
   attachments?: AttachmentInput[],
-  threadConfig?: ThreadConfig,
   reasoning?: string,
   usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number; reasoningTokens?: number },
 ): Promise<Message> {
@@ -133,7 +132,6 @@ export async function createMessage(
       attachments,
       model,
       provider,
-      threadConfig,
       reasoning,
       usage,
     },
@@ -148,7 +146,6 @@ export async function createBranch(
   model: string,
   provider: string,
   attachments?: AttachmentInput[],
-  threadConfig?: ThreadConfig,
 ): Promise<CreateBranchResult> {
   const result = await window.arc.messages.createBranch({
     threadId: conversationId,
@@ -158,7 +155,6 @@ export async function createBranch(
       attachments,
       model,
       provider,
-      threadConfig,
     },
   })
   return {

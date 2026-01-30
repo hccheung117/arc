@@ -20,7 +20,7 @@ export function AttachmentImage({ attachment, conversationId }: AttachmentImageP
         threadId: conversationId,
         filename: attachment.path,
       })
-      await window.arc.utils.openFile({ filePath: absolutePath })
+      await window.arc.ui.openFile({ filePath: absolutePath })
     } catch (err) {
       error('ui', 'Failed to open attachment', err as Error)
     }
