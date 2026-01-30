@@ -7,7 +7,7 @@
  */
 
 import { createId } from '@paralleldrive/cuid2'
-import type { StoredThread, StoredThreadIndex, Prompt } from './json-file'
+import type { StoredThread, StoredThreadIndex, Prompt, ThreadConfig } from './json-file'
 
 // ============================================================================
 // TYPES
@@ -180,6 +180,40 @@ async function handleFolderAfterRemoval(
 // ============================================================================
 // COMMAND HANDLERS
 // ============================================================================
+
+export async function executeCreate(
+  storage: ThreadStorage,
+  threadId: string,
+  config: ThreadConfig,
+): Promise<Effect<StoredThread>> {
+  let thread: StoredThread | undefined
+  let created = false
+
+  await storage.update((index) => {
+    const existing = findById(index.threads, threadId)
+    if (existing) {
+      thread = existing
+      return index
+    }
+
+    const timestamp = now()
+    thread = {
+      id: threadId,
+      title: config.title ?? null,
+      pinned: false,
+      renamed: false,
+      prompt: config.prompt,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      children: [],
+    }
+    created = true
+    return { threads: [thread, ...index.threads] }
+  })
+
+  if (!thread) throw new Error(`Failed to create thread: ${threadId}`)
+  return { result: thread, events: created ? [{ type: 'created', thread }] : [] }
+}
 
 export async function executeDelete(
   storage: ThreadStorage,

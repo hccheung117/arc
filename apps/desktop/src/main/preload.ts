@@ -71,7 +71,7 @@ const messages = createClient('messages', ['list', 'create', 'createBranch', 'up
 const personas = createClient('personas', ['list', 'get', 'create', 'update', 'delete', 'resolve'] as const)
 const profiles = createClient('profiles', ['install', 'uninstall', 'activate', 'list', 'getActiveId', 'getActive', 'getActiveDetails', 'getProviderConfig', 'listModels', 'getStreamConfig'] as const)
 const settings = createClient('settings', ['getActiveProfile', 'setActiveProfile', 'getFavorites', 'setFavorites', 'getShortcuts', 'setShortcuts'] as const)
-const threads = createClient('threads', ['list', 'update', 'delete', 'duplicate', 'folderThreads', 'moveToFolder', 'moveToRoot', 'reorderInFolder'] as const)
+const threads = createClient('threads', ['list', 'create', 'update', 'delete', 'duplicate', 'folderThreads', 'moveToFolder', 'moveToRoot', 'reorderInFolder'] as const)
 const ui = createClient('ui', ['getMinSize', 'buildAppMenu', 'showThreadContextMenu', 'showMessageContextMenu', 'setupEditableContextMenu', 'openFile', 'readWindowState', 'writeWindowState', 'trackWindowState'] as const)
 
 // ============================================================================

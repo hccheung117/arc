@@ -14,8 +14,8 @@ interface UseStreamingStoreReturn {
   isStreaming: boolean
   /** Streaming message for display (null if not streaming) */
   streamingMessage: StreamingMessageDisplay
-  /** Start a new stream */
-  start: (providerId: string, modelId: string, prompt: Prompt, onComplete: (message: Message) => void) => Promise<string>
+  /** Start a new stream. parentIdOverride is the parent for the assistant response (typically the user message ID). */
+  start: (providerId: string, modelId: string, prompt: Prompt, onComplete: (message: Message) => void, parentIdOverride?: string) => Promise<string>
   /** Stop the current stream */
   stop: () => void
   /** Reset to idle state */
@@ -40,9 +40,11 @@ export function useStreamingStore(
   const streamState = useChatUIStore((state) => state.getThreadState(threadId).streaming)
 
   const start = useCallback(
-    async (providerId: string, modelId: string, prompt: Prompt, onComplete: (message: Message) => void) => {
+    async (providerId: string, modelId: string, prompt: Prompt, onComplete: (message: Message) => void, parentIdOverride?: string) => {
+      // Use parentIdOverride if provided (the user message ID), otherwise fall back to parentId from closure
+      const effectiveParentId = parentIdOverride ?? parentId
       // Orchestration: gather all data from modules
-      const ctx = await prepareStreamContext(prompt, threadId, providerId, modelId, parentId)
+      const ctx = await prepareStreamContext(prompt, threadId, providerId, modelId, effectiveParentId)
       // Call pure AI module with pre-gathered context
       const { streamId } = await startAIStream(ctx)
       // Register with stream manager for event routing and persistence
