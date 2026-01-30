@@ -53,6 +53,7 @@ export type StoredThreadIndex = z.infer<typeof StoredThreadIndexSchema>
 
 export type ThreadConfig = {
   prompt: Prompt
+  title?: string
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

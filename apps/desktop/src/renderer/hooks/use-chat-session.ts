@@ -56,7 +56,7 @@ interface SendFlowContext {
   addMessage: (m: Message) => void
   setMessages: (m: Message[]) => void
   switchBranch: (parentId: string | null, index: number) => void
-  startStreaming: () => Promise<void>
+  startStreaming: (userMessageId: string) => Promise<void>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -78,7 +78,7 @@ async function executeNewMessage(
     threadConfig,
   })
   ctx.addMessage(result.userMessage!)
-  await ctx.startStreaming()
+  await ctx.startStreaming(result.userMessage!.id)
 }
 
 /** Message editing state (excludes system-prompt) */
@@ -106,7 +106,9 @@ async function executeUserEdit(
   if (result.newBranchSelection) {
     ctx.switchBranch(result.newBranchSelection.parentId, result.newBranchSelection.index)
   }
-  await ctx.startStreaming()
+  // Find the newly created user message (last user message with the edit parent)
+  const newUserMessage = result.messages.filter(m => m.role === 'user' && m.parentId === editParentId).at(-1)
+  await ctx.startStreaming(newUserMessage!.id)
 }
 
 async function executeAssistantEdit(
@@ -207,9 +209,9 @@ export function useChatSession(
         addMessage: tree.addMessage,
         setMessages: tree.setMessages,
         switchBranch: tree.switchBranch,
-        startStreaming: async () => {
+        startStreaming: async (userMessageId: string) => {
           onThreadUpdate({ type: 'PATCH', id: thread.id, patch: { status: 'streaming' } })
-          await streaming.start(selectedModel.provider.id, selectedModel.id, thread.prompt, handleStreamComplete)
+          await streaming.start(selectedModel.provider.id, selectedModel.id, thread.prompt, handleStreamComplete, userMessageId)
         },
       }
 

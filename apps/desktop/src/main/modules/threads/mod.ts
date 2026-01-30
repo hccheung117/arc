@@ -8,8 +8,10 @@
 import { defineModule } from '@main/kernel/module'
 import type { ThreadPatch, ThreadEvent, MessagesDep } from './business'
 import type jsonFileAdapter from './json-file'
+import type { ThreadConfig } from './json-file'
 import {
   listThreads,
+  executeCreate,
   executeDelete,
   executeUpdate,
   executeDuplicate,
@@ -38,6 +40,12 @@ export default defineModule({
 
     return {
       list: () => listThreads(storage),
+
+      create: async (input: { threadId: string; config: ThreadConfig }) => {
+        const { result, events } = await executeCreate(storage, input.threadId, input.config)
+        broadcastEvents(events, emit)
+        return result
+      },
 
       update: async (input: { threadId: string; patch: ThreadPatch }) => {
         const { result, events } = await executeUpdate(storage, input.threadId, input.patch)

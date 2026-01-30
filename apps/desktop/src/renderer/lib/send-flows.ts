@@ -2,12 +2,23 @@ import type { SendNewContext, EditContext, SendResult } from './types'
 import { createMessage, createBranch, updateMessage, getMessages } from '@renderer/lib/messages'
 import { findChildren } from './message-tree'
 
+function deriveTitle(content: string): string {
+  const firstLine = content.split('\n')[0].trim()
+  return firstLine.slice(0, 50)
+}
+
 /**
  * Persist a new user message
  *
  * Streaming is UI-owned—caller starts the AI stream after this returns.
  */
 export async function sendNewMessage(ctx: SendNewContext): Promise<SendResult> {
+  // Thread emerges on first message
+  if (ctx.threadConfig) {
+    const title = deriveTitle(ctx.content)
+    await window.arc.threads.create({ threadId: ctx.threadId, config: { ...ctx.threadConfig, title } })
+  }
+
   const userMessage = await createMessage(
     ctx.threadId,
     'user',
@@ -29,6 +40,12 @@ export async function sendNewMessage(ctx: SendNewContext): Promise<SendResult> {
  * Streaming is UI-owned—caller starts the AI stream after this returns.
  */
 export async function editUserMessage(ctx: EditContext): Promise<SendResult> {
+  // Thread emerges on first message
+  if (ctx.threadConfig) {
+    const title = deriveTitle(ctx.content)
+    await window.arc.threads.create({ threadId: ctx.threadId, config: { ...ctx.threadConfig, title } })
+  }
+
   await createBranch(
     ctx.threadId,
     ctx.parentId,
