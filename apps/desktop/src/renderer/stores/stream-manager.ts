@@ -93,7 +93,6 @@ class StreamManager {
         reg.modelId,
         reg.providerId,
         undefined, // no attachments for assistant
-        undefined, // no thread config
         data.reasoning || undefined,
         data.usage,
       )

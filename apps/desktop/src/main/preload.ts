@@ -2,210 +2,84 @@
  * IPC Preload Module
  *
  * Exposes window.arc API via contextBridge.
- * All domains use direct ipcRenderer.invoke calls with arc:{module}:{op} channels.
+ * Module clients are auto-generated via createClient() with types derived from module definitions.
  */
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import type { StoredMessageEvent, BranchInfo, AIMessage } from '@main/modules/messages/business'
-import type { StoredThread, Prompt } from '@main/modules/threads/json-file'
+import type { ModuleDefinition } from '@main/kernel/module'
+import type { StoredThread } from '@main/modules/threads/json-file'
 import type { Persona } from '@main/modules/personas/business'
-import type { ProfileInstallResult, ProfileInfo, ProviderConfig, Model, StreamConfig } from '@main/modules/profiles/business'
-import type { ArcFile } from '@main/modules/profiles/json-file'
-import type { StreamInput, RefineInput, FetchModelsInput, Usage } from '@main/modules/ai/business'
-import type { ThreadContextMenuParams, ThreadMenuAction, MessageMenuAction } from '@main/modules/ui/business'
+import type { ProfileInstallResult } from '@main/modules/profiles/business'
+import type { Usage } from '@main/modules/ai/business'
+
+// Module definition imports (type-only for API extraction)
+import type aiMod from '@main/modules/ai/mod'
+import type messagesMod from '@main/modules/messages/mod'
+import type personasMod from '@main/modules/personas/mod'
+import type profilesMod from '@main/modules/profiles/mod'
+import type settingsMod from '@main/modules/settings/mod'
+import type threadsMod from '@main/modules/threads/mod'
+import type uiMod from '@main/modules/ui/mod'
 
 // ============================================================================
-// DIRECT IPC CLIENTS
+// MODULE API TYPES (derived from module definitions)
 // ============================================================================
 
-const settings = {
-  getFavorites: (): Promise<Array<{ provider: string; model: string }>> =>
-    ipcRenderer.invoke('arc:settings:getFavorites'),
-  setFavorites: (input: { favorites: Array<{ provider: string; model: string }> }): Promise<void> =>
-    ipcRenderer.invoke('arc:settings:setFavorites', input),
-  getShortcuts: (): Promise<{ send: 'enter' | 'shift+enter' }> =>
-    ipcRenderer.invoke('arc:settings:getShortcuts'),
-  setShortcuts: (input: { shortcuts: { send: 'enter' | 'shift+enter' } }): Promise<void> =>
-    ipcRenderer.invoke('arc:settings:setShortcuts', input),
+type ExtractAPI<T> = T extends ModuleDefinition<infer API> ? API : never
+
+type ModuleAPIs = {
+  ai: ExtractAPI<typeof aiMod>
+  messages: ExtractAPI<typeof messagesMod>
+  personas: ExtractAPI<typeof personasMod>
+  profiles: ExtractAPI<typeof profilesMod>
+  settings: ExtractAPI<typeof settingsMod>
+  threads: ExtractAPI<typeof threadsMod>
+  ui: ExtractAPI<typeof uiMod>
 }
 
-const ui = {
-  showThreadContextMenu: (input: ThreadContextMenuParams): Promise<ThreadMenuAction | null> =>
-    ipcRenderer.invoke('arc:ui:showThreadContextMenu', input),
-  showMessageContextMenu: (input: { hasEditOption: boolean }): Promise<MessageMenuAction | null> =>
-    ipcRenderer.invoke('arc:ui:showMessageContextMenu', input),
+type ModuleName = keyof ModuleAPIs
+
+// ============================================================================
+// CLIENT FACTORY
+// ============================================================================
+
+/**
+ * Creates a typed IPC client for a module.
+ * All operations are forwarded to ipcRenderer.invoke with arc:{module}:{op} channels.
+ */
+function createClient<M extends ModuleName>(moduleName: M): ModuleAPIs[M] {
+  return new Proxy({} as ModuleAPIs[M], {
+    get: (_target, operation: string | symbol) => {
+      if (typeof operation !== 'string') return undefined
+      return (input?: unknown) =>
+        ipcRenderer.invoke(`arc:${moduleName}:${operation}`, input)
+    },
+  })
 }
 
-const utils = {
-  openFile: (input: { filePath: string }): Promise<void> =>
-    ipcRenderer.invoke('arc:ui:openFile', input),
-}
+// ============================================================================
+// MODULE CLIENTS (auto-generated from module definitions)
+// ============================================================================
 
-const ai = {
-  stream: (input: StreamInput): Promise<{ streamId: string }> =>
-    ipcRenderer.invoke('arc:ai:stream', input),
+const ai = createClient('ai')
+const messages = createClient('messages')
+const personas = createClient('personas')
+const profiles = createClient('profiles')
+const settings = createClient('settings')
+const threads = createClient('threads')
+const ui = createClient('ui')
 
-  stop: (input: { streamId: string }): Promise<void> =>
-    ipcRenderer.invoke('arc:ai:stop', input),
-
-  refine: (input: RefineInput): Promise<{ streamId: string }> =>
-    ipcRenderer.invoke('arc:ai:refine', input),
-
-  fetchModels: (input: FetchModelsInput): Promise<Array<{ id: string }>> =>
-    ipcRenderer.invoke('arc:ai:fetchModels', input),
-}
-
-interface ActiveProfileDetails {
-  id: string
-  name: string
-  modelAssignments?: Record<string, { provider: string; model: string }>
-}
-
-const profiles = {
-  install: (input: { filePath: string }): Promise<ProfileInstallResult> =>
-    ipcRenderer.invoke('arc:profiles:install', input),
-
-  uninstall: (input: { profileId: string }): Promise<void> =>
-    ipcRenderer.invoke('arc:profiles:uninstall', input),
-
-  activate: (input: { profileId: string | null }): Promise<void> =>
-    ipcRenderer.invoke('arc:profiles:activate', input),
-
-  list: (): Promise<ProfileInfo[]> =>
-    ipcRenderer.invoke('arc:profiles:list'),
-
-  getActiveId: (): Promise<string | null> =>
-    ipcRenderer.invoke('arc:profiles:getActiveId'),
-
-  getActive: (): Promise<ArcFile | null> =>
-    ipcRenderer.invoke('arc:profiles:getActive'),
-
-  getActiveDetails: (): Promise<ActiveProfileDetails | null> =>
-    ipcRenderer.invoke('arc:profiles:getActiveDetails'),
-
-  getProviderConfig: (input: { providerId: string }): Promise<ProviderConfig> =>
-    ipcRenderer.invoke('arc:profiles:getProviderConfig', input),
-
-  listModels: (): Promise<Model[]> =>
-    ipcRenderer.invoke('arc:profiles:listModels'),
-
-  getStreamConfig: (input: { providerId: string; modelId: string }): Promise<StreamConfig> =>
-    ipcRenderer.invoke('arc:profiles:getStreamConfig', input),
-}
-
-const personas = {
-  list: (): Promise<Persona[]> =>
-    ipcRenderer.invoke('arc:personas:list'),
-
-  get: (input: { name: string }): Promise<Persona | null> =>
-    ipcRenderer.invoke('arc:personas:get', input),
-
-  create: (input: { name: string; systemPrompt: string }): Promise<Persona> =>
-    ipcRenderer.invoke('arc:personas:create', input),
-
-  update: (input: { name: string; systemPrompt: string }): Promise<Persona> =>
-    ipcRenderer.invoke('arc:personas:update', input),
-
-  delete: (input: { name: string }): Promise<void> =>
-    ipcRenderer.invoke('arc:personas:delete', input),
-
-  resolve: (input: { prompt: Prompt }): Promise<string | null> =>
-    ipcRenderer.invoke('arc:personas:resolve', input),
-}
-
-
-type CreateMessageInput = {
-  role: 'user' | 'assistant' | 'system'
-  content: string
-  parentId: string | null
-  attachments?: { type: 'image'; data: string; mimeType: string; name?: string }[]
-  model: string
-  provider: string
-  threadConfig?: { prompt: { type: 'none' } | { type: 'inline'; content: string } | { type: 'persona'; ref: string } }
-  reasoning?: string
-  usage?: { inputTokens?: number; outputTokens?: number; totalTokens?: number; reasoningTokens?: number }
-}
-
-type CreateBranchInput = {
-  parentId: string | null
-  content: string
-  attachments?: { type: 'image'; data: string; mimeType: string; name?: string }[]
-  model: string
-  provider: string
-  threadConfig?: { prompt: { type: 'none' } | { type: 'inline'; content: string } | { type: 'persona'; ref: string } }
-}
-
-type UpdateMessageInput = {
-  content: string
-  model: string
-  provider: string
-  attachments?: { type: 'image'; data: string; mimeType: string; name?: string }[]
-  reasoning?: string
-}
-
-const messages = {
-  list: (input: { threadId: string }): Promise<{ messages: StoredMessageEvent[]; branchPoints: BranchInfo[] }> =>
-    ipcRenderer.invoke('arc:messages:list', input),
-
-  create: (input: { threadId: string; input: CreateMessageInput }): Promise<StoredMessageEvent> =>
-    ipcRenderer.invoke('arc:messages:create', input),
-
-  createBranch: (input: { threadId: string; input: CreateBranchInput }): Promise<{ message: StoredMessageEvent; branchPoints: BranchInfo[] }> =>
-    ipcRenderer.invoke('arc:messages:createBranch', input),
-
-  update: (input: { threadId: string; messageId: string; input: UpdateMessageInput }): Promise<StoredMessageEvent> =>
-    ipcRenderer.invoke('arc:messages:update', input),
-
-  readAttachment: (input: { threadId: string; filename: string }): Promise<Buffer | null> =>
-    ipcRenderer.invoke('arc:messages:readAttachment', input),
-
-  export: (input: { threadId: string }): Promise<string | null> =>
-    ipcRenderer.invoke('arc:messages:export', input),
-
-  getAttachmentPath: (input: { threadId: string; filename: string }): Promise<string> =>
-    ipcRenderer.invoke('arc:messages:getAttachmentPath', input),
-
-  getConversation: (input: { threadId: string; leafMessageId: string }): Promise<AIMessage[]> =>
-    ipcRenderer.invoke('arc:messages:getConversation', input),
-}
-
-type ThreadPatch = {
-  title?: string
-  pinned?: boolean
-  prompt?: { type: 'none' } | { type: 'inline'; content: string } | { type: 'persona'; ref: string }
-}
+// ============================================================================
+// THREAD EVENTS (special case: aggregates multiple event channels)
+// ============================================================================
 
 type ThreadEvent =
   | { type: 'created'; thread: StoredThread }
   | { type: 'updated'; thread: StoredThread }
   | { type: 'deleted'; id: string }
 
-const threads = {
-  list: (): Promise<StoredThread[]> =>
-    ipcRenderer.invoke('arc:threads:list'),
-
-  update: (input: { threadId: string; patch: ThreadPatch }): Promise<StoredThread> =>
-    ipcRenderer.invoke('arc:threads:update', input),
-
-  delete: (input: { threadId: string }): Promise<void> =>
-    ipcRenderer.invoke('arc:threads:delete', input),
-
-  duplicate: (input: { threadId: string; upToMessageId?: string }): Promise<StoredThread> =>
-    ipcRenderer.invoke('arc:threads:duplicate', input),
-
-  folderThreads: (input: { threadIds: string[]; name?: string }): Promise<StoredThread> =>
-    ipcRenderer.invoke('arc:threads:folderThreads', input),
-
-  moveToFolder: (input: { threadId: string; folderId: string }): Promise<void> =>
-    ipcRenderer.invoke('arc:threads:moveToFolder', input),
-
-  moveToRoot: (input: { threadId: string }): Promise<void> =>
-    ipcRenderer.invoke('arc:threads:moveToRoot', input),
-
-  reorderInFolder: (input: { folderId: string; orderedChildIds: string[] }): Promise<void> =>
-    ipcRenderer.invoke('arc:threads:reorderInFolder', input),
-
-  onEvent: (callback: (event: ThreadEvent) => void): () => void => {
+const threadEvents = {
+  onEvent: (callback: (event: ThreadEvent) => void): (() => void) => {
     const onCreated = (_: Electron.IpcRendererEvent, data: StoredThread) =>
       callback({ type: 'created', thread: data })
     const onUpdated = (_: Electron.IpcRendererEvent, data: StoredThread) =>
@@ -246,27 +120,29 @@ const createEventSubscription = <T>(channel: string) => {
 // ============================================================================
 
 export interface ArcAPI {
-  threads: typeof threads
-  messages: typeof messages
-  ai: typeof ai & {
+  ai: ModuleAPIs['ai'] & {
     onDelta(callback: (data: { streamId: string; chunk: string }) => void): () => void
     onReasoning(callback: (data: { streamId: string; chunk: string }) => void): () => void
     onComplete(callback: (data: { streamId: string; content: string; reasoning: string; usage: Usage }) => void): () => void
     onError(callback: (data: { streamId: string; error: string }) => void): () => void
   }
-  settings: typeof settings
-  ui: typeof ui
-  personas: typeof personas & {
+  messages: ModuleAPIs['messages']
+  personas: ModuleAPIs['personas'] & {
     onCreated(callback: (data: Persona) => void): () => void
     onUpdated(callback: (data: Persona) => void): () => void
     onDeleted(callback: (data: string) => void): () => void
   }
-  profiles: typeof profiles & {
+  profiles: ModuleAPIs['profiles'] & {
     onInstalled(callback: (data: ProfileInstallResult) => void): () => void
     onUninstalled(callback: (data: string) => void): () => void
     onActivated(callback: (data: string | null) => void): () => void
   }
-  utils: typeof utils & {
+  settings: ModuleAPIs['settings']
+  threads: ModuleAPIs['threads'] & {
+    onEvent(callback: (event: ThreadEvent) => void): () => void
+  }
+  ui: ModuleAPIs['ui']
+  utils: {
     getFilePath(file: File): string
   }
   log: {
@@ -275,10 +151,6 @@ export interface ArcAPI {
 }
 
 const arcAPI: ArcAPI = {
-  threads,
-
-  messages,
-
   ai: {
     ...ai,
     onDelta: createEventSubscription<{ streamId: string; chunk: string }>('arc:ai:delta'),
@@ -287,9 +159,7 @@ const arcAPI: ArcAPI = {
     onError: createEventSubscription<{ streamId: string; error: string }>('arc:ai:error'),
   },
 
-  settings,
-
-  ui,
+  messages,
 
   personas: {
     ...personas,
@@ -305,8 +175,16 @@ const arcAPI: ArcAPI = {
     onActivated: createEventSubscription<string | null>('arc:profiles:activated'),
   },
 
+  settings,
+
+  threads: {
+    ...threads,
+    ...threadEvents,
+  },
+
+  ui,
+
   utils: {
-    ...utils,
     getFilePath: (file: File) => webUtils.getPathForFile(file),
   },
 
@@ -314,7 +192,6 @@ const arcAPI: ArcAPI = {
     error: (tag: string, message: string, stack?: string) =>
       ipcRenderer.send('arc:log:error', tag, message, stack),
   },
-
 }
 
 contextBridge.exposeInMainWorld('arc', arcAPI)

@@ -269,3 +269,4 @@ function findCycle(registry: ModuleRegistry): string[] {
   // Should never reach here if called after Kahn's detected a cycle
   return []
 }
+

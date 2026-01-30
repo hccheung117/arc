@@ -16,7 +16,6 @@ export async function sendNewMessage(ctx: SendNewContext): Promise<SendResult> {
     ctx.model.id,
     ctx.model.provider.id,
     ctx.attachments,
-    ctx.threadConfig,
   )
 
   const { messages } = await getMessages(ctx.threadId)
@@ -37,7 +36,6 @@ export async function editUserMessage(ctx: EditContext): Promise<SendResult> {
     ctx.model.id,
     ctx.model.provider.id,
     ctx.attachments,
-    ctx.threadConfig,
   )
 
   const { messages } = await getMessages(ctx.threadId)
