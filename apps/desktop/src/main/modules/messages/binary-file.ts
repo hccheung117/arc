@@ -22,7 +22,7 @@ const attachmentPath = (threadId: string, filename: string) =>
   `app/messages/${threadId}/${filename}`
 
 export default defineCapability((binaryFile: ScopedBinaryFile) => ({
-  /** Resolves the absolute path for an attachment (for renderer file:// URLs). */
+  /** Resolves the absolute path for an attachment (for shell.openPath in system viewer). */
   getAbsolutePath: (threadId: string, filename: string) =>
     binaryFile.resolve(attachmentPath(threadId, filename)),
 
