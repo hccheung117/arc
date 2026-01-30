@@ -46,28 +46,33 @@ type ModuleName = keyof ModuleAPIs
 /**
  * Creates a typed IPC client for a module.
  * All operations are forwarded to ipcRenderer.invoke with arc:{module}:{op} channels.
+ *
+ * Note: We must create concrete objects with function properties (not Proxies)
+ * because contextBridge.exposeInMainWorld cannot serialize Proxy objects.
  */
-function createClient<M extends ModuleName>(moduleName: M): ModuleAPIs[M] {
-  return new Proxy({} as ModuleAPIs[M], {
-    get: (_target, operation: string | symbol) => {
-      if (typeof operation !== 'string') return undefined
-      return (input?: unknown) =>
-        ipcRenderer.invoke(`arc:${moduleName}:${operation}`, input)
-    },
-  })
+function createClient<M extends ModuleName>(
+  moduleName: M,
+  operations: readonly string[]
+): ModuleAPIs[M] {
+  const client: Record<string, (input?: unknown) => Promise<unknown>> = {}
+  for (const op of operations) {
+    client[op] = (input?: unknown) =>
+      ipcRenderer.invoke(`arc:${moduleName}:${op}`, input)
+  }
+  return client as ModuleAPIs[M]
 }
 
 // ============================================================================
-// MODULE CLIENTS (auto-generated from module definitions)
+// MODULE CLIENTS (explicit operation lists for contextBridge compatibility)
 // ============================================================================
 
-const ai = createClient('ai')
-const messages = createClient('messages')
-const personas = createClient('personas')
-const profiles = createClient('profiles')
-const settings = createClient('settings')
-const threads = createClient('threads')
-const ui = createClient('ui')
+const ai = createClient('ai', ['stream', 'stop', 'refine', 'fetchModels'] as const)
+const messages = createClient('messages', ['list', 'create', 'createBranch', 'update', 'duplicateData', 'deleteData', 'readAttachment', 'getAttachmentPath', 'export', 'getConversation'] as const)
+const personas = createClient('personas', ['list', 'get', 'create', 'update', 'delete', 'resolve'] as const)
+const profiles = createClient('profiles', ['install', 'uninstall', 'activate', 'list', 'getActiveId', 'getActive', 'getActiveDetails', 'getProviderConfig', 'listModels', 'getStreamConfig'] as const)
+const settings = createClient('settings', ['getActiveProfile', 'setActiveProfile', 'getFavorites', 'setFavorites', 'getShortcuts', 'setShortcuts'] as const)
+const threads = createClient('threads', ['list', 'update', 'delete', 'duplicate', 'folderThreads', 'moveToFolder', 'moveToRoot', 'reorderInFolder'] as const)
+const ui = createClient('ui', ['getMinSize', 'buildAppMenu', 'showThreadContextMenu', 'showMessageContextMenu', 'setupEditableContextMenu', 'openFile', 'readWindowState', 'writeWindowState', 'trackWindowState'] as const)
 
 // ============================================================================
 // THREAD EVENTS (special case: aggregates multiple event channels)
