@@ -23,9 +23,12 @@ import {
   BrowserWindow,
   ipcMain,
   Menu,
+  protocol,
+  net,
   type BrowserWindowConstructorOptions,
 } from 'electron'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import started from 'electron-squirrel-startup'
 import { createKernel } from '@main/kernel/boot'
 import { createJsonFile } from '@main/foundation/json-file'
@@ -41,6 +44,19 @@ import { createHttp } from '@main/foundation/http'
 if (started) {
   app.quit()
 }
+
+// Register arc: protocol as privileged (must be done before app ready)
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'arc',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      stream: true,
+    },
+  },
+])
 
 // ─────────────────────────────────────────────────────────────────
 // Kernel initialization
@@ -138,6 +154,21 @@ app.on('window-all-closed', () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.on('ready', async () => {
+  // Register arc:// protocol handler for serving attachment files
+  protocol.handle('arc', (request) => {
+    const url = new URL(request.url)
+    // arc://attachment/{threadId}/{filename}
+    if (url.hostname === 'attachment') {
+      const parts = url.pathname.split('/').filter(Boolean)
+      if (parts.length === 2) {
+        const [threadId, filename] = parts
+        const filePath = path.join(dataDir, 'app', 'messages', threadId, filename)
+        return net.fetch(pathToFileURL(filePath).href)
+      }
+    }
+    return new Response('Not found', { status: 404 })
+  })
+
   Menu.setApplicationMenu(buildAppMenu())
 
   const size = await readWindowState()
