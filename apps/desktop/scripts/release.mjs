@@ -3,7 +3,7 @@
 /**
  * Release script for Arc desktop application.
  *
- * Usage: node scripts/release.mjs X.Y.Z
+ * Usage: node scripts/release.mjs X.Y.Z[-suffix]
  *
  * Validates environment, updates version, commits, tags, and pushes.
  */
@@ -23,8 +23,8 @@ function run(cmd, options = {}) {
 }
 
 function validateSemver(version) {
-  if (!/^\d+\.\d+\.\d+$/.test(version)) {
-    throw new Error(`Invalid version: "${version}". Expected X.Y.Z`);
+  if (!/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(version)) {
+    throw new Error(`Invalid version: "${version}". Expected X.Y.Z or X.Y.Z-suffix`);
   }
 }
 
@@ -85,7 +85,7 @@ function main() {
   const version = process.argv[2];
 
   if (!version) {
-    console.error('Usage: node scripts/release.mjs X.Y.Z');
+    console.error('Usage: node scripts/release.mjs X.Y.Z[-suffix]');
     process.exit(1);
   }
 
