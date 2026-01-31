@@ -1,7 +1,7 @@
 {
   "name": "arc",
   "productName": "Arc",
-  "version": "0.2.1",
+  "version": "0.2.2-test",
   "author": "Arc",
   "description": "AI chat client",
   "main": ".vite/build/main.js",
