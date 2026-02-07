@@ -1,7 +1,7 @@
 /**
  * Profiles JSON File Capability Adapter
  *
- * Library for business: absorbs settings, arc.json parsing, and model cache schemas/paths.
+ * Library for business: absorbs arc.json parsing, profile settings parsing, and model cache schemas/paths.
  */
 
 import { z } from 'zod'
@@ -27,7 +27,7 @@ const ArcFileProviderSchema = z.object({
   modelAliases: z.record(z.string(), z.string()).optional(),
 })
 
-const ModelAssignmentSchema = z.object({
+const AssignmentSchema = z.object({
   provider: z.string(),
   model: z.string(),
 })
@@ -38,8 +38,16 @@ const ArcFileSchema = z.object({
   name: z.string(),
   providers: z.array(ArcFileProviderSchema),
   updateInterval: z.number().min(1).optional(),
-  modelAssignments: z.record(z.string(), ModelAssignmentSchema).optional(),
-  favoriteModels: z.array(ModelAssignmentSchema).optional(),
+})
+
+const ShortcutsSchema = z.object({
+  send: z.enum(['enter', 'shift+enter']),
+})
+
+const ProfileSettingsSchema = z.object({
+  favorites: z.array(AssignmentSchema).optional(),
+  assignments: z.record(z.string(), AssignmentSchema).optional(),
+  shortcuts: ShortcutsSchema.optional(),
 })
 
 const CachedModelSchema = z.object({
@@ -63,11 +71,16 @@ export type ArcFile = z.infer<typeof ArcFileSchema>
 export type ArcFileProvider = z.infer<typeof ArcFileProviderSchema>
 export type ArcModelFilter = z.infer<typeof ArcModelFilterSchema>
 export type CachedModel = z.infer<typeof CachedModelSchema>
+export type ProfileSettings = z.infer<typeof ProfileSettingsSchema>
 
 export const ARC_FILE_VERSION = 0
 
 export type ArcFileValidationResult =
   | { valid: true; data: ArcFile }
+  | { valid: false; error: string }
+
+export type ProfileSettingsValidationResult =
+  | { valid: true; data: ProfileSettings }
   | { valid: false; error: string }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -104,25 +117,30 @@ export default defineCapability((jsonFile: ScopedJsonFile) => {
             providerIds.add(provider.id)
           }
 
-          // Validate favoriteModels references
-          if (arcFile.favoriteModels) {
-            for (const fav of arcFile.favoriteModels) {
-              if (!providerIds.has(fav.provider)) {
-                return { valid: false, error: `favoriteModels references unknown provider: ${fav.provider}` }
-              }
-            }
-          }
-
-          // Validate modelAssignments references
-          if (arcFile.modelAssignments) {
-            for (const [key, assignment] of Object.entries(arcFile.modelAssignments)) {
-              if (!providerIds.has(assignment.provider)) {
-                return { valid: false, error: `modelAssignments.${key} references unknown provider: ${assignment.provider}` }
-              }
-            }
-          }
-
           return { valid: true, data: arcFile }
+        } catch (error) {
+          if (error instanceof z.ZodError) {
+            const issue = error.issues[0]
+            const path = issue.path.join('.')
+            return { valid: false, error: path ? `${path}: ${issue.message}` : issue.message }
+          }
+          throw error
+        }
+      },
+    },
+
+    profileSettings: {
+      validate(content: string): ProfileSettingsValidationResult {
+        let parsed: unknown
+        try {
+          parsed = JSON.parse(content)
+        } catch {
+          return { valid: false, error: 'Invalid JSON format' }
+        }
+
+        try {
+          const settings = ProfileSettingsSchema.parse(parsed)
+          return { valid: true, data: settings }
         } catch (error) {
           if (error instanceof z.ZodError) {
             const issue = error.issues[0]

@@ -1,8 +1,8 @@
 /**
  * Profiles Module
  *
- * Profile lifecycle, provider configuration, and model discovery.
- * Depends on AI module for model fetching.
+ * Pure repository for profile packages.
+ * No concept of "active" profile — that belongs to settings.
  */
 
 import { defineModule } from '@main/kernel/module'
@@ -23,12 +23,11 @@ type Caps = {
 
 type Deps = {
   ai: biz.Ctx['ai']
-  settings: biz.Ctx['settings']
 }
 
 export default defineModule({
   capabilities: ['jsonFile', 'archive', 'glob', 'binaryFile', 'logger'] as const,
-  depends: ['ai', 'settings'] as const,
+  depends: ['ai'] as const,
   provides: (deps, caps: Caps, emit) => {
     const ctx: biz.Ctx = { ...caps, ...(deps as Deps) }
 
@@ -36,59 +35,37 @@ export default defineModule({
       install: async (input: { filePath: string }) => {
         ctx.logger.info(`Install request: ${input.filePath}`)
         const result = await biz.installProfile(ctx, input.filePath)
-
-        try {
-          await biz.activateProfile(ctx, result.id)
-          await biz.syncModels(ctx)
-          await biz.mergeFavoriteModels(ctx)
-        } catch (error) {
-          await biz.uninstallProfile(ctx, result.id).catch(() => {})
-          throw error
-        }
-
         emit('installed', result)
-        emit('activated', result.id)
         return result
       },
 
       uninstall: async (input: { profileId: string }) => {
         await biz.uninstallProfile(ctx, input.profileId)
-        await biz.syncModels(ctx)
         emit('uninstalled', input.profileId)
-      },
-
-      activate: async (input: { profileId: string | null }) => {
-        await biz.activateProfile(ctx, input.profileId)
-        await biz.syncModels(ctx)
-        await biz.mergeFavoriteModels(ctx)
-        emit('activated', input.profileId)
       },
 
       list: () => biz.listProfiles(ctx),
 
-      getActiveId: () => ctx.settings.getActiveProfile(),
+      read: (input: { profileId: string }) =>
+        biz.readProfile(ctx, input.profileId),
 
-      getActive: () => biz.getActiveProfile(ctx),
+      readSettings: (input: { profileId: string }) =>
+        biz.readProfileSettings(ctx, input.profileId),
 
-      getActiveDetails: async () => {
-        const profile = await biz.getActiveProfile(ctx)
-        if (!profile) return null
-        return {
-          id: profile.id,
-          name: profile.name,
-          modelAssignments: profile.modelAssignments,
-        }
-      },
+      syncModels: (input: { profileId: string }) =>
+        biz.syncModels(ctx, input.profileId),
 
-      getProviderConfig: (input: { providerId: string }) =>
-        biz.getProviderConfig(ctx, input.providerId),
+      clearModelsCache: () => biz.clearModelsCache(ctx),
 
       listModels: () => biz.listModels(ctx),
 
-      getStreamConfig: (input: { providerId: string; modelId: string }) =>
-        biz.getStreamConfig(ctx, input.providerId, input.modelId),
+      getProviderConfig: (input: { profileId: string; providerId: string }) =>
+        biz.getProviderConfig(ctx, input.profileId, input.providerId),
+
+      getStreamConfig: (input: { profileId: string; providerId: string; modelId: string }) =>
+        biz.getStreamConfig(ctx, input.profileId, input.providerId, input.modelId),
     }
   },
-  emits: ['installed', 'uninstalled', 'activated'] as const,
+  emits: ['installed', 'uninstalled'] as const,
   paths: ['profiles/', 'app/cache/'],
 })

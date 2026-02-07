@@ -69,8 +69,8 @@ function createClient<M extends ModuleName>(
 const ai = createClient('ai', ['stream', 'stop', 'refine', 'fetchModels'] as const)
 const messages = createClient('messages', ['list', 'create', 'createBranch', 'update', 'duplicateData', 'deleteData', 'readAttachment', 'getAttachmentPath', 'export', 'getConversation'] as const)
 const personas = createClient('personas', ['list', 'get', 'create', 'update', 'delete', 'resolve'] as const)
-const profiles = createClient('profiles', ['install', 'uninstall', 'activate', 'list', 'getActiveId', 'getActive', 'getActiveDetails', 'getProviderConfig', 'listModels', 'getStreamConfig'] as const)
-const settings = createClient('settings', ['getActiveProfile', 'setActiveProfile', 'getFavorites', 'setFavorites', 'getShortcuts', 'setShortcuts'] as const)
+const profiles = createClient('profiles', ['install', 'uninstall', 'list', 'read', 'readSettings', 'syncModels', 'clearModelsCache', 'listModels', 'getProviderConfig', 'getStreamConfig'] as const)
+const settings = createClient('settings', ['activate', 'getActiveProfileId', 'getFavorites', 'setFavorites', 'getAssignments', 'setAssignments', 'getShortcuts', 'setShortcuts'] as const)
 const threads = createClient('threads', ['list', 'create', 'update', 'delete', 'duplicate', 'folderThreads', 'moveToFolder', 'moveToRoot', 'reorderInFolder'] as const)
 const ui = createClient('ui', ['getMinSize', 'buildAppMenu', 'showThreadContextMenu', 'showMessageContextMenu', 'setupEditableContextMenu', 'openFile', 'readWindowState', 'writeWindowState', 'trackWindowState'] as const)
 
@@ -140,9 +140,10 @@ export interface ArcAPI {
   profiles: ModuleAPIs['profiles'] & {
     onInstalled(callback: (data: ProfileInstallResult) => void): () => void
     onUninstalled(callback: (data: string) => void): () => void
+  }
+  settings: ModuleAPIs['settings'] & {
     onActivated(callback: (data: string | null) => void): () => void
   }
-  settings: ModuleAPIs['settings']
   threads: ModuleAPIs['threads'] & {
     onEvent(callback: (event: ThreadEvent) => void): () => void
   }
@@ -177,10 +178,12 @@ const arcAPI: ArcAPI = {
     ...profiles,
     onInstalled: createEventSubscription<ProfileInstallResult>('arc:profiles:installed'),
     onUninstalled: createEventSubscription<string>('arc:profiles:uninstalled'),
-    onActivated: createEventSubscription<string | null>('arc:profiles:activated'),
   },
 
-  settings,
+  settings: {
+    ...settings,
+    onActivated: createEventSubscription<string | null>('arc:settings:activated'),
+  },
 
   threads: {
     ...threads,

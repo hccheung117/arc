@@ -2,7 +2,7 @@
  * Personas Module
  *
  * Two-layer persona system: user personas shadow profile personas.
- * Depends on profiles for active profile ID resolution.
+ * Depends on settings for active profile ID resolution.
  */
 
 import { defineModule } from '@main/kernel/module'
@@ -19,24 +19,24 @@ type Caps = {
   logger: ReturnType<typeof loggerAdapter.factory>
 }
 
-type ProfilesDep = {
-  getActiveId: () => Promise<string | null>
+type SettingsDep = {
+  getActiveProfileId: () => Promise<string | null>
 }
 
 export default defineModule({
   capabilities: ['markdownFile', 'binaryFile', 'glob', 'logger'] as const,
-  depends: ['profiles'] as const,
+  depends: ['settings'] as const,
   provides: (deps, caps: Caps, emit) => {
-    const profiles = deps.profiles as ProfilesDep
+    const settings = deps.settings as SettingsDep
 
     return {
       list: async () => {
-        const activeProfile = await profiles.getActiveId()
+        const activeProfile = await settings.getActiveProfileId()
         return biz.listPersonas(caps, activeProfile)
       },
 
       get: async (input: { name: string }) => {
-        const activeProfile = await profiles.getActiveId()
+        const activeProfile = await settings.getActiveProfileId()
         return biz.getPersona(caps, activeProfile, input.name)
       },
 
@@ -58,7 +58,7 @@ export default defineModule({
       },
 
       resolve: async (input: { prompt: biz.Prompt }) => {
-        const activeProfile = await profiles.getActiveId()
+        const activeProfile = await settings.getActiveProfileId()
         return biz.resolvePrompt(caps, activeProfile, input.prompt)
       },
     }

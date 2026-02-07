@@ -1,30 +1,24 @@
 /**
  * Profiles Business Logic
  *
- * Domain logic for profile lifecycle, provider configuration, and model discovery.
+ * Pure repository — no concept of "active" profile or user preferences.
  * Receives context object; zero knowledge of persistence format.
  */
 
 import { randomUUID } from 'crypto'
-import type { ArcFile, ArcModelFilter, CachedModel, ArcFileValidationResult } from './json-file'
+import type { ArcFile, ArcModelFilter, CachedModel, ArcFileValidationResult, ProfileSettings, ProfileSettingsValidationResult } from './json-file'
 import type { Logger } from './logger'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-type StoredFavorite = { provider: string; model: string }
-
-type SettingsDep = {
-  getActiveProfile: () => Promise<string | null>
-  setActiveProfile: (input: { id: string | null }) => Promise<void>
-  getFavorites: () => Promise<StoredFavorite[]>
-  setFavorites: (input: { favorites: StoredFavorite[] }) => Promise<void>
-}
-
 type JsonFileCap = {
   arcFile: {
     validate: (content: string) => ArcFileValidationResult
+  }
+  profileSettings: {
+    validate: (content: string) => ProfileSettingsValidationResult
   }
   modelsCache: {
     read: () => Promise<CachedModel[]>
@@ -52,7 +46,6 @@ type AiDep = {
 }
 
 export type Ctx = {
-  settings: SettingsDep
   jsonFile: JsonFileCap
   archive: ArchiveCap
   glob: GlobCap
@@ -142,6 +135,24 @@ function extractProviders(profile: ArcFile): ProviderInput[] {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Profile Read
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function readProfile(ctx: Ctx, profileId: string): Promise<ArcFile | null> {
+  const buf = await ctx.binaryFile.readFile(`profiles/${profileId}/arc.json`)
+  if (!buf) return null
+  const validation = ctx.jsonFile.arcFile.validate(buf.toString('utf-8'))
+  return validation.valid ? validation.data : null
+}
+
+export async function readProfileSettings(ctx: Ctx, profileId: string): Promise<ProfileSettings | null> {
+  const buf = await ctx.binaryFile.readFile(`profiles/${profileId}/settings.json`)
+  if (!buf) return null
+  const validation = ctx.jsonFile.profileSettings.validate(buf.toString('utf-8'))
+  return validation.valid ? validation.data : null
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Profile Lifecycle
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -176,12 +187,7 @@ export async function installProfile(ctx: Ctx, archivePath: string): Promise<Pro
 }
 
 export async function uninstallProfile(ctx: Ctx, profileId: string): Promise<void> {
-  const { settings, binaryFile } = ctx
-  await binaryFile.deleteDir(`profiles/${profileId}`)
-  const activeProfile = await settings.getActiveProfile()
-  if (activeProfile === profileId) {
-    await settings.setActiveProfile({ id: null })
-  }
+  await ctx.binaryFile.deleteDir(`profiles/${profileId}`)
 }
 
 export async function listProfiles(ctx: Ctx): Promise<ProfileInfo[]> {
@@ -206,35 +212,16 @@ export async function listProfiles(ctx: Ctx): Promise<ProfileInfo[]> {
   return profiles
 }
 
-export async function activateProfile(ctx: Ctx, profileId: string | null): Promise<void> {
-  const { settings } = ctx
-  if (profileId) {
-    const profiles = await listProfiles(ctx)
-    if (!profiles.some(p => p.id === profileId)) {
-      throw new Error(`Profile ${profileId} not found`)
-    }
-  }
-  await settings.setActiveProfile({ id: profileId })
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// Provider Configuration
+// ─────────────────────────────────────────────────────────────────────────────
 
-export async function getActiveProfile(ctx: Ctx): Promise<ArcFile | null> {
-  const { settings, jsonFile, binaryFile } = ctx
-  const activeProfile = await settings.getActiveProfile()
-  if (!activeProfile) return null
-
-  const buf = await binaryFile.readFile(`profiles/${activeProfile}/arc.json`)
-  if (!buf) return null
-
-  const validation = jsonFile.arcFile.validate(buf.toString('utf-8'))
-  return validation.valid ? validation.data : null
-}
-
-export async function getProviderConfig(ctx: Ctx, providerId: string): Promise<ProviderConfig> {
-  const profile = await getActiveProfile(ctx)
-  if (!profile) throw new Error('No active profile')
+export async function getProviderConfig(ctx: Ctx, profileId: string, providerId: string): Promise<ProviderConfig> {
+  const profile = await readProfile(ctx, profileId)
+  if (!profile) throw new Error(`Profile ${profileId} not found`)
 
   const provider = profile.providers.find(p => p.id === providerId)
-  if (!provider) throw new Error(`Provider ${providerId} not found in active profile`)
+  if (!provider) throw new Error(`Provider ${providerId} not found in profile ${profileId}`)
 
   return {
     type: provider.type,
@@ -252,9 +239,9 @@ export interface SyncResult {
   failures: Array<{ provider: string; error: string }>
 }
 
-export async function syncModels(ctx: Ctx): Promise<SyncResult> {
+export async function syncModels(ctx: Ctx, profileId: string): Promise<SyncResult> {
   const { jsonFile, glob, ai, logger } = ctx
-  const profile = await getActiveProfile(ctx)
+  const profile = await readProfile(ctx, profileId)
   const providers = profile ? extractProviders(profile) : []
 
   if (providers.length === 0) {
@@ -293,6 +280,10 @@ export async function syncModels(ctx: Ctx): Promise<SyncResult> {
   return { modelCount: models.length, failures }
 }
 
+export async function clearModelsCache(ctx: Ctx): Promise<void> {
+  await ctx.jsonFile.modelsCache.write([])
+}
+
 export async function listModels(ctx: Ctx): Promise<Model[]> {
   const cached = await ctx.jsonFile.modelsCache.read()
   return cached.map(toPublicModel)
@@ -309,36 +300,16 @@ export interface StreamConfig {
   apiKey: string | null
 }
 
-export async function getStreamConfig(ctx: Ctx, providerId: string, modelId: string): Promise<StreamConfig> {
-  // Validate the model+provider combo exists in cache
+export async function getStreamConfig(ctx: Ctx, profileId: string, providerId: string, modelId: string): Promise<StreamConfig> {
   const cached = await ctx.jsonFile.modelsCache.read()
   const model = cached.find(m => m.id === modelId && m.provider === providerId)
   if (!model) throw new Error(`Model ${modelId} not found for provider ${providerId}`)
 
-  const providerConfig = await getProviderConfig(ctx, providerId)
+  const providerConfig = await getProviderConfig(ctx, profileId, providerId)
   return {
     modelId,
     providerId,
     baseURL: providerConfig.baseUrl,
     apiKey: providerConfig.apiKey,
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Favorites
-// ─────────────────────────────────────────────────────────────────────────────
-
-export async function mergeFavoriteModels(ctx: Ctx): Promise<void> {
-  const { settings } = ctx
-  const profile = await getActiveProfile(ctx)
-  if (!profile?.favoriteModels?.length) return
-
-  const newFavorites = profile.favoriteModels
-
-  const currentFavorites = await settings.getFavorites()
-  const existing = new Set(currentFavorites.map(f => `${f.provider}:${f.model}`))
-  const toAdd = newFavorites.filter(f => !existing.has(`${f.provider}:${f.model}`))
-  if (toAdd.length) {
-    await settings.setFavorites({ favorites: [...currentFavorites, ...toAdd] })
   }
 }

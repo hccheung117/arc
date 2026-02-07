@@ -8,23 +8,30 @@ const FavoriteSchema = z.object({
   model: z.string(),
 })
 
-type Favorite = z.infer<typeof FavoriteSchema>
+const AssignmentSchema = z.object({
+  provider: z.string(),
+  model: z.string(),
+})
 
 const ShortcutsSchema = z.object({
   send: z.enum(['enter', 'shift+enter']),
 })
 
-type Shortcuts = z.infer<typeof ShortcutsSchema>
-
+// Preference fields are optional — absence means "use profile default"
 const SettingsSchema = z.object({
   activeProfile: z.string().nullable(),
-  favorites: z.array(FavoriteSchema),
-  shortcuts: ShortcutsSchema,
+  favorites: z.array(FavoriteSchema).optional(),
+  assignments: z.record(z.string(), AssignmentSchema).optional(),
+  shortcuts: ShortcutsSchema.optional(),
 })
 
 type Settings = z.infer<typeof SettingsSchema>
 
-const DEFAULTS: Settings = { activeProfile: null, favorites: [], shortcuts: { send: 'enter' } }
+export type Favorite = z.infer<typeof FavoriteSchema>
+export type Assignment = z.infer<typeof AssignmentSchema>
+export type Shortcuts = z.infer<typeof ShortcutsSchema>
+
+const DEFAULTS: Settings = { activeProfile: null }
 
 export default defineCapability((jsonFile: ScopedJsonFile) => {
   const file = jsonFile.create('app/settings.json', DEFAULTS, SettingsSchema)
@@ -33,10 +40,13 @@ export default defineCapability((jsonFile: ScopedJsonFile) => {
     writeActiveProfile: (id: string | null) =>
       file.update((s) => ({ ...s, activeProfile: id })),
     readFavorites: async () => (await file.read()).favorites,
-    writeFavorites: (favorites: Favorite[]) =>
+    writeFavorites: (favorites: Favorite[] | undefined) =>
       file.update((s) => ({ ...s, favorites })),
+    readAssignments: async () => (await file.read()).assignments,
+    writeAssignments: (assignments: Record<string, Assignment> | undefined) =>
+      file.update((s) => ({ ...s, assignments })),
     readShortcuts: async () => (await file.read()).shortcuts,
-    writeShortcuts: (shortcuts: Shortcuts) =>
+    writeShortcuts: (shortcuts: Shortcuts | undefined) =>
       file.update((s) => ({ ...s, shortcuts })),
   }
 })

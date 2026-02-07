@@ -97,10 +97,16 @@ type UpdaterApi = { init: (intervalMinutes?: number) => void }
 const updater = kernel.getModule<UpdaterApi>('updater')!
 
 type ProfilesApi = {
-  install: (input: { filePath: string }) => Promise<unknown>
-  getActive: () => Promise<{ updateInterval?: number } | null>
+  install: (input: { filePath: string }) => Promise<{ id: string }>
+  read: (input: { profileId: string }) => Promise<{ updateInterval?: number } | null>
 }
 const profilesApi = kernel.getModule<ProfilesApi>('profiles')!
+
+type SettingsApi = {
+  activate: (input: { profileId: string | null }) => Promise<void>
+  getActiveProfileId: () => Promise<string | null>
+}
+const settingsApi = kernel.getModule<SettingsApi>('settings')!
 
 // ─────────────────────────────────────────────────────────────────
 // Config builders (pure)
@@ -175,7 +181,8 @@ app.on('ready', async () => {
   createWindow(size)
 
   // Initialize updater with profile's update interval
-  const activeProfile = await profilesApi.getActive() as { updateInterval?: number } | null
+  const activeProfileId = await settingsApi.getActiveProfileId()
+  const activeProfile = activeProfileId ? await profilesApi.read({ profileId: activeProfileId }) : null
   updater.init(activeProfile?.updateInterval)
 })
 
@@ -192,7 +199,8 @@ app.on('open-file', async (event, filePath) => {
   event.preventDefault()
   if (filePath.toLowerCase().endsWith('.arc')) {
     try {
-      await profilesApi.install({ filePath })
+      const result = await profilesApi.install({ filePath })
+      await settingsApi.activate({ profileId: result.id })
     } catch {
       // Error logged by module
     }
