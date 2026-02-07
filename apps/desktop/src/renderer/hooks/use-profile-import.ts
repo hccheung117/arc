@@ -20,7 +20,8 @@ export function useProfileImport(): {
   const handleImport = useCallback(
     async (filePath: string) => {
       try {
-        await window.arc.profiles.install({ filePath })
+        const result = await window.arc.profiles.install({ filePath })
+        await window.arc.settings.activate({ profileId: result.id })
       } catch {
         showToast('This profile file is invalid or corrupted.')
       }

@@ -192,10 +192,14 @@ export const Composer = forwardRef<ComposerRef, ComposerProps>(
 
       try {
         // Resolve provider config for the refine model
-        const modelsList = await window.arc.profiles.listModels()
+        const [modelsList, profileId] = await Promise.all([
+          window.arc.profiles.listModels(),
+          window.arc.settings.getActiveProfileId(),
+        ])
         const model = modelsList.find((m) => m.id === refineModel)
         if (!model) throw new Error(`Model ${refineModel} not found`)
-        const providerConfig = await window.arc.profiles.getProviderConfig({ providerId: model.provider.id })
+        if (!profileId) throw new Error('No active profile')
+        const providerConfig = await window.arc.profiles.getProviderConfig({ profileId, providerId: model.provider.id })
         const provider = { baseURL: providerConfig.baseUrl ?? undefined, apiKey: providerConfig.apiKey ?? undefined }
 
         const { streamId } = await startRefine(original, refineModel, provider)

@@ -216,7 +216,10 @@ export async function prepareStreamContext(
     leafMessageId
       ? window.arc.messages.getConversation({ threadId, leafMessageId })
       : window.arc.messages.list({ threadId }).then((r) => convertToAIMessages(r.messages, threadId)),
-    window.arc.profiles.getStreamConfig({ providerId, modelId }),
+    window.arc.settings.getActiveProfileId().then(profileId => {
+      if (!profileId) throw new Error('No active profile')
+      return window.arc.profiles.getStreamConfig({ profileId, providerId, modelId })
+    }),
     window.arc.personas.resolve({ prompt }),
   ])
 

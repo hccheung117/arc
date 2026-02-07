@@ -49,7 +49,7 @@ export function Workspace({ threads, activeThreadId, onThreadUpdate }: Workspace
     // Re-fetch when profile changes (install/uninstall/activate)
     const unsub1 = window.arc.profiles.onInstalled(fetchModels)
     const unsub2 = window.arc.profiles.onUninstalled(fetchModels)
-    const unsub3 = window.arc.profiles.onActivated(fetchModels)
+    const unsub3 = window.arc.settings.onActivated(fetchModels)
     return () => { unsub1(); unsub2(); unsub3() }
   }, [])
 

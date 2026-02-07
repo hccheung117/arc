@@ -90,12 +90,12 @@ export function ChatView({ thread, models, findPersona, onThreadUpdate }: ChatVi
   const [viewport, setViewport] = useState<HTMLDivElement | null>(null)
   const { isAtBottom, scrollToBottom } = useScrollStore(viewport, thread.id, scrollTargetId)
 
-  // Refine model from active profile
+  // Refine model from layered settings
   const [refineModel, setRefineModel] = useState<string | undefined>(undefined)
   useEffect(() => {
     const fetchRefineModel = () => {
-      window.arc.profiles.getActiveDetails().then((profile) => {
-        setRefineModel(profile?.modelAssignments?.refine?.model)
+      window.arc.settings.getAssignments().then((assignments) => {
+        setRefineModel(assignments?.refine?.model)
       })
     }
 
@@ -103,7 +103,7 @@ export function ChatView({ thread, models, findPersona, onThreadUpdate }: ChatVi
 
     // Re-fetch when profile changes
     const unsub1 = window.arc.profiles.onInstalled(fetchRefineModel)
-    const unsub2 = window.arc.profiles.onActivated(fetchRefineModel)
+    const unsub2 = window.arc.settings.onActivated(fetchRefineModel)
     return () => { unsub1(); unsub2() }
   }, [])
 
