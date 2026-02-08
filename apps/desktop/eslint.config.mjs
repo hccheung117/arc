@@ -1,5 +1,6 @@
 import eslint from "@eslint/js";
 import { importX } from "eslint-plugin-import-x";
+import react from "eslint-plugin-react";
 import globals from "globals";
 
 export default [
@@ -17,6 +18,8 @@ export default [
   },
   eslint.configs.recommended,
   importX.flatConfigs.recommended,
+  { ...react.configs.flat.recommended, settings: { ...react.configs.flat.recommended.settings, react: { version: "detect" } } },
+  react.configs.flat["jsx-runtime"],
   {
     files: ["**/*.{js,jsx}"],
     languageOptions: {
@@ -24,12 +27,21 @@ export default [
         ...globals.browser,
         ...globals.node,
         ...globals.es2021,
+        MAIN_WINDOW_VITE_DEV_SERVER_URL: "readonly",
+        MAIN_WINDOW_VITE_NAME: "readonly",
+      },
+      parserOptions: {
+        ecmaFeatures: { jsx: true },
       },
     },
     settings: {
       "import-x/core-modules": ["electron"],
+      "react": { "version": "detect" },
     },
     rules: {
+      // Vite handles module resolution — ESLint can't replicate its alias/extension logic
+      "import-x/no-unresolved": "off",
+      "react/prop-types": "off",
       "no-restricted-imports": [
         "error",
         {

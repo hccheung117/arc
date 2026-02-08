@@ -1,6 +1,5 @@
 import { appendFile, copyFile as fsCopyFile, mkdir, readFile, unlink } from 'node:fs/promises'
 import { dirname, resolve, sep } from 'node:path'
-import { z } from 'zod'
 
 /**
  * Append-only log persistence engine for Stream archetype.

@@ -91,7 +91,7 @@ export function useChatThreads() {
   }, [])
 
   // Subscribe to thread events for sidebar reactivity
-  // Auto-delete of empty folders is handled in the domain layer (lib/messages/commands.ts)
+  // Auto-delete of empty folders is handled in the domain layer (lib/messages/commands.js)
   useEffect(() => {
     return onThreadEvent((event) => {
       if (event.type === 'deleted') {

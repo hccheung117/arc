@@ -10,7 +10,6 @@ import {
   editAssistantMessage,
 } from '@renderer/lib/send-flows'
 import { findEditParent, composeDisplayMessages } from '@renderer/lib/message-tree'
-import { getStreamingMessage } from '@renderer/lib/stream-state'
 import { error as logError } from '@renderer/lib/logger'
 
 // ─────────────────────────────────────────────────────────────────────────────

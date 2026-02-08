@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, screen, shell } from 'electron'
+import { app, Menu, screen, shell } from 'electron'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants

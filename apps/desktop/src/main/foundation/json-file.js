@@ -1,7 +1,6 @@
 import { mkdir, readFile } from 'node:fs/promises'
 import { dirname, resolve, sep } from 'node:path'
 import writeFileAtomic from 'write-file-atomic'
-import { z } from 'zod'
 
 /**
  * Atomic file persistence engine for Config and Ledger archetypes.

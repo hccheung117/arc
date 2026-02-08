@@ -2,7 +2,7 @@
  * Module Discovery
  *
  * Auto-discovers modules and capability adapters at build time using Vite's import.meta.glob.
- * Replaces manual module registration in main.ts.
+ * Replaces manual module registration in main.js.
  */
 
 // ─────────────────────────────────────────────────────────────────────────────

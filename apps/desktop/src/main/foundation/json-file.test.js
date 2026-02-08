@@ -1,4 +1,3 @@
-// eslint-disable-next-line import-x/no-unresolved
 import { describe, it, expect } from 'vitest'
 import { createJsonFile } from './json-file'
 

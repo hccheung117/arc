@@ -27,7 +27,7 @@ class StreamManager {
   /**
    * Initialize the global stream subscriptions
    *
-   * Call once on app startup (e.g., in workbench.tsx).
+   * Call once on app startup (e.g., in workbench.jsx).
    * Safe to call multiple times - will only subscribe once.
    */
   init() {

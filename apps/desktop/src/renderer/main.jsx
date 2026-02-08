@@ -7,7 +7,7 @@ if (!window.arc) {
   throw new Error('Arc API not available. Ensure the app is running in Electron.');
 }
 
-createRoot(document.getElementById('root')!).render(
+createRoot(document.getElementById('root')).render(
   <StrictMode>
     <WorkbenchWindow />
   </StrictMode>

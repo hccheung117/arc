@@ -1,5 +1,3 @@
-import * as React from "react"
-
 import { cn } from "@renderer/lib/utils"
 
 function Card({ className, ...props }) {
