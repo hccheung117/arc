@@ -15,7 +15,27 @@ interface ChatFooterProps {
 export const ChatFooter = forwardRef<ComposerRef, ChatFooterProps>(
   ({ error, composerProps, maxHeight, onMaxHeightChange }, ref) => {
     const [isResizing, setIsResizing] = useState(false)
+    const [canResize, setCanResize] = useState(false)
     const containerRef = useRef<HTMLDivElement>(null)
+
+    // Track whether composer content exceeds 1 row — only show drag handle when it does
+    useEffect(() => {
+      const container = containerRef.current
+      if (!container) return
+
+      const check = () => {
+        const textarea = container.querySelector('textarea')
+        if (!textarea) return
+        const lineHeight = parseFloat(getComputedStyle(textarea).lineHeight) || 24
+        // Content is resizable when textarea needs more than 1 line
+        setCanResize(textarea.scrollHeight > lineHeight * 1.5)
+      }
+
+      check()
+      const ro = new ResizeObserver(check)
+      ro.observe(container)
+      return () => ro.disconnect()
+    }, [])
 
     const startResizing = useCallback(() => {
       setIsResizing(true)
@@ -80,16 +100,18 @@ export const ChatFooter = forwardRef<ComposerRef, ChatFooterProps>(
         className="flex flex-col min-h-0 bg-background p-chat-shell pt-0"
         style={maxHeight ? { maxHeight } : undefined}
       >
-        {/* Drag handle — matches sidebar rail pattern */}
-        <button
-          aria-label="Resize composer"
-          tabIndex={-1}
-          onMouseDown={startResizing}
-          onDoubleClick={handleDoubleClick}
-          className="group relative flex h-3 w-full shrink-0 cursor-row-resize items-center justify-center"
-        >
-          <div className="h-[2px] w-8 rounded-full bg-transparent transition-colors group-hover:bg-border" />
-        </button>
+        {/* Drag handle — only interactive when content exceeds 1 row */}
+        {canResize && (
+          <button
+            aria-label="Resize composer"
+            tabIndex={-1}
+            onMouseDown={startResizing}
+            onDoubleClick={handleDoubleClick}
+            className="group relative flex h-3 w-full shrink-0 cursor-row-resize items-center justify-center"
+          >
+            <div className="h-[2px] w-8 rounded-full bg-transparent transition-colors group-hover:bg-border" />
+          </button>
+        )}
 
         {error && (
           <div className="mb-2 rounded-md bg-destructive/10 px-3 py-2 text-label text-destructive select-text cursor-text shrink-0">
