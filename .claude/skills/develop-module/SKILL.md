@@ -18,14 +18,14 @@ Understand:
 ## Phase 2: Capability Selection
 
 1. Discover available legal capabilities
-2. Determine which capabilities this module needs based on domain analysis. Each selected capability becomes one physical `{cap}.ts` file
+2. Determine which capabilities this module needs based on domain analysis. Each selected capability becomes one physical `{cap}.js` file
 
 ## Phase 3: Cap API Design
 
 For each selected capability, apply this thinking process:
 
-1. "I am `{cap}.ts` in the `{module}` module"
-2. "What does `business.ts` need to accomplish?"
+1. "I am `{cap}.js` in the `{module}` module"
+2. "What does `business.js` need to accomplish?"
 3. "How would business ideally call me?" — domain-level verbs, not Foundation verbs
 4. "What complexity should I absorb?" — low level details, e.g., schemas, paths, format, atomicity, error handling, caching, HTTP, retries
 5. "What high-level API should I expose?" — only what's needed, easy to call, hard to misuse
@@ -36,7 +36,7 @@ For each selected capability, apply this thinking process:
 
 ## Phase 4: Module Surface Design
 
-Design the `provides:` API in `mod.ts` — this is what consumers call via IPC.
+Design the `provides:` API in `mod.js` — this is what consumers call via IPC.
 
 ### Identify Primitives
 
@@ -86,15 +86,14 @@ Design the `provides:` API in `mod.ts` — this is what consumers call via IPC.
 ## Phase 5: Scaffold
 
 Write the module files:
-- mod.ts
-- business.ts
-- {cap}.ts (one per capability)
+- mod.js
+- business.js
+- {cap}.js (one per capability)
 
 ## Phase 6: Validate
 
 Run these checks after scaffolding:
 
-1. **Type-check passes** — `npx tsc --noEmit`
-2. **ESLint `import type` rule** — adapters in `mod.ts` use `import type`
-3. **No Foundation imports in `business.ts`** — business stays pure
-4. **File count matches** — exactly `mod.ts` + `business.ts` (if needed) + one file per declared capability
+1. **ESLint passes** — `npx eslint .` from `apps/desktop/`
+2. **No Foundation imports in `business.js`** — business stays pure
+3. **File count matches** — exactly `mod.js` + `business.js` (if needed) + one file per declared capability

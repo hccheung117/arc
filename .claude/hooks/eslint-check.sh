@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ESLint Stop hook for Claude Code
-# Runs ESLint on modified TS/JS files when Claude tries to stop
+# Runs ESLint on modified JS/JSX files when Claude tries to stop
 # Blocks Claude from stopping if there are linting errors
 
 input=$(cat)
@@ -30,15 +30,15 @@ cd "$repo_root" || exit 0
 # Get modified TS/JS files from git (both staged and unstaged changes)
 # Filter to apps/desktop only and strip the prefix for ESLint
 # Use --diff-filter=d to exclude deleted files (lowercase d = exclude deletions)
-modified_files=$(git diff --name-only --diff-filter=d HEAD 2>/dev/null | grep -E '^apps/desktop/.*\.(ts|tsx)$' | sed 's|^apps/desktop/||' || true)
+modified_files=$(git diff --name-only --diff-filter=d HEAD 2>/dev/null | grep -E '^apps/desktop/.*\.(js|jsx)$' | sed 's|^apps/desktop/||' || true)
 
 # Also include untracked new files
-untracked_files=$(git ls-files --others --exclude-standard 2>/dev/null | grep -E '^apps/desktop/.*\.(ts|tsx)$' | sed 's|^apps/desktop/||' || true)
+untracked_files=$(git ls-files --others --exclude-standard 2>/dev/null | grep -E '^apps/desktop/.*\.(js|jsx)$' | sed 's|^apps/desktop/||' || true)
 
 # Combine both lists
 all_files=$(echo -e "${modified_files}\n${untracked_files}" | grep -v '^$' | sort -u)
 
-# Exit if no modified TS files in apps/desktop
+# Exit if no modified JS files in apps/desktop
 if [[ -z "$all_files" ]]; then
   exit 0
 fi

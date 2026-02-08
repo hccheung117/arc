@@ -4,9 +4,9 @@
 
 ## Module Architecture
 
-Cap files (`{cap}.ts`) are libraries for `business.ts`, not thin foundation wrappers. They absorb all low-level concerns (e.g., I/O, schemas, format, HTTP, caching, retries) so business reads like pure domain logic.
+Cap files (`{cap}.js`) are libraries for `business.js`, not thin foundation wrappers. They absorb all low-level concerns (e.g., I/O, schemas, format, HTTP, caching, retries) so business reads like pure domain logic.
 
-**Cap design thinking:** "I am `{cap}.ts`. What does business need? How would it ideally call me? What complexity can I absorb to make its job easy?" Cap exposes only what business needs — high-level, domain-friendly verbs. Business has zero knowledge of Foundation, file paths, or implementation details.
+**Cap design thinking:** "I am `{cap}.js`. What does business need? How would it ideally call me? What complexity can I absorb to make its job easy?" Cap exposes only what business needs — high-level, domain-friendly verbs. Business has zero knowledge of Foundation, file paths, or implementation details.
 
 Use `/develop-module <name>` for guided module creation.
 
