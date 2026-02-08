@@ -1,0 +1,15 @@
+/**
+ * Profiles Glob Capability Adapter
+ *
+ * Library for business: provides profile directory scanning and model filter matching.
+ */
+
+import { defineCapability } from '@main/kernel/module'
+
+export default defineCapability((glob) => ({
+  listProfileDirs: async () => {
+    const entries = await glob.readdir('profiles')
+    return entries.filter(e => !e.startsWith('.'))
+  },
+  matches: glob.matches,
+}))

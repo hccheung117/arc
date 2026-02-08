@@ -1,9 +1,8 @@
 import eslint from "@eslint/js";
-import tseslint from "typescript-eslint";
 import { importX } from "eslint-plugin-import-x";
 import globals from "globals";
 
-export default tseslint.config(
+export default [
   {
     ignores: [
       "node_modules/**",
@@ -11,34 +10,23 @@ export default tseslint.config(
       "src/.vite/**",
       "out/**",
       "dist/**",
-      "*.config.ts",
       "*.config.mjs",
       "*.config.js",
-      "vite.*.config.ts",
+      "vite.*.config.mjs",
     ],
   },
   eslint.configs.recommended,
-  ...tseslint.configs.recommended,
   importX.flatConfigs.recommended,
-  importX.flatConfigs.typescript,
   {
-    files: ["**/*.{ts,tsx}"],
+    files: ["**/*.{js,jsx}"],
     languageOptions: {
       globals: {
         ...globals.browser,
         ...globals.node,
         ...globals.es2021,
       },
-      parserOptions: {
-        project: "./tsconfig.json",
-      },
     },
     settings: {
-      "import-x/resolver": {
-        typescript: {
-          project: "./tsconfig.json",
-        },
-      },
       "import-x/core-modules": ["electron"],
     },
     rules: {
@@ -57,7 +45,7 @@ export default tseslint.config(
                 "The @/ alias is deprecated. Use @renderer/ for renderer code.",
             },
             {
-              group: ["**/index", "**/index.ts", "**/index.tsx"],
+              group: ["**/index", "**/index.js", "**/index.jsx"],
               message:
                 "Barrel files are forbidden. Import directly from the source file.",
             },
@@ -68,10 +56,10 @@ export default tseslint.config(
   },
   // Global: 500 lines max — refactor into smaller focused units
   {
-    files: ["**/*.{ts,tsx}"],
+    files: ["**/*.{js,jsx}"],
     ignores: [
       // TODO: Refactor into smaller components
-      "src/renderer/components/ui/sidebar.tsx",
+      "src/renderer/components/ui/sidebar.jsx",
     ],
     rules: {
       "max-lines": [
@@ -82,7 +70,7 @@ export default tseslint.config(
   },
   // Microkernel: 1000 lines for main — if exceeded, split into multiple modules
   {
-    files: ["src/main/**/*.{ts,tsx}"],
+    files: ["src/main/**/*.{js,jsx}"],
     rules: {
       "max-lines": [
         "error",
@@ -92,7 +80,7 @@ export default tseslint.config(
   },
   // Foundation isolation: cannot import from kernel or modules
   {
-    files: ["src/main/foundation/**/*.{ts,tsx}"],
+    files: ["src/main/foundation/**/*.{js,jsx}"],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -115,7 +103,7 @@ export default tseslint.config(
   },
   // Kernel isolation: cannot import from modules
   {
-    files: ["src/main/kernel/**/*.{ts,tsx}"],
+    files: ["src/main/kernel/**/*.{js,jsx}"],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -133,7 +121,7 @@ export default tseslint.config(
   },
   // Module isolation: cannot import other modules or foundation directly
   {
-    files: ["src/main/modules/**/*.{ts,tsx}"],
+    files: ["src/main/modules/**/*.{js,jsx}"],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -142,39 +130,16 @@ export default tseslint.config(
             {
               group: ["@main/modules/*/*"],
               message:
-                "Modules cannot import other modules. Declare dependency in mod.ts 'depends' array and receive via kernel injection.",
+                "Modules cannot import other modules. Declare dependency in mod.js 'depends' array and receive via kernel injection.",
             },
             {
               group: ["@main/foundation/*", "@main/foundation"],
               message:
-                "Modules cannot import foundation directly. Create a capability adapter file (e.g., filesystem.ts) and receive via kernel injection.",
+                "Modules cannot import foundation directly. Create a capability adapter file (e.g., filesystem.js) and receive via kernel injection.",
             },
           ],
         },
       ],
-    },
-  },
-  // mod.ts must use 'import type' for adapter imports (type-only, no runtime dependency)
-  // Adapters are imported ONLY for type derivation via ReturnType<typeof adapter.factory>
-  // Runtime injection is handled by the kernel — mod.ts should never import adapters at runtime
-  {
-    files: ["src/main/modules/**/mod.ts"],
-    rules: {
-      "@typescript-eslint/consistent-type-imports": [
-        "error",
-        {
-          prefer: "type-imports",
-          fixStyle: "separate-type-imports",
-          disallowTypeAnnotations: false,
-        },
-      ],
-    },
-  },
-  // types.ts files banned in main — derive types from implementation instead
-  {
-    files: ["src/main/**/types.ts"],
-    rules: {
-      "max-lines": ["error", { max: 0 }],
     },
   },
   {
@@ -185,4 +150,4 @@ export default tseslint.config(
       },
     },
   }
-);
+];

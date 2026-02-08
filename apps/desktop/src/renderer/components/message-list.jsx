@@ -1,0 +1,58 @@
+import { ScrollArea } from '@renderer/components/ui/scroll-area'
+import { MessageProvider } from '@renderer/context/message-context'
+import { Message } from './message'
+import { ChevronDown } from 'lucide-react'
+
+/**
+ * Message list with scroll area and streaming support
+ */
+export function MessageList({
+  messages,
+  streamingMessage,
+  branchPoints,
+  editingId,
+  onEdit,
+  onBranchSwitch,
+  onViewportMount,
+  isAtBottom,
+  onScrollToBottom,
+}) {
+  return (
+    <div className="relative h-full">
+      <ScrollArea className="h-full" onViewportMount={onViewportMount}>
+        <div className="min-h-full p-chat-shell flex flex-col gap-chat-message-gap" style={{ paddingBottom: 'var(--footer-h, 0.75rem)' }}>
+          {messages.map((message, index) => {
+            const parentId = index === 0 ? null : messages[index - 1].id
+            const branchInfo = branchPoints.find((bp) => bp.parentId === parentId)
+            // Streaming message is the last in array when active (added by composeDisplayMessages)
+            const isStreamingMsg = streamingMessage && message.id === streamingMessage.id
+            return (
+              <MessageProvider key={message.id} messageId={message.id} role={message.role}>
+                <Message
+                  id={message.id}
+                  message={message}
+                  isThinking={isStreamingMsg ? streamingMessage.isThinking : undefined}
+                  onEdit={(content) => onEdit(content, message.id, message.role)}
+                  isEditing={editingId === message.id}
+                  branchInfo={branchInfo}
+                  onBranchSwitch={(targetIndex) => onBranchSwitch(parentId, targetIndex)}
+                />
+              </MessageProvider>
+            )
+          })}
+        </div>
+      </ScrollArea>
+
+      {!isAtBottom && (
+        <button
+          onClick={onScrollToBottom}
+          className="absolute left-1/2 -translate-x-1/2 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-opacity hover:bg-primary/90"
+          style={{ bottom: 'calc(var(--footer-h, 0.75rem) + 0.5rem)' }}
+          aria-label="Scroll to bottom"
+        >
+          <ChevronDown className="h-4 w-4" />
+        </button>
+      )}
+    </div>
+  )
+}
