@@ -7,9 +7,10 @@
  */
 
 const DB_NAME = 'arc-ui-state'
-const DB_VERSION = 2
+const DB_VERSION = 3
 const BRANCH_STORE = 'branch-selections'
 const FOLDER_STORE = 'folder-collapse'
+const LAYOUT_STORE = 'layout'
 
 let dbPromise: Promise<IDBDatabase> | null = null
 
@@ -29,6 +30,9 @@ function openDB() {
       }
       if (!db.objectStoreNames.contains(FOLDER_STORE)) {
         db.createObjectStore(FOLDER_STORE, { keyPath: 'folderId' })
+      }
+      if (!db.objectStoreNames.contains(LAYOUT_STORE)) {
+        db.createObjectStore(LAYOUT_STORE, { keyPath: 'key' })
       }
     }
   })
@@ -108,3 +112,17 @@ export const getAllFolderCollapseStates = async () => {
   const results = await getAll<{ folderId: string; collapsed: boolean }>(FOLDER_STORE)
   return Object.fromEntries(results.map(({ folderId, collapsed }) => [folderId, collapsed]))
 }
+
+// ============================================================================
+// Layout Preferences
+// ============================================================================
+
+export const getComposerMaxHeight = async () => {
+  const result = await get<{ key: string; value: number }>(LAYOUT_STORE, 'composerMaxHeight')
+  return result?.value ?? undefined
+}
+
+export const setComposerMaxHeight = (value: number | undefined) =>
+  value === undefined
+    ? del(LAYOUT_STORE, 'composerMaxHeight')
+    : put(LAYOUT_STORE, { key: 'composerMaxHeight', value })

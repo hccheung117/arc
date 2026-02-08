@@ -5,6 +5,7 @@ import type { Persona } from '@main/modules/personas/business'
 import type { ChatThread, ThreadAction } from '@renderer/lib/threads'
 import type { DisplayMessage, InputMode } from '@renderer/lib/types'
 import { getPromptInfo } from '@renderer/lib/prompts'
+import { getComposerMaxHeight, setComposerMaxHeight as persistComposerMaxHeight } from '@renderer/lib/ui-state-db'
 import { useChatUIStore } from '@renderer/stores/chat-ui-store'
 import { useChatSession } from '@renderer/hooks/use-chat-session'
 import { useScrollStore } from '@renderer/hooks/use-scroll-store'
@@ -89,6 +90,38 @@ export function ChatView({ thread, models, findPersona, onThreadUpdate }: ChatVi
   // Scroll
   const [viewport, setViewport] = useState<HTMLDivElement | null>(null)
   const { isAtBottom, scrollToBottom } = useScrollStore(viewport, thread.id, scrollTargetId)
+
+  // Composer max height (persisted to IndexedDB)
+  const [composerMaxHeight, setComposerMaxHeight] = useState<number | undefined>(undefined)
+
+  useEffect(() => {
+    getComposerMaxHeight().then(setComposerMaxHeight)
+  }, [])
+
+  const persistTimerRef = useRef<ReturnType<typeof setTimeout>>(null)
+  const handleComposerMaxHeightChange = useCallback((h: number | undefined) => {
+    setComposerMaxHeight(h)
+    if (persistTimerRef.current) clearTimeout(persistTimerRef.current)
+    persistTimerRef.current = setTimeout(() => persistComposerMaxHeight(h), 300)
+  }, [])
+
+  // ResizeObserver: sync footer height to CSS variable for message list padding
+  const chatBodyRef = useRef<HTMLDivElement>(null)
+  const footerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const footer = footerRef.current
+    const chatBody = chatBodyRef.current
+    if (!footer || !chatBody) return
+
+    chatBody.style.setProperty('--footer-h', `${footer.offsetHeight}px`)
+
+    const ro = new ResizeObserver(([entry]) => {
+      chatBody.style.setProperty('--footer-h', `${entry.contentRect.height}px`)
+    })
+    ro.observe(footer)
+    return () => ro.disconnect()
+  }, [])
 
   // Refine model from layered settings
   const [refineModel, setRefineModel] = useState<string | undefined>(undefined)
@@ -182,8 +215,8 @@ export function ChatView({ thread, models, findPersona, onThreadUpdate }: ChatVi
           hasSystemPrompt={promptInfo.hasPrompt}
         />
 
-        {/* Chat body: layered architecture for stable robot positioning */}
-        <div className="flex-1 min-h-0 relative">
+        {/* Chat body: float layout — footer overlays messages, padding keeps content visible */}
+        <div ref={chatBodyRef} className="flex-1 min-h-0 relative">
           {/* Background layer: robot icon stays centered regardless of composer growth */}
           {isEmpty && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -191,11 +224,9 @@ export function ChatView({ thread, models, findPersona, onThreadUpdate }: ChatVi
             </div>
           )}
 
-          {/* Content layer: flex column pushes footer to bottom */}
-          <div className="absolute inset-0 flex flex-col">
-            {isEmpty ? (
-              <div className="flex-1 min-h-0" />
-            ) : (
+          {/* Message layer: fills entire space, scroll content padded to clear footer */}
+          {!isEmpty && (
+            <div className="absolute inset-0">
               <MessageList
                 messages={view.messages.map((dm) => dm.message)}
                 streamingMessage={view.streamingMessage}
@@ -207,11 +238,16 @@ export function ChatView({ thread, models, findPersona, onThreadUpdate }: ChatVi
                 isAtBottom={isAtBottom}
                 onScrollToBottom={scrollToBottom}
               />
-            )}
+            </div>
+          )}
 
+          {/* Footer layer: floats at bottom over messages */}
+          <div ref={footerRef} className="absolute bottom-0 left-0 right-0 z-10 flex flex-col max-h-full">
             <ChatFooter
               ref={composerRef}
               error={view.error}
+              maxHeight={composerMaxHeight}
+              onMaxHeightChange={handleComposerMaxHeightChange}
               composerProps={{
                 threadId: thread.id,
                 mode: composerMode,
