@@ -10,6 +10,7 @@ export function useComposerMaxHeight() {
 
   useEffect(() => {
     getComposerMaxHeight().then(setComposerMaxHeight)
+    return () => { if (timerRef.current) clearTimeout(timerRef.current) }
   }, [])
 
   const update = useCallback((maxHeight) => {

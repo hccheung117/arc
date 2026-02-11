@@ -1,6 +1,26 @@
 import { useState, useRef, useEffect } from 'react'
 import { startRefine, stopAIChat, onAIDelta, onAIComplete, onAIError } from '@renderer/lib/messages'
-import { resolveRefineConfig } from '@renderer/lib/refine'
+import { error as logError } from '@renderer/lib/logger'
+
+async function resolveRefineConfig(modelId) {
+  const [modelsList, profileId] = await Promise.all([
+    window.arc.profiles.listModels(),
+    window.arc.settings.getActiveProfileId(),
+  ])
+  const model = modelsList.find((m) => m.id === modelId)
+  if (!model) throw new Error(`Model ${modelId} not found`)
+  if (!profileId) throw new Error('No active profile')
+
+  const providerConfig = await window.arc.profiles.getProviderConfig({
+    profileId,
+    providerId: model.provider.id,
+  })
+
+  return {
+    baseURL: providerConfig.baseUrl ?? undefined,
+    apiKey: providerConfig.apiKey ?? undefined,
+  }
+}
 
 /**
  * Refine AI stream subsystem
@@ -22,7 +42,8 @@ export function useRefine({ refineModel, message, setMessage }) {
       const provider = await resolveRefineConfig(refineModel)
       const { streamId } = await startRefine(original, refineModel, provider)
       setRefineState({ status: 'refining', streamId, original })
-    } catch {
+    } catch (err) {
+      logError('refine', 'Failed to start refine', err)
       setMessage(original)
       setRefineState({ status: 'idle' })
     }
