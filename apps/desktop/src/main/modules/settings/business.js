@@ -30,9 +30,23 @@ export async function activate(ctx, profileId) {
   await ctx.jsonFile.writeActiveProfile(profileId)
   if (profileId) {
     await ctx.profiles.syncModels({ profileId })
+    await pruneInvalidFavorites(ctx)
   } else {
     await ctx.profiles.clearModelsCache()
+    await ctx.jsonFile.writeFavorites(undefined)
   }
+}
+
+async function pruneInvalidFavorites(ctx) {
+  const appFavorites = await ctx.jsonFile.readFavorites()
+  if (!appFavorites?.length) return
+
+  const models = await ctx.profiles.listModels()
+  const validKeys = new Set(models.map(m => `${m.provider.id}:${m.id}`))
+  const valid = appFavorites.filter(f => validKeys.has(`${f.provider}:${f.model}`))
+
+  if (valid.length === appFavorites.length) return
+  await ctx.jsonFile.writeFavorites(valid.length > 0 ? valid : undefined)
 }
 
 export async function getActiveProfileId(ctx) {
