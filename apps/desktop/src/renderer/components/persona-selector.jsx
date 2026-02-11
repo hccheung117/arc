@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { Drama, Trash2 } from 'lucide-react'
+import { deletePersona } from '@renderer/lib/personas'
 import {
   Popover,
   PopoverContent,
@@ -7,7 +8,7 @@ import {
 } from '@renderer/components/ui/popover'
 import { createTextMeasurer } from '@renderer/lib/measure'
 
-// Module-level measurer (matches text-sm in popover items)
+// Module-level measurer (matches text-label in popover items)
 const measureText = createTextMeasurer('14px ui-sans-serif, system-ui, sans-serif')
 
 // Buffer for UI chrome:
@@ -31,7 +32,7 @@ export function PersonaSelector({
   const handleDelete = (e, persona) => {
     e.stopPropagation()
     e.preventDefault()
-    window.arc.personas.delete({ name: persona.name })
+    deletePersona(persona.name)
   }
 
   return (
@@ -46,7 +47,7 @@ export function PersonaSelector({
           {personas.map((persona) => (
             <div
               key={persona.name}
-              className="group flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent text-left cursor-pointer"
+              className="group flex items-center gap-2 rounded-sm px-2 py-1.5 text-label hover:bg-accent text-left cursor-pointer"
               onClick={() => onSelect(persona)}
             >
               <Drama className="h-4 w-4 text-muted-foreground shrink-0" />

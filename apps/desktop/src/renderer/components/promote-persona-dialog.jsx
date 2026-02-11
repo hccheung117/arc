@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPersona } from '@renderer/lib/personas'
 import {
   Dialog,
   DialogContent,
@@ -34,7 +35,7 @@ export function PromotePersonaDialog({
     setError(null)
 
     try {
-      await window.arc.personas.create({ name: trimmedName, systemPrompt })
+      await createPersona(trimmedName, systemPrompt)
       setName('')
       onOpenChange(false)
     } catch (err) {
@@ -83,11 +84,11 @@ export function PromotePersonaDialog({
               maxLength={50}
               autoFocus
             />
-            {error && <p className="text-sm text-destructive">{error}</p>}
+            {error && <p className="text-label text-destructive">{error}</p>}
           </div>
 
           <div className="rounded-md bg-muted p-3 max-h-32 overflow-y-auto">
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words">
+            <p className="text-label text-muted-foreground whitespace-pre-wrap break-words">
               {systemPrompt || '(empty system prompt)'}
             </p>
           </div>

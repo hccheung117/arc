@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react'
 import { Copy, Check, Pencil, GitFork } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
-import { warn, error } from '@renderer/lib/logger'
 import { duplicateThread } from '@renderer/lib/threads'
 import { useThreadId } from '@renderer/context/thread-context'
 import { useMessageId } from '@renderer/context/message-context'
@@ -69,34 +68,3 @@ export function MessageActions({ content, isHovered, onEdit }) {
   )
 }
 
-/**
- * Hook for handling message context menu
- */
-export function useMessageContextMenu({ content, onEdit }) {
-  const handleContextMenu = useCallback(
-    async (e) => {
-      e.preventDefault()
-      e.stopPropagation()
-
-      if (!window.arc.ui?.showMessageContextMenu) {
-        warn('ui', 'Context menu API not available')
-        return
-      }
-
-      try {
-        const result = await window.arc.ui.showMessageContextMenu({ hasEditOption: !!onEdit })
-
-        if (result === 'copy') {
-          navigator.clipboard.writeText(content)
-        } else if (result === 'edit' && onEdit) {
-          onEdit(content)
-        }
-      } catch (err) {
-        error('ui', 'Failed to show context menu', err)
-      }
-    },
-    [content, onEdit],
-  )
-
-  return handleContextMenu
-}

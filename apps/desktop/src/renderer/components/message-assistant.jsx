@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { BotMessageSquare } from 'lucide-react'
 import { Markdown } from '@renderer/components/markdown'
 import { ThinkingBlock } from './message-thinking'
-import { useMessageContextMenu } from './message-actions'
+import { useMessageContextMenu } from '@renderer/hooks/use-message-context-menu'
 import { MessageFooter } from './message-footer'
 
 /**
@@ -18,7 +18,7 @@ export function MessageAssistant({
   onBranchSwitch,
 }) {
   const [isHovered, setIsHovered] = useState(false)
-  const handleContextMenu = useMessageContextMenu({ content: message.content, onEdit })
+  const { handleContextMenu } = useMessageContextMenu({ content: message.content, onEdit })
 
   const hasReasoning = message.reasoning && message.reasoning.length > 0
   const isStreaming = message.status === 'streaming'

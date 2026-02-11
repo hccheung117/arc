@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react'
 import { TooltipProvider } from '@renderer/components/ui/tooltip'
 import { ChatView } from './chat-view'
-import { getModels } from '@renderer/lib/models'
+import { useModels } from '@renderer/hooks/use-models'
 import { usePersonas } from '@renderer/hooks/use-personas'
 
 /** Recursively finds a thread by ID in the tree (folders have nested children) */
@@ -27,23 +26,8 @@ const findThreadInTree = (threads, id) => {
  * allowing instant switching without state loss.
  */
 export function Workspace({ threads, activeThreadId, onThreadUpdate }) {
-  const [models, setModels] = useState([])
+  const { models } = useModels()
   const { findPersona } = usePersonas()
-
-  // Fetch models on mount and when active profile changes
-  useEffect(() => {
-    const fetchModels = () => {
-      getModels().then(setModels)
-    }
-
-    fetchModels()
-
-    // Re-fetch when profile changes (install/uninstall/activate)
-    const unsub1 = window.arc.profiles.onInstalled(fetchModels)
-    const unsub2 = window.arc.profiles.onUninstalled(fetchModels)
-    const unsub3 = window.arc.settings.onActivated(fetchModels)
-    return () => { unsub1(); unsub2(); unsub3() }
-  }, [])
 
   // Find the active thread (recursive search through folder children)
   const activeThread = findThreadInTree(threads, activeThreadId ?? '')

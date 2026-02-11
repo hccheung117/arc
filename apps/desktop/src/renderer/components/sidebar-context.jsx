@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext } from 'react'
 
 const SidebarContext = createContext(null)
 
@@ -9,10 +9,8 @@ export function SidebarProvider({
   dispatch,
   folders,
 }) {
-  const [renamingFolderId, setRenamingFolderId] = useState(null)
-
   return (
-    <SidebarContext.Provider value={{ activeThreadId, onThreadSelect, dispatch, folders, renamingFolderId, setRenamingFolderId }}>
+    <SidebarContext.Provider value={{ activeThreadId, onThreadSelect, dispatch, folders }}>
       {children}
     </SidebarContext.Provider>
   )

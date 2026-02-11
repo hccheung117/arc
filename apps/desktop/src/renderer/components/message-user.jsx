@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { AttachmentGallery } from './message-attachments'
-import { useMessageContextMenu } from './message-actions'
+import { useMessageContextMenu } from '@renderer/hooks/use-message-context-menu'
 import { MessageFooter } from './message-footer'
 
 /**
@@ -15,7 +15,7 @@ export function MessageUser({
   onBranchSwitch,
 }) {
   const [isHovered, setIsHovered] = useState(false)
-  const handleContextMenu = useMessageContextMenu({ content: message.content, onEdit })
+  const { handleContextMenu } = useMessageContextMenu({ content: message.content, onEdit })
 
   const hasAttachments = message.attachments && message.attachments.length > 0
 

@@ -5,7 +5,7 @@ import { ImagePlus, Send, Square, Pencil, Sparkles, Wand2, Save, Loader2 } from 
 import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { useComposerStore } from '@renderer/hooks/use-composer-store'
 import { useShortcuts } from '@renderer/hooks/use-shortcuts'
-import { startRefine, stopAIChat, onAIDelta, onAIComplete, onAIError } from '@renderer/lib/messages'
+import { useRefine } from '@renderer/hooks/use-refine'
 import { AttachmentGrid } from './composer-attachments'
 
 /*
@@ -34,12 +34,12 @@ const MASK_PATTERN = Array.from({ length: 120 }, (_, i) => '•'.repeat((i % 7) 
 function ProtectedPromptOverlay() {
   return (
     <div className="absolute inset-0 z-10 flex items-center justify-center rounded-md overflow-hidden bg-background/20">
-      <div className="absolute inset-0 p-4 text-xs leading-loose text-muted-foreground select-none blur-[4px] opacity-60 break-all pointer-events-none flex flex-wrap content-start gap-1">
+      <div className="absolute inset-0 p-4 text-meta leading-loose text-muted-foreground select-none blur-[4px] opacity-60 break-all pointer-events-none flex flex-wrap content-start gap-1">
         {MASK_PATTERN.map((text, i) => (
           <span key={i}>{text}</span>
         ))}
       </div>
-      <span className="relative z-20 text-sm font-medium text-foreground drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)] select-none">
+      <span className="relative z-20 text-label font-medium text-foreground drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)] select-none">
         Protected Persona
       </span>
     </div>
@@ -51,11 +51,9 @@ export const Composer = forwardRef(
     const [isDragging, setIsDragging] = useState(false)
     const textareaRef = useRef(null)
     const fileInputRef = useRef(null)
-    const [refineState, setRefineState] = useState({ status: 'idle' })
     const { shortcuts } = useShortcuts()
 
     const isSystemPromptProtected = mode.type === 'edit-system-prompt' && mode.protected
-    const isRefining = refineState.status === 'refining'
 
     const {
       draft: message,
@@ -67,6 +65,12 @@ export const Composer = forwardRef(
       clear,
       toAttachmentInputs,
     } = useComposerStore(threadId)
+
+    const { isRefining, handleRefine, handleRefineCancel } = useRefine({
+      refineModel: isEditing && refineModel ? refineModel : undefined,
+      message,
+      setMessage,
+    })
 
     useImperativeHandle(ref, () => ({
       setMessage: (text) => {
@@ -156,71 +160,6 @@ export const Composer = forwardRef(
       }
     }
 
-    // Refine handlers
-    const handleRefine = async () => {
-      if (!refineModel || isRefining || !message.trim()) return
-
-      const original = message
-
-      try {
-        // Resolve provider config for the refine model
-        const [modelsList, profileId] = await Promise.all([
-          window.arc.profiles.listModels(),
-          window.arc.settings.getActiveProfileId(),
-        ])
-        const model = modelsList.find((m) => m.id === refineModel)
-        if (!model) throw new Error(`Model ${refineModel} not found`)
-        if (!profileId) throw new Error('No active profile')
-        const providerConfig = await window.arc.profiles.getProviderConfig({ profileId, providerId: model.provider.id })
-        const provider = { baseURL: providerConfig.baseUrl ?? undefined, apiKey: providerConfig.apiKey ?? undefined }
-
-        const { streamId } = await startRefine(original, refineModel, provider)
-        setRefineState({ status: 'refining', streamId, original })
-      } catch {
-        setMessage(original)
-        setRefineState({ status: 'idle' })
-      }
-    }
-
-    const handleRefineCancel = () => {
-      if (refineState.status !== 'refining') return
-
-      stopAIChat(refineState.streamId)
-      setMessage(refineState.original)
-      setRefineState({ status: 'idle' })
-    }
-
-    // Refine stream subscription
-    const refineBufferRef = useRef('')
-    useEffect(() => {
-      if (refineState.status !== 'refining') return
-
-      refineBufferRef.current = ''
-      const streamId = refineState.streamId
-
-      const unsubDelta = onAIDelta((data) => {
-        if (data.streamId !== streamId) return
-        refineBufferRef.current += data.chunk
-        setMessage(refineBufferRef.current)
-      })
-
-      const unsubComplete = onAIComplete((data) => {
-        if (data.streamId !== streamId) return
-        setRefineState({ status: 'idle' })
-      })
-
-      const unsubError = onAIError((data) => {
-        if (data.streamId !== streamId) return
-        setMessage(refineState.original)
-        setRefineState({ status: 'idle' })
-      })
-
-      return () => {
-        unsubDelta()
-        unsubComplete()
-        unsubError()
-      }
-    }, [refineState, setMessage])
 
     const canSend = (message.trim() || hasAttachments || allowEmptySubmit) && !isStreaming && !isSystemPromptProtected && !isRefining
 
@@ -239,7 +178,7 @@ export const Composer = forwardRef(
       >
         {isEditing && (
           <div className="flex items-center justify-between mb-0 px-1 shrink-0">
-            <span className="text-xs font-medium text-primary flex items-center gap-1">
+            <span className="text-meta font-medium text-primary flex items-center gap-1">
               <Pencil className="h-3 w-3" />
               {editingLabel ?? 'Editing message'}
             </span>
@@ -248,7 +187,7 @@ export const Composer = forwardRef(
                 <button
                   onClick={isRefining ? handleRefineCancel : handleRefine}
                   disabled={!isRefining && !message.trim()}
-                  className="text-xs font-medium text-purple-500 hover:text-purple-600 transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-meta font-medium text-purple-500 hover:text-purple-600 transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isRefining ? (
                     <>
@@ -267,7 +206,7 @@ export const Composer = forwardRef(
                 <button
                   onClick={onPromote}
                   disabled={isRefining}
-                  className="text-xs font-medium text-blue-500 hover:text-blue-600 transition-colors flex items-center gap-1 disabled:opacity-50"
+                  className="text-meta font-medium text-blue-500 hover:text-blue-600 transition-colors flex items-center gap-1 disabled:opacity-50"
                 >
                   <Sparkles className="h-3 w-3" />
                   Promote
@@ -275,7 +214,7 @@ export const Composer = forwardRef(
               )}
               <button
                 onClick={onCancelEdit}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                className="text-meta text-muted-foreground hover:text-foreground transition-colors"
               >
                 Cancel
               </button>

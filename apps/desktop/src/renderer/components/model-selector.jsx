@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { ChevronRight, Search, Star } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
@@ -11,13 +11,9 @@ import { ScrollArea } from '@renderer/components/ui/scroll-area'
 import { Separator } from '@renderer/components/ui/separator'
 import { cn } from '@renderer/lib/utils'
 import { createTextMeasurer } from '@renderer/lib/measure'
+import { useFavorites, favoriteKey } from '@renderer/hooks/use-favorites'
 
-// Composite key for efficient Set lookups
-function favoriteKey(providerId, modelId) {
-  return `${providerId}:${modelId}`
-}
-
-// Module-level measurer (matches text-sm font used in popover items)
+// Module-level measurer (matches text-label font used in popover items)
 const measureTextWidth = createTextMeasurer('14px ui-sans-serif, system-ui, sans-serif')
 
 // Buffer for UI chrome - calculated from actual CSS values:
@@ -51,9 +47,8 @@ export function ModelSelector({
   models,
 }) {
   const [open, setOpen] = useState(false)
-  const [showFavorites, setShowFavorites] = useState(false)
-  const [favorites, setFavorites] = useState(new Set())
   const [searchQuery, setSearchQuery] = useState('')
+  const { favorites, toggleFavorite, showFavorites, setShowFavorites } = useFavorites(models)
 
   // Calculate stable dimensions based on the full model list so layout doesn't jump during search/filtering
   const { width: popoverWidth, height: scrollHeight } = useMemo(() => {
@@ -75,60 +70,6 @@ export function ModelSelector({
 
     return { width: calculatedWidth, height: estimatedHeight }
   }, [models])
-
-  useEffect(() => {
-    window.arc.settings.getFavorites().then((saved) => {
-      if (saved && saved.length > 0) {
-        const validFavorites = saved.filter(
-          (f) =>
-            f &&
-            typeof f === 'object' &&
-            f.provider &&
-            f.model &&
-            f.provider !== 'undefined' &&
-            f.model !== 'undefined'
-        )
-        if (validFavorites.length > 0) {
-          const keys = validFavorites.map((f) => favoriteKey(f.provider, f.model))
-          setFavorites(new Set(keys))
-
-          // Only show favorites tab if at least one favorite matches available models
-          const hasMatchingFavorites = models.some((m) =>
-            keys.includes(favoriteKey(m.provider.id, m.id))
-          )
-          if (hasMatchingFavorites) {
-            setShowFavorites(true)
-          }
-        }
-        if (validFavorites.length !== saved.length) {
-          window.arc.settings.setFavorites({ favorites: validFavorites })
-        }
-      }
-    })
-  }, [models])
-
-  const toggleFavorite = (model) => {
-    const key = favoriteKey(model.provider.id, model.id)
-    setFavorites((prev) => {
-      const next = new Set(prev)
-      if (next.has(key)) {
-        next.delete(key)
-      } else {
-        next.add(key)
-      }
-
-      // Convert Set back to array of objects for storage
-      // Split only on the first colon to preserve colons in model (e.g., "claude-haiku-4-5:thinking")
-      const favoritesArray = Array.from(next).map((k) => {
-        const colonIndex = k.indexOf(':')
-        const provider = k.slice(0, colonIndex)
-        const model = k.slice(colonIndex + 1)
-        return { provider, model }
-      })
-      window.arc.settings.setFavorites({ favorites: favoritesArray })
-      return next
-    })
-  }
 
   // Filter models based on search query or favorites tab
   const filteredModels = models.filter((model) => {
@@ -210,7 +151,7 @@ export function ModelSelector({
               placeholder="Search models..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 h-8 text-sm"
+              className="pl-8 h-8 text-label"
               autoFocus
             />
           </div>
@@ -218,7 +159,7 @@ export function ModelSelector({
             <button
               onClick={() => setShowFavorites(false)}
               className={cn(
-                'px-3 py-1 text-xs font-medium rounded-md transition-all',
+                'px-3 py-1 text-meta font-medium rounded-md transition-all',
                 !showFavorites
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
@@ -229,7 +170,7 @@ export function ModelSelector({
             <button
               onClick={() => setShowFavorites(true)}
               className={cn(
-                'px-3 py-1 text-xs font-medium rounded-md transition-all',
+                'px-3 py-1 text-meta font-medium rounded-md transition-all',
                 showFavorites
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
@@ -285,7 +226,7 @@ export function ModelSelector({
                             onClick={() => handleModelSelect(model)}
                           >
                             <div className="flex-1 min-w-0">
-                              <div className="text-sm truncate" title={model.name}>
+                              <div className="text-label truncate" title={model.name}>
                                 {model.name}
                               </div>
                             </div>

@@ -4,13 +4,18 @@ import { useModelSelection } from './use-model-selection'
 import { useMessageTree } from './use-message-tree'
 import { useStreamingStore } from './use-streaming-store'
 import { useEditingStore } from './use-editing-store'
-import {
-  sendNewMessage,
-  editUserMessage,
-  editAssistantMessage,
-} from '@renderer/lib/send-flows'
-import { findEditParent, composeDisplayMessages } from '@renderer/lib/message-tree'
+import { createMessage, createBranch, updateMessage, getMessages } from '@renderer/lib/messages'
+import { findEditParent, findChildren, composeDisplayMessages } from '@renderer/lib/message-tree'
 import { error as logError } from '@renderer/lib/logger'
+
+// ============================================================================
+// Private helpers
+// ============================================================================
+
+function deriveTitle(content) {
+  const firstLine = content.split('\n')[0].trim()
+  return firstLine.slice(0, 50)
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Send flow executors
@@ -22,16 +27,24 @@ async function executeNewMessage(
   attachments,
   threadConfig,
 ) {
-  const result = await sendNewMessage({
-    threadId: ctx.threadId,
+  // Thread emerges on first message
+  if (threadConfig) {
+    const title = deriveTitle(content)
+    await window.arc.threads.create({ threadId: ctx.threadId, config: { ...threadConfig, title } })
+  }
+
+  const userMessage = await createMessage(
+    ctx.threadId,
+    'user',
     content,
-    parentId: ctx.parentId,
-    model: ctx.model,
+    ctx.parentId,
+    ctx.model.id,
+    ctx.model.provider.id,
     attachments,
-    threadConfig,
-  })
-  ctx.addMessage(result.userMessage)
-  await ctx.startStreaming(result.userMessage.id)
+  )
+
+  ctx.addMessage(userMessage)
+  await ctx.startStreaming(userMessage.id)
 }
 
 async function executeUserEdit(
@@ -42,22 +55,32 @@ async function executeUserEdit(
   threadConfig,
 ) {
   const editParentId = findEditParent(ctx.displayMessages, editState.id)
-  const result = await editUserMessage({
-    threadId: ctx.threadId,
-    messageId: editState.id,
-    content,
-    role: editState.role,
-    parentId: editParentId,
-    model: ctx.model,
-    attachments,
-    threadConfig,
-  })
-  ctx.setMessages(result.messages)
-  if (result.newBranchSelection) {
-    ctx.switchBranch(result.newBranchSelection.parentId, result.newBranchSelection.index)
+  
+  // Thread emerges on first message
+  if (threadConfig) {
+    const title = deriveTitle(content)
+    await window.arc.threads.create({ threadId: ctx.threadId, config: { ...threadConfig, title } })
   }
+
+  await createBranch(
+    ctx.threadId,
+    editParentId,
+    content,
+    ctx.model.id,
+    ctx.model.provider.id,
+    attachments,
+  )
+
+  const { messages } = await getMessages(ctx.threadId)
+
+  const childrenAtParent = findChildren(messages, editParentId)
+  const newBranchIndex = childrenAtParent.length - 1
+
+  ctx.setMessages(messages)
+  ctx.switchBranch(editParentId, newBranchIndex)
+  
   // Find the newly created user message (last user message with the edit parent)
-  const newUserMessage = result.messages.filter(m => m.role === 'user' && m.parentId === editParentId).at(-1)
+  const newUserMessage = messages.filter(m => m.role === 'user' && m.parentId === editParentId).at(-1)
   await ctx.startStreaming(newUserMessage.id)
 }
 
@@ -67,17 +90,22 @@ async function executeAssistantEdit(
   content,
 ) {
   const originalMessage = ctx.displayMessages.find((m) => m.id === editState.id)
-  const editParentId = findEditParent(ctx.displayMessages, editState.id)
-  const result = await editAssistantMessage({
-    threadId: ctx.threadId,
-    messageId: editState.id,
+
+  if (!originalMessage?.model || !originalMessage?.provider) {
+    throw new Error('Cannot edit message: missing model info')
+  }
+
+  await updateMessage(
+    ctx.threadId,
+    editState.id,
     content,
-    role: editState.role,
-    parentId: editParentId,
-    model: ctx.model,
-    originalMessage,
-  })
-  ctx.setMessages(result.messages)
+    originalMessage.model,
+    originalMessage.provider,
+  )
+
+  const { messages } = await getMessages(ctx.threadId)
+
+  ctx.setMessages(messages)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -135,7 +163,7 @@ export function useChatSession(
         onThreadUpdate({ type: 'PATCH', id: thread.id, patch: { status: 'persisted' } })
       }
     },
-    [tree, thread.status, thread.id, onThreadUpdate],
+    [tree.addMessage, thread.status, thread.id, onThreadUpdate],
   )
 
   const streaming = useStreamingStore(thread.id, parentId)

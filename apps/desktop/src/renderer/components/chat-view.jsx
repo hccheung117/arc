@@ -1,12 +1,13 @@
 import { useRef, useCallback, useMemo, useState, useEffect } from 'react'
 import { getPromptInfo } from '@renderer/lib/prompts'
-import { getComposerMaxHeight, setComposerMaxHeight as persistComposerMaxHeight } from '@renderer/lib/ui-state-db'
-import { useChatUIStore } from '@renderer/stores/chat-ui-store'
 import { useChatSession } from '@renderer/hooks/use-chat-session'
 import { useScrollStore } from '@renderer/hooks/use-scroll-store'
 import { useEditingSync } from '@renderer/hooks/use-editing-sync'
 import { useSystemPrompt } from '@renderer/hooks/use-system-prompt'
 import { useExport } from '@renderer/hooks/use-export'
+import { useRefineModel } from '@renderer/hooks/use-refine-model'
+import { useComposerMaxHeight } from '@renderer/hooks/use-composer-max-height'
+import { useComposerStore } from '@renderer/hooks/use-composer-store'
 import { ThreadProvider } from '@renderer/context/thread-context'
 import { Header } from './header'
 import { MessageList } from './message-list'
@@ -79,18 +80,7 @@ export function ChatView({ thread, models, findPersona, onThreadUpdate }) {
   const { isAtBottom, scrollToBottom } = useScrollStore(viewport, thread.id, scrollTargetId)
 
   // Composer max height (persisted to IndexedDB)
-  const [composerMaxHeight, setComposerMaxHeight] = useState(undefined)
-
-  useEffect(() => {
-    getComposerMaxHeight().then(setComposerMaxHeight)
-  }, [])
-
-  const persistTimerRef = useRef(null)
-  const handleComposerMaxHeightChange = useCallback((h) => {
-    setComposerMaxHeight(h)
-    if (persistTimerRef.current) clearTimeout(persistTimerRef.current)
-    persistTimerRef.current = setTimeout(() => persistComposerMaxHeight(h), 300)
-  }, [])
+  const { composerMaxHeight, setComposerMaxHeight } = useComposerMaxHeight()
 
   // ResizeObserver: sync footer height to CSS variable for message list padding
   const chatBodyRef = useRef(null)
@@ -111,21 +101,7 @@ export function ChatView({ thread, models, findPersona, onThreadUpdate }) {
   }, [])
 
   // Refine model from layered settings
-  const [refineModel, setRefineModel] = useState(undefined)
-  useEffect(() => {
-    const fetchRefineModel = () => {
-      window.arc.settings.getAssignments().then((assignments) => {
-        setRefineModel(assignments?.refine?.model)
-      })
-    }
-
-    fetchRefineModel()
-
-    // Re-fetch when profile changes
-    const unsub1 = window.arc.profiles.onInstalled(fetchRefineModel)
-    const unsub2 = window.arc.settings.onActivated(fetchRefineModel)
-    return () => { unsub1(); unsub2() }
-  }, [])
+  const { refineModel } = useRefineModel()
 
   // Editing coordination
   const { cancel: cancelEdit } = useEditingSync(
@@ -174,11 +150,11 @@ export function ChatView({ thread, models, findPersona, onThreadUpdate }) {
   // Promote persona dialog
   // Store the prompt when dialog opens to avoid subscribing to composer state
   const [promoteDialogState, setPromoteDialogState] = useState({ open: false })
+  const { draft } = useComposerStore(thread.id)
 
   const handlePromote = useCallback(() => {
-    const draft = useChatUIStore.getState().getThreadState(thread.id).composer.draft
     setPromoteDialogState({ open: true, prompt: draft })
-  }, [thread.id])
+  }, [draft])
 
   const handlePromoteDialogClose = useCallback((open) => {
     if (!open) setPromoteDialogState({ open: false })
@@ -234,7 +210,7 @@ export function ChatView({ thread, models, findPersona, onThreadUpdate }) {
               ref={composerRef}
               error={view.error}
               maxHeight={composerMaxHeight}
-              onMaxHeightChange={handleComposerMaxHeightChange}
+              onMaxHeightChange={setComposerMaxHeight}
               composerProps={{
                 threadId: thread.id,
                 mode: composerMode,

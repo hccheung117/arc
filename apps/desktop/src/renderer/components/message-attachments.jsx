@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { error } from '@renderer/lib/logger'
+import { openAttachment } from '@renderer/lib/attachments'
 
 /**
  * Renders a clickable image attachment that opens in the system viewer
@@ -10,11 +11,7 @@ export function AttachmentImage({ attachment, conversationId }) {
 
   const handleClick = useCallback(async () => {
     try {
-      const absolutePath = await window.arc.messages.getAttachmentPath({
-        threadId: conversationId,
-        filename: attachment.path,
-      })
-      await window.arc.ui.openFile({ filePath: absolutePath })
+      await openAttachment(conversationId, attachment.path)
     } catch (err) {
       error('ui', 'Failed to open attachment', err)
     }

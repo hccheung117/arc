@@ -2,7 +2,35 @@
 
 > Implementation details for UI concerns.
 
-## Code Organization
+## Philosophy
+
+**Everything is a Function.**
+
+### The Core Question
+
+Not "feature-based vs flat" — but **where does the brain live?**
+
+Components can own logic (smart), or functions can own logic and components just render (dumb). We chose the latter.
+
+### Why Not Feature-Based
+
+The Renderer's concerns are highly interconnected. Almost every UI surface touches the same shared state — active thread, streaming, profile, settings. Feature boundaries become leaky immediately. Grouping by feature creates artificial walls that every piece of real work must cross.
+
+No "features" because the domain doesn't have clean boundaries. Instead: **layers by role**.
+
+## Architecture
+
+### The Three Layers
+
+```
+  STORE → HOOKS → COMPONENTS
+
+  Store:       The brain. State lives external to components.
+  Hooks:       The derivation layer. Select, compute, expose actions.
+  Components:  The render layer. Receive data and callbacks. No brain.
+```
+
+### Code Organization
 
 Layered structure following Laravel-style organization:
 
@@ -11,6 +39,29 @@ Layered structure following Laravel-style organization:
 - `@renderer/hooks/` — React hooks
 - `@renderer/stores/` — Zustand stores
 - `@renderer/lib/` — Utilities, domain logic, and business logic
+
+## Architectural Principles
+
+1. **State is external** — store, not component. Components don't own state they didn't create.
+2. **Logic is derived** — hooks select and compute from the store. They are the API surface.
+3. **Components are dumb** — render what they're given. No business logic, no direct store access.
+4. **Cross-cutting is solved** — a centralized store is already global. No context nesting for shared state.
+5. **Layers by role, not by feature** — organize by what code *does* (store / hook / component / lib), not what domain concept it belongs to.
+
+### Alignment with Main
+
+Same philosophy, different medium:
+
+```
+  Main:      Modules are stateless → derive from disk
+  Renderer:  Components are stateless → derive from store
+```
+
+Both treat their actors as pure functions over external state. The brain lives outside.
+
+### When to Break the Rules
+
+Context is appropriate for **identity** (which thread? which message?) — scoping, not state. Local `useState` is fine for **ephemeral UI** (tooltip open, input focus) that no other component needs. The line: if another component might care, it belongs in the store.
 
 ## Data Flow
 

@@ -5,115 +5,56 @@ import {
   SidebarMenuSubItem,
   SidebarMenuSubButton,
 } from '@renderer/components/ui/sidebar'
-import {
-  showThreadContextMenu,
-  deleteThread,
-  toggleThreadPin,
-  removeThreadFromFolder,
-  moveThreadToFolder,
-  folderThreads,
-  duplicateThread,
-} from '@renderer/lib/threads'
 import { useSidebar } from './sidebar-context'
+import { useSidebarStore } from '@renderer/stores/sidebar-store'
 import { useRename } from '@renderer/hooks/use-rename'
+import { useThreadContextMenu } from '@renderer/hooks/use-thread-context-menu'
 
 const ThreadIcon = () => (
   <MessageSquare className="h-4 w-4 shrink-0 text-sidebar-foreground/70" />
 )
 
-// Rename input for top-level items
-function RenameInput({ rename }) {
+export function RenameInputField({ rename }) {
   return (
-    <SidebarMenuItem>
-      <div className="flex items-center gap-2 px-2 py-1.5 w-full">
-        <ThreadIcon />
-        <input
-          ref={rename.inputRef}
-          type="text"
-          value={rename.renameValue}
-          onChange={(e) => rename.setRenameValue(e.target.value)}
-          onBlur={rename.saveRename}
-          onKeyDown={rename.handleKeyDown}
-          className="flex-1 bg-transparent border-none outline-none text-label h-5 p-0 text-sidebar-foreground min-w-0"
-        />
-      </div>
-    </SidebarMenuItem>
-  )
-}
-
-// Rename input for nested items (inside folders)
-function RenameInputNested({ rename }) {
-  return (
-    <SidebarMenuSubItem>
-      <div className="flex items-center gap-2 px-2 py-1 w-full">
-        <ThreadIcon />
-        <input
-          ref={rename.inputRef}
-          type="text"
-          value={rename.renameValue}
-          onChange={(e) => rename.setRenameValue(e.target.value)}
-          onBlur={rename.saveRename}
-          onKeyDown={rename.handleKeyDown}
-          className="flex-1 bg-transparent border-none outline-none text-label h-5 p-0 text-sidebar-foreground min-w-0"
-        />
-      </div>
-    </SidebarMenuSubItem>
+    <input
+      ref={rename.inputRef}
+      type="text"
+      value={rename.renameValue}
+      onChange={(e) => rename.setRenameValue(e.target.value)}
+      onBlur={rename.saveRename}
+      onKeyDown={rename.handleKeyDown}
+      className="flex-1 bg-transparent border-none outline-none text-label h-5 p-0 text-sidebar-foreground min-w-0"
+    />
   )
 }
 
 export function ThreadItem({ thread, variant = 'default' }) {
-  const { activeThreadId, onThreadSelect, folders, setRenamingFolderId } = useSidebar()
+  const { activeThreadId, onThreadSelect, folders } = useSidebar()
+  const setRenamingFolderId = useSidebarStore((s) => s.setRenamingFolderId)
   const rename = useRename({ id: thread.id, initialTitle: thread.title })
   const isNested = variant === 'nested'
 
-  const handleContextMenu = async (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const action = await showThreadContextMenu({
-      isPinned: thread.isPinned,
-      isInFolder: isNested,
-      folders: folders.map((f) => ({ id: f.id, title: f.title })),
-    })
+  // Add folderId to thread object for hook to detect isInFolder
+  const threadWithFolderId = { ...thread, folderId: isNested ? 'nested' : undefined }
 
-    if (!action) return
-
-    // Handle each action by calling the appropriate domain IPC
-    switch (action) {
-      case 'rename':
-        rename.startRenaming()
-        break
-      case 'duplicate':
-        await duplicateThread(thread.id)
-        break
-      case 'delete':
-        await deleteThread(thread.id)
-        break
-      case 'togglePin':
-        await toggleThreadPin(thread.id, thread.isPinned)
-        break
-      case 'removeFromFolder':
-        await removeThreadFromFolder(thread.id)
-        break
-      case 'newFolder': {
-        const folder = await folderThreads([thread.id])
-        setRenamingFolderId(folder.id)
-        break
-      }
-      default:
-        // Handle moveToFolder:folderId
-        if (action.startsWith('moveToFolder:')) {
-          const folderId = action.slice('moveToFolder:'.length)
-          await moveThreadToFolder(thread.id, folderId)
-        }
-    }
-  }
+  const { handleContextMenu } = useThreadContextMenu({
+    thread: threadWithFolderId,
+    folders,
+    onRename: () => rename.startRenaming(),
+    onFolderRename: (folderId) => setRenamingFolderId(folderId),
+  })
 
   // Rename mode
   if (rename.isRenaming) {
-    return isNested ? (
-      <RenameInputNested rename={rename} />
-    ) : (
-      <RenameInput rename={rename} />
+    const Wrapper = isNested ? SidebarMenuSubItem : SidebarMenuItem
+    const py = isNested ? 'py-1' : 'py-1.5'
+    return (
+      <Wrapper>
+        <div className={`flex items-center gap-2 px-2 ${py} w-full`}>
+          <ThreadIcon />
+          <RenameInputField rename={rename} />
+        </div>
+      </Wrapper>
     )
   }
 

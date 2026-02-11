@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { ChevronRight, ChevronDown, Folder } from 'lucide-react'
 import {
   SidebarMenuItem,
@@ -6,16 +6,11 @@ import {
   SidebarMenuSub,
   SidebarMenuSubItem,
 } from '@renderer/components/ui/sidebar'
-import { getFolderCollapsed, setFolderCollapsed } from '@renderer/lib/ui-state-db'
-import {
-  showThreadContextMenu,
-  deleteThread,
-  toggleThreadPin,
-  moveThreadToFolder,
-  folderThreads,
-} from '@renderer/lib/threads'
 import { useRename } from '@renderer/hooks/use-rename'
-import { ThreadItem } from './sidebar-thread-item'
+import { useThreadContextMenu } from '@renderer/hooks/use-thread-context-menu'
+import { useFolderCollapse } from '@renderer/hooks/use-folder-collapse'
+import { useSidebarStore } from '@renderer/stores/sidebar-store'
+import { ThreadItem, RenameInputField } from './sidebar-thread-item'
 import { useSidebar } from './sidebar-context'
 
 // ─────────────────────────────────────────────────────────────
@@ -23,42 +18,13 @@ import { useSidebar } from './sidebar-context'
 // Uses shadcn's SidebarMenuSub for proper indentation.
 // ─────────────────────────────────────────────────────────────
 
-const useFolderCollapse = (folderId) => {
-  const [isCollapsed, setIsCollapsed] = useState(false)
-
-  useEffect(() => {
-    getFolderCollapsed(folderId).then(setIsCollapsed)
-  }, [folderId])
-
-  const toggle = () => {
-    const next = !isCollapsed
-    setIsCollapsed(next)
-    setFolderCollapsed(folderId, next)
-  }
-
-  return { isCollapsed, toggle }
-}
-
-function RenameInput({ rename }) {
-  return (
-    <input
-      ref={rename.inputRef}
-      type="text"
-      value={rename.renameValue}
-      onChange={(e) => rename.setRenameValue(e.target.value)}
-      onBlur={rename.saveRename}
-      onKeyDown={rename.handleKeyDown}
-      onClick={(e) => e.stopPropagation()}
-      className="flex-1 bg-transparent border-none outline-none text-label h-5 p-0 text-sidebar-foreground min-w-0"
-    />
-  )
-}
-
 export function FolderItem({
   folder,
   threads,
 }) {
-  const { folders, renamingFolderId, setRenamingFolderId } = useSidebar()
+  const { folders } = useSidebar()
+  const renamingFolderId = useSidebarStore((s) => s.renamingFolderId)
+  const setRenamingFolderId = useSidebarStore((s) => s.setRenamingFolderId)
   const { isCollapsed, toggle } = useFolderCollapse(folder.id)
   const rename = useRename({ id: folder.id, initialTitle: folder.title })
   const Chevron = isCollapsed ? ChevronRight : ChevronDown
@@ -71,41 +37,12 @@ export function FolderItem({
     }
   }, [renamingFolderId, folder.id, rename, setRenamingFolderId])
 
-  const handleContextMenu = async (e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    const action = await showThreadContextMenu({
-      isPinned: folder.isPinned,
-      isInFolder: false,
-      folders: folders.filter((f) => f.id !== folder.id).map((f) => ({ id: f.id, title: f.title })),
-    })
-
-    if (!action) return
-
-    // Handle each action by calling the appropriate domain IPC
-    switch (action) {
-      case 'rename':
-        rename.startRenaming()
-        break
-      case 'delete':
-        await deleteThread(folder.id)
-        break
-      case 'togglePin':
-        await toggleThreadPin(folder.id, folder.isPinned)
-        break
-      case 'newFolder': {
-        const newFolder = await folderThreads([folder.id])
-        setRenamingFolderId(newFolder.id)
-        break
-      }
-      default:
-        // Handle moveToFolder:folderId
-        if (action.startsWith('moveToFolder:')) {
-          const folderId = action.slice('moveToFolder:'.length)
-          await moveThreadToFolder(folder.id, folderId)
-        }
-    }
-  }
+  const { handleContextMenu } = useThreadContextMenu({
+    thread: folder,
+    folders,
+    onRename: () => rename.startRenaming(),
+    onFolderRename: (folderId) => setRenamingFolderId(folderId),
+  })
 
   return (
     <SidebarMenuItem>
@@ -116,7 +53,7 @@ export function FolderItem({
       >
         <Folder className="h-4 w-4 shrink-0 text-sidebar-foreground/70" />
         {rename.isRenaming ? (
-          <RenameInput rename={rename} />
+          <RenameInputField rename={rename} />
         ) : (
           <span className="truncate">{folder.title}</span>
         )}

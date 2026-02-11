@@ -21,10 +21,21 @@ export function MessageFooter({
   return (
     <div className="h-chat-action-h flex items-center gap-1">
       {align === 'right' && <div className="flex-1" />}
-      {hasBranches && (
-        <BranchIndicator branchInfo={branchInfo} onSwitch={onBranchSwitch} />
+      {align === 'right' ? (
+        <>
+          <MessageActions content={content} isHovered={isHovered} onEdit={onEdit} />
+          {hasBranches && (
+            <BranchIndicator branchInfo={branchInfo} onSwitch={onBranchSwitch} />
+          )}
+        </>
+      ) : (
+        <>
+          {hasBranches && (
+            <BranchIndicator branchInfo={branchInfo} onSwitch={onBranchSwitch} />
+          )}
+          <MessageActions content={content} isHovered={isHovered} onEdit={onEdit} />
+        </>
       )}
-      <MessageActions content={content} isHovered={isHovered} onEdit={onEdit} />
     </div>
   )
 }
