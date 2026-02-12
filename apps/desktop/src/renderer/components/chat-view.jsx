@@ -91,7 +91,9 @@ export function ChatView({ thread, models, findPersona, onThreadUpdate }) {
     const chatBody = chatBodyRef.current
     if (!footer || !chatBody) return
 
-    chatBody.style.setProperty('--footer-h', `${footer.offsetHeight}px`)
+    const initialH = `${footer.offsetHeight}px`
+    chatBody.style.setProperty('--footer-h', initialH)
+    chatBody.style.setProperty('--footer-h-initial', initialH)
 
     const ro = new ResizeObserver(([entry]) => {
       chatBody.style.setProperty('--footer-h', `${entry.contentRect.height}px`)
@@ -180,9 +182,12 @@ export function ChatView({ thread, models, findPersona, onThreadUpdate }) {
 
         {/* Chat body: float layout — footer overlays messages, padding keeps content visible */}
         <div ref={chatBodyRef} className="flex-1 min-h-0 relative">
-          {/* Background layer: robot icon stays centered regardless of composer growth */}
+          {/* Background layer: centered in visible space above composer, fixed on composer growth */}
           {isEmpty && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div
+              className="absolute inset-x-0 top-0 flex items-center justify-center pointer-events-none"
+              style={{ bottom: 'var(--footer-h-initial, 0px)' }}
+            >
               <EmptyState />
             </div>
           )}
