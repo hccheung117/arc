@@ -236,7 +236,10 @@ export function useChatSession(
     model: selectedModel,
     input: deriveInputMode(editing, streaming, editing),
     error,
-  }), [tree.displayMessages, streaming.streamingMessage, editingId, tree.branchPoints, selectedModel, streaming, editing, error])
+  }), [tree.displayMessages, streaming.streamingMessage, editingId, tree.branchPoints, selectedModel,
+    editing.editingState, editing.isSending, editing.cancelEdit,
+    streaming.isStreaming, streaming.stop,
+    error])
 
   const actions = useMemo(() => ({
     send,
