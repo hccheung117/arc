@@ -64,7 +64,7 @@ export default function Composer() {
     (event) => {
       const container = containerRef.current
       if (!container) return
-      const parent = container.parentElement
+      const parent = container.closest("[data-body]")
       if (!parent) return
       const textarea = container.querySelector("textarea")
       if (!textarea) return
@@ -132,15 +132,19 @@ export default function Composer() {
   }
 
   return (
-    <div ref={containerRef} className="px-[var(--content-px)] pb-4">
+    <div ref={containerRef} className="flex min-h-0 flex-col px-[var(--content-px)] pb-[var(--content-px)]">
+      {/* Part of flex-column chain from App.jsx footerRef → here → form → InputGroup → textarea.
+          No top padding — the Handle's height acts as the top inset so all four
+          edges of the card sit at equal distance from the viewport/header. */}
       <Handle
         onResizeStart={startResizing}
         isLocked={isLocked}
         onToggleLock={toggleLock}
       />
-      <PromptInput onSubmit={handleSubmit} accept="image/*">
+      <PromptInput onSubmit={handleSubmit} accept="image/*" className="rounded-2xl bg-background/50 shadow-[0_4px_30px_rgba(0,0,0,0.3)] backdrop-blur">
         <PromptInputBody>
           <PromptInputTextarea
+            className="max-h-none"
             placeholder="How can I help you today?"
             style={manualMaxHeight !== undefined ? { maxHeight: manualMaxHeight } : undefined}
           />

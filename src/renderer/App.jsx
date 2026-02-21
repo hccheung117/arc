@@ -12,8 +12,21 @@ import Composer from "@/components/Composer"
 
 export default function App() {
   const panelRef = useRef(null)
+  const bodyRef = useRef(null)
+  const footerRef = useRef(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const isMobile = useIsMobile()
+
+  useEffect(() => {
+    const footer = footerRef.current
+    const body = bodyRef.current
+    if (!footer || !body) return
+    const sync = () => body.style.setProperty("--footer-h", `${footer.offsetHeight}px`)
+    sync()
+    const ro = new ResizeObserver(sync)
+    ro.observe(footer)
+    return () => ro.disconnect()
+  }, [])
 
   const handleOpenChange = (open) => {
     if (open) panelRef.current.expand()
@@ -39,11 +52,18 @@ export default function App() {
         </ResizablePanel>
         <ResizableHandle />
         <ResizablePanel className="bg-background">
-          <div className="flex h-full flex-col">
-            <div className="min-h-0 flex-1">
-              <Workbench />
+          <div ref={bodyRef} data-body className="relative h-full">
+            <Workbench />
+            {/* Flex-column chain: this container's max-h is the single source of
+                truth for the composer's height limit. It propagates down via
+                flex + min-h-0 on each descendant, so the textarea shrinks and
+                scrolls automatically — no magic calc() values needed deeper. */}
+            <div
+              ref={footerRef}
+              className="absolute inset-x-0 bottom-0 z-10 flex max-h-[calc(100%-var(--header-h))] flex-col"
+            >
+              <Composer />
             </div>
-            <Composer />
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>

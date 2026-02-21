@@ -639,11 +639,11 @@ export const PromptInput = ({
         title="Upload files"
         type="file" />
       <form
-        className={cn("w-full", className)}
+        className={cn("flex min-h-0 w-full flex-col", className)}
         onSubmit={handleSubmit}
         ref={formRef}
         {...props}>
-        <InputGroup className="overflow-hidden rounded-2xl">{children}</InputGroup>
+        <InputGroup className="min-h-0 overflow-hidden rounded-2xl">{children}</InputGroup>
       </form>
     </>
   );

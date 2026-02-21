@@ -17,16 +17,15 @@ export default function Workbench() {
             <Button variant="ghost" size="icon-sm"><Download /></Button>
           </div>
         </header>
-        <div className="space-y-4 px-[var(--content-px)] py-4">
+        <div className="space-y-4 px-[var(--content-px)] pt-4" style={{ paddingBottom: "var(--footer-h)" }}>
           {Array.from({ length: 40 }, (_, i) => (
             <div key={i} className="rounded-lg bg-muted p-4">
               <span className="text-foreground text-sm">Item {i + 1}</span>
             </div>
           ))}
         </div>
-        <ScrollBar className="mt-[var(--header-h)]" />
+        <ScrollBar className="mt-[var(--header-h)] mb-[var(--footer-h)]" />
       </ScrollArea>
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-background/100 to-transparent" />
     </div>
   )
 }
