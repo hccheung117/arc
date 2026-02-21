@@ -40,7 +40,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/shadcn";
 import {
-  CornerDownLeftIcon,
+  ArrowUpIcon,
   ImageIcon,
   PlusIcon,
   SquareIcon,
@@ -643,7 +643,7 @@ export const PromptInput = ({
         onSubmit={handleSubmit}
         ref={formRef}
         {...props}>
-        <InputGroup className="overflow-hidden">{children}</InputGroup>
+        <InputGroup className="overflow-hidden rounded-2xl">{children}</InputGroup>
       </form>
     </>
   );
@@ -763,7 +763,7 @@ export const PromptInputTextarea = ({
 
   return (
     <InputGroupTextarea
-      className={cn("field-sizing-content max-h-48 min-h-16", className)}
+      className={cn("field-sizing-content max-h-48 min-h-0", className)}
       name="message"
       onCompositionEnd={handleCompositionEnd}
       onCompositionStart={handleCompositionStart}
@@ -885,7 +885,7 @@ export const PromptInputSubmit = ({
 }) => {
   const isGenerating = status === "submitted" || status === "streaming";
 
-  let Icon = <CornerDownLeftIcon className="size-4" />;
+  let Icon = <ArrowUpIcon className="size-4" />;
 
   if (status === "submitted") {
     Icon = <Spinner />;

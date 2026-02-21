@@ -39,15 +39,12 @@ export default function App() {
         </ResizablePanel>
         <ResizableHandle />
         <ResizablePanel className="bg-background">
-          <ResizablePanelGroup orientation="vertical">
-            <ResizablePanel>
+          <div className="flex h-full flex-col">
+            <div className="min-h-0 flex-1">
               <Workbench />
-            </ResizablePanel>
-            <ResizableHandle className="bg-transparent aria-[orientation=horizontal]:after:w-12 aria-[orientation=horizontal]:after:left-1/2 aria-[orientation=horizontal]:after:-translate-x-1/2 aria-[orientation=horizontal]:after:rounded-full" />
-            <ResizablePanel defaultSize="200px" minSize="100px" maxSize="50%">
-              <Composer />
-            </ResizablePanel>
-          </ResizablePanelGroup>
+            </div>
+            <Composer />
+          </div>
         </ResizablePanel>
       </ResizablePanelGroup>
     </SidebarProvider>
