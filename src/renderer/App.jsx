@@ -4,9 +4,11 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from "@/components/ui/resizable"
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
+import { SidebarProvider } from "@/components/ui/sidebar"
 import { useIsMobile } from "@/hooks/use-mobile"
 import AppSidebar from "@/components/AppSidebar"
+import Workbench from "@/components/Workbench"
+import Composer from "@/components/Composer"
 
 export default function App() {
   const panelRef = useRef(null)
@@ -25,7 +27,7 @@ export default function App() {
 
   return (
     <SidebarProvider open={sidebarOpen} onOpenChange={handleOpenChange}>
-      <ResizablePanelGroup direction="horizontal" className="h-full">
+      <ResizablePanelGroup orientation="horizontal" className="h-full">
         <ResizablePanel
           panelRef={panelRef}
           defaultSize="280px"
@@ -37,14 +39,15 @@ export default function App() {
         </ResizablePanel>
         <ResizableHandle />
         <ResizablePanel className="bg-background">
-          <div className="flex h-full flex-col">
-            <header className="flex h-12 items-center px-3">
-              <SidebarTrigger />
-            </header>
-            <div className="flex flex-1 items-center justify-center">
-              <span className="text-foreground text-sm">Workbench</span>
-            </div>
-          </div>
+          <ResizablePanelGroup orientation="vertical">
+            <ResizablePanel>
+              <Workbench />
+            </ResizablePanel>
+            <ResizableHandle className="bg-transparent aria-[orientation=horizontal]:after:w-12 aria-[orientation=horizontal]:after:left-1/2 aria-[orientation=horizontal]:after:-translate-x-1/2 aria-[orientation=horizontal]:after:rounded-full" />
+            <ResizablePanel defaultSize="200px" minSize="100px" maxSize="50%">
+              <Composer />
+            </ResizablePanel>
+          </ResizablePanelGroup>
         </ResizablePanel>
       </ResizablePanelGroup>
     </SidebarProvider>

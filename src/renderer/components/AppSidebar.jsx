@@ -55,7 +55,7 @@ export default function AppSidebar() {
 
   return (
     <Sidebar collapsible="offcanvas">
-      <SidebarHeader className="h-12 justify-center">
+      <SidebarHeader className="h-[var(--header-h)] justify-center">
         <NewChatButton />
       </SidebarHeader>
       <SidebarContent>

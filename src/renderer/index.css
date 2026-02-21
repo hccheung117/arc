@@ -4,6 +4,9 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  /* Shared height for sidebar header, main header, and scrollbar track offset */
+  --header-h: 3rem;
+  --content-px: 1rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
