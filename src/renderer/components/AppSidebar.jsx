@@ -60,7 +60,7 @@ export default function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         {sections.map(section => (
-          <SidebarGroup key={section.label}>
+          <SidebarGroup key={section.label} className="pr-0">
             <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>

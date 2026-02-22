@@ -129,4 +129,31 @@
   body {
     @apply bg-background text-foreground h-full;
   }
+  /* Global scrollbar — auto-hide, shadcn-matched handle */
+  *::-webkit-scrollbar {
+    width: 10px;
+    /* for horizontal scrollbars */
+    /* height: 10px;*/
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border-radius: 9999px;
+    border: 1px solid transparent;
+    background-clip: padding-box;
+    transition: background-color 0.3s;
+  }
+  *:hover::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--ring);
+  }
+  /* Conversation scrollbar — custom track range */
+  [role="log"] > div::-webkit-scrollbar-track {
+    margin-top: var(--header-h);
+    margin-bottom: var(--footer-h);
+  }
 }
