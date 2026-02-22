@@ -9,13 +9,41 @@ import {
   PromptInputTools,
   usePromptInputAttachments,
 } from "@/components/ai-elements/prompt-input"
+import {
+  ModelSelector,
+  ModelSelectorContent,
+  ModelSelectorEmpty,
+  ModelSelectorFavorite,
+  ModelSelectorGroup,
+  ModelSelectorInput,
+  ModelSelectorItem,
+  ModelSelectorList,
+  ModelSelectorLogo,
+  ModelSelectorName,
+  ModelSelectorTrigger,
+} from "@/components/ai-elements/model-selector"
 import { Button } from "@/components/ui/button"
 import { BrainIcon, ImageIcon, MicIcon, PencilLine, Sparkles, Wand2 } from "lucide-react"
+import { useCallback, useState } from "react"
 import { cn } from "@/lib/shadcn"
 import { useComposerMode } from "@/contexts/ComposerModeContext"
 import { useAutogrowLock, ComposerAutogrowLockHandle } from "@/components/ComposerAutogrowLock"
 
-const ToolButton = ({ tool }) => {
+const MODELS = [
+  { provider: "Anthropic", providerId: "anthropic", models: [
+    { id: "claude-sonnet-4", name: "Claude Sonnet 4" },
+    { id: "claude-opus-4", name: "Claude Opus 4" },
+  ]},
+  { provider: "OpenAI", providerId: "openai", models: [
+    { id: "gpt-4o", name: "GPT-4o" },
+    { id: "o3", name: "o3" },
+  ]},
+  { provider: "Google", providerId: "google", models: [
+    { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro" },
+  ]},
+]
+
+const ToolButton = ({ tool, favorites, onToggleFavorite }) => {
   const attachments = usePromptInputAttachments()
   switch (tool) {
     case "attach":
@@ -26,10 +54,34 @@ const ToolButton = ({ tool }) => {
       )
     case "model":
       return (
-        <PromptInputButton>
-          <BrainIcon className="size-4" />
-          <span>Model</span>
-        </PromptInputButton>
+        <ModelSelector>
+          <ModelSelectorTrigger asChild>
+            <PromptInputButton>
+              <BrainIcon className="size-4" />
+              <span>Model</span>
+            </PromptInputButton>
+          </ModelSelectorTrigger>
+          <ModelSelectorContent>
+            <ModelSelectorInput placeholder="Search models..." />
+            <ModelSelectorList className="min-h-[300px]">
+              <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
+              {MODELS.map((group) => (
+                <ModelSelectorGroup key={group.provider} heading={group.provider}>
+                  {group.models.map((model) => (
+                    <ModelSelectorItem key={model.id} value={model.id}>
+                      <ModelSelectorLogo provider={group.providerId} />
+                      <ModelSelectorName>{model.name}</ModelSelectorName>
+                      <ModelSelectorFavorite
+                        active={favorites.has(model.id)}
+                        onClick={() => onToggleFavorite(model.id)}
+                      />
+                    </ModelSelectorItem>
+                  ))}
+                </ModelSelectorGroup>
+              ))}
+            </ModelSelectorList>
+          </ModelSelectorContent>
+        </ModelSelector>
       )
     case "mic":
       return (
@@ -54,6 +106,16 @@ const HeaderAction = ({ action, setMode }) => {
 export default function Composer() {
   const { mode, setMode } = useComposerMode()
   const { containerRef, isLocked, manualMaxHeight, startResizing, toggleLock } = useAutogrowLock()
+  const [favorites, setFavorites] = useState(() => new Set())
+
+  const toggleFavorite = useCallback((id) => {
+    setFavorites((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
 
   const handleSubmit = (message) => {
     console.log(message)
@@ -94,10 +156,10 @@ export default function Composer() {
         </PromptInputBody>
         <PromptInputFooter>
           <PromptInputTools>
-            {mode.tools.filter((t) => t === "attach").map((t) => <ToolButton key={t} tool={t} />)}
+            {mode.tools.filter((t) => t === "attach").map((t) => <ToolButton key={t} tool={t} favorites={favorites} onToggleFavorite={toggleFavorite} />)}
           </PromptInputTools>
           <div className={cn("flex items-center gap-1", mode.footerActionsClass)}>
-            {mode.tools.filter((t) => t !== "attach").map((t) => <ToolButton key={t} tool={t} />)}
+            {mode.tools.filter((t) => t !== "attach").map((t) => <ToolButton key={t} tool={t} favorites={favorites} onToggleFavorite={toggleFavorite} />)}
             <PromptInputSubmit className="ml-1 rounded-full">
               <mode.submitIcon className="size-4" />
             </PromptInputSubmit>
