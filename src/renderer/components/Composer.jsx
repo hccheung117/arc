@@ -27,23 +27,11 @@ import { BrainIcon, ImageIcon, MicIcon, PencilLine, Sparkles, Wand2 } from "luci
 import { useCallback, useState } from "react"
 import { cn } from "@/lib/shadcn"
 import { useComposerMode } from "@/contexts/ComposerModeContext"
+import { useChatContext } from "@/contexts/ChatContext"
 import { useAutogrowLock, ComposerAutogrowLockHandle } from "@/components/ComposerAutogrowLock"
+import { useSubscription } from "@/hooks/use-subscription"
 
-const MODELS = [
-  { provider: "Anthropic", providerId: "anthropic", models: [
-    { id: "claude-sonnet-4", name: "Claude Sonnet 4" },
-    { id: "claude-opus-4", name: "Claude Opus 4" },
-  ]},
-  { provider: "OpenAI", providerId: "openai", models: [
-    { id: "gpt-4o", name: "GPT-4o" },
-    { id: "o3", name: "o3" },
-  ]},
-  { provider: "Google", providerId: "google", models: [
-    { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro" },
-  ]},
-]
-
-const ToolButton = ({ tool, favorites, onToggleFavorite }) => {
+const ToolButton = ({ tool, favorites, onToggleFavorite, models }) => {
   const attachments = usePromptInputAttachments()
   switch (tool) {
     case "attach":
@@ -65,7 +53,7 @@ const ToolButton = ({ tool, favorites, onToggleFavorite }) => {
             <ModelSelectorInput placeholder="Search models..." />
             <ModelSelectorList className="min-h-[300px]">
               <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
-              {MODELS.map((group) => (
+              {models.map((group) => (
                 <ModelSelectorGroup key={group.provider} heading={group.provider}>
                   {group.models.map((model) => (
                     <ModelSelectorItem key={model.id} value={model.id}>
@@ -105,8 +93,10 @@ const HeaderAction = ({ action, setMode }) => {
 
 export default function Composer() {
   const { mode, setMode } = useComposerMode()
+  const { sendMessage, status, stop } = useChatContext()
   const { containerRef, isLocked, manualMaxHeight, startResizing, toggleLock } = useAutogrowLock()
   const [favorites, setFavorites] = useState(() => new Set())
+  const models = useSubscription('models', [])
 
   const toggleFavorite = useCallback((id) => {
     setFavorites((prev) => {
@@ -118,7 +108,7 @@ export default function Composer() {
   }, [])
 
   const handleSubmit = (message) => {
-    console.log(message)
+    sendMessage({ text: message.text })
   }
 
   return (
@@ -156,11 +146,11 @@ export default function Composer() {
         </PromptInputBody>
         <PromptInputFooter>
           <PromptInputTools>
-            {mode.tools.filter((t) => t === "attach").map((t) => <ToolButton key={t} tool={t} favorites={favorites} onToggleFavorite={toggleFavorite} />)}
+            {mode.tools.filter((t) => t === "attach").map((t) => <ToolButton key={t} tool={t} favorites={favorites} onToggleFavorite={toggleFavorite} models={models} />)}
           </PromptInputTools>
           <div className={cn("flex items-center gap-1", mode.footerActionsClass)}>
-            {mode.tools.filter((t) => t !== "attach").map((t) => <ToolButton key={t} tool={t} favorites={favorites} onToggleFavorite={toggleFavorite} />)}
-            <PromptInputSubmit className="ml-1 rounded-full">
+            {mode.tools.filter((t) => t !== "attach").map((t) => <ToolButton key={t} tool={t} favorites={favorites} onToggleFavorite={toggleFavorite} models={models} />)}
+            <PromptInputSubmit status={status} onStop={stop} className="ml-1 rounded-full">
               <mode.submitIcon className="size-4" />
             </PromptInputSubmit>
           </div>

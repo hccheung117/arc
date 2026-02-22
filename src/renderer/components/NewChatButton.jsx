@@ -9,8 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-
-const defaultPersonas = ["Persona 1", "Persona 2", "Persona 3"]
+import { useSubscription } from "@/hooks/use-subscription"
 
 function PersonaMenuItem({ name, onRemove }) {
   return (
@@ -31,7 +30,10 @@ function PersonaMenuItem({ name, onRemove }) {
 }
 
 export default function NewChatButton() {
-  const [personas, setPersonas] = useState(defaultPersonas)
+  const subscribed = useSubscription('personas', [])
+  const [personas, setPersonas] = useState(null)
+  const displayPersonas = personas ?? subscribed
+
   return (
     <ButtonGroup className="w-full">
       <Button variant="outline" size="sm" className="flex-1 justify-start">
@@ -46,11 +48,11 @@ export default function NewChatButton() {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuGroup>
-            {personas.map(name => (
+            {displayPersonas.map(name => (
               <PersonaMenuItem
                 key={name}
                 name={name}
-                onRemove={() => setPersonas(prev => prev.filter(p => p !== name))}
+                onRemove={() => setPersonas(prev => (prev ?? subscribed).filter(p => p !== name))}
               />
             ))}
           </DropdownMenuGroup>

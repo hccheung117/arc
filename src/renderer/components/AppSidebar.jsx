@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import NewChatButton from "@/components/NewChatButton"
 import {
   Sidebar,
@@ -11,19 +11,6 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
 } from "@/components/ui/sidebar"
-
-const chats = [
-  { id: 1, title: "Help me debug React app", date: new Date() },
-  { id: 2, title: "Write a Python script", date: new Date() },
-  { id: 3, title: "Explain async/await", date: new Date(Date.now() - 86400000) },
-  { id: 4, title: "CSS Grid layout help", date: new Date(Date.now() - 86400000) },
-  { id: 5, title: "Docker compose setup", date: new Date(Date.now() - 3 * 86400000) },
-  { id: 6, title: "Git rebase tutorial", date: new Date(Date.now() - 5 * 86400000) },
-  { id: 7, title: "SQL query optimization", date: new Date(Date.now() - 6 * 86400000) },
-  { id: 8, title: "REST API design", date: new Date(Date.now() - 10 * 86400000) },
-  { id: 9, title: "TypeScript generics", date: new Date(Date.now() - 15 * 86400000) },
-  { id: 10, title: "Kubernetes basics", date: new Date(Date.now() - 25 * 86400000) },
-]
 
 function groupChatsByDate(chats) {
   const now = new Date()
@@ -48,10 +35,17 @@ function groupChatsByDate(chats) {
   return buckets.filter(b => b.items.length > 0)
 }
 
-const sections = groupChatsByDate(chats)
-
 export default function AppSidebar() {
   const [activeChatId, setActiveChatId] = useState(null)
+  const [chats, setChats] = useState([])
+
+  useEffect(() => {
+    window.api.invoke('chats:list').then((raw) =>
+      setChats(raw.map((c) => ({ ...c, date: new Date(c.date) })))
+    )
+  }, [])
+
+  const sections = groupChatsByDate(chats)
 
   return (
     <Sidebar collapsible="offcanvas">

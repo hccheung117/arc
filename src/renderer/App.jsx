@@ -10,6 +10,7 @@ import AppSidebar from "@/components/AppSidebar"
 import Workbench from "@/components/Workbench"
 import Composer from "@/components/Composer"
 import { ComposerModeProvider } from "@/contexts/ComposerModeContext"
+import { ChatProvider } from "@/contexts/ChatContext"
 
 export default function App() {
   const panelRef = useRef(null)
@@ -40,20 +41,21 @@ export default function App() {
   }, [isMobile])
 
   return (
-    <ComposerModeProvider>
-      <SidebarProvider open={sidebarOpen} onOpenChange={handleOpenChange}>
-        <ResizablePanelGroup orientation="horizontal" className="h-full">
-          <ResizablePanel
-            panelRef={panelRef}
-            defaultSize="280px"
-            collapsible
-            onResize={() => setSidebarOpen(!panelRef.current.isCollapsed())}
-            className="bg-sidebar"
-          >
-            <AppSidebar />
-          </ResizablePanel>
-          <ResizableHandle />
-          <ResizablePanel className="bg-background">
+    <SidebarProvider open={sidebarOpen} onOpenChange={handleOpenChange}>
+      <ResizablePanelGroup orientation="horizontal" className="h-full">
+        <ResizablePanel
+          panelRef={panelRef}
+          defaultSize="280px"
+          collapsible
+          onResize={() => setSidebarOpen(!panelRef.current.isCollapsed())}
+          className="bg-sidebar"
+        >
+          <AppSidebar />
+        </ResizablePanel>
+        <ResizableHandle />
+        <ResizablePanel className="bg-background">
+          <ChatProvider>
+          <ComposerModeProvider>
             <div ref={bodyRef} data-body className="relative h-full">
               <Workbench />
               {/* Flex-column chain: this container's max-h is the single source of
@@ -67,9 +69,10 @@ export default function App() {
                 <Composer />
               </div>
             </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      </SidebarProvider>
-    </ComposerModeProvider>
+          </ComposerModeProvider>
+          </ChatProvider>
+        </ResizablePanel>
+      </ResizablePanelGroup>
+    </SidebarProvider>
   )
 }

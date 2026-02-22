@@ -33,6 +33,7 @@
     "vite": "^5.4.21"
   },
   "dependencies": {
+    "@ai-sdk/react": "^3.0.99",
     "@streamdown/cjk": "^1.0.2",
     "@streamdown/code": "^1.0.3",
     "@streamdown/math": "^1.0.2",

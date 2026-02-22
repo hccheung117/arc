@@ -1,6 +1,11 @@
 import { app, BrowserWindow } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
+import { initIpc, setMainWindow } from './router.js';
+import './routes/chats.js';
+import { pushPersonas } from './routes/personas.js';
+import { pushModels } from './routes/models.js';
+import './routes/conversation.js';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -17,6 +22,12 @@ const createWindow = () => {
     },
   });
 
+  setMainWindow(mainWindow);
+  mainWindow.webContents.on('did-finish-load', () => {
+    pushPersonas();
+    pushModels();
+  });
+
   // and load the index.html of the app.
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
@@ -29,6 +40,7 @@ const createWindow = () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
+  initIpc();
   createWindow();
 
   // On OS X it's common to re-create a window in the app when the
@@ -48,6 +60,3 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
-
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and import them here.

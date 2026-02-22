@@ -1,9 +1,9 @@
 import { Drama, Download } from "lucide-react"
 import { MessageSquareIcon } from "lucide-react"
-import { nanoid } from "nanoid"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { useComposerMode } from "@/contexts/ComposerModeContext"
+import { useChatContext } from "@/contexts/ChatContext"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import {
   Conversation,
@@ -12,38 +12,19 @@ import {
   ConversationScrollButton,
   messagesToMarkdown,
 } from "@/components/ai-elements/conversation"
-import { Message, MessageContent } from "@/components/ai-elements/message"
+import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message"
 import { cn } from "@/lib/shadcn"
 
-const messages = [
-  { content: "Hello, how are you?", key: nanoid(), role: "user" },
-  { content: "I'm good, thank you! How can I assist you today?", key: nanoid(), role: "assistant" },
-  { content: "I'm looking for information about your services.", key: nanoid(), role: "user" },
-  { content: "Sure! We offer a variety of AI solutions. What are you interested in?", key: nanoid(), role: "assistant" },
-  { content: "I'm interested in natural language processing tools.", key: nanoid(), role: "user" },
-  { content: "Great choice! We have several NLP APIs. Would you like a demo?", key: nanoid(), role: "assistant" },
-  { content: "Yes, a demo would be helpful.", key: nanoid(), role: "user" },
-  { content: "Alright, I can show you a sentiment analysis example. Ready?", key: nanoid(), role: "assistant" },
-  { content: "Yes, please proceed.", key: nanoid(), role: "user" },
-  { content: "Here is a sample: 'I love this product!' → Positive sentiment.", key: nanoid(), role: "assistant" },
-  { content: "Impressive! Can it handle multiple languages?", key: nanoid(), role: "user" },
-  { content: "Absolutely, our models support over 20 languages.", key: nanoid(), role: "assistant" },
-  { content: "How do I get started with the API?", key: nanoid(), role: "user" },
-  { content: "You can sign up on our website and get an API key instantly.", key: nanoid(), role: "assistant" },
-  { content: "Is there a free trial available?", key: nanoid(), role: "user" },
-  { content: "Yes, we offer a 14-day free trial with full access.", key: nanoid(), role: "assistant" },
-  { content: "What kind of support do you provide?", key: nanoid(), role: "user" },
-  { content: "We provide 24/7 chat and email support for all users.", key: nanoid(), role: "assistant" },
-  { content: "Thank you for the information!", key: nanoid(), role: "user" },
-  { content: "You're welcome! Let me know if you have any more questions.", key: nanoid(), role: "assistant" },
-]
+const textFromParts = (msg) =>
+  msg.parts.filter((p) => p.type === "text").map((p) => p.text).join("")
 
 export default function Workbench() {
   const { modeType, mode, setMode } = useComposerMode()
-  const [visibleMessages, setVisibleMessages] = useState([])
+  const { messages } = useChatContext()
 
   const handleDownload = useCallback(() => {
-    const markdown = messagesToMarkdown(visibleMessages)
+    const adapted = messages.map((m) => ({ role: m.role, content: textFromParts(m) }))
+    const markdown = messagesToMarkdown(adapted)
     const blob = new Blob([markdown], { type: "text/markdown" })
     const url = URL.createObjectURL(blob)
     const link = document.createElement("a")
@@ -53,24 +34,7 @@ export default function Workbench() {
     link.click()
     link.remove()
     URL.revokeObjectURL(url)
-  }, [visibleMessages])
-
-  useEffect(() => {
-    let currentIndex = 0
-    let interval
-    const timeout = setTimeout(() => {
-      interval = setInterval(() => {
-        if (currentIndex < messages.length && messages[currentIndex]) {
-          const msg = messages[currentIndex]
-          setVisibleMessages((prev) => [...prev, { content: msg.content, key: msg.key, role: msg.role }])
-          currentIndex += 1
-        } else {
-          clearInterval(interval)
-        }
-      }, 1000)
-    }, 3000)
-    return () => { clearTimeout(timeout); clearInterval(interval) }
-  }, [])
+  }, [messages])
 
   return (
     <div className="relative h-full">
@@ -83,20 +47,23 @@ export default function Workbench() {
             </div>
             <div className="flex items-center gap-1">
               <Button variant={modeType === "prompt" ? "default" : "ghost"} size="icon-sm" onClick={() => setMode((prev) => prev === "chat" ? "prompt" : "chat")}><Drama /></Button>
-              <Button disabled={visibleMessages.length === 0} onClick={handleDownload} variant="ghost" size="icon-sm"><Download /></Button>
+              <Button disabled={messages.length === 0} onClick={handleDownload} variant="ghost" size="icon-sm"><Download /></Button>
             </div>
           </header>
           <div className="flex flex-col gap-6 px-[var(--content-px)] pt-4" style={{ paddingBottom: "var(--footer-h)" }}>
-            {visibleMessages.length === 0 ? (
+            {messages.length === 0 ? (
               <ConversationEmptyState
                 description="Messages will appear here as the conversation progresses."
                 icon={<MessageSquareIcon className="size-6" />}
                 title="Start a conversation"
               />
             ) : (
-              visibleMessages.map(({ key, content, role }) => (
-                <Message from={role} key={key} onClick={() => setMode(role === "assistant" ? "edit:ai" : "edit:user", { messageKey: key })} className={cn("cursor-pointer", key === mode.messageKey && "blur-[2px]")}>
-                  <MessageContent>{content}</MessageContent>
+              messages.map((msg) => (
+                <Message from={msg.role} key={msg.id} onClick={() => setMode(msg.role === "assistant" ? "edit:ai" : "edit:user", { messageKey: msg.id })} className={cn("cursor-pointer", msg.id === mode.messageKey && "blur-[2px]")}>
+                  {msg.role === "assistant"
+                    ? <MessageResponse>{textFromParts(msg)}</MessageResponse>
+                    : <MessageContent>{textFromParts(msg)}</MessageContent>
+                  }
                 </Message>
               ))
             )}
