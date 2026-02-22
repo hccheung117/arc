@@ -9,6 +9,7 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import AppSidebar from "@/components/AppSidebar"
 import Workbench from "@/components/Workbench"
 import Composer from "@/components/Composer"
+import { ComposerModeProvider } from "@/contexts/ComposerModeContext"
 
 export default function App() {
   const panelRef = useRef(null)
@@ -39,34 +40,36 @@ export default function App() {
   }, [isMobile])
 
   return (
-    <SidebarProvider open={sidebarOpen} onOpenChange={handleOpenChange}>
-      <ResizablePanelGroup orientation="horizontal" className="h-full">
-        <ResizablePanel
-          panelRef={panelRef}
-          defaultSize="280px"
-          collapsible
-          onResize={() => setSidebarOpen(!panelRef.current.isCollapsed())}
-          className="bg-sidebar"
-        >
-          <AppSidebar />
-        </ResizablePanel>
-        <ResizableHandle />
-        <ResizablePanel className="bg-background">
-          <div ref={bodyRef} data-body className="relative h-full">
-            <Workbench />
-            {/* Flex-column chain: this container's max-h is the single source of
-                truth for the composer's height limit. It propagates down via
-                flex + min-h-0 on each descendant, so the textarea shrinks and
-                scrolls automatically — no magic calc() values needed deeper. */}
-            <div
-              ref={footerRef}
-              className="absolute inset-x-0 bottom-0 z-10 flex max-h-[calc(100%-var(--header-h))] flex-col"
-            >
-              <Composer />
+    <ComposerModeProvider>
+      <SidebarProvider open={sidebarOpen} onOpenChange={handleOpenChange}>
+        <ResizablePanelGroup orientation="horizontal" className="h-full">
+          <ResizablePanel
+            panelRef={panelRef}
+            defaultSize="280px"
+            collapsible
+            onResize={() => setSidebarOpen(!panelRef.current.isCollapsed())}
+            className="bg-sidebar"
+          >
+            <AppSidebar />
+          </ResizablePanel>
+          <ResizableHandle />
+          <ResizablePanel className="bg-background">
+            <div ref={bodyRef} data-body className="relative h-full">
+              <Workbench />
+              {/* Flex-column chain: this container's max-h is the single source of
+                  truth for the composer's height limit. It propagates down via
+                  flex + min-h-0 on each descendant, so the textarea shrinks and
+                  scrolls automatically — no magic calc() values needed deeper. */}
+              <div
+                ref={footerRef}
+                className="absolute inset-x-0 bottom-0 z-10 flex max-h-[calc(100%-var(--header-h))] flex-col"
+              >
+                <Composer />
+              </div>
             </div>
-          </div>
-        </ResizablePanel>
-      </ResizablePanelGroup>
-    </SidebarProvider>
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </SidebarProvider>
+    </ComposerModeProvider>
   )
 }

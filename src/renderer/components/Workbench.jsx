@@ -3,6 +3,7 @@ import { MessageSquareIcon } from "lucide-react"
 import { nanoid } from "nanoid"
 import { useCallback, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
+import { useComposerMode } from "@/contexts/ComposerModeContext"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import {
   Conversation,
@@ -12,6 +13,7 @@ import {
   messagesToMarkdown,
 } from "@/components/ai-elements/conversation"
 import { Message, MessageContent } from "@/components/ai-elements/message"
+import { cn } from "@/lib/shadcn"
 
 const messages = [
   { content: "Hello, how are you?", key: nanoid(), role: "user" },
@@ -37,6 +39,7 @@ const messages = [
 ]
 
 export default function Workbench() {
+  const { modeType, mode, setMode } = useComposerMode()
   const [visibleMessages, setVisibleMessages] = useState([])
 
   const handleDownload = useCallback(() => {
@@ -79,7 +82,7 @@ export default function Workbench() {
               <span className="text-sm font-semibold">Arc AI</span>
             </div>
             <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon-sm"><Drama /></Button>
+              <Button variant={modeType === "prompt" ? "default" : "ghost"} size="icon-sm" onClick={() => setMode((prev) => prev === "chat" ? "prompt" : "chat")}><Drama /></Button>
               <Button disabled={visibleMessages.length === 0} onClick={handleDownload} variant="ghost" size="icon-sm"><Download /></Button>
             </div>
           </header>
@@ -92,7 +95,7 @@ export default function Workbench() {
               />
             ) : (
               visibleMessages.map(({ key, content, role }) => (
-                <Message from={role} key={key}>
+                <Message from={role} key={key} onClick={() => setMode(role === "assistant" ? "edit:ai" : "edit:user", { messageKey: key })} className={cn("cursor-pointer", key === mode.messageKey && "blur-[2px]")}>
                   <MessageContent>{content}</MessageContent>
                 </Message>
               ))

@@ -1,131 +1,59 @@
-import { useCallback, useEffect, useRef, useState } from "react"
 import {
   PromptInput,
   PromptInputBody,
   PromptInputButton,
   PromptInputFooter,
+  PromptInputHeader,
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
   usePromptInputAttachments,
 } from "@/components/ai-elements/prompt-input"
-import { ImageIcon, BrainIcon, MicIcon, Lock, LockOpen } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { BrainIcon, ImageIcon, MicIcon, PencilLine, Sparkles, Wand2 } from "lucide-react"
 import { cn } from "@/lib/shadcn"
+import { useComposerMode } from "@/contexts/ComposerModeContext"
+import { useAutogrowLock, ComposerAutogrowLockHandle } from "@/components/ComposerAutogrowLock"
 
-const AttachImageButton = () => {
+const ToolButton = ({ tool }) => {
   const attachments = usePromptInputAttachments()
-  return (
-    <PromptInputButton onClick={() => attachments.openFileDialog()}>
-      <ImageIcon className="size-4" />
-    </PromptInputButton>
-  )
+  switch (tool) {
+    case "attach":
+      return (
+        <PromptInputButton onClick={() => attachments.openFileDialog()}>
+          <ImageIcon className="size-4" />
+        </PromptInputButton>
+      )
+    case "model":
+      return (
+        <PromptInputButton>
+          <BrainIcon className="size-4" />
+          <span>Model</span>
+        </PromptInputButton>
+      )
+    case "mic":
+      return (
+        <PromptInputButton>
+          <MicIcon className="size-5" />
+        </PromptInputButton>
+      )
+  }
 }
 
-const Handle = ({ onResizeStart, isLocked, onToggleLock }) => {
-  const Line = () => (
-    <div className={cn(
-      "h-0.5 w-6 rounded-full bg-border",
-      isLocked && "opacity-0 transition-opacity group-hover/handle:opacity-100"
-    )} />
-  )
-  return (
-  <div
-    onMouseDown={onResizeStart}
-    className={cn(
-      "group/handle flex h-5 w-full shrink-0 cursor-row-resize items-center justify-center gap-2",
-      !isLocked && "opacity-0 transition-opacity hover:opacity-100"
-    )}
-  >
-    <Line />
-    <button
-      type="button"
-      tabIndex={-1}
-      aria-label={isLocked ? "Unlock composer height" : "Lock composer height"}
-      onClick={(e) => { e.stopPropagation(); onToggleLock() }}
-      onMouseDown={(e) => e.stopPropagation()}
-      className="text-muted-foreground transition-colors hover:text-foreground"
-    >
-      {isLocked ? <Lock className="size-3" /> : <LockOpen className="size-3" />}
-    </button>
-    <Line />
-  </div>
-  )
+const HeaderAction = ({ action, setMode }) => {
+  switch (action) {
+    case "refine":
+      return <Button variant="ghost" size="xs"><Wand2 className="size-3" />Refine</Button>
+    case "promote":
+      return <Button variant="ghost" size="xs"><Sparkles className="size-3" />Promote</Button>
+    case "cancel":
+      return <Button variant="ghost" size="xs" onClick={() => setMode("chat")}>Cancel</Button>
+  }
 }
 
 export default function Composer() {
-  const containerRef = useRef(null)
-  const dragRef = useRef(null)
-  const [isResizing, setIsResizing] = useState(false)
-  const [manualMaxHeight, setManualMaxHeight] = useState(undefined)
-
-  const isLocked = manualMaxHeight !== undefined
-
-  const startResizing = useCallback(
-    (event) => {
-      const container = containerRef.current
-      if (!container) return
-      const parent = container.closest("[data-body]")
-      if (!parent) return
-      const textarea = container.querySelector("textarea")
-      if (!textarea) return
-
-      const styles = getComputedStyle(textarea)
-      const lineHeight = parseFloat(styles.lineHeight) || 24
-      const paddingY =
-        (parseFloat(styles.paddingTop) || 0) + (parseFloat(styles.paddingBottom) || 0)
-      const minCap = Math.ceil(lineHeight + paddingY)
-      const chrome = container.offsetHeight - textarea.offsetHeight
-
-      dragRef.current = {
-        startY: event.clientY,
-        startCap: manualMaxHeight ?? Math.max(minCap, textarea.getBoundingClientRect().height),
-        minCap,
-        chrome,
-        parent,
-      }
-
-      setIsResizing(true)
-      event.preventDefault()
-    },
-    [manualMaxHeight]
-  )
-
-  const toggleLock = useCallback(() => {
-    if (manualMaxHeight !== undefined) {
-      setManualMaxHeight(undefined)
-      return
-    }
-    const textarea = containerRef.current?.querySelector("textarea")
-    if (!textarea) return
-    setManualMaxHeight(textarea.getBoundingClientRect().height)
-  }, [manualMaxHeight])
-
-  useEffect(() => {
-    if (!isResizing || !dragRef.current) return
-    const { startY, startCap, minCap, chrome, parent } = dragRef.current
-
-    const handleMouseMove = (e) => {
-      const parentRect = parent.getBoundingClientRect()
-      const headerHeight = parent.querySelector("header")?.getBoundingClientRect().height ?? 48
-      const maxCap = Math.max(minCap, parentRect.height - headerHeight - 16 - chrome)
-      const nextCap = startCap + (startY - e.clientY)
-      setManualMaxHeight(Math.max(minCap, Math.min(nextCap, maxCap)))
-    }
-
-    const handleMouseUp = () => setIsResizing(false)
-
-    document.body.style.cursor = "row-resize"
-    document.body.style.userSelect = "none"
-    document.addEventListener("mousemove", handleMouseMove)
-    document.addEventListener("mouseup", handleMouseUp)
-
-    return () => {
-      document.body.style.cursor = ""
-      document.body.style.userSelect = ""
-      document.removeEventListener("mousemove", handleMouseMove)
-      document.removeEventListener("mouseup", handleMouseUp)
-    }
-  }, [isResizing])
+  const { mode, setMode } = useComposerMode()
+  const { containerRef, isLocked, manualMaxHeight, startResizing, toggleLock } = useAutogrowLock()
 
   const handleSubmit = (message) => {
     console.log(message)
@@ -136,32 +64,43 @@ export default function Composer() {
       {/* Part of flex-column chain from App.jsx footerRef → here → form → InputGroup → textarea.
           No top padding — the Handle's height acts as the top inset so all four
           edges of the card sit at equal distance from the viewport/header. */}
-      <Handle
+      <ComposerAutogrowLockHandle
         onResizeStart={startResizing}
         isLocked={isLocked}
         onToggleLock={toggleLock}
       />
-      <PromptInput onSubmit={handleSubmit} accept="image/*" className="rounded-2xl bg-background/50 shadow-[0_4px_30px_rgba(0,0,0,0.3)] backdrop-blur">
+      <PromptInput onSubmit={handleSubmit} accept="image/*" className={cn("rounded-2xl bg-background/50 backdrop-blur transition-shadow", mode.composerShadowClass)}>
+        {/* pb-1.5 overrides the block-end variant's pb-3 so the header-to-textarea
+            gap matches the textarea-to-footer gap (both 6px from base py-1.5). */}
+        {mode.header && (
+          <PromptInputHeader className="justify-between pb-1.5">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <PencilLine className="size-3" />
+              <span>{mode.header.title}</span>
+            </div>
+            <div className="flex items-center gap-0.5">
+              {mode.header.actions.map((action) => (
+                <HeaderAction key={action} action={action} setMode={setMode} />
+              ))}
+            </div>
+          </PromptInputHeader>
+        )}
         <PromptInputBody>
           <PromptInputTextarea
             className="max-h-none"
-            placeholder="How can I help you today?"
+            placeholder={mode.placeholder}
             style={manualMaxHeight !== undefined ? { maxHeight: manualMaxHeight } : undefined}
           />
         </PromptInputBody>
         <PromptInputFooter>
           <PromptInputTools>
-            <AttachImageButton />
+            {mode.tools.filter((t) => t === "attach").map((t) => <ToolButton key={t} tool={t} />)}
           </PromptInputTools>
-          <div className="flex items-center gap-1">
-            <PromptInputButton>
-              <BrainIcon className="size-4" />
-              <span>Model</span>
-            </PromptInputButton>
-            <PromptInputButton>
-              <MicIcon className="size-5" />
-            </PromptInputButton>
-            <PromptInputSubmit className="ml-1 rounded-full" />
+          <div className={cn("flex items-center gap-1", mode.footerActionsClass)}>
+            {mode.tools.filter((t) => t !== "attach").map((t) => <ToolButton key={t} tool={t} />)}
+            <PromptInputSubmit className="ml-1 rounded-full">
+              <mode.submitIcon className="size-4" />
+            </PromptInputSubmit>
           </div>
         </PromptInputFooter>
       </PromptInput>
