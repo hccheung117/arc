@@ -96,7 +96,7 @@ export default function Composer() {
   const { sendMessage, status, stop } = useChatContext()
   const { containerRef, isLocked, manualMaxHeight, startResizing, toggleLock } = useAutogrowLock()
   const [favorites, setFavorites] = useState(() => new Set())
-  const models = useSubscription('models', [])
+  const models = useSubscription('model:listen', [])
 
   const toggleFavorite = useCallback((id) => {
     setFavorites((prev) => {

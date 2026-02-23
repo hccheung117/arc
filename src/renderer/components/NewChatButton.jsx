@@ -30,7 +30,7 @@ function PersonaMenuItem({ name, onRemove }) {
 }
 
 export default function NewChatButton() {
-  const subscribed = useSubscription('personas', [])
+  const subscribed = useSubscription('persona:listen', [])
   const [personas, setPersonas] = useState(null)
   const displayPersonas = personas ?? subscribed
 

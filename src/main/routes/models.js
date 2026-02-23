@@ -14,4 +14,4 @@ const models = [
   ]},
 ]
 
-export const pushModels = () => push('models', models)
+export const pushModels = () => push('model:listen', models)

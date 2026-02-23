@@ -5,6 +5,7 @@ export const setMainWindow = (win) => { mainWindow = win }
 
 const routes = {}
 const streamRoutes = {}
+const activeStreams = new Map()
 
 export const register = (route, handler) => { routes[route] = handler }
 export const registerStream = (route, handler) => { streamRoutes[route] = handler }
@@ -24,6 +25,13 @@ export const initIpc = () => {
     const send = (chunk) => {
       if (!event.sender.isDestroyed()) event.sender.send(channel, chunk)
     }
-    streamRoutes[route]?.({ send, requestId, ...payload })
+    const controller = new AbortController()
+    activeStreams.set(requestId, controller)
+    Promise.resolve(streamRoutes[route]?.({ send, signal: controller.signal, requestId, ...payload }))
+      .finally(() => activeStreams.delete(requestId))
+  })
+
+  ipcMain.handle('ipc:stream:abort', (_, requestId) => {
+    activeStreams.get(requestId)?.abort()
   })
 }

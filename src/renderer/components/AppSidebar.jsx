@@ -40,7 +40,7 @@ export default function AppSidebar() {
   const [chats, setChats] = useState([])
 
   useEffect(() => {
-    window.api.invoke('chats:list').then((raw) =>
+    window.api.call('session:list').then((raw) =>
       setChats(raw.map((c) => ({ ...c, date: new Date(c.date) })))
     )
   }, [])

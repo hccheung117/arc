@@ -2,10 +2,9 @@ import { app, BrowserWindow } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { initIpc, setMainWindow } from './router.js';
-import './routes/chats.js';
+import './routes/session.js';
 import { pushPersonas } from './routes/personas.js';
 import { pushModels } from './routes/models.js';
-import './routes/conversation.js';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {

@@ -6,7 +6,7 @@ export class IpcChatTransport {
         start(c) { controller = c },
       })
 
-      const abort = window.api.stream('conversation:send', { messages }, (chunk) => {
+      const abort = window.api.call('session:send', { messages }, (chunk) => {
         controller.enqueue(chunk)
         if (chunk.type === 'finish' || chunk.type === 'error' || chunk.type === 'abort') {
           controller.close()
