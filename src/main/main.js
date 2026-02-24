@@ -1,10 +1,11 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, Menu } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { initIpc, setMainWindow } from './router.js';
-import './routes/session.js';
+import { pushSessions } from './routes/session.js';
 import { pushPersonas } from './routes/personas.js';
 import { pushModels } from './routes/models.js';
+import './routes/message.js';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -22,7 +23,14 @@ const createWindow = () => {
   });
 
   setMainWindow(mainWindow);
+
+  const editMenu = Menu.buildFromTemplate([{ role: 'editMenu' }]).items[0].submenu
+  mainWindow.webContents.on('context-menu', (_event, params) => {
+    if (params.isEditable) editMenu.popup({ frame: params.frame })
+  });
+
   mainWindow.webContents.on('did-finish-load', () => {
+    pushSessions();
     pushPersonas();
     pushModels();
   });

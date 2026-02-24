@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { useSubscription } from "@/hooks/use-subscription"
 import NewChatButton from "@/components/NewChatButton"
 import {
   Sidebar,
@@ -35,17 +36,50 @@ function groupChatsByDate(chats) {
   return buckets.filter(b => b.items.length > 0)
 }
 
-export default function AppSidebar() {
-  const [activeChatId, setActiveChatId] = useState(null)
-  const [chats, setChats] = useState([])
+function RenameInput({ chat, onConfirm, onCancel }) {
+  const ref = useRef(null)
 
   useEffect(() => {
-    window.api.call('session:list').then((raw) =>
-      setChats(raw.map((c) => ({ ...c, date: new Date(c.date) })))
-    )
+    const input = ref.current
+    input.select()
   }, [])
 
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') onConfirm(e.target.value)
+    if (e.key === 'Escape') onCancel()
+  }
+
+  return (
+    <input
+      ref={ref}
+      autoFocus
+      defaultValue={chat.title}
+      className="h-8 w-full rounded-md bg-transparent px-2 text-sm outline-none"
+      onKeyDown={handleKeyDown}
+      onBlur={onCancel}
+    />
+  )
+}
+
+export default function AppSidebar() {
+  const [activeChatId, setActiveChatId] = useState(null)
+  const [renamingId, setRenamingId] = useState(null)
+  const raw = useSubscription('session:listen', [])
+  const chats = raw.map(c => ({ ...c, date: new Date(c.date) }))
+
+  useEffect(() => window.api.on('session:rename-start', setRenamingId), [])
+
   const sections = groupChatsByDate(chats)
+
+  const handleContextMenu = (e, id) => {
+    e.preventDefault()
+    window.api.call('session:context-menu', { id })
+  }
+
+  const handleRename = (id, title) => {
+    window.api.call('session:rename', { id, title })
+    setRenamingId(null)
+  }
 
   return (
     <Sidebar collapsible="offcanvas">
@@ -60,12 +94,21 @@ export default function AppSidebar() {
               <SidebarMenu>
                 {section.items.map(chat => (
                   <SidebarMenuItem key={chat.id}>
-                    <SidebarMenuButton
-                      isActive={chat.id === activeChatId}
-                      onClick={() => setActiveChatId(chat.id)}
-                    >
-                      {chat.title}
-                    </SidebarMenuButton>
+                    {renamingId === chat.id ? (
+                      <RenameInput
+                        chat={chat}
+                        onConfirm={(title) => handleRename(chat.id, title)}
+                        onCancel={() => setRenamingId(null)}
+                      />
+                    ) : (
+                      <SidebarMenuButton
+                        isActive={chat.id === activeChatId}
+                        onClick={() => setActiveChatId(chat.id)}
+                        onContextMenu={(e) => handleContextMenu(e, chat.id)}
+                      >
+                        {chat.title}
+                      </SidebarMenuButton>
+                    )}
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>
