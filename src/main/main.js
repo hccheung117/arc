@@ -29,9 +29,9 @@ const createWindow = () => {
     if (params.isEditable) editMenu.popup({ frame: params.frame })
   });
 
-  mainWindow.webContents.on('did-finish-load', () => {
-    pushSessions();
-    pushPrompts();
+  mainWindow.webContents.on('did-finish-load', async () => {
+    await pushSessions();
+    await pushPrompts();
     pushModels();
   });
 

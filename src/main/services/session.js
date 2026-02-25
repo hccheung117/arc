@@ -1,39 +1,104 @@
-const chats = [
-  { id: 1, title: "Help me debug React app", date: new Date().toISOString() },
-  { id: 2, title: "Write a Python script", date: new Date().toISOString() },
-  { id: 3, title: "Explain async/await", date: new Date(Date.now() - 86400000).toISOString() },
-  { id: 4, title: "CSS Grid layout help", date: new Date(Date.now() - 86400000).toISOString() },
-  { id: 5, title: "Docker compose setup", date: new Date(Date.now() - 3 * 86400000).toISOString() },
-  { id: 6, title: "Git rebase tutorial", date: new Date(Date.now() - 5 * 86400000).toISOString() },
-  { id: 7, title: "SQL query optimization", date: new Date(Date.now() - 6 * 86400000).toISOString() },
-  { id: 8, title: "REST API design", date: new Date(Date.now() - 10 * 86400000).toISOString() },
-  { id: 9, title: "TypeScript generics", date: new Date(Date.now() - 15 * 86400000).toISOString() },
-  { id: 10, title: "Kubernetes basics", date: new Date(Date.now() - 25 * 86400000).toISOString() },
-]
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import writeFileAtomic from 'write-file-atomic'
+import { nanoid } from 'nanoid'
 
-export const listSessions = () => chats
-
-export const getSession = (id) => chats.find(c => c.id === id)
-
-export const pinSession = (id) => {
-  const chat = chats.find(c => c.id === id)
-  if (chat) chat.pinned = !chat.pinned
+const readJson = async (filepath) => {
+  try { return JSON.parse(await fs.readFile(filepath, 'utf-8')) }
+  catch (e) { if (e.code === 'ENOENT') return null; throw e }
 }
 
-export const duplicateSession = (id) => {
-  const chat = chats.find(c => c.id === id)
-  if (!chat) return
-  chats.push({ ...chat, id: Math.max(...chats.map(c => c.id)) + 1, title: `${chat.title} (copy)`, date: new Date().toISOString() })
+const readLayout = (dir) => readJson(path.join(dir, 'layout.json'))
+
+const writeLayout = async (dir, layout) => {
+  await fs.mkdir(dir, { recursive: true })
+  await writeFileAtomic(path.join(dir, 'layout.json'), JSON.stringify(layout))
 }
 
-export const deleteSession = (id) => {
-  const idx = chats.findIndex(c => c.id === id)
-  if (idx !== -1) chats.splice(idx, 1)
+export const listSessions = async (dir) => {
+  const entries = await fs.readdir(dir, { withFileTypes: true }).catch(e => {
+    if (e.code === 'ENOENT') return []
+    throw e
+  })
+
+  const dirs = entries.filter(e => e.isDirectory())
+  const layout = await readLayout(dir) ?? { pinned: [] }
+
+  const sessions = await Promise.all(dirs.map(async (entry) => {
+    const sessionDir = path.join(dir, entry.name)
+    const meta = await readJson(path.join(sessionDir, 'meta.json'))
+    if (!meta) return null
+
+    const mtime = await fs.stat(path.join(sessionDir, 'messages.jsonl'))
+      .then(s => s.mtime.toISOString())
+      .catch(() => null)
+
+    return {
+      id: entry.name,
+      title: meta.title,
+      date: mtime ?? meta.createdAt,
+      ...(layout.pinned.includes(entry.name) && { pinned: true }),
+    }
+  }))
+
+  return sessions.filter(Boolean)
 }
 
-export const renameSession = (id, title) => {
-  const chat = chats.find(c => c.id === id)
-  if (chat) chat.title = title
+export const getSession = async (dir, id) => {
+  const meta = await readJson(path.join(dir, id, 'meta.json'))
+  if (!meta) return null
+  const layout = await readLayout(dir) ?? { pinned: [] }
+  return {
+    id,
+    title: meta.title,
+    date: meta.createdAt,
+    pinned: layout.pinned.includes(id),
+  }
+}
+
+export const createSession = async (dir, title = 'New Chat') => {
+  const id = nanoid()
+  const sessionDir = path.join(dir, id)
+  await fs.mkdir(sessionDir, { recursive: true })
+  await writeFileAtomic(
+    path.join(sessionDir, 'meta.json'),
+    JSON.stringify({ title, createdAt: new Date().toISOString() }),
+  )
+  return id
+}
+
+export const renameSession = async (dir, id, title) => {
+  const metaPath = path.join(dir, id, 'meta.json')
+  const meta = await readJson(metaPath)
+  if (!meta) return
+  await writeFileAtomic(metaPath, JSON.stringify({ ...meta, title }))
+}
+
+export const pinSession = async (dir, id) => {
+  const layout = await readLayout(dir) ?? { pinned: [] }
+  const pinned = layout.pinned.includes(id)
+    ? layout.pinned.filter(p => p !== id)
+    : [...layout.pinned, id]
+  await writeLayout(dir, { ...layout, pinned })
+}
+
+export const duplicateSession = async (dir, id) => {
+  const meta = await readJson(path.join(dir, id, 'meta.json'))
+  if (!meta) return
+  const newId = nanoid()
+  await fs.mkdir(path.join(dir, newId), { recursive: true })
+  await writeFileAtomic(
+    path.join(dir, newId, 'meta.json'),
+    JSON.stringify({ title: `${meta.title} (copy)`, createdAt: new Date().toISOString() }),
+  )
+}
+
+export const deleteSession = async (dir, id) => {
+  await fs.rm(path.join(dir, id), { recursive: true, force: true })
+  const layout = await readLayout(dir) ?? { pinned: [] }
+  if (layout.pinned.includes(id)) {
+    await writeLayout(dir, { ...layout, pinned: layout.pinned.filter(p => p !== id) })
+  }
 }
 
 const MOCK_RESPONSE = "Hello! I'm a mock AI assistant running locally via IPC. This response is being streamed character by character to demonstrate the streaming infrastructure. How can I help you today?"
