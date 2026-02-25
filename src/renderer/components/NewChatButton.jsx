@@ -1,4 +1,3 @@
-import { useState } from "react"
 import { ChevronDownIcon, Drama, SquarePen, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ButtonGroup } from "@/components/ui/button-group"
@@ -11,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useSubscription } from "@/hooks/use-subscription"
 
-function PersonaMenuItem({ name, onRemove }) {
+function PromptMenuItem({ name, onRemove }) {
   return (
     <DropdownMenuItem className="group/item">
       <Drama />
@@ -30,9 +29,16 @@ function PersonaMenuItem({ name, onRemove }) {
 }
 
 export default function NewChatButton() {
-  const subscribed = useSubscription('persona:listen', [])
-  const [personas, setPersonas] = useState(null)
-  const displayPersonas = personas ?? subscribed
+  const prompts = useSubscription('prompt:listen', [])
+
+  if (!prompts.length) {
+    return (
+      <Button variant="outline" size="sm" className="w-full justify-start">
+        <SquarePen />
+        New Chat
+      </Button>
+    )
+  }
 
   return (
     <ButtonGroup className="w-full">
@@ -48,11 +54,11 @@ export default function NewChatButton() {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuGroup>
-            {displayPersonas.map(name => (
-              <PersonaMenuItem
+            {prompts.map(({ name }) => (
+              <PromptMenuItem
                 key={name}
                 name={name}
-                onRemove={() => setPersonas(prev => (prev ?? subscribed).filter(p => p !== name))}
+                onRemove={() => window.api.call('prompt:remove', { name })}
               />
             ))}
           </DropdownMenuGroup>

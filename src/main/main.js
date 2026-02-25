@@ -3,7 +3,7 @@ import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { initIpc, setMainWindow } from './router.js';
 import { pushSessions } from './routes/session.js';
-import { pushPersonas } from './routes/personas.js';
+import { pushPrompts } from './routes/prompts.js';
 import { pushModels } from './routes/models.js';
 import './routes/message.js';
 
@@ -31,7 +31,7 @@ const createWindow = () => {
 
   mainWindow.webContents.on('did-finish-load', () => {
     pushSessions();
-    pushPersonas();
+    pushPrompts();
     pushModels();
   });
 
