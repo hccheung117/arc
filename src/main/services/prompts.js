@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import writeFileAtomic from 'write-file-atomic'
+import { readMarkdown, writeMarkdown } from '../arcfs.js'
 
 export const listPrompts = async (dir) => {
   const entries = await fs.readdir(dir).catch(e => {
@@ -12,13 +12,12 @@ export const listPrompts = async (dir) => {
 
   return Promise.all(mdFiles.map(async (file) => ({
     name: path.basename(file, '.md'),
-    content: await fs.readFile(path.join(dir, file), 'utf-8'),
+    content: await readMarkdown(path.join(dir, file)),
   })))
 }
 
 export const savePrompt = async (dir, name, content) => {
-  await fs.mkdir(dir, { recursive: true })
-  await writeFileAtomic(path.join(dir, `${name}.md`), content)
+  await writeMarkdown(path.join(dir, `${name}.md`), content)
   return listPrompts(dir)
 }
 

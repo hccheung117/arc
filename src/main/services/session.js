@@ -1,19 +1,10 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import writeFileAtomic from 'write-file-atomic'
 import { nanoid } from 'nanoid'
-
-const readJson = async (filepath) => {
-  try { return JSON.parse(await fs.readFile(filepath, 'utf-8')) }
-  catch (e) { if (e.code === 'ENOENT') return null; throw e }
-}
+import { readJson, writeJson } from '../arcfs.js'
 
 const readLayout = (dir) => readJson(path.join(dir, 'layout.json'))
-
-const writeLayout = async (dir, layout) => {
-  await fs.mkdir(dir, { recursive: true })
-  await writeFileAtomic(path.join(dir, 'layout.json'), JSON.stringify(layout))
-}
+const writeLayout = (dir, layout) => writeJson(path.join(dir, 'layout.json'), layout)
 
 export const listSessions = async (dir) => {
   const entries = await fs.readdir(dir, { withFileTypes: true }).catch(e => {
@@ -58,11 +49,9 @@ export const getSession = async (dir, id) => {
 
 export const createSession = async (dir, title = 'New Chat') => {
   const id = nanoid()
-  const sessionDir = path.join(dir, id)
-  await fs.mkdir(sessionDir, { recursive: true })
-  await writeFileAtomic(
-    path.join(sessionDir, 'meta.json'),
-    JSON.stringify({ title, createdAt: new Date().toISOString() }),
+  await writeJson(
+    path.join(dir, id, 'meta.json'),
+    { title, createdAt: new Date().toISOString() },
   )
   return id
 }
@@ -71,7 +60,7 @@ export const renameSession = async (dir, id, title) => {
   const metaPath = path.join(dir, id, 'meta.json')
   const meta = await readJson(metaPath)
   if (!meta) return
-  await writeFileAtomic(metaPath, JSON.stringify({ ...meta, title }))
+  await writeJson(metaPath, { ...meta, title })
 }
 
 export const pinSession = async (dir, id) => {
@@ -86,10 +75,9 @@ export const duplicateSession = async (dir, id) => {
   const meta = await readJson(path.join(dir, id, 'meta.json'))
   if (!meta) return
   const newId = nanoid()
-  await fs.mkdir(path.join(dir, newId), { recursive: true })
-  await writeFileAtomic(
+  await writeJson(
     path.join(dir, newId, 'meta.json'),
-    JSON.stringify({ title: `${meta.title} (copy)`, createdAt: new Date().toISOString() }),
+    { title: `${meta.title} (copy)`, createdAt: new Date().toISOString() },
   )
 }
 
