@@ -10,13 +10,14 @@ import AppSidebar from "@/components/AppSidebar"
 import Workbench from "@/components/Workbench"
 import Composer from "@/components/Composer"
 import { ComposerModeProvider } from "@/contexts/ComposerModeContext"
-import { ChatProvider } from "@/contexts/ChatContext"
+import { SessionProvider } from "@/contexts/SessionContext"
 
 export default function App() {
   const panelRef = useRef(null)
   const bodyRef = useRef(null)
   const footerRef = useRef(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [activeSessionId, setActiveSessionId] = useState(null)
   const isMobile = useIsMobile()
 
   useEffect(() => {
@@ -50,11 +51,11 @@ export default function App() {
           onResize={() => setSidebarOpen(!panelRef.current.isCollapsed())}
           className="bg-sidebar"
         >
-          <AppSidebar />
+          <AppSidebar activeSessionId={activeSessionId} setActiveSessionId={setActiveSessionId} />
         </ResizablePanel>
         <ResizableHandle />
         <ResizablePanel className="bg-background">
-          <ChatProvider>
+          <SessionProvider sessionId={activeSessionId}>
           <ComposerModeProvider>
             <div ref={bodyRef} data-body className="relative h-full">
               <Workbench />
@@ -70,7 +71,7 @@ export default function App() {
               </div>
             </div>
           </ComposerModeProvider>
-          </ChatProvider>
+          </SessionProvider>
         </ResizablePanel>
       </ResizablePanelGroup>
     </SidebarProvider>

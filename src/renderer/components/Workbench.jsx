@@ -3,7 +3,7 @@ import { MessageSquareIcon } from "lucide-react"
 import { useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { useComposerMode } from "@/contexts/ComposerModeContext"
-import { useChatContext } from "@/contexts/ChatContext"
+import { useSession } from "@/contexts/SessionContext"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import {
   Conversation,
@@ -20,7 +20,7 @@ const textFromParts = (msg) =>
 
 export default function Workbench() {
   const { modeType, mode, setMode } = useComposerMode()
-  const { messages } = useChatContext()
+  const { messages } = useSession()
 
   useEffect(() => window.api.on('message:edit-start', ({ id, role }) => {
     setMode(role === 'assistant' ? 'edit:ai' : 'edit:user', { messageKey: id })

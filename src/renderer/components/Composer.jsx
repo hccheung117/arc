@@ -27,7 +27,7 @@ import { BrainIcon, ImageIcon, MicIcon, PencilLine, Sparkles, Wand2 } from "luci
 import { useCallback, useState } from "react"
 import { cn } from "@/lib/shadcn"
 import { useComposerMode } from "@/contexts/ComposerModeContext"
-import { useChatContext } from "@/contexts/ChatContext"
+import { useSession } from "@/contexts/SessionContext"
 import { useAutogrowLock, ComposerAutogrowLockHandle } from "@/components/ComposerAutogrowLock"
 import { useSubscription } from "@/hooks/use-subscription"
 
@@ -93,7 +93,7 @@ const HeaderAction = ({ action, setMode }) => {
 
 export default function Composer() {
   const { mode, setMode } = useComposerMode()
-  const { sendMessage, status, stop } = useChatContext()
+  const { sendMessage, status, stop } = useSession()
   const { containerRef, isLocked, manualMaxHeight, startResizing, toggleLock } = useAutogrowLock()
   const [favorites, setFavorites] = useState(() => new Set())
   const models = useSubscription('model:listen', [])

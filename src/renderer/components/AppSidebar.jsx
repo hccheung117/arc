@@ -61,8 +61,7 @@ function RenameInput({ chat, onConfirm, onCancel }) {
   )
 }
 
-export default function AppSidebar() {
-  const [activeChatId, setActiveChatId] = useState(null)
+export default function AppSidebar({ activeSessionId, setActiveSessionId }) {
   const [renamingId, setRenamingId] = useState(null)
   const raw = useSubscription('session:listen', [])
   const chats = raw.map(c => ({ ...c, date: new Date(c.date) }))
@@ -88,7 +87,7 @@ export default function AppSidebar() {
   return (
     <Sidebar collapsible="offcanvas">
       <SidebarHeader className="h-[var(--header-h)] justify-center">
-        <NewChatButton />
+        <NewChatButton onNewSession={setActiveSessionId} />
       </SidebarHeader>
       <SidebarContent>
         {sections.map(section => (
@@ -106,8 +105,8 @@ export default function AppSidebar() {
                       />
                     ) : (
                       <SidebarMenuButton
-                        isActive={chat.id === activeChatId}
-                        onClick={() => setActiveChatId(chat.id)}
+                        isActive={chat.id === activeSessionId}
+                        onClick={() => setActiveSessionId(chat.id)}
                         onContextMenu={(e) => handleContextMenu(e, chat.id)}
                       >
                         {chat.title}

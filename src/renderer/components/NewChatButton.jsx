@@ -28,12 +28,17 @@ function PromptMenuItem({ name, onRemove }) {
   )
 }
 
-export default function NewChatButton() {
+export default function NewChatButton({ onNewSession }) {
   const prompts = useSubscription('prompt:listen', [])
+
+  const handleNewChat = async () => {
+    const id = await window.api.call('session:create')
+    onNewSession(id)
+  }
 
   if (!prompts.length) {
     return (
-      <Button variant="outline" size="sm" className="w-full justify-start">
+      <Button variant="outline" size="sm" className="w-full justify-start" onClick={handleNewChat}>
         <SquarePen />
         New Chat
       </Button>
@@ -42,7 +47,7 @@ export default function NewChatButton() {
 
   return (
     <ButtonGroup className="w-full">
-      <Button variant="outline" size="sm" className="flex-1 justify-start">
+      <Button variant="outline" size="sm" className="flex-1 justify-start" onClick={handleNewChat}>
         <SquarePen />
         New Chat
       </Button>
