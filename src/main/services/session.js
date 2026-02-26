@@ -32,7 +32,7 @@ export const listSessions = async (dir) => {
     }
   }))
 
-  return sessions.filter(Boolean)
+  return sessions.filter(Boolean).sort((a, b) => b.date.localeCompare(a.date))
 }
 
 export const getSession = async (dir, id) => {

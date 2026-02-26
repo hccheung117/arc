@@ -69,7 +69,11 @@ export default function AppSidebar() {
 
   useEffect(() => window.api.on('session:rename-start', setRenamingId), [])
 
-  const sections = groupChatsByDate(chats)
+  const pinned = chats.filter(c => c.pinned)
+  const sections = [
+    ...(pinned.length ? [{ label: "Pinned", items: pinned }] : []),
+    ...groupChatsByDate(chats.filter(c => !c.pinned)),
+  ]
 
   const handleContextMenu = (e, id) => {
     e.preventDefault()

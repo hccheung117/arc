@@ -48,8 +48,14 @@ export default function Workbench() {
   return (
     <div className="relative h-full">
       <Conversation className="h-full">
-        <ConversationContent className="gap-0 p-0">
-          <header className="sticky top-0 z-10 flex h-[var(--header-h)] items-center justify-between px-[var(--content-px)] bg-background/50 backdrop-blur-sm">
+        {/* h-full: gives the content a definite height so the empty state
+            can center vertically via justify-center. */}
+        <ConversationContent className="gap-0 p-0 h-full">
+          {/* shrink-0: this is a flex child inside a fixed-height column.
+              Without it, the growing paddingBottom on the wrapper below
+              triggers min-height:auto on the wrapper, and flexbox shrinks
+              the header to compensate. */}
+          <header className="sticky top-0 z-10 flex shrink-0 h-[var(--header-h)] items-center justify-between px-[var(--content-px)] bg-background/50 backdrop-blur-sm">
             <div className="flex items-center gap-2">
               <SidebarTrigger />
               <span className="text-sm font-semibold">Arc AI</span>
@@ -59,7 +65,9 @@ export default function Workbench() {
               <Button disabled={messages.length === 0} onClick={handleDownload} variant="ghost" size="icon-sm"><Download /></Button>
             </div>
           </header>
-          <div className="flex flex-col gap-6 px-[var(--content-px)] pt-4" style={{ paddingBottom: "var(--footer-h)" }}>
+          {/* min-h-0: allows this flex-1 child to shrink below its content
+              size so it yields space instead of pushing the header. */}
+          <div className="flex flex-1 min-h-0 flex-col gap-6 px-[var(--content-px)] pt-4" style={{ paddingBottom: "var(--footer-h)" }}>
             {messages.length === 0 ? (
               <ConversationEmptyState
                 description="Messages will appear here as the conversation progresses."
