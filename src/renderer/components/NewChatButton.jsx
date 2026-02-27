@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useSubscription } from "@/hooks/use-subscription"
+import { act } from "@/store/app-store"
 
 function PromptMenuItem({ name, onRemove }) {
   return (
@@ -28,13 +29,10 @@ function PromptMenuItem({ name, onRemove }) {
   )
 }
 
-export default function NewChatButton({ onNewSession }) {
+export default function NewChatButton() {
   const prompts = useSubscription('prompt:listen', [])
 
-  const handleNewChat = async () => {
-    const id = await window.api.call('session:create')
-    onNewSession(id)
-  }
+  const handleNewChat = () => act().session.new()
 
   if (!prompts.length) {
     return (

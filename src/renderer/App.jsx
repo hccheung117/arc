@@ -9,7 +9,6 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import AppSidebar from "@/components/AppSidebar"
 import Workbench from "@/components/Workbench"
 import Composer from "@/components/Composer"
-import { ComposerModeProvider } from "@/contexts/ComposerModeContext"
 import { SessionProvider } from "@/contexts/SessionContext"
 
 export default function App() {
@@ -17,7 +16,6 @@ export default function App() {
   const bodyRef = useRef(null)
   const footerRef = useRef(null)
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [activeSessionId, setActiveSessionId] = useState(null)
   const isMobile = useIsMobile()
 
   useEffect(() => {
@@ -51,12 +49,11 @@ export default function App() {
           onResize={() => setSidebarOpen(!panelRef.current.isCollapsed())}
           className="bg-sidebar"
         >
-          <AppSidebar activeSessionId={activeSessionId} setActiveSessionId={setActiveSessionId} />
+          <AppSidebar />
         </ResizablePanel>
         <ResizableHandle />
         <ResizablePanel className="bg-background">
-          <SessionProvider sessionId={activeSessionId}>
-          <ComposerModeProvider>
+          <SessionProvider>
             <div ref={bodyRef} data-body className="relative h-full">
               <Workbench />
               {/* Flex-column chain: this container's max-h is the single source of
@@ -70,7 +67,6 @@ export default function App() {
                 <Composer />
               </div>
             </div>
-          </ComposerModeProvider>
           </SessionProvider>
         </ResizablePanel>
       </ResizablePanelGroup>

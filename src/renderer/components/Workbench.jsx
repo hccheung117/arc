@@ -2,7 +2,7 @@ import { Drama, Download } from "lucide-react"
 import { MessageSquareIcon } from "lucide-react"
 import { useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { useComposerMode } from "@/contexts/ComposerModeContext"
+import { useComposerMode, act } from "@/store/app-store"
 import { useSession } from "@/contexts/SessionContext"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import {
@@ -19,12 +19,12 @@ const textFromParts = (msg) =>
   msg.parts.filter((p) => p.type === "text").map((p) => p.text).join("")
 
 export default function Workbench() {
-  const { modeType, mode, setMode } = useComposerMode()
+  const { mode, config } = useComposerMode()
   const { messages } = useSession()
 
   useEffect(() => window.api.on('message:edit-start', ({ id, role }) => {
-    setMode(role === 'assistant' ? 'edit:ai' : 'edit:user', { messageKey: id })
-  }), [setMode])
+    act().composer.setMode(role === 'assistant' ? 'edit:ai' : 'edit:user', { messageKey: id })
+  }), [])
 
   const handleContextMenu = (e, msg) => {
     e.preventDefault()
@@ -61,7 +61,7 @@ export default function Workbench() {
               <span className="text-sm font-semibold">Arc AI</span>
             </div>
             <div className="flex items-center gap-1">
-              <Button variant={modeType === "prompt" ? "default" : "ghost"} size="icon-sm" onClick={() => setMode((prev) => prev === "chat" ? "prompt" : "chat")}><Drama /></Button>
+              <Button variant={mode === "prompt" ? "default" : "ghost"} size="icon-sm" onClick={() => act().composer.setMode(mode === "chat" ? "prompt" : "chat")}><Drama /></Button>
               <Button disabled={messages.length === 0} onClick={handleDownload} variant="ghost" size="icon-sm"><Download /></Button>
             </div>
           </header>
@@ -78,9 +78,9 @@ export default function Workbench() {
               messages.map((msg) => (
                 <Message 
                 from={msg.role} key={msg.id} 
-                onClick={() => setMode(msg.role === "assistant" ? "edit:ai" : "edit:user", { messageKey: msg.id })} 
+                onClick={() => act().composer.setMode(msg.role === "assistant" ? "edit:ai" : "edit:user", { messageKey: msg.id })} 
                 onContextMenu={(e) => handleContextMenu(e, msg)} 
-                className={cn("cursor-pointer", msg.id === mode.messageKey && "blur-[2px]")}>
+                className={cn("cursor-pointer", msg.id === config.messageKey && "blur-[2px]")}>
                   {msg.role === "assistant"
                     ? <MessageResponse>{textFromParts(msg)}</MessageResponse>
                     : <MessageContent>{textFromParts(msg)}</MessageContent>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useSubscription } from "@/hooks/use-subscription"
+import { useAppStore, act } from "@/store/app-store"
 import NewChatButton from "@/components/NewChatButton"
 import {
   Sidebar,
@@ -61,7 +62,8 @@ function RenameInput({ chat, onConfirm, onCancel }) {
   )
 }
 
-export default function AppSidebar({ activeSessionId, setActiveSessionId }) {
+export default function AppSidebar() {
+  const activeSessionId = useAppStore((s) => s.activeSessionId)
   const [renamingId, setRenamingId] = useState(null)
   const raw = useSubscription('session:listen', [])
   const chats = raw.map(c => ({ ...c, date: new Date(c.date) }))
@@ -87,7 +89,7 @@ export default function AppSidebar({ activeSessionId, setActiveSessionId }) {
   return (
     <Sidebar collapsible="offcanvas">
       <SidebarHeader className="h-[var(--header-h)] justify-center">
-        <NewChatButton onNewSession={setActiveSessionId} />
+        <NewChatButton />
       </SidebarHeader>
       <SidebarContent>
         {sections.map(section => (
@@ -106,7 +108,7 @@ export default function AppSidebar({ activeSessionId, setActiveSessionId }) {
                     ) : (
                       <SidebarMenuButton
                         isActive={chat.id === activeSessionId}
-                        onClick={() => setActiveSessionId(chat.id)}
+                        onClick={() => act().session.activate(chat.id)}
                         onContextMenu={(e) => handleContextMenu(e, chat.id)}
                       >
                         {chat.title}

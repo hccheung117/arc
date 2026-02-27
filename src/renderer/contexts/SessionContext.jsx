@@ -1,22 +1,25 @@
 import { createContext, use, useEffect, useMemo } from "react"
 import { useChat } from "@ai-sdk/react"
-import { IpcSessionTransport } from "@/lib/ipc-session-transport"
+import { IpcTransport } from "@/lib/ipc-session-transport"
+import { useAppStore } from "@/store/app-store"
 
 const SessionContext = createContext()
 
 export const useSession = () => use(SessionContext)
 
-export function SessionProvider({ sessionId, children }) {
-  const transport = useMemo(() => new IpcSessionTransport(), [])
-  const chat = useChat({ id: sessionId, transport })
+export function SessionProvider({ children }) {
+  const transport = useMemo(() => new IpcTransport(), [])
+  const activeSessionId = useAppStore((s) => s.activeSessionId)
+  const draftSessionId = useAppStore((s) => s.draftSessionId)
+  const chat = useChat({ id: activeSessionId, transport })
 
   useEffect(() => {
-    if (!sessionId) {
+    if (activeSessionId === draftSessionId) {
       chat.setMessages([])
       return
     }
-    window.api.call('session:load', { sessionId }).then(chat.setMessages)
-  }, [sessionId])
+    window.api.call('session:load', { sessionId: activeSessionId }).then(chat.setMessages)
+  }, [activeSessionId, draftSessionId])
 
   return (
     <SessionContext value={chat}>

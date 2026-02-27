@@ -1,4 +1,4 @@
-export class IpcSessionTransport {
+export class IpcTransport {
   sendMessages({ messages, chatId, abortSignal }) {
     return new Promise((resolve) => {
       let controller

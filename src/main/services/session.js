@@ -1,6 +1,5 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { nanoid } from 'nanoid'
 import { generateId } from 'ai'
 import { readJson, writeJson, readJsonl, appendJsonl } from '../arcfs.js'
 
@@ -49,7 +48,7 @@ export const getSession = async (dir, id) => {
 }
 
 export const createSession = async (dir, title = 'New Chat') => {
-  const id = nanoid()
+  const id = generateId()
   await writeJson(
     path.join(dir, id, 'meta.json'),
     { title, createdAt: new Date().toISOString() },
@@ -75,7 +74,7 @@ export const pinSession = async (dir, id) => {
 export const duplicateSession = async (dir, id) => {
   const meta = await readJson(path.join(dir, id, 'meta.json'))
   if (!meta) return
-  const newId = nanoid()
+  const newId = generateId()
   await writeJson(
     path.join(dir, newId, 'meta.json'),
     { title: `${meta.title} (copy)`, createdAt: new Date().toISOString() },
@@ -114,6 +113,11 @@ const MOCK_RESPONSE = "Hello! I'm a mock AI assistant running locally via IPC. T
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
 export const streamText = async (dir, sessionId, messages, send, signal) => {
+  const metaPath = path.join(dir, sessionId, 'meta.json')
+  if (!await readJson(metaPath)) {
+    await writeJson(metaPath, { title: 'New Chat', createdAt: new Date().toISOString() })
+  }
+
   const filePath = messagesPath(dir, sessionId)
   const existing = await readJsonl(filePath)
   const knownIds = new Set(existing.map(r => r.id))

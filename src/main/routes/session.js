@@ -38,6 +38,7 @@ register('session:rename', async ({ id, title }) => {
 
 register('session:load', ({ sessionId }) => session.loadMessages(dir, sessionId))
 
-registerStream('session:send', ({ sessionId, messages, send, signal }) => {
-  return session.streamText(dir, sessionId, messages, send, signal)
+registerStream('session:send', async ({ sessionId, messages, send, signal }) => {
+  await session.streamText(dir, sessionId, messages, send, signal)
+  await pushSessions()
 })
