@@ -10,7 +10,6 @@ import {
   ConversationContent,
   ConversationEmptyState,
   ConversationScrollButton,
-  messagesToMarkdown,
 } from "@/components/ai-elements/conversation"
 import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message"
 import { cn } from "@/lib/shadcn"
@@ -20,7 +19,7 @@ const textFromParts = (msg) =>
 
 export default function Workbench() {
   const { mode, config } = useComposerMode()
-  const { messages } = useSession()
+  const { messages, id: sessionId } = useSession()
 
   useEffect(() => window.api.on('message:edit-start', ({ id, role }) => {
     act().composer.setMode(role === 'assistant' ? 'edit:ai' : 'edit:user', { messageKey: id })
@@ -32,18 +31,8 @@ export default function Workbench() {
   }
 
   const handleDownload = useCallback(() => {
-    const adapted = messages.map((m) => ({ role: m.role, content: textFromParts(m) }))
-    const markdown = messagesToMarkdown(adapted)
-    const blob = new Blob([markdown], { type: "text/markdown" })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.href = url
-    link.download = "conversation.md"
-    document.body.append(link)
-    link.click()
-    link.remove()
-    URL.revokeObjectURL(url)
-  }, [messages])
+    window.api.call('session:export', { sessionId })
+  }, [sessionId])
 
   return (
     <div className="relative h-full">

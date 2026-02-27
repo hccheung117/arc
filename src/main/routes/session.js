@@ -1,5 +1,6 @@
-import { Menu } from 'electron'
-import { register, registerStream, push } from '../router.js'
+import fs from 'node:fs/promises'
+import { dialog, Menu } from 'electron'
+import { register, registerStream, push, getMainWindow } from '../router.js'
 import { resolve } from '../arcfs.js'
 import * as session from '../services/session.js'
 
@@ -37,6 +38,20 @@ register('session:rename', async ({ id, title }) => {
 })
 
 register('session:load', ({ sessionId }) => session.loadMessages(dir, sessionId))
+
+register('session:export', async ({ sessionId }) => {
+  const content = await session.exportMarkdown(dir, sessionId)
+  const meta = await session.getSession(dir, sessionId)
+  const raw = meta?.title ?? 'Chat'
+  const safe = raw.replace(/[/\\:*?"<>|]/g, '_').replace(/[\x00-\x1f]/g, '_').trim() || 'Chat'
+  const { canceled, filePath } = await dialog.showSaveDialog(getMainWindow(), {
+    defaultPath: `Arc - ${safe}.md`,
+    filters: [{ name: 'Markdown', extensions: ['md'] }],
+  })
+  if (canceled || !filePath) return false
+  await fs.writeFile(filePath, content, 'utf-8')
+  return true
+})
 
 registerStream('session:send', async ({ sessionId, messages, send, signal }) => {
   await session.streamText(dir, sessionId, messages, send, signal)

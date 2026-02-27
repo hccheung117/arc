@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 
 let mainWindow = null
 export const setMainWindow = (win) => { mainWindow = win }
+export const getMainWindow = () => mainWindow
 
 const routes = {}
 const streamRoutes = {}

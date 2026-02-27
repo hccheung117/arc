@@ -108,6 +108,17 @@ export const loadMessages = async (dir, sessionId) => {
   return chain.map(({ arcParentId, ...msg }) => msg)
 }
 
+export const exportMarkdown = async (dir, sessionId) => {
+  const messages = await loadMessages(dir, sessionId)
+  return messages
+    .map(m => {
+      const role = m.role.charAt(0).toUpperCase() + m.role.slice(1)
+      const text = m.parts.filter(p => p.type === 'text').map(p => p.text).join('')
+      return `**${role}:** ${text}`
+    })
+    .join('\n\n')
+}
+
 const MOCK_RESPONSE = "Hello! I'm a mock AI assistant running locally via IPC. This response is being streamed character by character to demonstrate the streaming infrastructure. How can I help you today?"
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
