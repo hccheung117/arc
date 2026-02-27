@@ -13,12 +13,6 @@ export { pushSessions }
 
 register('session:list', () => session.listSessions(dir))
 
-register('session:create', async ({ title } = {}) => {
-  const id = await session.createSession(dir, title)
-  await pushSessions()
-  return id
-})
-
 register('session:context-menu', async ({ id }) => {
   const chat = await session.getSession(dir, id)
   if (!chat) return

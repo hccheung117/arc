@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { generateId } from 'ai'
+import { sessionId } from '@shared/ids.js'
 import { readJson, writeJson, readJsonl, appendJsonl } from '../arcfs.js'
 
 const readLayout = (dir) => readJson(path.join(dir, 'layout.json'))
@@ -48,7 +49,7 @@ export const getSession = async (dir, id) => {
 }
 
 export const createSession = async (dir, title = 'New Chat') => {
-  const id = generateId()
+  const id = sessionId()
   await writeJson(
     path.join(dir, id, 'meta.json'),
     { title, createdAt: new Date().toISOString() },
@@ -74,7 +75,7 @@ export const pinSession = async (dir, id) => {
 export const duplicateSession = async (dir, id) => {
   const meta = await readJson(path.join(dir, id, 'meta.json'))
   if (!meta) return
-  const newId = generateId()
+  const newId = sessionId()
   await writeJson(
     path.join(dir, newId, 'meta.json'),
     { title: `${meta.title} (copy)`, createdAt: new Date().toISOString() },

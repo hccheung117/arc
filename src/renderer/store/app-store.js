@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import { generateId } from "ai"
+import { sessionId } from "@shared/ids.js"
 import { resolveMode } from "@/lib/composer-modes"
 
 const defaultWorkbench = () => ({
@@ -10,7 +10,7 @@ const defaultWorkbench = () => ({
   scrollAnchor: null,
 })
 
-const initialDraftId = generateId()
+const initialDraftId = sessionId()
 
 export const useAppStore = create((set) => ({
   activeSessionId: initialDraftId,
@@ -29,7 +29,7 @@ export const useAppStore = create((set) => ({
       if (s.activeSessionId !== s.draftSessionId) {
         return { activeSessionId: s.draftSessionId }
       }
-      const id = generateId()
+      const id = sessionId()
       return {
         activeSessionId: id,
         draftSessionId: id,
@@ -41,7 +41,7 @@ export const useAppStore = create((set) => ({
     // Submit protocol: composer.setDraft(mode, "") → session.retireDraft()
     retireDraft: () => set((s) => {
       if (s.activeSessionId !== s.draftSessionId) return s
-      const id = generateId()
+      const id = sessionId()
       return {
         draftSessionId: id,
         workbenches: { ...s.workbenches, [id]: defaultWorkbench() },
