@@ -9,29 +9,16 @@ import {
   PromptInputTools,
   usePromptInputAttachments,
 } from "@/components/ai-elements/prompt-input"
-import {
-  ModelSelector,
-  ModelSelectorContent,
-  ModelSelectorEmpty,
-  ModelSelectorFavorite,
-  ModelSelectorGroup,
-  ModelSelectorInput,
-  ModelSelectorItem,
-  ModelSelectorList,
-  ModelSelectorLogo,
-  ModelSelectorName,
-  ModelSelectorTrigger,
-} from "@/components/ai-elements/model-selector"
 import { Button } from "@/components/ui/button"
-import { BrainIcon, ImageIcon, MicIcon, PencilLine, Sparkles, Wand2 } from "lucide-react"
-import { useCallback, useState } from "react"
+import { ImageIcon, MicIcon, PencilLine, Sparkles, Wand2 } from "lucide-react"
+import { useCallback } from "react"
 import { cn } from "@/lib/shadcn"
 import { useComposerMode, act, useActiveWorkbench } from "@/store/app-store"
 import { useSession } from "@/contexts/SessionContext"
 import { useAutogrowLock, ComposerAutogrowLockHandle } from "@/components/ComposerAutogrowLock"
-import { useSubscription } from "@/hooks/use-subscription"
+import ModelSelectorButton from "@/components/ModelSelectorButton"
 
-const ToolButton = ({ tool, favorites, onToggleFavorite, models }) => {
+const ToolButton = ({ tool }) => {
   const attachments = usePromptInputAttachments()
   switch (tool) {
     case "attach":
@@ -41,36 +28,7 @@ const ToolButton = ({ tool, favorites, onToggleFavorite, models }) => {
         </PromptInputButton>
       )
     case "model":
-      return (
-        <ModelSelector>
-          <ModelSelectorTrigger asChild>
-            <PromptInputButton>
-              <BrainIcon className="size-4" />
-              <span>Model</span>
-            </PromptInputButton>
-          </ModelSelectorTrigger>
-          <ModelSelectorContent>
-            <ModelSelectorInput placeholder="Search models..." />
-            <ModelSelectorList className="min-h-[300px]">
-              <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
-              {models.map((group) => (
-                <ModelSelectorGroup key={group.provider} heading={group.provider}>
-                  {group.models.map((model) => (
-                    <ModelSelectorItem key={model.id} value={model.id}>
-                      <ModelSelectorLogo provider={group.providerId} />
-                      <ModelSelectorName>{model.name}</ModelSelectorName>
-                      <ModelSelectorFavorite
-                        active={favorites.has(model.id)}
-                        onClick={() => onToggleFavorite(model.id)}
-                      />
-                    </ModelSelectorItem>
-                  ))}
-                </ModelSelectorGroup>
-              ))}
-            </ModelSelectorList>
-          </ModelSelectorContent>
-        </ModelSelector>
-      )
+      return <ModelSelectorButton />
     case "mic":
       return (
         <PromptInputButton>
@@ -94,23 +52,12 @@ const HeaderAction = ({ action }) => {
 function BaseComposer({ mode, config, shadowClass, footerClass }) {
   const { sendMessage, status, stop } = useSession()
   const { containerRef, isLocked, manualMaxHeight, startResizing, toggleLock } = useAutogrowLock()
-  const [favorites, setFavorites] = useState(() => new Set())
-  const models = useSubscription('model:listen', [])
   const workbench = useActiveWorkbench()
   const draft = workbench.composerDrafts[mode] ?? ""
 
   const handleDraftChange = useCallback((e) => {
     act().composer.setDraft(mode, e.target.value)
   }, [mode])
-
-  const toggleFavorite = useCallback((id) => {
-    setFavorites((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }, [])
 
   const handleSubmit = (message) => {
     sendMessage({ text: message.text })
@@ -156,10 +103,10 @@ function BaseComposer({ mode, config, shadowClass, footerClass }) {
         </PromptInputBody>
         <PromptInputFooter>
           <PromptInputTools>
-            {config.tools.filter((t) => t === "attach").map((t) => <ToolButton key={t} tool={t} favorites={favorites} onToggleFavorite={toggleFavorite} models={models} />)}
+            {config.tools.filter((t) => t === "attach").map((t) => <ToolButton key={t} tool={t} />)}
           </PromptInputTools>
           <div className={cn("flex items-center gap-1", footerClass)}>
-            {config.tools.filter((t) => t !== "attach").map((t) => <ToolButton key={t} tool={t} favorites={favorites} onToggleFavorite={toggleFavorite} models={models} />)}
+            {config.tools.filter((t) => t !== "attach").map((t) => <ToolButton key={t} tool={t} />)}
             <PromptInputSubmit status={status} onStop={stop} className="ml-1 rounded-full">
               <config.submitIcon className="size-4" />
             </PromptInputSubmit>
