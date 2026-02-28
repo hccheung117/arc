@@ -31,15 +31,15 @@ export const promptsAppDir = appPath('prompts')
 
 export const resolveProfilePrompts = () => resolveDir('prompts', listPrompts)
 
-export const resolveSessionPrompt = async (dir, sessionId, meta) => {
-  const local = await readMarkdown(path.join(dir, sessionId, 'prompt.md'))
+export const resolveSessionPrompt = async (sessionPromptPath, promptRef) => {
+  const local = await readMarkdown(sessionPromptPath)
   if (local) return local
-  if (!meta?.promptRef) return null
-  return resolvePrompt(meta.promptRef)
+  if (!promptRef) return null
+  return resolvePrompt(promptRef)
 }
 
-export const saveSessionPrompt = async (dir, sessionId, content) => {
-  await writeMarkdown(path.join(dir, sessionId, 'prompt.md'), content)
+export const saveSessionPrompt = async (sessionPromptPath, content) => {
+  await writeMarkdown(sessionPromptPath, content)
 }
 
 export const removePrompt = async (dir, name) => {

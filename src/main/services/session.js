@@ -91,6 +91,9 @@ export const deleteSession = async (dir, id) => {
   }
 }
 
+const promptPath = (dir, sessionId) =>
+  path.join(dir, sessionId, 'prompt.md')
+
 const messagesPath = (dir, sessionId) =>
   path.join(dir, sessionId, 'messages.jsonl')
 
@@ -123,7 +126,7 @@ export const exportMarkdown = async (dir, sessionId) => {
 
 export const loadPrompt = async (dir, sessionId) => {
   const meta = await readJson(path.join(dir, sessionId, 'meta.json'))
-  return resolveSessionPrompt(dir, sessionId, meta)
+  return resolveSessionPrompt(promptPath(dir, sessionId), meta?.promptRef)
 }
 
 export const savePrompt = async (dir, id, content) => {
@@ -132,7 +135,7 @@ export const savePrompt = async (dir, id, content) => {
     await saveAppPrompt(promptsAppDir, meta.promptRef, content)
     return true
   }
-  await saveSessionPrompt(dir, id, content)
+  await saveSessionPrompt(promptPath(dir, id), content)
   return false
 }
 
@@ -148,7 +151,7 @@ export const streamText = async (dir, sessionId, messages, send, signal, { promp
     await writeJson(metaPath, meta)
   }
 
-  const systemPrompt = await resolveSessionPrompt(dir, sessionId, meta)
+  const systemPrompt = await resolveSessionPrompt(promptPath(dir, sessionId), meta?.promptRef)
 
   const filePath = messagesPath(dir, sessionId)
   const existing = await readJsonl(filePath)
