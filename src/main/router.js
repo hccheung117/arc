@@ -15,7 +15,8 @@ export const push = (route, data) => {
   mainWindow?.webContents.send(`ipc:push:${route}`, data)
 }
 
-const dispatch = (route, payload) => routes[route](payload)
+export const dispatch = (route, payload) => routes[route](payload)
+export const dispatchStream = (route, params) => streamRoutes[route]?.(params)
 
 export const initIpc = () => {
   ipcMain.handle('ipc:invoke', (_, route, payload) => dispatch(route, payload))
