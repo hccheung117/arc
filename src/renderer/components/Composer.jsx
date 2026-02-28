@@ -50,10 +50,10 @@ const HeaderAction = ({ action }) => {
 }
 
 function BaseComposer({ mode, config, shadowClass, footerClass }) {
-  const { sendMessage, status, stop } = useSession()
+  const { sendMessage, status, stop, prompt } = useSession()
   const { containerRef, isLocked, manualMaxHeight, startResizing, toggleLock } = useAutogrowLock()
   const workbench = useActiveWorkbench()
-  const draft = workbench.composerDrafts[mode] ?? ""
+  const value = config.useValue({ drafts: workbench.composerDrafts, mode, prompt })
 
   const handleDraftChange = useCallback((e) => {
     act().composer.setDraft(mode, e.target.value)
@@ -62,16 +62,8 @@ function BaseComposer({ mode, config, shadowClass, footerClass }) {
   const sessionId = useAppStore((s) => s.activeSessionId)
 
   const handleSubmit = (message) => {
-    if (mode === "prompt") {
-      window.api.call('session:save-prompt', { id: sessionId, content: message.text })
-      act().composer.setDraft(mode, "")
-      act().composer.setMode("chat")
-      return
-    }
-    sendMessage({ text: message.text }, { body: { promptRef: workbench.promptRef } })
-    // Submit protocol: clear draft text, then retire the draft session.
+    config.submit({ value: message.text, sessionId, sendMessage, workbench, mode, act })
     act().composer.setDraft(mode, "")
-    act().session.retireDraft()
   }
 
   return (
@@ -104,7 +96,7 @@ function BaseComposer({ mode, config, shadowClass, footerClass }) {
           <PromptInputTextarea
             className="max-h-none"
             placeholder={config.placeholder}
-            value={draft}
+            value={value}
             onChange={handleDraftChange}
             style={manualMaxHeight !== undefined ? { maxHeight: manualMaxHeight } : undefined}
           />

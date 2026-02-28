@@ -3,6 +3,7 @@ import { dialog, Menu } from 'electron'
 import { register, registerStream, push, getMainWindow } from '../router.js'
 import { resolve } from '../arcfs.js'
 import * as session from '../services/session.js'
+import { pushPrompts } from './prompts.js'
 
 const dir = resolve('sessions')
 
@@ -31,7 +32,10 @@ register('session:rename', async ({ id, title }) => {
   await pushSessions()
 })
 
-register('session:load', ({ sessionId }) => session.loadMessages(dir, sessionId))
+register('session:load', async ({ sessionId }) => ({
+  messages: await session.loadMessages(dir, sessionId),
+  prompt: await session.loadPrompt(dir, sessionId),
+}))
 
 register('session:export', async ({ sessionId }) => {
   const content = await session.exportMarkdown(dir, sessionId)
@@ -48,7 +52,8 @@ register('session:export', async ({ sessionId }) => {
 })
 
 register('session:save-prompt', async ({ id, content }) => {
-  await session.savePrompt(dir, id, content)
+  const shared = await session.savePrompt(dir, id, content)
+  if (shared) pushPrompts()
 })
 
 registerStream('session:send', async ({ sessionId, messages, promptRef, send, signal }) => {
