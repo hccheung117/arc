@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button"
 import { ImageIcon, MicIcon, PencilLine, Sparkles, Wand2 } from "lucide-react"
 import { useCallback } from "react"
 import { cn } from "@/lib/shadcn"
-import { useComposerMode, act, useActiveWorkbench } from "@/store/app-store"
+import { useComposerMode, act, useActiveWorkbench, useAppStore } from "@/store/app-store"
 import { useSession } from "@/contexts/SessionContext"
 import { useAutogrowLock, ComposerAutogrowLockHandle } from "@/components/ComposerAutogrowLock"
 import ModelSelectorButton from "@/components/ModelSelectorButton"
@@ -59,7 +59,15 @@ function BaseComposer({ mode, config, shadowClass, footerClass }) {
     act().composer.setDraft(mode, e.target.value)
   }, [mode])
 
+  const sessionId = useAppStore((s) => s.activeSessionId)
+
   const handleSubmit = (message) => {
+    if (mode === "prompt") {
+      window.api.call('session:save-prompt', { id: sessionId, content: message.text })
+      act().composer.setDraft(mode, "")
+      act().composer.setMode("chat")
+      return
+    }
     sendMessage({ text: message.text }, { body: { promptRef: workbench.promptRef } })
     // Submit protocol: clear draft text, then retire the draft session.
     act().composer.setDraft(mode, "")

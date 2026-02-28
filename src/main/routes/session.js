@@ -47,6 +47,10 @@ register('session:export', async ({ sessionId }) => {
   return true
 })
 
+register('session:save-prompt', async ({ id, content }) => {
+  await session.savePrompt(dir, id, content)
+})
+
 registerStream('session:send', async ({ sessionId, messages, promptRef, send, signal }) => {
   await session.streamText(dir, sessionId, messages, send, signal, { promptRef })
   await pushSessions()

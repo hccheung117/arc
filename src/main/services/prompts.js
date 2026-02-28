@@ -38,6 +38,10 @@ export const resolveSessionPrompt = async (dir, sessionId, meta) => {
   return resolvePrompt(meta.promptRef)
 }
 
+export const saveSessionPrompt = async (dir, sessionId, content) => {
+  await writeMarkdown(path.join(dir, sessionId, 'prompt.md'), content)
+}
+
 export const removePrompt = async (dir, name) => {
   await fs.unlink(path.join(dir, `${name}.md`)).catch(e => {
     if (e.code !== 'ENOENT') throw e

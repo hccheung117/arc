@@ -3,7 +3,7 @@ import path from 'node:path'
 import { generateId } from 'ai'
 import { sessionId } from '@shared/ids.js'
 import { readJson, writeJson, readJsonl, appendJsonl } from '../arcfs.js'
-import { resolveSessionPrompt } from './prompts.js'
+import { resolveSessionPrompt, saveSessionPrompt } from './prompts.js'
 
 const readLayout = (dir) => readJson(path.join(dir, 'layout.json'))
 const writeLayout = (dir, layout) => writeJson(path.join(dir, 'layout.json'), layout)
@@ -119,6 +119,16 @@ export const exportMarkdown = async (dir, sessionId) => {
       return `**${role}:** ${text}`
     })
     .join('\n\n')
+}
+
+export const savePrompt = async (dir, id, content) => {
+  await saveSessionPrompt(dir, id, content)
+  const metaPath = path.join(dir, id, 'meta.json')
+  const meta = await readJson(metaPath)
+  if (meta?.promptRef) {
+    const { promptRef, ...rest } = meta
+    await writeJson(metaPath, rest)
+  }
 }
 
 const MOCK_RESPONSE = "Hello! I'm a mock AI assistant running locally via IPC. This response is being streamed character by character to demonstrate the streaming infrastructure. How can I help you today?"
