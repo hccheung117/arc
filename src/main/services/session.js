@@ -2,8 +2,8 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { generateId } from 'ai'
 import { sessionId } from '@shared/ids.js'
-import { readJson, writeJson, readJsonl, appendJsonl, readMarkdown } from '../arcfs.js'
-import { resolvePrompt } from './prompts.js'
+import { readJson, writeJson, readJsonl, appendJsonl } from '../arcfs.js'
+import { resolveSessionPrompt } from './prompts.js'
 
 const readLayout = (dir) => readJson(path.join(dir, 'layout.json'))
 const writeLayout = (dir, layout) => writeJson(path.join(dir, 'layout.json'), layout)
@@ -121,13 +121,6 @@ export const exportMarkdown = async (dir, sessionId) => {
     .join('\n\n')
 }
 
-const resolveSystemPrompt = async (dir, sessionId, meta) => {
-  const local = await readMarkdown(path.join(dir, sessionId, 'prompt.md'))
-  if (local) return local
-  if (!meta?.promptRef) return null
-  return resolvePrompt(meta.promptRef)
-}
-
 const MOCK_RESPONSE = "Hello! I'm a mock AI assistant running locally via IPC. This response is being streamed character by character to demonstrate the streaming infrastructure. How can I help you today?"
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -140,7 +133,7 @@ export const streamText = async (dir, sessionId, messages, send, signal, { promp
     await writeJson(metaPath, meta)
   }
 
-  const systemPrompt = await resolveSystemPrompt(dir, sessionId, meta)
+  const systemPrompt = await resolveSessionPrompt(dir, sessionId, meta)
 
   const filePath = messagesPath(dir, sessionId)
   const existing = await readJsonl(filePath)

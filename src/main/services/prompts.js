@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { readMarkdown, writeMarkdown } from '../arcfs.js'
-import { resolveDir } from './profile.js'
+import { resolveDir, appPath } from './profile.js'
 
 export const listPrompts = async (dir) => {
   const entries = await fs.readdir(dir).catch(e => {
@@ -22,9 +22,20 @@ export const savePrompt = async (dir, name, content) => {
   return listPrompts(dir)
 }
 
-export const resolvePrompt = async (name) => {
+const resolvePrompt = async (name) => {
   const prompts = await resolveDir('prompts', listPrompts)
   return prompts.find(p => p.name === name)?.content ?? null
+}
+
+export const promptsAppDir = appPath('prompts')
+
+export const resolveProfilePrompts = () => resolveDir('prompts', listPrompts)
+
+export const resolveSessionPrompt = async (dir, sessionId, meta) => {
+  const local = await readMarkdown(path.join(dir, sessionId, 'prompt.md'))
+  if (local) return local
+  if (!meta?.promptRef) return null
+  return resolvePrompt(meta.promptRef)
 }
 
 export const removePrompt = async (dir, name) => {
