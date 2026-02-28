@@ -1,16 +1,18 @@
 import { register, push } from '../router.js'
-import { resolve } from '../arcfs.js'
 import * as prompts from '../services/prompts.js'
+import { resolveDir, appPath } from '../services/profile.js'
 
-const dir = resolve('profiles', '@app', 'prompts')
+const writeDir = appPath('prompts')
 
 export const pushPrompts = async () =>
-  push('prompt:listen', await prompts.listPrompts(dir))
+  push('prompt:listen', await resolveDir('prompts', prompts.listPrompts))
 
 register('prompt:save', async ({ name, content }) => {
-  push('prompt:listen', await prompts.savePrompt(dir, name, content))
+  await prompts.savePrompt(writeDir, name, content)
+  pushPrompts()
 })
 
 register('prompt:remove', async ({ name }) => {
-  push('prompt:listen', await prompts.removePrompt(dir, name))
+  await prompts.removePrompt(writeDir, name)
+  pushPrompts()
 })

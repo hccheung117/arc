@@ -11,20 +11,22 @@ import {
 import { useSubscription } from "@/hooks/use-subscription"
 import { act } from "@/store/app-store"
 
-function PromptMenuItem({ name, onRemove }) {
+function PromptMenuItem({ name, source, onRemove }) {
   return (
     <DropdownMenuItem className="group/item">
       <Drama />
       {name}
-      <button
-        className="group/delete ml-auto opacity-0 group-hover/item:opacity-100"
-        onClick={e => {
-          e.stopPropagation()
-          onRemove()
-        }}
-      >
-        <Trash2 className="size-4 text-muted-foreground group-hover/delete:text-red-500" />
-      </button>
+      {source === '@app' && (
+        <button
+          className="group/delete ml-auto opacity-0 group-hover/item:opacity-100"
+          onClick={e => {
+            e.stopPropagation()
+            onRemove()
+          }}
+        >
+          <Trash2 className="size-4 text-muted-foreground group-hover/delete:text-red-500" />
+        </button>
+      )}
     </DropdownMenuItem>
   )
 }
@@ -57,10 +59,11 @@ export default function NewChatButton() {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuGroup>
-            {prompts.map(({ name }) => (
+            {prompts.map(({ name, source }) => (
               <PromptMenuItem
                 key={name}
                 name={name}
+                source={source}
                 onRemove={() => window.api.call('prompt:remove', { name })}
               />
             ))}
