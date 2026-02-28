@@ -4,7 +4,8 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Shared height for sidebar header, main header, and scrollbar track offset */
+  /* Shared height for sidebar header, main header, scrollbar track offset,
+     and composer max-height cap (App.jsx). */
   --header-h: 3rem;
   --content-px: 1rem;
   --background: oklch(1 0 0);
@@ -151,7 +152,9 @@
   *::-webkit-scrollbar-thumb:hover {
     background-color: var(--ring);
   }
-  /* Conversation scrollbar — custom track range */
+  /* Conversation scrollbar — clip track to the visible content area,
+     between the sticky header and the composer overlay.
+     --footer-h is set by the ResizeObserver in App.jsx. */
   [role="log"] > div::-webkit-scrollbar-track {
     margin-top: var(--header-h);
     margin-bottom: var(--footer-h);

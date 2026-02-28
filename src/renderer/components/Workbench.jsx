@@ -20,7 +20,6 @@ const textFromParts = (msg) =>
 export default function Workbench() {
   const { mode, config } = useComposerMode()
   const { messages, id: sessionId } = useSession()
-
   useEffect(() => window.api.on('message:edit-start', ({ id, role }) => {
     act().composer.setMode(role === 'assistant' ? 'edit:ai' : 'edit:user', { messageKey: id })
   }), [])
@@ -37,13 +36,13 @@ export default function Workbench() {
   return (
     <div className="relative h-full">
       <Conversation className="h-full">
-        {/* h-full: gives the content a definite height so the empty state
-            can center vertically via justify-center. */}
-        <ConversationContent className="gap-0 p-0 h-full">
-          {/* shrink-0: this is a flex child inside a fixed-height column.
-              Without it, the growing paddingBottom on the wrapper below
-              triggers min-height:auto on the wrapper, and flexbox shrinks
-              the header to compensate. */}
+        {/* min-h-full (not h-full): StickToBottom.Content wraps this in a
+            scrollRef div and puts a ResizeObserver on the contentRef (this
+            element). With h-full the element never changes size, so the
+            observer never fires and auto-scroll-to-bottom breaks. min-h-full
+            lets it grow with content while still providing a floor for
+            empty-state centering.  See conversation.jsx for the wrapper. */}
+        <ConversationContent className="gap-0 p-0 min-h-full">
           <header className="sticky top-0 z-10 flex shrink-0 h-[var(--header-h)] items-center justify-between px-[var(--content-px)] bg-background/50 backdrop-blur-sm">
             <div className="flex items-center gap-2">
               <SidebarTrigger />
@@ -54,8 +53,10 @@ export default function Workbench() {
               <Button disabled={messages.length === 0} onClick={handleDownload} variant="ghost" size="icon-sm"><Download /></Button>
             </div>
           </header>
-          {/* min-h-0: allows this flex-1 child to shrink below its content
-              size so it yields space instead of pushing the header. */}
+          {/* flex-1: fills remaining space when content < viewport, so the
+              empty state can center vertically.
+              paddingBottom (--footer-h): clears the composer overlay; the
+              var is set by the ResizeObserver in App.jsx. */}
           <div className="flex flex-1 min-h-0 flex-col gap-6 px-[var(--content-px)] pt-4" style={{ paddingBottom: "var(--footer-h)" }}>
             {messages.length === 0 ? (
               <ConversationEmptyState

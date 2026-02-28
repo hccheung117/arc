@@ -18,6 +18,8 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const isMobile = useIsMobile()
 
+  /* --footer-h: composer height, consumed by Workbench.jsx (paddingBottom,
+     scroll-button offset) and index.css (scrollbar track margin). */
   useEffect(() => {
     const footer = footerRef.current
     const body = bodyRef.current
@@ -56,10 +58,9 @@ export default function App() {
           <SessionProvider>
             <div ref={bodyRef} data-body className="relative h-full">
               <Workbench />
-              {/* Flex-column chain: this container's max-h is the single source of
-                  truth for the composer's height limit. It propagates down via
-                  flex + min-h-0 on each descendant, so the textarea shrinks and
-                  scrolls automatically — no magic calc() values needed deeper. */}
+              {/* Composer overlay: absolute-positioned above the Workbench scroll
+                  area. max-h prevents it from covering the header. Its height
+                  is published as --footer-h (see ResizeObserver above). */}
               <div
                 ref={footerRef}
                 className="absolute inset-x-0 bottom-0 z-10 flex max-h-[calc(100%-var(--header-h))] flex-col"
