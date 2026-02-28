@@ -4,6 +4,7 @@ import { resolveMode } from "@/lib/composer-modes"
 
 const defaultWorkbench = () => ({
   modelId: null,
+  promptRef: null,
   composerDrafts: {},
   composerMode: { mode: "chat" },
   branchLeaf: null,

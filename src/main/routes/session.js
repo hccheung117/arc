@@ -47,7 +47,7 @@ register('session:export', async ({ sessionId }) => {
   return true
 })
 
-registerStream('session:send', async ({ sessionId, messages, send, signal }) => {
-  await session.streamText(dir, sessionId, messages, send, signal)
+registerStream('session:send', async ({ sessionId, messages, promptRef, send, signal }) => {
+  await session.streamText(dir, sessionId, messages, send, signal, { promptRef })
   await pushSessions()
 })

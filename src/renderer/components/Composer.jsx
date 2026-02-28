@@ -60,7 +60,7 @@ function BaseComposer({ mode, config, shadowClass, footerClass }) {
   }, [mode])
 
   const handleSubmit = (message) => {
-    sendMessage({ text: message.text })
+    sendMessage({ text: message.text }, { body: { promptRef: workbench.promptRef } })
     // Submit protocol: clear draft text, then retire the draft session.
     act().composer.setDraft(mode, "")
     act().session.retireDraft()

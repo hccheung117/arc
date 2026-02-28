@@ -11,9 +11,9 @@ import {
 import { useSubscription } from "@/hooks/use-subscription"
 import { act } from "@/store/app-store"
 
-function PromptMenuItem({ name, source, onRemove }) {
+function PromptMenuItem({ name, source, onSelect, onRemove }) {
   return (
-    <DropdownMenuItem className="group/item">
+    <DropdownMenuItem className="group/item" onSelect={onSelect}>
       <Drama />
       {name}
       {source === '@app' && (
@@ -64,6 +64,10 @@ export default function NewChatButton() {
                 key={name}
                 name={name}
                 source={source}
+                onSelect={() => {
+                  act().session.new()
+                  act().workbench.update({ promptRef: name })
+                }}
                 onRemove={() => window.api.call('prompt:remove', { name })}
               />
             ))}
