@@ -57,6 +57,14 @@ register('session:save-prompt', async ({ id, content }) => {
 })
 
 registerStream('session:send', async ({ sessionId, messages, promptRef, send, signal }) => {
-  await session.streamText(dir, sessionId, messages, send, signal, { promptRef })
+  const pushBranches = async () => {
+    const { branches } = await session.loadMessages(dir, sessionId)
+    push('session:branches', { sessionId, branches })
+  }
+  await session.streamText(dir, sessionId, messages, send, signal, {
+    promptRef,
+    onPersist: async () => { await pushBranches(); await pushSessions() },
+  })
   await pushSessions()
+  await pushBranches()
 })

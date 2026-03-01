@@ -21,5 +21,8 @@ register('message:context-menu', ({ id, role, text }) => {
   Menu.buildFromTemplate(menus[role]).popup()
 })
 
+register('message:edit-save', ({ sessionId, messageId, text }) =>
+  session.editMessage(dir, sessionId, messageId, text))
+
 register('message:switch-branch', ({ sessionId, targetId }) =>
   session.switchBranch(dir, sessionId, targetId))

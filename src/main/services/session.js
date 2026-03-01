@@ -73,14 +73,23 @@ export const pinSession = async (dir, id) => {
   await writeLayout(dir, { ...layout, pinned })
 }
 
+const ignore = (code) => (e) => { if (e.code !== code) throw e }
+
 export const duplicateSession = async (dir, id) => {
   const meta = await readJson(path.join(dir, id, 'meta.json'))
   if (!meta) return
   const newId = sessionId()
+  const srcDir = path.join(dir, id)
+  const destDir = path.join(dir, newId)
   await writeJson(
-    path.join(dir, newId, 'meta.json'),
-    { title: `${meta.title} (copy)`, createdAt: new Date().toISOString() },
+    path.join(destDir, 'meta.json'),
+    { ...meta, title: `${meta.title} (copy)`, createdAt: new Date().toISOString() },
   )
+  await Promise.all([
+    fs.copyFile(path.join(srcDir, 'messages.jsonl'), path.join(destDir, 'messages.jsonl')).catch(ignore('ENOENT')),
+    fs.copyFile(path.join(srcDir, 'prompt.md'), path.join(destDir, 'prompt.md')).catch(ignore('ENOENT')),
+    fs.cp(path.join(srcDir, 'files'), path.join(destDir, 'files'), { recursive: true }).catch(ignore('ENOENT')),
+  ])
 }
 
 export const deleteSession = async (dir, id) => {
@@ -100,8 +109,8 @@ const messagesPath = (dir, sessionId) =>
 const buildTree = (rows) => {
   const childrenOf = new Map()
   for (const r of rows) {
-    if (!r.arcParentId) continue
-    const siblings = childrenOf.get(r.arcParentId) ?? []
+    const key = r.arcParentId ?? null
+    const siblings = childrenOf.get(key) ?? []
     siblings.push(r.id)
     childrenOf.set(r.arcParentId, siblings)
   }
@@ -111,8 +120,7 @@ const buildTree = (rows) => {
 const computeBranches = (childrenOf, chain) => {
   const branches = {}
   for (const row of chain) {
-    if (row.role !== 'user' || !row.arcParentId) continue
-    const siblings = childrenOf.get(row.arcParentId)
+    const siblings = childrenOf.get(row.arcParentId ?? null)
     if (!siblings || siblings.length <= 1) continue
     branches[row.id] = {
       index: siblings.indexOf(row.id),
@@ -160,6 +168,20 @@ export const switchBranch = async (dir, sessionId, targetId) => {
   return loadMessages(dir, sessionId, leafId)
 }
 
+export const editMessage = async (dir, sessionId, messageId, text) => {
+  const filePath = messagesPath(dir, sessionId)
+  const rows = await readJsonl(filePath)
+  const original = rows.find(r => r.id === messageId)
+  const newId = generateId()
+  await appendJsonl(filePath, {
+    id: newId,
+    role: original.role,
+    parts: [{ type: 'text', text }, ...original.parts.filter(p => p.type !== 'text')],
+    arcParentId: original.arcParentId,
+  })
+  return newId
+}
+
 export const exportMarkdown = async (dir, sessionId) => {
   const { messages } = await loadMessages(dir, sessionId)
   return messages
@@ -190,7 +212,7 @@ const MOCK_RESPONSE = "Hello! I'm a mock AI assistant running locally via IPC. T
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-export const streamText = async (dir, sessionId, messages, send, signal, { promptRef } = {}) => {
+export const streamText = async (dir, sessionId, messages, send, signal, { promptRef, onPersist } = {}) => {
   const metaPath = path.join(dir, sessionId, 'meta.json')
   let meta = await readJson(metaPath)
   if (!meta) {
@@ -214,6 +236,8 @@ export const streamText = async (dir, sessionId, messages, send, signal, { promp
     await appendJsonl(filePath, { ...msg, arcParentId: lastId })
     lastId = msg.id
   }
+
+  await onPersist?.()
 
   const assistantId = generateId()
   const textId = generateId()

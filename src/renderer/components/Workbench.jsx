@@ -31,7 +31,8 @@ const BranchInit = ({ total }) => {
 
 export default function Workbench() {
   const { mode, config, setMode } = useComposer()
-  const { messages, id: sessionId, branches, switchBranch } = useSession()
+  const { messages, id: sessionId, branches, switchBranch, prompt } = useSession()
+  const hasPrompt = !!prompt
   useEffect(() => window.api.on('message:edit-start', ({ id, role }) => {
     const sid = useAppStore.getState().activeSessionId
     composerActions.setMode(sid, role === 'assistant' ? 'edit:ai' : 'edit:user', { messageKey: id })
@@ -56,41 +57,68 @@ export default function Workbench() {
             lets it grow with content while still providing a floor for
             empty-state centering.  See conversation.jsx for the wrapper. */}
         <ConversationContent className="gap-0 p-0 min-h-full">
-          <header className="sticky top-0 z-10 flex shrink-0 h-[var(--header-h)] items-center justify-between px-[var(--content-px)] bg-background/50 backdrop-blur-sm">
+          <header className="sticky top-0 z-10 flex shrink-0 h-(--header-h) items-center justify-between px-(--content-px) bg-background/50 backdrop-blur-sm">
             <div className="flex items-center gap-2">
               <SidebarTrigger />
               <span className="text-sm font-semibold">Arc AI</span>
             </div>
             <div className="flex items-center gap-1">
-              <Button variant={mode === "prompt" ? "default" : "ghost"} size="icon-sm" onClick={() => setMode(mode === "chat" ? "prompt" : "chat")}><Drama /></Button>
+              <Button
+                variant={mode === "prompt" ? "default" : "ghost"}
+                size="icon-sm"
+                className="relative"
+                onClick={() => setMode(mode === "chat" ? "prompt" : "chat")}
+              >
+                <Drama />
+                {hasPrompt && mode !== "prompt" && (
+                  <span className="absolute bottom-[2px] left-1/2 -translate-x-1/2 h-0.5 w-3 rounded-full bg-primary" />
+                )}
+              </Button>
               <Button disabled={messages.length === 0} onClick={handleDownload} variant="ghost" size="icon-sm"><Download /></Button>
             </div>
           </header>
-          {/* flex-1: fills remaining space when content < viewport, so the
-              empty state can center vertically.
-              paddingBottom (--footer-h): clears the composer overlay; the
-              var is set by the ResizeObserver in App.jsx. */}
-          <div className="flex flex-1 min-h-0 flex-col gap-6 px-[var(--content-px)] pt-4" style={{ paddingBottom: "var(--footer-h)" }}>
-            {messages.length === 0 ? (
-              <ConversationEmptyState
-                description="Messages will appear here as the conversation progresses."
-                icon={<MessageSquareIcon className="size-6" />}
-                title="Start a conversation"
-              />
-            ) : (
-              messages.map((msg) => {
+          {messages.length === 0 ? (
+            /* Empty-state contract: center in the visible viewport
+               (between header and composer) with symmetric visual padding. */
+            <div className="flex flex-1 min-h-0 px-(--content-px)">
+              <div
+                className="grid flex-1 place-items-center"
+                style={{
+                  paddingTop: "var(--content-px)",
+                  paddingBottom: "calc(var(--footer-h) + var(--content-px))",
+                }}
+              >
+                <ConversationEmptyState
+                  className="h-auto w-full max-w-lg"
+                  description="Messages will appear here as the conversation progresses."
+                  icon={<MessageSquareIcon className="size-6" />}
+                  title="Start a conversation"
+                />
+              </div>
+            </div>
+          ) : (
+            /* Message-state contract: preserve bottom clearance for overlay
+               composer while keeping streaming/scroll behavior unchanged. */
+            <div
+              className="flex flex-1 min-h-0 flex-col gap-6 px-(--content-px) pt-4"
+              style={{ paddingBottom: "var(--footer-h)" }}
+            >
+              {messages.map((msg) => {
                 const branch = branches[msg.id]
-                if (msg.role === "user" && branch) {
+                if (branch) {
                   return (
                     <MessageBranch key={msg.id} defaultBranch={branch.index}
                       onBranchChange={(i) => switchBranch(branch.siblings[i])}>
                       <BranchInit total={branch.total} />
-                      <Message from="user"
+                      <Message from={msg.role}
                         onContextMenu={(e) => handleContextMenu(e, msg)}
                         className={cn(msg.id === config.messageKey && "blur-[2px]")}>
-                        <MessageContent>{textFromParts(msg)}</MessageContent>
+                        {msg.role === "assistant"
+                          ? <MessageResponse>{textFromParts(msg)}</MessageResponse>
+                          : <MessageContent>{textFromParts(msg)}</MessageContent>
+                        }
                       </Message>
-                      <MessageBranchSelector className="ml-auto">
+                      <MessageBranchSelector className={cn(msg.role === "user" && "ml-auto")}>
                         <MessageBranchPrevious />
                         <MessageBranchPage />
                         <MessageBranchNext />
@@ -109,9 +137,9 @@ export default function Workbench() {
                     }
                   </Message>
                 )
-              })
-            )}
-          </div>
+              })}
+            </div>
+          )}
         </ConversationContent>
         <ConversationScrollButton
           style={{ bottom: "calc(var(--footer-h) + 1rem)" }}

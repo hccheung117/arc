@@ -56,10 +56,20 @@ const submitChat = (sid, value, sendMessage, promptRef) => {
   act().session.commitDraft()
 }
 
-const submitEdit = (sid, mode, value, sendMessage, promptRef) => {
+const submitEditUser = (sid, value, messages, messageKey, sendMessage, setMessages, promptRef) => {
+  const idx = messages.findIndex((m) => m.id === messageKey)
+  if (idx === -1) return
+  setMessages(messages.slice(0, idx))
   sendMessage({ text: value }, { body: { promptRef } })
-  composerActions.setDraft(sid, mode, "")
-  act().session.commitDraft()
+  composerActions.setDraft(sid, "edit:user", "")
+  composerActions.setMode(sid, "chat")
+}
+
+const submitEditAi = async (sid, value, messageKey, switchBranch) => {
+  const newId = await window.api.call("message:edit-save", { sessionId: sid, messageId: messageKey, text: value })
+  await switchBranch(newId)
+  composerActions.setDraft(sid, "edit:ai", "")
+  composerActions.setMode(sid, "chat")
 }
 
 const submitPrompt = (sid, value) => {
@@ -78,7 +88,7 @@ export const useComposerMode = () => {
 export const useComposer = () => {
   const sid = useAppStore((s) => s.activeSessionId)
   const promptRef = useAppStore((s) => s.workbenches[s.activeSessionId]?.promptRef)
-  const { sendMessage, prompt, messages } = useSession()
+  const { sendMessage, setMessages, prompt, messages, switchBranch } = useSession()
 
   const { mode, overrides, drafts } = _composerStore(
     (s) => s.sessions[sid] ?? DEFAULT_SESSION,
@@ -96,7 +106,8 @@ export const useComposer = () => {
     submit: (text) => {
       if (mode === "prompt") return submitPrompt(sid, text)
       if (mode === "chat") return submitChat(sid, text, sendMessage, promptRef)
-      submitEdit(sid, mode, text, sendMessage, promptRef)
+      if (mode === "edit:user") return submitEditUser(sid, text, messages, overrides.messageKey, sendMessage, setMessages, promptRef)
+      if (mode === "edit:ai") return submitEditAi(sid, text, overrides.messageKey, switchBranch)
     },
   }
 }
