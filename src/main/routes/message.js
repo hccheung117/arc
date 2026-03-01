@@ -2,11 +2,11 @@ import { Menu, clipboard } from 'electron'
 import { register, push } from '../router.js'
 import { resolve } from '../arcfs.js'
 import * as session from '../services/session.js'
-import { pushSessionState } from './session.js'
+import { pushSessions, pushSessionState } from './session.js'
 
 const dir = resolve('sessions')
 
-register('message:context-menu', ({ id, role, text }) => {
+register('message:context-menu', ({ sessionId, id, role, text }) => {
   const menus = {
     user: [
       { label: 'Copy', click: () => clipboard.writeText(text) },
@@ -14,7 +14,12 @@ register('message:context-menu', ({ id, role, text }) => {
     ],
     assistant: [
       { label: 'Copy', click: () => clipboard.writeText(text) },
-      { label: 'Fork', click: () => push('message:fork', { id }) },
+      { label: 'Fork', click: async () => {
+        const newId = await session.forkSession(dir, sessionId, id)
+        if (!newId) return
+        await pushSessions()
+        push('session:navigate', newId)
+      }},
       { label: 'Edit', click: () => push('message:edit-start', { id, role }) },
     ],
   }

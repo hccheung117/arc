@@ -1,7 +1,7 @@
 import { createContext, use, useCallback, useEffect, useMemo, useState } from "react"
 import { Chat, useChat } from "@ai-sdk/react"
 import { IpcTransport } from "@/lib/ipc-session-transport"
-import { useAppStore } from "@/store/app-store"
+import { useAppStore, act } from "@/store/app-store"
 import { useSubscription } from "@/hooks/use-subscription"
 
 const SessionContext = createContext()
@@ -23,6 +23,10 @@ export function SessionProvider({ children }) {
   const [branches, setBranches] = useState({})
   const promptRef = useAppStore((s) => s.workbenches[s.activeSessionId]?.promptRef)
   const profilePrompts = useSubscription('prompt:listen', [])
+
+  useEffect(() => window.api.on('session:navigate', (id) => {
+    act().session.activate(id)
+  }), [])
 
   useEffect(() => window.api.on('session:state:listen', (payload) => {
     if (payload.sessionId !== activeSessionId) return

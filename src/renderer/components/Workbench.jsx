@@ -41,7 +41,7 @@ export default function Workbench() {
   const handleContextMenu = (e, msg) => {
     e.preventDefault()
     if (status !== 'ready') return
-    window.api.call('message:context-menu', { id: msg.id, role: msg.role, text: textFromParts(msg) })
+    window.api.call('message:context-menu', { sessionId, id: msg.id, role: msg.role, text: textFromParts(msg) })
   }
 
   const handleDownload = useCallback(() => {

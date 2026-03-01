@@ -75,22 +75,50 @@ export const pinSession = async (dir, id) => {
 
 const ignore = (code) => (e) => { if (e.code !== code) throw e }
 
-export const duplicateSession = async (dir, id) => {
-  const meta = await readJson(path.join(dir, id, 'meta.json'))
-  if (!meta) return
+const deriveSession = async (dir, sourceId, { titleFn, messageFn, fileFn }) => {
+  const meta = await readJson(path.join(dir, sourceId, 'meta.json'))
+  if (!meta) return null
   const newId = sessionId()
-  const srcDir = path.join(dir, id)
+  const srcDir = path.join(dir, sourceId)
   const destDir = path.join(dir, newId)
   await writeJson(
     path.join(destDir, 'meta.json'),
-    { ...meta, title: `${meta.title} (copy)`, createdAt: new Date().toISOString() },
+    { ...meta, title: titleFn(meta.title), createdAt: new Date().toISOString() },
   )
-  await Promise.all([
-    fs.copyFile(path.join(srcDir, 'messages.jsonl'), path.join(destDir, 'messages.jsonl')).catch(ignore('ENOENT')),
-    fs.copyFile(path.join(srcDir, 'prompt.md'), path.join(destDir, 'prompt.md')).catch(ignore('ENOENT')),
-    fs.cp(path.join(srcDir, 'files'), path.join(destDir, 'files'), { recursive: true }).catch(ignore('ENOENT')),
-  ])
+  await fs.copyFile(path.join(srcDir, 'prompt.md'), path.join(destDir, 'prompt.md')).catch(ignore('ENOENT'))
+  await Promise.all([messageFn(srcDir, destDir), fileFn(srcDir, destDir)])
+  return newId
 }
+
+export const duplicateSession = (dir, id) =>
+  deriveSession(dir, id, {
+    titleFn: (title) => `${title} (copy)`,
+    messageFn: (src, dest) =>
+      fs.copyFile(path.join(src, 'messages.jsonl'), path.join(dest, 'messages.jsonl')).catch(ignore('ENOENT')),
+    fileFn: (src, dest) =>
+      fs.cp(path.join(src, 'files'), path.join(dest, 'files'), { recursive: true }).catch(ignore('ENOENT')),
+  })
+
+export const forkSession = (dir, sourceId, messageId) =>
+  deriveSession(dir, sourceId, {
+    titleFn: (title) => `${title} (fork)`,
+    messageFn: async (src, dest) => {
+      const rows = await readJsonl(path.join(src, 'messages.jsonl'))
+      const byId = new Map(rows.map(r => [r.id, r]))
+      const msg = byId.get(messageId)
+      if (!msg) throw new Error(`Message ${messageId} not found`)
+      const chain = []
+      let cur = msg
+      while (cur) {
+        chain.push(cur)
+        cur = cur.arcParentId ? byId.get(cur.arcParentId) : null
+      }
+      chain.reverse()
+      await appendJsonl(path.join(dest, 'messages.jsonl'), ...chain)
+    },
+    fileFn: (src, dest) =>
+      fs.cp(path.join(src, 'files'), path.join(dest, 'files'), { recursive: true }).catch(ignore('ENOENT')),
+  })
 
 export const deleteSession = async (dir, id) => {
   await fs.rm(path.join(dir, id), { recursive: true, force: true })
