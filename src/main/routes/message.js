@@ -1,5 +1,9 @@
 import { Menu, clipboard } from 'electron'
 import { register, push } from '../router.js'
+import { resolve } from '../arcfs.js'
+import * as session from '../services/session.js'
+
+const dir = resolve('sessions')
 
 register('message:context-menu', ({ id, role, text }) => {
   const menus = {
@@ -16,3 +20,6 @@ register('message:context-menu', ({ id, role, text }) => {
 
   Menu.buildFromTemplate(menus[role]).popup()
 })
+
+register('message:switch-branch', ({ sessionId, targetId }) =>
+  session.switchBranch(dir, sessionId, targetId))

@@ -97,24 +97,71 @@ const promptPath = (dir, sessionId) =>
 const messagesPath = (dir, sessionId) =>
   path.join(dir, sessionId, 'messages.jsonl')
 
-export const loadMessages = async (dir, sessionId) => {
+const buildTree = (rows) => {
+  const childrenOf = new Map()
+  for (const r of rows) {
+    if (!r.arcParentId) continue
+    const siblings = childrenOf.get(r.arcParentId) ?? []
+    siblings.push(r.id)
+    childrenOf.set(r.arcParentId, siblings)
+  }
+  return childrenOf
+}
+
+const computeBranches = (childrenOf, chain) => {
+  const branches = {}
+  for (const row of chain) {
+    if (row.role !== 'user' || !row.arcParentId) continue
+    const siblings = childrenOf.get(row.arcParentId)
+    if (!siblings || siblings.length <= 1) continue
+    branches[row.id] = {
+      index: siblings.indexOf(row.id),
+      total: siblings.length,
+      siblings,
+    }
+  }
+  return branches
+}
+
+const findLeaf = (id, childrenOf) => {
+  while (childrenOf.has(id)) {
+    const children = childrenOf.get(id)
+    id = children[children.length - 1]
+  }
+  return id
+}
+
+export const loadMessages = async (dir, sessionId, leafId) => {
   const rows = await readJsonl(messagesPath(dir, sessionId))
-  if (!rows.length) return []
+  if (!rows.length) return { messages: [], branches: {} }
 
   const byId = new Map(rows.map(r => [r.id, r]))
+  const childrenOf = buildTree(rows)
+
+  const start = leafId ? byId.get(leafId) : rows[rows.length - 1]
   const chain = []
-  let cur = rows[rows.length - 1]
+  let cur = start
   while (cur) {
     chain.push(cur)
     cur = cur.arcParentId ? byId.get(cur.arcParentId) : null
   }
   chain.reverse()
 
-  return chain.map(({ arcParentId, ...msg }) => msg)
+  return {
+    messages: chain.map(({ arcParentId, ...msg }) => msg),
+    branches: computeBranches(childrenOf, chain),
+  }
+}
+
+export const switchBranch = async (dir, sessionId, targetId) => {
+  const rows = await readJsonl(messagesPath(dir, sessionId))
+  const childrenOf = buildTree(rows)
+  const leafId = findLeaf(targetId, childrenOf)
+  return loadMessages(dir, sessionId, leafId)
 }
 
 export const exportMarkdown = async (dir, sessionId) => {
-  const messages = await loadMessages(dir, sessionId)
+  const { messages } = await loadMessages(dir, sessionId)
   return messages
     .map(m => {
       const role = m.role.charAt(0).toUpperCase() + m.role.slice(1)
@@ -158,7 +205,10 @@ export const streamText = async (dir, sessionId, messages, send, signal, { promp
   const knownIds = new Set(existing.map(r => r.id))
 
   const newMessages = messages.filter(m => !knownIds.has(m.id))
-  let lastId = existing.length ? existing[existing.length - 1].id : null
+  let lastId = null
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (knownIds.has(messages[i].id)) { lastId = messages[i].id; break }
+  }
 
   for (const msg of newMessages) {
     await appendJsonl(filePath, { ...msg, arcParentId: lastId })

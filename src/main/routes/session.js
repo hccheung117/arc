@@ -32,10 +32,10 @@ register('session:rename', async ({ id, title }) => {
   await pushSessions()
 })
 
-register('session:load', async ({ sessionId }) => ({
-  messages: await session.loadMessages(dir, sessionId),
-  prompt: await session.loadPrompt(dir, sessionId),
-}))
+register('session:load', async ({ sessionId }) => {
+  const { messages, branches } = await session.loadMessages(dir, sessionId)
+  return { messages, branches, prompt: await session.loadPrompt(dir, sessionId) }
+})
 
 register('session:export', async ({ sessionId }) => {
   const content = await session.exportMarkdown(dir, sessionId)

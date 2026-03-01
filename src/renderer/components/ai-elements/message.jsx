@@ -101,7 +101,7 @@ export const MessageAction = ({
 
 const MessageBranchContext = createContext(null);
 
-const useMessageBranch = () => {
+export const useMessageBranch = () => {
   const context = useContext(MessageBranchContext);
 
   if (!context) {
@@ -250,9 +250,9 @@ export const MessageBranchPage = ({
 
   return (
     <ButtonGroupText
-      className={cn("border-none bg-transparent text-muted-foreground shadow-none", className)}
+      className={cn("border-none bg-transparent text-muted-foreground shadow-none px-0", className)}
       {...props}>
-      {currentBranch + 1}of {totalBranches}
+      {currentBranch + 1} of {totalBranches}
     </ButtonGroupText>
   );
 };

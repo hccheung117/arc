@@ -11,15 +11,26 @@ import {
   ConversationEmptyState,
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation"
-import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message"
+import {
+  Message, MessageContent, MessageResponse,
+  MessageBranch, MessageBranchSelector,
+  MessageBranchPrevious, MessageBranchNext, MessageBranchPage,
+  useMessageBranch,
+} from "@/components/ai-elements/message"
 import { cn } from "@/lib/shadcn"
 
 const textFromParts = (msg) =>
   msg.parts.filter((p) => p.type === "text").map((p) => p.text).join("")
 
+const BranchInit = ({ total }) => {
+  const { setBranches } = useMessageBranch()
+  useEffect(() => { setBranches(Array(total).fill(null)) }, [total, setBranches])
+  return null
+}
+
 export default function Workbench() {
   const { mode, config } = useComposerMode()
-  const { messages, id: sessionId } = useSession()
+  const { messages, id: sessionId, branches, switchBranch } = useSession()
   useEffect(() => window.api.on('message:edit-start', ({ id, role }) => {
     act().composer.setMode(role === 'assistant' ? 'edit:ai' : 'edit:user', { messageKey: id })
   }), [])
@@ -65,17 +76,38 @@ export default function Workbench() {
                 title="Start a conversation"
               />
             ) : (
-              messages.map((msg) => (
-                <Message
-                from={msg.role} key={msg.id}
-                onContextMenu={(e) => handleContextMenu(e, msg)}
-                className={cn(msg.id === config.messageKey && "blur-[2px]")}>
-                  {msg.role === "assistant"
-                    ? <MessageResponse>{textFromParts(msg)}</MessageResponse>
-                    : <MessageContent>{textFromParts(msg)}</MessageContent>
-                  }
-                </Message>
-              ))
+              messages.map((msg) => {
+                const branch = branches[msg.id]
+                if (msg.role === "user" && branch) {
+                  return (
+                    <MessageBranch key={msg.id} defaultBranch={branch.index}
+                      onBranchChange={(i) => switchBranch(branch.siblings[i])}>
+                      <BranchInit total={branch.total} />
+                      <Message from="user"
+                        onContextMenu={(e) => handleContextMenu(e, msg)}
+                        className={cn(msg.id === config.messageKey && "blur-[2px]")}>
+                        <MessageContent>{textFromParts(msg)}</MessageContent>
+                      </Message>
+                      <MessageBranchSelector className="ml-auto">
+                        <MessageBranchPrevious />
+                        <MessageBranchPage />
+                        <MessageBranchNext />
+                      </MessageBranchSelector>
+                    </MessageBranch>
+                  )
+                }
+                return (
+                  <Message
+                    from={msg.role} key={msg.id}
+                    onContextMenu={(e) => handleContextMenu(e, msg)}
+                    className={cn(msg.id === config.messageKey && "blur-[2px]")}>
+                    {msg.role === "assistant"
+                      ? <MessageResponse>{textFromParts(msg)}</MessageResponse>
+                      : <MessageContent>{textFromParts(msg)}</MessageContent>
+                    }
+                  </Message>
+                )
+              })
             )}
           </div>
         </ConversationContent>

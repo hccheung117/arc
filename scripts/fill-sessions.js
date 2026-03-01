@@ -110,18 +110,28 @@ withApp(async () => {
     results.push({ id, title })
   }
 
-  // Add a branch to "Code Review: Rate Limiter" to exercise tree behavior
-  const rateLimiter = results.find(r => r.title === 'Code Review: Rate Limiter')
-  if (rateLimiter) {
-    const filePath = path.join(dir, rateLimiter.id, 'messages.jsonl')
+  // Add a user-message branch to "SQL Query Optimization" to exercise tree behavior
+  const sqlOpt = results.find(r => r.title === 'SQL Query Optimization')
+  if (sqlOpt) {
+    const filePath = path.join(dir, sqlOpt.id, 'messages.jsonl')
     const written = await readJsonl(filePath)
+    // written[2] is the second user msg ("The rewrite brought it to 400ms...")
+    // Its parent is written[1] (the first assistant response)
+    // Create a sibling user msg with the same parent
+    const branchUserId = generateId()
+    await appendJsonl(filePath, {
+      id: branchUserId,
+      role: 'user',
+      parts: [{ type: 'text', text: 'That helped a lot! What about adding an index on the `created_at` column? Would a partial index be better here?' }],
+      arcParentId: written[1].id,
+    })
     await appendJsonl(filePath, {
       id: generateId(),
       role: 'assistant',
-      parts: [{ type: 'text', text: 'I see a few issues but overall this is a reasonable approach for a simple use case. The main concern is the `setInterval` — it creates a fixed window that can be gamed. But for internal APIs with trusted clients, this is acceptable.\n\nIf you need production-grade limiting, look at `express-rate-limit` with a Redis store.' }],
-      arcParentId: written[0].id,
+      parts: [{ type: 'text', text: 'A partial index is a great idea for this query since you\'re filtering on `created_at > \'2024-01-01\'`:\n\n```sql\nCREATE INDEX idx_users_created_active\n  ON users (created_at)\n  WHERE created_at > \'2024-01-01\';\n```\n\nHowever, partial indexes need the query\'s WHERE clause to match the index predicate. If the date threshold changes, the index becomes useless. A regular B-tree index on `created_at` is more flexible and still fast for range scans on 2M rows.' }],
+      arcParentId: branchUserId,
     })
-    console.log(`  ↳ Branch added to "${rateLimiter.title}"`)
+    console.log(`  ↳ Branch added to "${sqlOpt.title}"`)
   }
 
   console.log(`\nCreated ${results.length} sessions:\n`)
