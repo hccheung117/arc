@@ -66,11 +66,10 @@ export default function Workbench() {
               />
             ) : (
               messages.map((msg) => (
-                <Message 
-                from={msg.role} key={msg.id} 
-                onClick={() => act().composer.setMode(msg.role === "assistant" ? "edit:ai" : "edit:user", { messageKey: msg.id })} 
-                onContextMenu={(e) => handleContextMenu(e, msg)} 
-                className={cn("cursor-pointer", msg.id === config.messageKey && "blur-[2px]")}>
+                <Message
+                from={msg.role} key={msg.id}
+                onContextMenu={(e) => handleContextMenu(e, msg)}
+                className={cn(msg.id === config.messageKey && "blur-[2px]")}>
                   {msg.role === "assistant"
                     ? <MessageResponse>{textFromParts(msg)}</MessageResponse>
                     : <MessageContent>{textFromParts(msg)}</MessageContent>

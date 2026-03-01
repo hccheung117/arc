@@ -1,6 +1,12 @@
 import { ArrowUp, Save, Split } from "lucide-react"
 
+const textFromParts = (msg) =>
+  msg?.parts.filter((p) => p.type === "text").map((p) => p.text).join("")
+
 const draftValue = ({ drafts, mode }) => drafts[mode] ?? ""
+
+const editValue = ({ drafts, mode, messages, messageKey }) =>
+  drafts[mode] ?? textFromParts(messages?.find((m) => m.id === messageKey)) ?? ""
 
 const sendSubmit = ({ value, sendMessage, workbench, act }) => {
   sendMessage({ text: value }, { body: { promptRef: workbench.promptRef } })
@@ -21,7 +27,7 @@ export const MODES = {
     placeholder: "",
     tools: ["attach", "model", "mic"],
     submitIcon: Split,
-    useValue: draftValue,
+    useValue: editValue,
     submit: sendSubmit,
   },
   "edit:ai": {
@@ -29,7 +35,7 @@ export const MODES = {
     placeholder: "",
     tools: ["mic"],
     submitIcon: Save,
-    useValue: draftValue,
+    useValue: editValue,
     submit: sendSubmit,
   },
   prompt: {

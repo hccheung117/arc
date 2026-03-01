@@ -50,10 +50,10 @@ const HeaderAction = ({ action }) => {
 }
 
 function BaseComposer({ mode, config, shadowClass, footerClass }) {
-  const { sendMessage, status, stop, prompt } = useSession()
+  const { sendMessage, status, stop, prompt, messages } = useSession()
   const { containerRef, isLocked, manualMaxHeight, startResizing, toggleLock } = useAutogrowLock()
   const workbench = useActiveWorkbench()
-  const value = config.useValue({ drafts: workbench.composerDrafts, mode, prompt })
+  const value = config.useValue({ drafts: workbench.composerDrafts, mode, prompt, messages, messageKey: config.messageKey })
 
   const handleDraftChange = useCallback((e) => {
     act().composer.setDraft(mode, e.target.value)
