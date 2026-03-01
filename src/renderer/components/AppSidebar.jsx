@@ -111,7 +111,7 @@ export default function AppSidebar() {
                         onClick={() => act().session.activate(chat.id)}
                         onContextMenu={(e) => handleContextMenu(e, chat.id)}
                       >
-                        {chat.title}
+                        <span>{chat.title}</span>
                       </SidebarMenuButton>
                     )}
                   </SidebarMenuItem>

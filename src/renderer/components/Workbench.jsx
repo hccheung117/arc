@@ -50,12 +50,8 @@ export default function Workbench() {
   return (
     <div className="relative h-full">
       <Conversation className="h-full">
-        {/* min-h-full (not h-full): StickToBottom.Content wraps this in a
-            scrollRef div and puts a ResizeObserver on the contentRef (this
-            element). With h-full the element never changes size, so the
-            observer never fires and auto-scroll-to-bottom breaks. min-h-full
-            lets it grow with content while still providing a floor for
-            empty-state centering.  See conversation.jsx for the wrapper. */}
+        {/* Layout: see docs/ui-chat-viewport-layout.md
+            min-h-full (not h-full) so ResizeObserver in StickToBottom fires. */}
         <ConversationContent className="gap-0 p-0 min-h-full">
           <header className="sticky top-0 z-10 flex shrink-0 h-(--header-h) items-center justify-between px-(--content-px) bg-background/50 backdrop-blur-sm">
             <div className="flex items-center gap-2">
@@ -78,8 +74,7 @@ export default function Workbench() {
             </div>
           </header>
           {messages.length === 0 ? (
-            /* Empty-state contract: center in the visible viewport
-               (between header and composer) with symmetric visual padding. */
+            /* Empty-state contract — see docs/ui-chat-viewport-layout.md */
             <div className="flex flex-1 min-h-0 px-(--content-px)">
               <div
                 className="grid flex-1 place-items-center"
@@ -97,8 +92,7 @@ export default function Workbench() {
               </div>
             </div>
           ) : (
-            /* Message-state contract: preserve bottom clearance for overlay
-               composer while keeping streaming/scroll behavior unchanged. */
+            /* Message-flow contract — see docs/ui-chat-viewport-layout.md */
             <div
               className="flex flex-1 min-h-0 flex-col gap-6 px-(--content-px) pt-4"
               style={{ paddingBottom: "var(--footer-h)" }}

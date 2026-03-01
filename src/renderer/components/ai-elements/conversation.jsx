@@ -17,6 +17,7 @@ export const Conversation = ({
     {...props} />
 );
 
+// Layout contract: see docs/ui-chat-viewport-layout.md
 export const ConversationContent = ({
   className,
   ...props

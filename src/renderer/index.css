@@ -154,9 +154,7 @@
   *::-webkit-scrollbar-thumb:hover {
     background-color: var(--ring);
   }
-  /* Conversation scrollbar — clip track to the visible content area,
-     between the sticky header and the composer overlay.
-     --footer-h is set by the ResizeObserver in App.jsx. */
+  /* Scrollbar track insets — see docs/ui-chat-viewport-layout.md */
   [role="log"] > div::-webkit-scrollbar-track {
     margin-top: var(--header-h);
     margin-bottom: var(--footer-h);

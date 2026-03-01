@@ -18,8 +18,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const isMobile = useIsMobile()
 
-  /* --footer-h: composer height, consumed by Workbench.jsx (paddingBottom,
-     scroll-button offset) and index.css (scrollbar track margin). */
+  /* --footer-h: composer height — see docs/ui-chat-viewport-layout.md */
   useEffect(() => {
     const footer = footerRef.current
     const body = bodyRef.current
