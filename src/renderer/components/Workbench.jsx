@@ -31,7 +31,7 @@ const BranchInit = ({ total }) => {
 
 export default function Workbench() {
   const { mode, config, setMode } = useComposer()
-  const { messages, id: sessionId, branches, switchBranch, prompt } = useSession()
+  const { messages, id: sessionId, branches, switchBranch, prompt, status } = useSession()
   const hasPrompt = !!prompt
   useEffect(() => window.api.on('message:edit-start', ({ id, role }) => {
     const sid = useAppStore.getState().activeSessionId
@@ -40,6 +40,7 @@ export default function Workbench() {
 
   const handleContextMenu = (e, msg) => {
     e.preventDefault()
+    if (status !== 'ready') return
     window.api.call('message:context-menu', { id: msg.id, role: msg.role, text: textFromParts(msg) })
   }
 
@@ -113,9 +114,9 @@ export default function Workbench() {
                         }
                       </Message>
                       <MessageBranchSelector className={cn(msg.role === "user" && "ml-auto")}>
-                        <MessageBranchPrevious />
+                        <MessageBranchPrevious disabled={status !== 'ready'} />
                         <MessageBranchPage />
-                        <MessageBranchNext />
+                        <MessageBranchNext disabled={status !== 'ready'} />
                       </MessageBranchSelector>
                     </MessageBranch>
                   )

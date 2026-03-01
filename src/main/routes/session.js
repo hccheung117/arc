@@ -10,7 +10,10 @@ const dir = resolve('sessions')
 const pushSessions = async () =>
   push('session:listen', await session.listSessions(dir))
 
-export { pushSessions }
+const pushSessionState = (sessionId, patch) =>
+  push('session:state:listen', { sessionId, ...patch })
+
+export { pushSessions, pushSessionState }
 
 register('session:list', () => session.listSessions(dir))
 
@@ -32,9 +35,10 @@ register('session:rename', async ({ id, title }) => {
   await pushSessions()
 })
 
-register('session:load', async ({ sessionId }) => {
+register('session:activate', async ({ sessionId }) => {
   const { messages, branches } = await session.loadMessages(dir, sessionId)
-  return { messages, branches, prompt: await session.loadPrompt(dir, sessionId) }
+  const prompt = await session.loadPrompt(dir, sessionId)
+  pushSessionState(sessionId, { messages, branches, prompt })
 })
 
 register('session:export', async ({ sessionId }) => {
@@ -54,12 +58,14 @@ register('session:export', async ({ sessionId }) => {
 register('session:save-prompt', async ({ id, content }) => {
   const shared = await session.savePrompt(dir, id, content)
   if (shared) pushPrompts()
+  const prompt = await session.loadPrompt(dir, id)
+  pushSessionState(id, { prompt })
 })
 
 registerStream('session:send', async ({ sessionId, messages, promptRef, send, signal }) => {
   const pushBranches = async () => {
     const { branches } = await session.loadMessages(dir, sessionId)
-    push('session:branches', { sessionId, branches })
+    pushSessionState(sessionId, { branches })
   }
   await session.streamText(dir, sessionId, messages, send, signal, {
     promptRef,

@@ -24,6 +24,13 @@ export function SessionProvider({ children }) {
   const promptRef = useAppStore((s) => s.workbenches[s.activeSessionId]?.promptRef)
   const profilePrompts = useSubscription('prompt:listen', [])
 
+  useEffect(() => window.api.on('session:state:listen', (payload) => {
+    if (payload.sessionId !== activeSessionId) return
+    if (payload.messages) chat.setMessages(payload.messages)
+    if (payload.branches) setBranches(payload.branches)
+    if ('prompt' in payload) setPrompt(payload.prompt)
+  }), [activeSessionId])
+
   useEffect(() => {
     const { draftSessionId } = useAppStore.getState()
     if (activeSessionId === draftSessionId) {
@@ -35,28 +42,12 @@ export function SessionProvider({ children }) {
       )
       return
     }
-
-    const skipMessages = chat.messages.length > 0 || chat.status !== 'ready'
-
-    window.api.call('session:load', { sessionId: activeSessionId })
-      .then(({ messages, branches, prompt }) => {
-        if (!skipMessages) chat.setMessages(messages)
-        setBranches(branches)
-        setPrompt(prompt)
-      })
+    window.api.call('session:activate', { sessionId: activeSessionId })
   }, [activeSessionId, promptRef, profilePrompts])
 
-  useEffect(() => window.api.on('session:branches', ({ sessionId, branches }) => {
-    if (sessionId === activeSessionId) setBranches(branches)
-  }), [activeSessionId])
-
-  const switchBranch = useCallback(async (targetId) => {
-    const result = await window.api.call('message:switch-branch', {
-      sessionId: activeSessionId, targetId,
-    })
-    chat.setMessages(result.messages)
-    setBranches(result.branches)
-  }, [activeSessionId, chat])
+  const switchBranch = useCallback((targetId) => {
+    window.api.call('message:switch-branch', { sessionId: activeSessionId, targetId })
+  }, [activeSessionId])
 
   return (
     <SessionContext value={{ ...chat, prompt, branches, switchBranch }}>
