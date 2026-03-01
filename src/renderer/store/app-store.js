@@ -1,12 +1,9 @@
 import { create } from "zustand"
 import { sessionId } from "@shared/ids.js"
-import { resolveMode } from "@/lib/composer-modes"
 
 const defaultWorkbench = () => ({
   modelId: null,
   promptRef: null,
-  composerDrafts: {},
-  composerMode: { mode: "chat" },
   branchLeaf: null,
   scrollAnchor: null,
 })
@@ -39,42 +36,12 @@ export const useAppStore = create((set) => ({
     }),
 
     // Promotes the current draft to a real session and prepares a fresh draft.
-    // Submit protocol: composer.setDraft(mode, "") → session.retireDraft()
-    retireDraft: () => set((s) => {
+    commitDraft: () => set((s) => {
       if (s.activeSessionId !== s.draftSessionId) return s
       const id = sessionId()
       return {
         draftSessionId: id,
         workbenches: { ...s.workbenches, [id]: defaultWorkbench() },
-      }
-    }),
-  },
-
-  composer: {
-    setMode: (mode, overrides) => set((s) => {
-      const wb = s.workbenches[s.activeSessionId]
-      return {
-        workbenches: {
-          ...s.workbenches,
-          [s.activeSessionId]: {
-            ...wb,
-            composerMode: { mode, ...overrides },
-          },
-        },
-      }
-    }),
-
-    // Submit protocol: composer.setDraft(mode, "") → session.retireDraft()
-    setDraft: (mode, value) => set((s) => {
-      const wb = s.workbenches[s.activeSessionId]
-      return {
-        workbenches: {
-          ...s.workbenches,
-          [s.activeSessionId]: {
-            ...wb,
-            composerDrafts: { ...wb.composerDrafts, [mode]: value },
-          },
-        },
       }
     }),
   },
@@ -90,12 +57,6 @@ export const useAppStore = create((set) => ({
 }))
 
 export const act = useAppStore.getState
-
-export const useComposerMode = () => {
-  const composerMode = useAppStore((s) => s.workbenches[s.activeSessionId]?.composerMode)
-  const { mode, ...overrides } = composerMode ?? { mode: "chat" }
-  return { mode, config: resolveMode(mode, overrides) }
-}
 
 export const useActiveWorkbench = () =>
   useAppStore((s) => s.workbenches[s.activeSessionId])

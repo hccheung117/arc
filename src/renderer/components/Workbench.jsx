@@ -2,7 +2,8 @@ import { Drama, Download } from "lucide-react"
 import { MessageSquareIcon } from "lucide-react"
 import { useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { useComposerMode, act } from "@/store/app-store"
+import { useComposer, composerActions } from "@/hooks/use-composer"
+import { useAppStore } from "@/store/app-store"
 import { useSession } from "@/contexts/SessionContext"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import {
@@ -29,10 +30,11 @@ const BranchInit = ({ total }) => {
 }
 
 export default function Workbench() {
-  const { mode, config } = useComposerMode()
+  const { mode, config, setMode } = useComposer()
   const { messages, id: sessionId, branches, switchBranch } = useSession()
   useEffect(() => window.api.on('message:edit-start', ({ id, role }) => {
-    act().composer.setMode(role === 'assistant' ? 'edit:ai' : 'edit:user', { messageKey: id })
+    const sid = useAppStore.getState().activeSessionId
+    composerActions.setMode(sid, role === 'assistant' ? 'edit:ai' : 'edit:user', { messageKey: id })
   }), [])
 
   const handleContextMenu = (e, msg) => {
@@ -60,7 +62,7 @@ export default function Workbench() {
               <span className="text-sm font-semibold">Arc AI</span>
             </div>
             <div className="flex items-center gap-1">
-              <Button variant={mode === "prompt" ? "default" : "ghost"} size="icon-sm" onClick={() => act().composer.setMode(mode === "chat" ? "prompt" : "chat")}><Drama /></Button>
+              <Button variant={mode === "prompt" ? "default" : "ghost"} size="icon-sm" onClick={() => setMode(mode === "chat" ? "prompt" : "chat")}><Drama /></Button>
               <Button disabled={messages.length === 0} onClick={handleDownload} variant="ghost" size="icon-sm"><Download /></Button>
             </div>
           </header>

@@ -11,9 +11,8 @@ import {
 } from "@/components/ai-elements/prompt-input"
 import { Button } from "@/components/ui/button"
 import { ImageIcon, MicIcon, PencilLine, Sparkles, Wand2 } from "lucide-react"
-import { useCallback } from "react"
 import { cn } from "@/lib/shadcn"
-import { useComposerMode, act, useActiveWorkbench, useAppStore } from "@/store/app-store"
+import { useComposer, useComposerMode } from "@/hooks/use-composer"
 import { useSession } from "@/contexts/SessionContext"
 import { useAutogrowLock, ComposerAutogrowLockHandle } from "@/components/ComposerAutogrowLock"
 import ModelSelectorButton from "@/components/ModelSelectorButton"
@@ -38,33 +37,25 @@ const ToolButton = ({ tool }) => {
   }
 }
 
-const HeaderAction = ({ action }) => {
+const HeaderAction = ({ action, onCancel }) => {
   switch (action) {
     case "refine":
       return <Button variant="ghost" size="xs"><Wand2 className="size-3" />Refine</Button>
     case "promote":
       return <Button variant="ghost" size="xs"><Sparkles className="size-3" />Promote</Button>
     case "cancel":
-      return <Button variant="ghost" size="xs" onClick={() => act().composer.setMode("chat")}>Cancel</Button>
+      return <Button variant="ghost" size="xs" onClick={onCancel}>Cancel</Button>
   }
 }
 
-function BaseComposer({ mode, config, shadowClass, footerClass }) {
-  const { sendMessage, status, stop, prompt, messages } = useSession()
+function BaseComposer({ shadowClass, footerClass }) {
+  const { mode, config, value, updateDraft, submit, setMode } = useComposer()
+  const { status, stop } = useSession()
   const { containerRef, isLocked, manualMaxHeight, startResizing, toggleLock } = useAutogrowLock()
-  const workbench = useActiveWorkbench()
-  const value = config.useValue({ drafts: workbench.composerDrafts, mode, prompt, messages, messageKey: config.messageKey })
 
-  const handleDraftChange = useCallback((e) => {
-    act().composer.setDraft(mode, e.target.value)
-  }, [mode])
-
-  const sessionId = useAppStore((s) => s.activeSessionId)
-
-  const handleSubmit = (message) => {
-    config.submit({ value: message.text, sessionId, sendMessage, workbench, mode, act })
-    act().composer.setDraft(mode, "")
-  }
+  const handleDraftChange = (e) => updateDraft(e.target.value)
+  const handleSubmit = (message) => submit(message.text)
+  const handleCancel = () => setMode("chat")
 
   return (
     <div ref={containerRef} className="flex min-h-0 flex-col px-[var(--content-px)] pb-[var(--content-px)]">
@@ -87,7 +78,7 @@ function BaseComposer({ mode, config, shadowClass, footerClass }) {
             </div>
             <div className="flex items-center gap-0.5">
               {config.header.actions.map((action) => (
-                <HeaderAction key={action} action={action} />
+                <HeaderAction key={action} action={action} onCancel={handleCancel} />
               ))}
             </div>
           </PromptInputHeader>
@@ -117,18 +108,16 @@ function BaseComposer({ mode, config, shadowClass, footerClass }) {
   )
 }
 
-function ChatComposer({ mode, config }) {
-  return <BaseComposer mode={mode} config={config}
-    shadowClass="shadow-[0_4px_30px_rgba(0,0,0,0.3)]" />
+function ChatComposer() {
+  return <BaseComposer shadowClass="shadow-[0_4px_30px_rgba(0,0,0,0.3)]" />
 }
 
-function PromptComposer({ mode, config }) {
-  return <BaseComposer mode={mode} config={config}
-    shadowClass="shadow-[0_3px_20px_rgba(255,0,0,0.3)]" footerClass="ml-auto" />
+function PromptComposer() {
+  return <BaseComposer shadowClass="shadow-[0_3px_20px_rgba(255,0,0,0.3)]" footerClass="ml-auto" />
 }
 
 export default function Composer() {
-  const { mode, config } = useComposerMode()
+  const mode = useComposerMode()
   const Variant = mode === "prompt" ? PromptComposer : ChatComposer
-  return <Variant mode={mode} config={config} />
+  return <Variant />
 }
