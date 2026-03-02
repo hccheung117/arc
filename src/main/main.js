@@ -5,6 +5,7 @@ import { initIpc, setMainWindow } from './router.js';
 import { pushSessions } from './routes/session.js';
 import { pushPrompts } from './routes/prompts.js';
 import { pushModels } from './routes/models.js';
+import { pushState } from './routes/state.js';
 import './routes/message.js';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -32,7 +33,8 @@ const createWindow = () => {
   mainWindow.webContents.on('did-finish-load', async () => {
     await pushSessions();
     await pushPrompts();
-    pushModels();
+    await pushModels();
+    await pushState();
   });
 
   // and load the index.html of the app.

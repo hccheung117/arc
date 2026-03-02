@@ -12,13 +12,26 @@ import {
   ModelSelectorTrigger,
 } from "@/components/ai-elements/model-selector"
 import { PromptInputButton } from "@/components/ai-elements/prompt-input"
+import { useActiveWorkbench, act } from "@/store/app-store"
 import { BrainIcon } from "lucide-react"
-import { useCallback, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { useSubscription } from "@/hooks/use-subscription"
 
 export default function ModelSelectorButton() {
+  const [open, setOpen] = useState(false)
   const [favorites, setFavorites] = useState(() => new Set())
   const models = useSubscription('model:listen', [])
+  const state = useSubscription('state:listen', {})
+  const { modelId } = useActiveWorkbench()
+  const effectiveModelId = modelId ?? state.lastUsedModel
+
+  const selectedName = useMemo(() => {
+    for (const group of models) {
+      const found = group.models.find((m) => m.id === effectiveModelId)
+      if (found) return found.name
+    }
+    return null
+  }, [models, effectiveModelId])
 
   const toggleFavorite = useCallback((id) => {
     setFavorites((prev) => {
@@ -29,12 +42,18 @@ export default function ModelSelectorButton() {
     })
   }, [])
 
+  const selectModel = useCallback((id) => {
+    act().workbench.update({ modelId: id })
+    window.api.call('state:set', { lastUsedModel: id })
+    setOpen(false)
+  }, [])
+
   return (
-    <ModelSelector>
+    <ModelSelector open={open} onOpenChange={setOpen}>
       <ModelSelectorTrigger asChild>
         <PromptInputButton>
           <BrainIcon className="size-4" />
-          <span>Model</span>
+          <span>{selectedName ?? "Model"}</span>
         </PromptInputButton>
       </ModelSelectorTrigger>
       <ModelSelectorContent>
@@ -44,7 +63,7 @@ export default function ModelSelectorButton() {
           {models.map((group) => (
             <ModelSelectorGroup key={group.provider} heading={group.provider}>
               {group.models.map((model) => (
-                <ModelSelectorItem key={model.id} value={model.id}>
+                <ModelSelectorItem key={model.id} value={model.id} onSelect={selectModel}>
                   <ModelSelectorLogo provider={group.providerId} />
                   <ModelSelectorName>{model.name}</ModelSelectorName>
                   <ModelSelectorFavorite
