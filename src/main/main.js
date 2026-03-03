@@ -5,6 +5,7 @@ import { initIpc, setMainWindow } from './router.js';
 import { pushSessions } from './routes/session.js';
 import { pushPrompts } from './routes/prompts.js';
 import { pushModels } from './routes/models.js';
+import { pushProviders } from './routes/providers.js';
 import { pushState } from './routes/state.js';
 import './routes/message.js';
 
@@ -34,6 +35,7 @@ const createWindow = () => {
     await pushSessions();
     await pushPrompts();
     await pushModels();
+    await pushProviders();
     await pushState();
   });
 

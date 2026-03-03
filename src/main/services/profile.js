@@ -17,6 +17,11 @@ export const activateProfile = async (name) => {
   await writeJson(configPath(), { activeProfile: name })
 }
 
+export const getActiveProfile = async () => {
+  const config = await readJson(configPath())
+  return config?.activeProfile ?? null
+}
+
 export const resolveDir = async (subpath, listFn) => {
   const appEntries = await listFn(resolve('profiles', '@app', subpath))
   const appTagged = appEntries.map(e => ({ ...e, source: '@app' }))
