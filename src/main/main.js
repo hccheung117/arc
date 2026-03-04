@@ -4,7 +4,7 @@ import started from 'electron-squirrel-startup';
 import { initIpc, setMainWindow } from './router.js';
 import { pushSessions } from './routes/session.js';
 import { pushPrompts } from './routes/prompts.js';
-import { pushModels } from './routes/models.js';
+import { pushModels, refreshModels } from './routes/models.js';
 import { pushProviders } from './routes/providers.js';
 import { pushState } from './routes/state.js';
 import './routes/message.js';
@@ -37,6 +37,7 @@ const createWindow = () => {
     await pushModels();
     await pushProviders();
     await pushState();
+    refreshModels();
   });
 
   // and load the index.html of the app.

@@ -20,13 +20,13 @@ import { useSubscription } from "@/hooks/use-subscription"
 export default function ModelSelectorButton() {
   const [open, setOpen] = useState(false)
   const [favorites, setFavorites] = useState(() => new Set())
-  const models = useSubscription('model:listen', [])
+  const models = useSubscription('model:listen', {})
   const state = useSubscription('state:listen', {})
   const { modelId } = useActiveWorkbench()
   const effectiveModelId = modelId ?? state.lastUsedModel
 
   const selectedName = useMemo(() => {
-    for (const group of models) {
+    for (const group of Object.values(models)) {
       const found = group.models.find((m) => m.id === effectiveModelId)
       if (found) return found.name
     }
@@ -60,11 +60,11 @@ export default function ModelSelectorButton() {
         <ModelSelectorInput placeholder="Search models..." />
         <ModelSelectorList className="min-h-[300px]">
           <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
-          {models.map((group) => (
-            <ModelSelectorGroup key={group.provider} heading={group.provider}>
+          {Object.entries(models).map(([providerId, group]) => (
+            <ModelSelectorGroup key={providerId} heading={group.name}>
               {group.models.map((model) => (
                 <ModelSelectorItem key={model.id} value={model.id} onSelect={selectModel}>
-                  <ModelSelectorLogo provider={group.providerId} />
+                  <ModelSelectorLogo provider={providerId} />
                   <ModelSelectorName>{model.name}</ModelSelectorName>
                   <ModelSelectorFavorite
                     active={favorites.has(model.id)}
