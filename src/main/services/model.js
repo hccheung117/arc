@@ -1,3 +1,4 @@
+import picomatch from 'picomatch'
 import { readJson, writeJson } from '../arcfs.js'
 
 export const listModels = async (cacheFile) => {
@@ -24,6 +25,19 @@ const fetchOpenAI = async ({ baseUrl, apiKey }) => {
 
 const fetchers = { anthropic: fetchAnthropic, openai: fetchOpenAI }
 
+const filterModels = (models, pipeline) =>
+  pipeline.reduce((acc, step) => {
+    if (step.keep) {
+      const match = picomatch(step.keep)
+      return acc.filter(m => match(m.id))
+    }
+    if (step.drop) {
+      const match = picomatch(step.drop)
+      return acc.filter(m => !match(m.id))
+    }
+    return acc
+  }, models)
+
 export const fetchModelsFromProviders = async (providers, cacheFile) => {
   const stale = await listModels(cacheFile)
 
@@ -33,12 +47,15 @@ export const fetchModelsFromProviders = async (providers, cacheFile) => {
       const fetcher = fetchers[p.type]
       try {
         if (!fetcher) throw new Error(`Unknown type: ${p.type}`)
-        return [id, { name: p.name, models: await fetcher(p) }]
+        const models = await fetcher(p)
+        const filtered = p.models ? filterModels(models, p.models) : models
+        return [id, { name: p.name, models: filtered }]
       } catch (err) {
         if (fetcher === fetchOpenAI) throw err
         // Proxies may not follow the provider's model-listing API
         // but most support OpenAI-compatible /v1/models
-        const models = await fetchOpenAI(p)
+        const raw = await fetchOpenAI(p)
+        const models = p.models ? filterModels(raw, p.models) : raw
         return [id, { name: p.name, models, warning: `${err.message}; used OpenAI-compatible fallback` }]
       }
     })

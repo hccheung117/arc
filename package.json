@@ -34,6 +34,8 @@
     "vite": "^5.4.21"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.53",
+    "@ai-sdk/openai": "^3.0.39",
     "@ai-sdk/react": "^3.0.99",
     "@streamdown/cjk": "^1.0.2",
     "@streamdown/code": "^1.0.3",
@@ -46,6 +48,7 @@
     "cmdk": "^1.1.1",
     "electron-squirrel-startup": "^1.0.1",
     "lucide-react": "^0.564.0",
+    "picomatch": "^4.0.3",
     "radix-ui": "^1.4.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
