@@ -2,6 +2,7 @@ import { create } from "zustand"
 import { sessionId } from "@shared/ids.js"
 
 const defaultWorkbench = () => ({
+  providerId: null,
   modelId: null,
   promptRef: null,
   branchLeaf: null,

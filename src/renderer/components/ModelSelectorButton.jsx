@@ -42,9 +42,9 @@ export default function ModelSelectorButton() {
     })
   }, [])
 
-  const selectModel = useCallback((id) => {
-    act().workbench.update({ modelId: id })
-    window.api.call('state:set', { lastUsedModel: id })
+  const selectModel = useCallback((providerId, id) => {
+    act().workbench.update({ providerId, modelId: id })
+    window.api.call('state:set', { lastUsedProvider: providerId, lastUsedModel: id })
     setOpen(false)
   }, [])
 
@@ -63,7 +63,7 @@ export default function ModelSelectorButton() {
           {Object.entries(models).map(([providerId, group]) => (
             <ModelSelectorGroup key={providerId} heading={group.name}>
               {group.models.map((model) => (
-                <ModelSelectorItem key={model.id} value={model.id} onSelect={selectModel}>
+                <ModelSelectorItem key={model.id} value={model.id} onSelect={() => selectModel(providerId, model.id)}>
                   <ModelSelectorLogo provider={providerId} />
                   <ModelSelectorName>{model.name}</ModelSelectorName>
                   <ModelSelectorFavorite

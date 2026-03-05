@@ -16,6 +16,7 @@ import { create } from "zustand"
 import { resolveMode, textFromParts } from "@/lib/composer-modes"
 import { useAppStore, act } from "@/store/app-store"
 import { useSession } from "@/contexts/SessionContext"
+import { useSubscription } from "@/hooks/use-subscription"
 
 // --- private store -----------------------------------------------------------
 
@@ -50,17 +51,17 @@ const deriveValue = (mode, overrides, drafts, prompt, messages) => {
 
 // --- submit protocols --------------------------------------------------------
 
-const submitChat = (sid, value, sendMessage, promptRef) => {
-  sendMessage({ text: value }, { body: { promptRef } })
+const submitChat = (sid, value, sendMessage, promptRef, providerId, modelId) => {
+  sendMessage({ text: value }, { body: { promptRef, providerId, modelId } })
   composerActions.setDraft(sid, "chat", "")
   act().session.commitDraft()
 }
 
-const submitEditUser = (sid, value, messages, messageKey, sendMessage, setMessages, promptRef) => {
+const submitEditUser = (sid, value, messages, messageKey, sendMessage, setMessages, promptRef, providerId, modelId) => {
   const idx = messages.findIndex((m) => m.id === messageKey)
   if (idx === -1) return
   setMessages(messages.slice(0, idx))
-  sendMessage({ text: value }, { body: { promptRef } })
+  sendMessage({ text: value }, { body: { promptRef, providerId, modelId } })
   composerActions.setDraft(sid, "edit:user", "")
   composerActions.setMode(sid, "chat")
 }
@@ -87,6 +88,11 @@ export const useComposerMode = () => {
 export const useComposer = () => {
   const sid = useAppStore((s) => s.activeSessionId)
   const promptRef = useAppStore((s) => s.workbenches[s.activeSessionId]?.promptRef)
+  const wbProviderId = useAppStore((s) => s.workbenches[s.activeSessionId]?.providerId)
+  const wbModelId = useAppStore((s) => s.workbenches[s.activeSessionId]?.modelId)
+  const state = useSubscription('state:listen', {})
+  const providerId = wbProviderId ?? state.lastUsedProvider
+  const modelId = wbModelId ?? state.lastUsedModel
   const { sendMessage, setMessages, prompt, messages } = useSession()
 
   const { mode, overrides, drafts } = _composerStore(
@@ -104,8 +110,8 @@ export const useComposer = () => {
     setMode: (m, ov) => composerActions.setMode(sid, m, ov),
     submit: (text) => {
       if (mode === "prompt") return submitPrompt(sid, text)
-      if (mode === "chat") return submitChat(sid, text, sendMessage, promptRef)
-      if (mode === "edit:user") return submitEditUser(sid, text, messages, overrides.messageKey, sendMessage, setMessages, promptRef)
+      if (mode === "chat") return submitChat(sid, text, sendMessage, promptRef, providerId, modelId)
+      if (mode === "edit:user") return submitEditUser(sid, text, messages, overrides.messageKey, sendMessage, setMessages, promptRef, providerId, modelId)
       if (mode === "edit:ai") return submitEditAi(sid, text, overrides.messageKey)
     },
   }

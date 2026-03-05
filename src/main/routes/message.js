@@ -2,6 +2,7 @@ import { Menu, clipboard } from 'electron'
 import { register, push } from '../router.js'
 import { resolve } from '../arcfs.js'
 import * as session from '../services/session.js'
+import * as message from '../services/message.js'
 import { pushSessions, pushSessionState } from './session.js'
 
 const dir = resolve('sessions')
@@ -28,12 +29,12 @@ register('message:context-menu', ({ sessionId, id, role, text }) => {
 })
 
 register('message:edit-save', async ({ sessionId, messageId, text }) => {
-  const newId = await session.editMessage(dir, sessionId, messageId, text)
-  const { messages, branches } = await session.loadMessages(dir, sessionId, newId)
+  const newId = await message.editMessage(dir, sessionId, messageId, text)
+  const { messages, branches } = await message.loadMessages(dir, sessionId, newId)
   pushSessionState(sessionId, { messages, branches })
 })
 
 register('message:switch-branch', async ({ sessionId, targetId }) => {
-  const { messages, branches } = await session.switchBranch(dir, sessionId, targetId)
+  const { messages, branches } = await message.switchBranch(dir, sessionId, targetId)
   pushSessionState(sessionId, { messages, branches })
 })
