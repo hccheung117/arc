@@ -130,15 +130,16 @@ export const deleteSession = async (dir, id) => {
 const promptPath = (dir, sessionId) =>
   path.join(dir, sessionId, 'prompt.md')
 
-export const ensureMeta = async (dir, sessionId, promptRef) => {
+export const ensureMeta = async (dir, sessionId, promptRef, title = 'New Chat') => {
   const metaPath = path.join(dir, sessionId, 'meta.json')
   const existing = await readJson(metaPath)
-  if (existing) return
+  if (existing) return false
   await writeJson(metaPath, {
-    title: 'New Chat',
+    title,
     createdAt: new Date().toISOString(),
     ...(promptRef && { promptRef }),
   })
+  return true
 }
 
 export const loadPrompt = async (dir, sessionId) => {

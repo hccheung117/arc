@@ -1,4 +1,4 @@
-import { generateId, streamText as aiStreamText, convertToModelMessages } from 'ai'
+import { generateId, generateText as aiGenerateText, streamText as aiStreamText, convertToModelMessages } from 'ai'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createOpenAI } from '@ai-sdk/openai'
 
@@ -14,9 +14,26 @@ const clientFactories = {
   }),
 }
 
+const clientFor = (provider) => clientFactories[provider.type](provider)
+const modelFor = (provider, modelId) => clientFor(provider)(modelId)
+
+export const generateText = async ({ provider, modelId, ...opts }) => {
+  const model = modelFor(provider, modelId)
+  try {
+    const result = await aiGenerateText({ model, ...opts })
+    return { text: result.text }
+  } catch {
+    // Some proxies return non-standard fields (e.g. citations: null) that
+    // fail the SDK's strict response schema validation. Stream-based collection
+    // bypasses full-response validation and works with these proxies.
+    const result = aiStreamText({ model, ...opts })
+    return { text: await result.text }
+  }
+}
+
 export const streamText = async ({ provider, modelId, system, messages, send, signal }) => {
   const assistantId = generateId()
-  const model = clientFactories[provider.type](provider)(modelId)
+  const model = modelFor(provider, modelId)
   const modelMessages = await convertToModelMessages(messages)
 
   const providerOptions = provider.type === 'anthropic'

@@ -6,6 +6,7 @@ import * as session from '../services/session.js'
 import * as message from '../services/message.js'
 import * as llm from '../services/llm.js'
 import { getProvider } from '../services/provider.js'
+import { fallbackTitle, generateTitle } from '../services/title.js'
 import { pushPrompts } from './prompts.js'
 
 const dir = resolve('sessions')
@@ -77,7 +78,8 @@ registerStream('session:send', async ({ sessionId, messages, promptRef, provider
     return
   }
 
-  await session.ensureMeta(dir, sessionId, promptRef)
+  const title = fallbackTitle(messages)
+  const isNew = await session.ensureMeta(dir, sessionId, promptRef, title)
   const system = await session.loadPrompt(dir, sessionId)
   const filePath = message.messagesPath(dir, sessionId)
   const lastId = await message.persistNewMessages(filePath, messages)
@@ -85,6 +87,18 @@ registerStream('session:send', async ({ sessionId, messages, promptRef, provider
   const { branches } = await message.loadMessages(dir, sessionId)
   pushSessionState(sessionId, { branches })
   await pushSessions()
+
+  if (isNew) {
+    generateTitle(messages)
+      .then(async (newTitle) => {
+        if (!newTitle) return
+        const current = await session.getSession(dir, sessionId)
+        if (current?.title !== title) return
+        await session.renameSession(dir, sessionId, newTitle)
+        await pushSessions()
+      })
+      .catch(() => {})
+  }
 
   const result = await llm.streamText({ provider, modelId, system, messages, send, signal })
   if (!result) return

@@ -4,6 +4,7 @@ import { useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { useComposer, composerActions } from "@/hooks/use-composer"
 import { useAppStore } from "@/store/app-store"
+import { useSubscription } from "@/hooks/use-subscription"
 import { useSession } from "@/contexts/SessionContext"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import {
@@ -38,6 +39,8 @@ const BranchInit = ({ total }) => {
 export default function Workbench() {
   const { mode, config, setMode } = useComposer()
   const { messages, id: sessionId, branches, switchBranch, prompt, status } = useSession()
+  const sessions = useSubscription('session:listen', [])
+  const title = sessions.find(s => s.id === sessionId)?.title
   const hasPrompt = !!prompt
   useEffect(() => window.api.on('message:edit-start', ({ id, role }) => {
     const sid = useAppStore.getState().activeSessionId
@@ -63,7 +66,7 @@ export default function Workbench() {
           <header className="sticky top-0 z-10 flex shrink-0 h-(--header-h) items-center justify-between px-(--content-px) bg-background/50 backdrop-blur-sm">
             <div className="flex items-center gap-2">
               <SidebarTrigger />
-              <span className="text-sm font-semibold">Arc AI</span>
+              <span className="text-sm font-semibold truncate">{title || "Arc"}</span>
             </div>
             <div className="flex items-center gap-1">
               <Button
