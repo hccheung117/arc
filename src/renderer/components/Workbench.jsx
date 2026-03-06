@@ -18,10 +18,16 @@ import {
   MessageBranchPrevious, MessageBranchNext, MessageBranchPage,
   useMessageBranch,
 } from "@/components/ai-elements/message"
+import {
+  Reasoning, ReasoningContent, ReasoningTrigger,
+} from "@/components/ai-elements/reasoning"
 import { cn } from "@/lib/shadcn"
 
 const textFromParts = (msg) =>
   msg.parts.filter((p) => p.type === "text").map((p) => p.text).join("")
+
+const reasoningFromParts = (msg) =>
+  msg.parts.filter((p) => p.type === "reasoning").map((p) => p.text).join("\n\n")
 
 const BranchInit = ({ total }) => {
   const { setBranches } = useMessageBranch()
@@ -98,7 +104,24 @@ export default function Workbench() {
               className="flex flex-1 min-h-0 flex-col gap-6 px-(--content-px) pt-4"
               style={{ paddingBottom: "var(--footer-h)" }}
             >
-              {messages.map((msg) => {
+              {messages.map((msg, index) => {
+                const isLastMsg = index === messages.length - 1
+                const reasoningText = msg.role === "assistant" ? reasoningFromParts(msg) : ""
+                const isReasoningStreaming = isLastMsg && status === "streaming"
+                  && msg.parts.at(-1)?.type === "reasoning"
+
+                const assistantContent = (
+                  <>
+                    {reasoningText && (
+                      <Reasoning isStreaming={isReasoningStreaming}>
+                        <ReasoningTrigger />
+                        <ReasoningContent>{reasoningText}</ReasoningContent>
+                      </Reasoning>
+                    )}
+                    <MessageResponse>{textFromParts(msg)}</MessageResponse>
+                  </>
+                )
+
                 const branch = branches[msg.id]
                 if (branch) {
                   return (
@@ -109,7 +132,7 @@ export default function Workbench() {
                         onContextMenu={(e) => handleContextMenu(e, msg)}
                         className={cn(msg.id === config.messageKey && "blur-[2px]")}>
                         {msg.role === "assistant"
-                          ? <MessageResponse>{textFromParts(msg)}</MessageResponse>
+                          ? assistantContent
                           : <MessageContent>{textFromParts(msg)}</MessageContent>
                         }
                       </Message>
@@ -127,7 +150,7 @@ export default function Workbench() {
                     onContextMenu={(e) => handleContextMenu(e, msg)}
                     className={cn(msg.id === config.messageKey && "blur-[2px]")}>
                     {msg.role === "assistant"
-                      ? <MessageResponse>{textFromParts(msg)}</MessageResponse>
+                      ? assistantContent
                       : <MessageContent>{textFromParts(msg)}</MessageContent>
                     }
                   </Message>
