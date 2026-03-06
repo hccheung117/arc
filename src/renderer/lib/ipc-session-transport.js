@@ -13,7 +13,10 @@ export class IpcTransport {
         }
       })
 
-      abortSignal?.addEventListener('abort', () => abort(), { once: true })
+      abortSignal?.addEventListener('abort', () => {
+        abort()
+        setTimeout(() => { try { controller.close() } catch {} }, 3000)
+      }, { once: true })
       resolve(stream)
     })
   }

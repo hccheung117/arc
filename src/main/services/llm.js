@@ -43,6 +43,7 @@ export const streamText = async ({ provider, modelId, system, messages, send, si
     return null
   }
 
+  if (signal.aborted) return null
   const [text, reasoning] = await Promise.all([result.text, result.reasoning])
   return { assistantId, text, reasoning }
 }

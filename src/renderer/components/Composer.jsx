@@ -98,8 +98,14 @@ function BaseComposer({ shadowClass, footerClass }) {
           </PromptInputTools>
           <div className={cn("flex items-center gap-1", footerClass)}>
             {config.tools.filter((t) => t !== "attach").map((t) => <ToolButton key={t} tool={t} />)}
-            <PromptInputSubmit status={status} onStop={stop} className="ml-1 rounded-full">
-              <config.submitIcon className="size-4" />
+            <PromptInputSubmit
+              status={status}
+              onStop={stop}
+              disabled={status === "ready" && !value.trim()}
+              className="ml-1 rounded-full"
+              variant={status !== "ready" ? "destructive" : "default"}
+            >
+              {status === "ready" ? <config.submitIcon className="size-4" /> : null}
             </PromptInputSubmit>
           </div>
         </PromptInputFooter>

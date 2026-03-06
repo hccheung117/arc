@@ -7,13 +7,15 @@ contextBridge.exposeInMainWorld('api', Object.freeze({
 
     const requestId = crypto.randomUUID()
     const channel = `ipc:stream:${requestId}`
-    const listener = (_, chunk) => onChunk(chunk)
+    const listener = (_, chunk) => {
+      onChunk(chunk)
+      if (chunk.type === 'finish' || chunk.type === 'error' || chunk.type === 'abort') {
+        ipcRenderer.removeListener(channel, listener)
+      }
+    }
     ipcRenderer.on(channel, listener)
     ipcRenderer.send('ipc:stream', route, { ...payload, requestId })
-    return () => {
-      ipcRenderer.removeListener(channel, listener)
-      ipcRenderer.invoke('ipc:stream:abort', requestId)
-    }
+    return () => ipcRenderer.invoke('ipc:stream:abort', requestId)
   },
 
   on: (route, cb) => {
