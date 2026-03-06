@@ -6,7 +6,7 @@ import * as session from '../services/session.js'
 import * as message from '../services/message.js'
 import * as llm from '../services/llm.js'
 import { getProvider } from '../services/provider.js'
-import { fallbackTitle, generateTitle } from '../services/title.js'
+import { fallbackTitle, generateTitle } from '../services/assist.js'
 import { pushPrompts } from './prompts.js'
 
 const dir = resolve('sessions')

@@ -39,6 +39,7 @@ const BranchInit = ({ total }) => {
 export default function Workbench() {
   const { mode, config, setMode } = useComposer()
   const { messages, id: sessionId, branches, switchBranch, prompt, status } = useSession()
+  const isDraft = useAppStore((s) => s.draftSessionId === s.activeSessionId)
   const sessions = useSubscription('session:listen', [])
   const title = sessions.find(s => s.id === sessionId)?.title
   const hasPrompt = !!prompt
@@ -83,7 +84,7 @@ export default function Workbench() {
               <Button disabled={messages.length === 0} onClick={handleDownload} variant="ghost" size="icon-sm"><Download /></Button>
             </div>
           </header>
-          {messages.length === 0 ? (
+          {messages.length === 0 && isDraft ? (
             /* Empty-state contract — see docs/ui-chat-viewport-layout.md */
             <div className="flex flex-1 min-h-0 px-(--content-px)">
               <div

@@ -25,7 +25,7 @@ export function useRefine(value, updateDraft) {
     accRef.current = ''
     setIsRefining(true)
 
-    const abortFn = window.api.call('prompt:refine', { text: value }, (chunk) => {
+    const abortFn = window.api.call('assist:refine-prompt', { text: value }, (chunk) => {
       if (chunk.type === 'text-delta') {
         accRef.current += chunk.delta
         updateDraft(accRef.current)

@@ -11,7 +11,7 @@ import { pushProviders } from './routes/providers.js';
 import { pushState } from './routes/state.js';
 import { pushSettings } from './routes/settings.js';
 import './routes/message.js';
-import './routes/refine.js';
+import './routes/assist.js';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
