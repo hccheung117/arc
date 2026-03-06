@@ -70,6 +70,13 @@ export default function AppSidebar() {
 
   useEffect(() => window.api.on('session:rename-start', setRenamingId), [])
 
+  useEffect(() => {
+    const { activeSessionId, draftSessionId } = useAppStore.getState()
+    if (activeSessionId === draftSessionId) return
+    if (chats.length === 0 && raw.length === 0) return
+    if (!chats.some(c => c.id === activeSessionId)) act().session.new()
+  }, [chats, raw.length])
+
   const pinned = chats.filter(c => c.pinned)
   const sections = [
     ...(pinned.length ? [{ label: "Pinned", items: pinned }] : []),
