@@ -10,11 +10,13 @@ import {
   usePromptInputAttachments,
 } from "@/components/ai-elements/prompt-input"
 import { Button } from "@/components/ui/button"
-import { ImageIcon, MicIcon, PencilLine, Sparkles, Wand2 } from "lucide-react"
+import { ImageIcon, MicIcon, PencilLine, Sparkles, SquareIcon, Wand2 } from "lucide-react"
 import { cn } from "@/lib/shadcn"
 import { useComposer, useComposerMode } from "@/hooks/use-composer"
+import { useRefine } from "@/hooks/use-refine"
 import { useSession } from "@/contexts/SessionContext"
 import { useAutogrowLock, ComposerAutogrowLockHandle } from "@/components/ComposerAutogrowLock"
+import { useSubscription } from "@/hooks/use-subscription"
 import ModelSelectorButton from "@/components/ModelSelectorButton"
 
 const ToolButton = ({ tool }) => {
@@ -37,14 +39,20 @@ const ToolButton = ({ tool }) => {
   }
 }
 
-const HeaderAction = ({ action, onCancel }) => {
+const HeaderAction = ({ action, onCancel, onRefine, isRefining }) => {
   switch (action) {
     case "refine":
-      return <Button variant="ghost" size="xs"><Wand2 className="size-3" />Refine</Button>
+      return (
+        <Button type="button" variant="ghost" size="xs" onClick={onRefine}>
+          {isRefining
+            ? <><SquareIcon className="size-3" />Stop</>
+            : <><Wand2 className="size-3" />Refine</>}
+        </Button>
+      )
     case "promote":
-      return <Button variant="ghost" size="xs"><Sparkles className="size-3" />Promote</Button>
+      return <Button type="button" variant="ghost" size="xs"><Sparkles className="size-3" />Promote</Button>
     case "cancel":
-      return <Button variant="ghost" size="xs" onClick={onCancel}>Cancel</Button>
+      return <Button type="button" variant="ghost" size="xs" onClick={onCancel}>Cancel</Button>
   }
 }
 
@@ -52,10 +60,16 @@ function BaseComposer({ shadowClass, footerClass }) {
   const { mode, config, value, updateDraft, submit, setMode } = useComposer()
   const { status, stop } = useSession()
   const { containerRef, isLocked, manualMaxHeight, startResizing, toggleLock } = useAutogrowLock()
+  const settings = useSubscription('settings:listen', { assignmentKeys: [] })
+  const hasRefine = settings.assignmentKeys.includes('refine-prompt')
+  const { isRefining, handleRefine, abort: abortRefine } = useRefine(value, updateDraft)
 
   const handleDraftChange = (e) => updateDraft(e.target.value)
   const handleSubmit = (message) => submit(message.text)
-  const handleCancel = () => setMode("chat")
+  const handleCancel = () => {
+    abortRefine()
+    setMode("chat")
+  }
 
   return (
     <div ref={containerRef} className="flex min-h-0 flex-col px-[var(--content-px)] pb-[var(--content-px)]">
@@ -77,9 +91,11 @@ function BaseComposer({ shadowClass, footerClass }) {
               <span>{config.header.title}</span>
             </div>
             <div className="flex items-center gap-0.5">
-              {config.header.actions.map((action) => (
-                <HeaderAction key={action} action={action} onCancel={handleCancel} />
-              ))}
+              {config.header.actions
+                .filter((action) => action !== 'refine' || hasRefine)
+                .map((action) => (
+                  <HeaderAction key={action} action={action} onCancel={handleCancel} onRefine={handleRefine} isRefining={isRefining} />
+                ))}
             </div>
           </PromptInputHeader>
         )}
@@ -89,6 +105,7 @@ function BaseComposer({ shadowClass, footerClass }) {
             placeholder={config.placeholder}
             value={value}
             onChange={handleDraftChange}
+            readOnly={isRefining}
             style={manualMaxHeight !== undefined ? { maxHeight: manualMaxHeight } : undefined}
           />
         </PromptInputBody>
@@ -101,7 +118,7 @@ function BaseComposer({ shadowClass, footerClass }) {
             <PromptInputSubmit
               status={status}
               onStop={stop}
-              disabled={status === "ready" && !value.trim()}
+              disabled={(status === "ready" && !value.trim()) || isRefining}
               className="ml-1 rounded-full"
               variant={status !== "ready" ? "destructive" : "default"}
             >

@@ -100,7 +100,7 @@ registerStream('session:send', async ({ sessionId, messages, promptRef, provider
       .catch(() => {})
   }
 
-  const result = await llm.streamText({ provider, modelId, system, messages, send, signal })
+  const result = await llm.streamText({ provider, modelId, system, messages, send, signal, thinking: true })
   if (!result) return
 
   await message.persistAssistantMessage(filePath, { ...result, lastId })

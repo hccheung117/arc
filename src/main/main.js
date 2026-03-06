@@ -9,7 +9,9 @@ import { pushPrompts } from './routes/prompts.js';
 import { pushModels, refreshModels } from './routes/models.js';
 import { pushProviders } from './routes/providers.js';
 import { pushState } from './routes/state.js';
+import { pushSettings } from './routes/settings.js';
 import './routes/message.js';
+import './routes/refine.js';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -47,6 +49,7 @@ const createWindow = async () => {
     await pushModels();
     await pushProviders();
     await pushState();
+    await pushSettings();
     refreshModels();
   });
 

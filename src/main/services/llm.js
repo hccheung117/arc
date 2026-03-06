@@ -17,6 +17,11 @@ const clientFactories = {
 const clientFor = (provider) => clientFactories[provider.type](provider)
 const modelFor = (provider, modelId) => clientFor(provider)(modelId)
 
+const thinkingOptions = (provider, thinking) =>
+  thinking && provider.type === 'anthropic'
+    ? { anthropic: { thinking: { type: 'enabled', budgetTokens: 10000 } } }
+    : undefined
+
 export const generateText = async ({ provider, modelId, ...opts }) => {
   const model = modelFor(provider, modelId)
   try {
@@ -31,14 +36,12 @@ export const generateText = async ({ provider, modelId, ...opts }) => {
   }
 }
 
-export const streamText = async ({ provider, modelId, system, messages, send, signal }) => {
+export const streamText = async ({ provider, modelId, system, messages, send, signal, thinking = false }) => {
   const assistantId = generateId()
   const model = modelFor(provider, modelId)
   const modelMessages = await convertToModelMessages(messages)
 
-  const providerOptions = provider.type === 'anthropic'
-    ? { anthropic: { thinking: { type: 'enabled', budgetTokens: 10000 } } }
-    : undefined
+  const providerOptions = thinkingOptions(provider, thinking)
 
   const result = aiStreamText({
     model,
