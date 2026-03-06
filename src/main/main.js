@@ -2,6 +2,8 @@ import { app, BrowserWindow, Menu } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { initIpc, setMainWindow } from './router.js';
+import { resolve } from './arcfs.js';
+import { getState, setState } from './services/state.js';
 import { pushSessions } from './routes/session.js';
 import { pushPrompts } from './routes/prompts.js';
 import { pushModels, refreshModels } from './routes/models.js';
@@ -14,17 +16,25 @@ if (started) {
   app.quit();
 }
 
-const createWindow = () => {
-  // Create the browser window.
+const stateFile = resolve('state.json')
+
+const createWindow = async () => {
+  const { windowBounds } = await getState(stateFile)
+
   const mainWindow = new BrowserWindow({
     width: 800,
     height: 600,
+    ...windowBounds,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
     },
   });
 
   setMainWindow(mainWindow);
+
+  mainWindow.on('close', async () => {
+    await setState(stateFile, { windowBounds: mainWindow.getBounds() })
+  })
 
   const editMenu = Menu.buildFromTemplate([{ role: 'editMenu' }]).items[0].submenu
   mainWindow.webContents.on('context-menu', (_event, params) => {
