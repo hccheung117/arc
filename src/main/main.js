@@ -35,7 +35,8 @@ const createWindow = async () => {
   setMainWindow(mainWindow);
 
   mainWindow.on('close', async () => {
-    await setState(stateFile, { windowBounds: mainWindow.getBounds() })
+    const { width, height } = mainWindow.getBounds()
+    await setState(stateFile, { windowBounds: { width, height } })
   })
 
   const editMenu = Menu.buildFromTemplate([{ role: 'editMenu' }]).items[0].submenu

@@ -130,7 +130,7 @@
     @apply h-full;
   }
   body {
-    @apply bg-background text-foreground h-full;
+    @apply bg-background text-foreground h-full select-none;
   }
   /* Global scrollbar — auto-hide, shadcn-matched handle */
   *::-webkit-scrollbar {
