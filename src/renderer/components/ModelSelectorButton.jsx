@@ -20,8 +20,8 @@ import { useSubscription } from "@/hooks/use-subscription"
 export default function ModelSelectorButton() {
   const [open, setOpen] = useState(false)
   const [favorites, setFavorites] = useState(() => new Set())
-  const models = useSubscription('model:listen', {})
-  const state = useSubscription('state:listen', {})
+  const models = useSubscription('model:feed', {})
+  const state = useSubscription('state:feed', {})
   const { modelId } = useActiveWorkbench()
   const effectiveModelId = modelId ?? state.lastUsedModel
 

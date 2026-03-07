@@ -32,7 +32,7 @@ function PromptMenuItem({ name, source, onSelect, onRemove }) {
 }
 
 export default function NewChatButton() {
-  const prompts = useSubscription('prompt:listen', [])
+  const prompts = useSubscription('prompt:feed', [])
 
   const handleNewChat = () => act().session.new()
 

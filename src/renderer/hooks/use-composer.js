@@ -99,7 +99,7 @@ export const useComposer = () => {
   const promptRef = useAppStore((s) => s.workbenches[s.activeSessionId]?.promptRef)
   const wbProviderId = useAppStore((s) => s.workbenches[s.activeSessionId]?.providerId)
   const wbModelId = useAppStore((s) => s.workbenches[s.activeSessionId]?.modelId)
-  const state = useSubscription('state:listen', {})
+  const state = useSubscription('state:feed', {})
   const providerId = wbProviderId ?? state.lastUsedProvider
   const modelId = wbModelId ?? state.lastUsedModel
   const { sendMessage, setMessages, prompt, messages } = useSession()

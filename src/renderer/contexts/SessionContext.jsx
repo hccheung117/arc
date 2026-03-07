@@ -24,13 +24,13 @@ export function SessionProvider({ children }) {
   const [prompt, setPrompt] = useState(null)
   const [branches, setBranches] = useState({})
   const promptRef = useAppStore((s) => s.workbenches[s.activeSessionId]?.promptRef)
-  const profilePrompts = useSubscription('prompt:listen', [])
+  const profilePrompts = useSubscription('prompt:feed', [])
 
-  useEffect(() => window.api.on('session:navigate', (id) => {
+  useEffect(() => window.api.on('session:navigate:feed', (id) => {
     act().session.activate(id)
   }), [])
 
-  useEffect(() => window.api.on('session:state:listen', (payload) => {
+  useEffect(() => window.api.on('session:state:feed', (payload) => {
     if (payload.sessionId !== activeSessionId) return
     if (payload.replaceFiles) {
       const { id, parts } = payload.replaceFiles

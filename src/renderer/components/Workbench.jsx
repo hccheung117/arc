@@ -53,10 +53,10 @@ export default function Workbench() {
   const { mode, config, setMode } = useComposer()
   const { messages, id: sessionId, branches, switchBranch, prompt, status } = useSession()
   const isDraft = useAppStore((s) => s.draftSessionId === s.activeSessionId)
-  const sessions = useSubscription('session:listen', [])
+  const sessions = useSubscription('session:feed', [])
   const title = sessions.find(s => s.id === sessionId)?.title
   const hasPrompt = !!prompt
-  useEffect(() => window.api.on('message:edit-start', ({ id, role }) => {
+  useEffect(() => window.api.on('message:edit:start', ({ id, role }) => {
     const sid = useAppStore.getState().activeSessionId
     composerActions.setMode(sid, role === 'assistant' ? 'edit:ai' : 'edit:user', { messageKey: id })
   }), [])

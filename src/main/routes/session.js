@@ -12,12 +12,19 @@ import { pushPrompts } from './prompts.js'
 const dir = resolve('sessions')
 
 const pushSessions = async () =>
-  push('session:listen', await session.listSessions(dir))
+  push('session:feed', await session.listSessions(dir))
 
 const pushSessionState = (sessionId, patch) =>
-  push('session:state:listen', { sessionId, ...patch })
+  push('session:state:feed', { sessionId, ...patch })
 
-export { pushSessions, pushSessionState }
+const forkFromMessage = async (sessionId, messageId) => {
+  const newId = await session.forkSession(dir, sessionId, messageId)
+  if (!newId) return
+  await pushSessions()
+  push('session:navigate:feed', newId)
+}
+
+export { pushSessions, pushSessionState, forkFromMessage }
 
 register('session:list', () => session.listSessions(dir))
 
@@ -27,7 +34,7 @@ register('session:context-menu', async ({ id }) => {
   Menu.buildFromTemplate([
     { label: chat.pinned ? 'Unpin' : 'Pin', click: async () => { await session.pinSession(dir, id); pushSessions() } },
     { type: 'separator' },
-    { label: 'Rename', click: () => push('session:rename-start', id) },
+    { label: 'Rename', click: () => push('session:rename:start', id) },
     { label: 'Duplicate', click: async () => { await session.duplicateSession(dir, id); pushSessions() } },
     { type: 'separator' },
     { label: 'Delete', click: async () => { await session.deleteSession(dir, id); pushSessions() } },

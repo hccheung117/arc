@@ -6,6 +6,12 @@ import { readJsonl, appendJsonl, toUrl, fromUrl } from '../arcfs.js'
 export const messagesPath = (dir, sessionId) =>
   path.join(dir, sessionId, 'messages.jsonl')
 
+export const writeTempFile = async (tmpDir, filename, data) => {
+  const dest = path.join(tmpDir, filename)
+  await fs.writeFile(dest, Buffer.from(data))
+  return dest
+}
+
 const buildTree = (rows) => {
   const childrenOf = new Map()
   for (const r of rows) {

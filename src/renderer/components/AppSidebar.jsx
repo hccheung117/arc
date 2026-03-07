@@ -65,10 +65,10 @@ function RenameInput({ chat, onConfirm, onCancel }) {
 export default function AppSidebar() {
   const activeSessionId = useAppStore((s) => s.activeSessionId)
   const [renamingId, setRenamingId] = useState(null)
-  const raw = useSubscription('session:listen', [])
+  const raw = useSubscription('session:feed', [])
   const chats = raw.map(c => ({ ...c, date: new Date(c.date) }))
 
-  useEffect(() => window.api.on('session:rename-start', setRenamingId), [])
+  useEffect(() => window.api.on('session:rename:start', setRenamingId), [])
 
   useEffect(() => {
     const { activeSessionId, draftSessionId } = useAppStore.getState()

@@ -104,7 +104,7 @@ function BaseComposer({ shadowClass, footerClass }) {
   const sid = useAppStore((s) => s.activeSessionId)
   const { status, stop } = useSession()
   const { containerRef, isLocked, manualMaxHeight, startResizing, toggleLock } = useAutogrowLock()
-  const settings = useSubscription('settings:listen', { assignmentKeys: [] })
+  const settings = useSubscription('settings:feed', { assignmentKeys: [] })
   const hasRefine = settings.assignmentKeys.includes('refine-prompt')
   const { isRefining, handleRefine, abort: abortRefine } = useRefine(value, updateDraft)
   const [promoteOpen, setPromoteOpen] = useState(false)
