@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from "react"
+import { cn } from "@/lib/shadcn"
+import { ChevronDownIcon } from "lucide-react"
 import { useSubscription } from "@/hooks/use-subscription"
 import { useAppStore, act } from "@/store/app-store"
 import NewChatButton from "@/components/NewChatButton"
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible"
 import {
   Sidebar,
   SidebarHeader,
@@ -37,12 +44,11 @@ function groupChatsByDate(chats) {
   return buckets.filter(b => b.items.length > 0)
 }
 
-function RenameInput({ chat, onConfirm, onCancel }) {
+function RenameInput({ defaultValue, onConfirm, onCancel, className }) {
   const ref = useRef(null)
 
   useEffect(() => {
-    const input = ref.current
-    input.select()
+    ref.current.select()
   }, [])
 
   const handleKeyDown = (e) => {
@@ -54,33 +60,73 @@ function RenameInput({ chat, onConfirm, onCancel }) {
     <input
       ref={ref}
       autoFocus
-      defaultValue={chat.title}
-      className="h-8 w-full rounded-md bg-transparent px-2 text-sm outline-none"
+      defaultValue={defaultValue}
+      className={cn("h-8 w-full rounded-md bg-transparent px-2 text-sm outline-none", className)}
       onKeyDown={handleKeyDown}
       onBlur={onCancel}
     />
   )
 }
 
+function ChatItems({ items, activeSessionId, renamingId, onRename, onCancelRename, onContextMenu }) {
+  return (
+    <SidebarMenu>
+      {items.map(chat => (
+        <SidebarMenuItem key={chat.id}>
+          {renamingId === chat.id ? (
+            <RenameInput
+              defaultValue={chat.title}
+              onConfirm={(title) => onRename(chat.id, title)}
+              onCancel={onCancelRename}
+            />
+          ) : (
+            <SidebarMenuButton
+              isActive={chat.id === activeSessionId}
+              onClick={() => act().session.activate(chat.id)}
+              onContextMenu={(e) => onContextMenu(e, chat.id)}
+            >
+              <span>{chat.title}</span>
+            </SidebarMenuButton>
+          )}
+        </SidebarMenuItem>
+      ))}
+    </SidebarMenu>
+  )
+}
+
 export default function AppSidebar() {
   const activeSessionId = useAppStore((s) => s.activeSessionId)
   const [renamingId, setRenamingId] = useState(null)
-  const raw = useSubscription('session:feed', [])
-  const chats = raw.map(c => ({ ...c, date: new Date(c.date) }))
+  const [renamingFolderIndex, setRenamingFolderIndex] = useState(null)
+  const feed = useSubscription('session:feed', { sessions: [], folders: [] })
+  const chats = feed.sessions.map(c => ({ ...c, date: new Date(c.date) }))
+  const folders = feed.folders
 
   useEffect(() => window.api.on('session:rename:start', setRenamingId), [])
+  useEffect(() => window.api.on('session:folder-rename:start', setRenamingFolderIndex), [])
 
   useEffect(() => {
     const { activeSessionId, draftSessionId } = useAppStore.getState()
     if (activeSessionId === draftSessionId) return
-    if (chats.length === 0 && raw.length === 0) return
+    if (chats.length === 0 && feed.sessions.length === 0) return
     if (!chats.some(c => c.id === activeSessionId)) act().session.new()
-  }, [chats, raw.length])
+  }, [chats, feed.sessions.length])
 
-  const pinned = chats.filter(c => c.pinned)
+  const folderedIds = new Set(folders.flatMap(f => f.sessions))
+
+  const folderSections = folders.map((folder, i) => ({
+    type: 'folder', label: folder.name, folderIndex: i,
+    collapsed: folder.collapsed,
+    items: folder.sessions.map(sid => chats.find(c => c.id === sid)).filter(Boolean),
+  }))
+
+  const pinned = chats.filter(c => c.pinned && !folderedIds.has(c.id))
+  const ungrouped = chats.filter(c => !c.pinned && !folderedIds.has(c.id))
+
   const sections = [
-    ...(pinned.length ? [{ label: "Pinned", items: pinned }] : []),
-    ...groupChatsByDate(chats.filter(c => !c.pinned)),
+    ...folderSections,
+    ...(pinned.length ? [{ type: 'section', label: 'Pinned', items: pinned }] : []),
+    ...groupChatsByDate(ungrouped).map(s => ({ type: 'section', ...s })),
   ]
 
   const handleContextMenu = (e, id) => {
@@ -88,9 +134,19 @@ export default function AppSidebar() {
     window.api.call('session:context-menu', { id })
   }
 
+  const handleFolderContextMenu = (e, folderIndex) => {
+    e.preventDefault()
+    window.api.call('session:folder-context-menu', { folderIndex })
+  }
+
   const handleRename = (id, title) => {
     window.api.call('session:rename', { id, title })
     setRenamingId(null)
+  }
+
+  const handleFolderRename = (folderIndex, name) => {
+    window.api.call('session:rename-folder', { folderIndex, name })
+    setRenamingFolderIndex(null)
   }
 
   return (
@@ -99,31 +155,57 @@ export default function AppSidebar() {
         <NewChatButton />
       </SidebarHeader>
       <SidebarContent>
-        {sections.map(section => (
+        {sections.map(section => section.type === 'folder' ? (
+          <Collapsible
+            key={`folder-${section.folderIndex}`}
+            open={!section.collapsed}
+            onOpenChange={() => window.api.call('session:toggle-folder-collapse', { folderIndex: section.folderIndex })}
+            className="group/collapsible"
+          >
+            <SidebarGroup className="pr-0 transition-[padding] duration-200 group-data-[state=closed]/collapsible:py-0">
+              <SidebarGroupLabel asChild>
+                <CollapsibleTrigger onContextMenu={(e) => handleFolderContextMenu(e, section.folderIndex)}>
+                  {renamingFolderIndex === section.folderIndex ? (
+                    <RenameInput
+                      defaultValue={section.label}
+                      onConfirm={(name) => handleFolderRename(section.folderIndex, name)}
+                      onCancel={() => setRenamingFolderIndex(null)}
+                      className="px-0 text-xs font-medium"
+                    />
+                  ) : (
+                    <>
+                      {section.label}
+                      <ChevronDownIcon className="ml-auto transition-transform group-data-[state=closed]/collapsible:rotate-[-90deg]" />
+                    </>
+                  )}
+                </CollapsibleTrigger>
+              </SidebarGroupLabel>
+              <CollapsibleContent>
+                <SidebarGroupContent>
+                  <ChatItems
+                    items={section.items}
+                    activeSessionId={activeSessionId}
+                    renamingId={renamingId}
+                    onRename={handleRename}
+                    onCancelRename={() => setRenamingId(null)}
+                    onContextMenu={handleContextMenu}
+                  />
+                </SidebarGroupContent>
+              </CollapsibleContent>
+            </SidebarGroup>
+          </Collapsible>
+        ) : (
           <SidebarGroup key={section.label} className="pr-0">
             <SidebarGroupLabel>{section.label}</SidebarGroupLabel>
             <SidebarGroupContent>
-              <SidebarMenu>
-                {section.items.map(chat => (
-                  <SidebarMenuItem key={chat.id}>
-                    {renamingId === chat.id ? (
-                      <RenameInput
-                        chat={chat}
-                        onConfirm={(title) => handleRename(chat.id, title)}
-                        onCancel={() => setRenamingId(null)}
-                      />
-                    ) : (
-                      <SidebarMenuButton
-                        isActive={chat.id === activeSessionId}
-                        onClick={() => act().session.activate(chat.id)}
-                        onContextMenu={(e) => handleContextMenu(e, chat.id)}
-                      >
-                        <span>{chat.title}</span>
-                      </SidebarMenuButton>
-                    )}
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
+              <ChatItems
+                items={section.items}
+                activeSessionId={activeSessionId}
+                renamingId={renamingId}
+                onRename={handleRename}
+                onCancelRename={() => setRenamingId(null)}
+                onContextMenu={handleContextMenu}
+              />
             </SidebarGroupContent>
           </SidebarGroup>
         ))}

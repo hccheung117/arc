@@ -11,8 +11,13 @@ import { pushPrompts } from './prompts.js'
 
 const dir = resolve('sessions')
 
-const pushSessions = async () =>
-  push('session:feed', await session.listSessions(dir))
+const pushSessions = async () => {
+  const [sessions, folders] = await Promise.all([
+    session.listSessions(dir),
+    session.listFolders(dir),
+  ])
+  push('session:feed', { sessions, folders })
+}
 
 const pushSessionState = (sessionId, patch) =>
   push('session:state:feed', { sessionId, ...patch })
@@ -31,11 +36,37 @@ register('session:list', () => session.listSessions(dir))
 register('session:context-menu', async ({ id }) => {
   const chat = await session.getSession(dir, id)
   if (!chat) return
+  const folders = await session.listFolders(dir)
+  const folderIdx = folders.findIndex(f => f.sessions.includes(id))
+  const inFolder = folderIdx !== -1
+
+  const moveSubmenu = [
+    ...folders
+      .map((f, i) => ({ label: f.name, click: async () => { await session.moveToFolder(dir, id, i); pushSessions() } }))
+      .filter((_, i) => i !== folderIdx),
+    ...(folders.length > (inFolder ? 1 : 0) ? [{ type: 'separator' }] : []),
+    { label: 'New Folder', click: async () => {
+      await session.createFolder(dir, 'New Folder', id)
+      await pushSessions()
+      const updated = await session.listFolders(dir)
+      push('session:folder-rename:start', updated.length - 1)
+    } },
+  ]
+
   Menu.buildFromTemplate([
-    { label: chat.pinned ? 'Unpin' : 'Pin', click: async () => { await session.pinSession(dir, id); pushSessions() } },
-    { type: 'separator' },
+    ...(!inFolder ? [
+      { label: chat.pinned ? 'Unpin' : 'Pin', click: async () => { await session.pinSession(dir, id); pushSessions() } },
+      { type: 'separator' },
+    ] : []),
     { label: 'Rename', click: () => push('session:rename:start', id) },
-    { label: 'Duplicate', click: async () => { await session.duplicateSession(dir, id); pushSessions() } },
+    { label: 'Duplicate', click: async () => {
+      const newId = await session.duplicateSession(dir, id)
+      if (inFolder && newId) await session.moveToFolder(dir, newId, folderIdx)
+      pushSessions()
+    } },
+    { type: 'separator' },
+    ...(inFolder ? [{ label: 'Remove from Folder', click: async () => { await session.removeFromFolder(dir, id); pushSessions() } }] : []),
+    { label: 'Move to Folder', submenu: moveSubmenu },
     { type: 'separator' },
     { label: 'Delete', click: async () => { await session.deleteSession(dir, id); pushSessions() } },
   ]).popup()
@@ -44,6 +75,20 @@ register('session:context-menu', async ({ id }) => {
 register('session:rename', async ({ id, title }) => {
   await session.renameSession(dir, id, title)
   await pushSessions()
+})
+
+register('session:create-folder', async ({ name, id }) => { await session.createFolder(dir, name, id); pushSessions() })
+register('session:move-to-folder', async ({ id, folderIndex }) => { await session.moveToFolder(dir, id, folderIndex); pushSessions() })
+register('session:remove-from-folder', async ({ id }) => { await session.removeFromFolder(dir, id); pushSessions() })
+register('session:rename-folder', async ({ folderIndex, name }) => { await session.renameFolder(dir, folderIndex, name); pushSessions() })
+register('session:delete-folder', async ({ folderIndex }) => { await session.deleteFolder(dir, folderIndex); pushSessions() })
+register('session:toggle-folder-collapse', async ({ folderIndex }) => { await session.toggleFolderCollapse(dir, folderIndex); pushSessions() })
+
+register('session:folder-context-menu', ({ folderIndex }) => {
+  Menu.buildFromTemplate([
+    { label: 'Rename', click: () => push('session:folder-rename:start', folderIndex) },
+    { label: 'Delete', click: async () => { await session.deleteFolder(dir, folderIndex); pushSessions() } },
+  ]).popup()
 })
 
 register('session:activate', async ({ sessionId }) => {
