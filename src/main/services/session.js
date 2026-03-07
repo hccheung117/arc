@@ -147,6 +147,14 @@ export const loadPrompt = async (dir, sessionId) => {
   return resolveSessionPrompt(promptPath(dir, sessionId), meta?.promptRef)
 }
 
+export const linkPrompt = async (dir, id, promptRef) => {
+  const metaPath = path.join(dir, id, 'meta.json')
+  const meta = await readJson(metaPath)
+  if (!meta) return
+  await writeJson(metaPath, { ...meta, promptRef })
+  await fs.unlink(path.join(dir, id, 'prompt.md')).catch(e => { if (e.code !== 'ENOENT') throw e })
+}
+
 export const savePrompt = async (dir, id, content) => {
   const meta = await readJson(path.join(dir, id, 'meta.json'))
   if (meta?.promptRef) {

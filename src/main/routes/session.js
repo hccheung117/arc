@@ -59,6 +59,12 @@ register('session:export', async ({ sessionId }) => {
   return true
 })
 
+register('session:link-prompt', async ({ id, promptRef }) => {
+  await session.linkPrompt(dir, id, promptRef)
+  const prompt = await session.loadPrompt(dir, id)
+  pushSessionState(id, { prompt })
+})
+
 register('session:save-prompt', async ({ id, content }) => {
   const shared = await session.savePrompt(dir, id, content)
   if (shared) pushPrompts()

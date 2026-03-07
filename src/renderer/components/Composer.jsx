@@ -9,7 +9,10 @@ import {
   PromptInputTools,
   usePromptInputAttachments,
 } from "@/components/ai-elements/prompt-input"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 import { ImageIcon, MicIcon, PencilLine, Sparkles, SquareIcon, Wand2 } from "lucide-react"
 import { cn } from "@/lib/shadcn"
 import { useComposer, useComposerMode } from "@/hooks/use-composer"
@@ -17,6 +20,7 @@ import { useRefine } from "@/hooks/use-refine"
 import { useSession } from "@/contexts/SessionContext"
 import { useAutogrowLock, ComposerAutogrowLockHandle } from "@/components/ComposerAutogrowLock"
 import { useSubscription } from "@/hooks/use-subscription"
+import { useAppStore, act } from "@/store/app-store"
 import ModelSelectorButton from "@/components/ModelSelectorButton"
 
 const ToolButton = ({ tool }) => {
@@ -39,7 +43,7 @@ const ToolButton = ({ tool }) => {
   }
 }
 
-const HeaderAction = ({ action, onCancel, onRefine, isRefining }) => {
+const HeaderAction = ({ action, onCancel, onRefine, onPromote, isRefining }) => {
   switch (action) {
     case "refine":
       return (
@@ -50,7 +54,7 @@ const HeaderAction = ({ action, onCancel, onRefine, isRefining }) => {
         </Button>
       )
     case "promote":
-      return <Button type="button" variant="ghost" size="xs"><Sparkles className="size-3" />Promote</Button>
+      return <Button type="button" variant="ghost" size="xs" onClick={onPromote}><Sparkles className="size-3" />Promote</Button>
     case "cancel":
       return <Button type="button" variant="ghost" size="xs" onClick={onCancel}>Cancel</Button>
   }
@@ -58,16 +62,33 @@ const HeaderAction = ({ action, onCancel, onRefine, isRefining }) => {
 
 function BaseComposer({ shadowClass, footerClass }) {
   const { mode, config, value, updateDraft, submit, setMode } = useComposer()
+  const sid = useAppStore((s) => s.activeSessionId)
   const { status, stop } = useSession()
   const { containerRef, isLocked, manualMaxHeight, startResizing, toggleLock } = useAutogrowLock()
   const settings = useSubscription('settings:listen', { assignmentKeys: [] })
   const hasRefine = settings.assignmentKeys.includes('refine-prompt')
   const { isRefining, handleRefine, abort: abortRefine } = useRefine(value, updateDraft)
+  const [promoteOpen, setPromoteOpen] = useState(false)
+  const [promoteName, setPromoteName] = useState("")
 
   const handleDraftChange = (e) => updateDraft(e.target.value)
   const handleSubmit = (message) => submit(message.text)
   const handleCancel = () => {
     abortRefine()
+    setMode("chat")
+  }
+  const handlePromote = () => {
+    setPromoteName("")
+    setPromoteOpen(true)
+  }
+  const handlePromoteSave = async () => {
+    const name = promoteName.trim()
+    if (!name) return
+    await window.api.call('prompt:commit', { name, content: value })
+    await window.api.call('session:link-prompt', { id: sid, promptRef: name })
+    act().workbench.update({ promptRef: name })
+    setPromoteOpen(false)
+    updateDraft("")
     setMode("chat")
   }
 
@@ -94,7 +115,7 @@ function BaseComposer({ shadowClass, footerClass }) {
               {config.header.actions
                 .filter((action) => action !== 'refine' || hasRefine)
                 .map((action) => (
-                  <HeaderAction key={action} action={action} onCancel={handleCancel} onRefine={handleRefine} isRefining={isRefining} />
+                  <HeaderAction key={action} action={action} onCancel={handleCancel} onRefine={handleRefine} onPromote={handlePromote} isRefining={isRefining} />
                 ))}
             </div>
           </PromptInputHeader>
@@ -127,6 +148,23 @@ function BaseComposer({ shadowClass, footerClass }) {
           </div>
         </PromptInputFooter>
       </PromptInput>
+      <Dialog open={promoteOpen} onOpenChange={setPromoteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save as Prompt</DialogTitle>
+          </DialogHeader>
+          <Input
+            autoFocus
+            placeholder="Prompt name"
+            value={promoteName}
+            onChange={(e) => setPromoteName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handlePromoteSave() }}
+          />
+          <DialogFooter>
+            <Button onClick={handlePromoteSave} disabled={!promoteName.trim()}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
