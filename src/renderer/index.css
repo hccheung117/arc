@@ -135,8 +135,7 @@
   /* Global scrollbar — auto-hide, shadcn-matched handle */
   *::-webkit-scrollbar {
     width: 10px;
-    /* for horizontal scrollbars */
-    /* height: 10px;*/
+    height: 8px;
   }
   *::-webkit-scrollbar-track {
     background: transparent;

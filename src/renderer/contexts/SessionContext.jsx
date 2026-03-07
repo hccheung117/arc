@@ -1,4 +1,4 @@
-import { createContext, use, useCallback, useEffect, useMemo, useState } from "react"
+import { createContext, use, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Chat, useChat } from "@ai-sdk/react"
 import { IpcTransport } from "@/lib/ipc-session-transport"
 import { useAppStore, act } from "@/store/app-store"
@@ -19,6 +19,8 @@ export function SessionProvider({ children }) {
   }
 
   const chat = useChat({ chat: chatInstances.get(activeSessionId) })
+  const chatRef = useRef(chat)
+  chatRef.current = chat
   const [prompt, setPrompt] = useState(null)
   const [branches, setBranches] = useState({})
   const promptRef = useAppStore((s) => s.workbenches[s.activeSessionId]?.promptRef)
@@ -30,6 +32,13 @@ export function SessionProvider({ children }) {
 
   useEffect(() => window.api.on('session:state:listen', (payload) => {
     if (payload.sessionId !== activeSessionId) return
+    if (payload.replaceFiles) {
+      const { id, parts } = payload.replaceFiles
+      const c = chatRef.current
+      c.setMessages(c.messages.map(m =>
+        m.id === id ? { ...m, parts: [...m.parts.filter(p => p.type !== 'file'), ...parts] } : m
+      ))
+    }
     if (payload.messages) chat.setMessages(payload.messages)
     if (payload.branches) setBranches(payload.branches)
     if ('prompt' in payload) setPrompt(payload.prompt)

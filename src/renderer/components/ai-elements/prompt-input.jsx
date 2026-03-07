@@ -62,25 +62,6 @@ import {
 // Helpers
 // ============================================================================
 
-const convertBlobUrlToDataUrl = async url => {
-  try {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    // FileReader uses callback-based API, wrapping in Promise is necessary
-    // oxlint-disable-next-line eslint-plugin-promise(avoid-new)
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      // oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
-      reader.onloadend = () => resolve(reader.result);
-      // oxlint-disable-next-line eslint-plugin-unicorn(prefer-add-event-listener)
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    return null;
-  }
-};
-
 const PromptInputController = createContext(null);
 const ProviderAttachmentsContext = createContext(null);
 
@@ -129,60 +110,28 @@ export const PromptInputProvider = ({
   // oxlint-disable-next-line eslint(no-empty-function)
   const openRef = useRef(() => {});
 
-  const add = useCallback((files) => {
+  const add = useCallback(async (files) => {
     const incoming = [...files];
-    if (incoming.length === 0) {
-      return;
-    }
+    if (incoming.length === 0) return;
+
+    const uploaded = await Promise.all(incoming.map(async (file) => {
+      const payload = file.path
+        ? { path: file.path, filename: file.name, mediaType: file.type }
+        : { data: await file.arrayBuffer(), filename: file.name, mediaType: file.type };
+      return window.api.call('message:upload-attachment', payload);
+    }));
 
     setAttachmentFiles((prev) => [
       ...prev,
-      ...incoming.map((file) => ({
-        filename: file.name,
-        id: generateId(),
-        mediaType: file.type,
-        type: "file",
-        url: URL.createObjectURL(file),
-      })),
+      ...uploaded.map((att) => ({ ...att, id: generateId(), type: 'file' })),
     ]);
   }, []);
 
   const remove = useCallback((id) => {
-    setAttachmentFiles((prev) => {
-      const found = prev.find((f) => f.id === id);
-      if (found?.url) {
-        URL.revokeObjectURL(found.url);
-      }
-      return prev.filter((f) => f.id !== id);
-    });
+    setAttachmentFiles((prev) => prev.filter((f) => f.id !== id));
   }, []);
 
-  const clear = useCallback(() => {
-    setAttachmentFiles((prev) => {
-      for (const f of prev) {
-        if (f.url) {
-          URL.revokeObjectURL(f.url);
-        }
-      }
-      return [];
-    });
-  }, []);
-
-  // Keep a ref to attachments for cleanup on unmount (avoids stale closure)
-  const attachmentsRef = useRef(attachmentFiles);
-
-  useEffect(() => {
-    attachmentsRef.current = attachmentFiles;
-  }, [attachmentFiles]);
-
-  // Cleanup blob URLs on unmount to prevent memory leaks
-  useEffect(() => () => {
-    for (const f of attachmentsRef.current) {
-      if (f.url) {
-        URL.revokeObjectURL(f.url);
-      }
-    }
-  }, []);
+  const clear = useCallback(() => setAttachmentFiles([]), []);
 
   const openFileDialog = useCallback(() => {
     openRef.current?.();
@@ -281,6 +230,8 @@ export const PromptInput = ({
   maxFileSize,
   onError,
   onSubmit,
+  attachmentItems,
+  onAttachmentItemsChange,
   children,
   ...props
 }) => {
@@ -292,19 +243,15 @@ export const PromptInput = ({
   const inputRef = useRef(null);
   const formRef = useRef(null);
 
-  // ----- Local attachments (only used when no provider)
-  const [items, setItems] = useState([]);
+  // ----- Local attachments (only used when no provider and not controlled)
+  const isControlled = attachmentItems !== undefined;
+  const [localItems, setLocalItems] = useState([]);
+  const items = isControlled ? attachmentItems : localItems;
+  const setItems = isControlled ? onAttachmentItemsChange : setLocalItems;
   const files = usingProvider ? controller.attachments.files : items;
 
   // ----- Local referenced sources (always local to PromptInput)
   const [referencedSources, setReferencedSources] = useState([]);
-
-  // Keep a ref to files for cleanup on unmount (avoids stale closure)
-  const filesRef = useRef(files);
-
-  useEffect(() => {
-    filesRef.current = files;
-  }, [files]);
 
   const openFileDialogLocal = useCallback(() => {
     inputRef.current?.click();
@@ -330,7 +277,7 @@ export const PromptInput = ({
     });
   }, [accept]);
 
-  const addLocal = useCallback((fileList) => {
+  const addLocal = useCallback(async (fileList) => {
     const incoming = [...fileList];
     const accepted = incoming.filter((f) => matchesAccept(f));
     if (incoming.length && accepted.length === 0) {
@@ -351,44 +298,37 @@ export const PromptInput = ({
       return;
     }
 
-    setItems((prev) => {
-      const capacity =
-        typeof maxFiles === "number"
-          ? Math.max(0, maxFiles - prev.length)
-          : undefined;
-      const capped =
-        typeof capacity === "number" ? sized.slice(0, capacity) : sized;
-      if (typeof capacity === "number" && sized.length > capacity) {
-        onError?.({
-          code: "max_files",
-          message: "Too many files. Some were not added.",
-        });
-      }
-      const next = [];
-      for (const file of capped) {
-        next.push({
-          filename: file.name,
-          id: generateId(),
-          mediaType: file.type,
-          type: "file",
-          url: URL.createObjectURL(file),
-        });
-      }
-      return [...prev, ...next];
-    });
-  }, [matchesAccept, maxFiles, maxFileSize, onError]);
+    const capacity =
+      typeof maxFiles === "number"
+        ? Math.max(0, maxFiles - items.length)
+        : undefined;
+    const capped =
+      typeof capacity === "number" ? sized.slice(0, capacity) : sized;
+    if (typeof capacity === "number" && sized.length > capacity) {
+      onError?.({
+        code: "max_files",
+        message: "Too many files. Some were not added.",
+      });
+    }
+
+    const uploaded = await Promise.all(capped.map(async (file) => {
+      const payload = file.path
+        ? { path: file.path, filename: file.name, mediaType: file.type }
+        : { data: await file.arrayBuffer(), filename: file.name, mediaType: file.type };
+      return window.api.call('message:upload-attachment', payload);
+    }));
+
+    setItems((prev) => [
+      ...prev,
+      ...uploaded.map((att) => ({ ...att, id: generateId(), type: 'file' })),
+    ]);
+  }, [matchesAccept, maxFiles, maxFileSize, onError, items.length]);
 
   const removeLocal = useCallback((id) =>
-    setItems((prev) => {
-      const found = prev.find((file) => file.id === id);
-      if (found?.url) {
-        URL.revokeObjectURL(found.url);
-      }
-      return prev.filter((file) => file.id !== id);
-    }), []);
+    setItems((prev) => prev.filter((file) => file.id !== id)), []);
 
   // Wrapper that validates files before calling provider's add
-  const addWithProviderValidation = useCallback((fileList) => {
+  const addWithProviderValidation = useCallback(async (fileList) => {
     const incoming = [...fileList];
     const accepted = incoming.filter((f) => matchesAccept(f));
     if (incoming.length && accepted.length === 0) {
@@ -424,21 +364,14 @@ export const PromptInput = ({
     }
 
     if (capped.length > 0) {
-      controller?.attachments.add(capped);
+      await controller?.attachments.add(capped);
     }
   }, [matchesAccept, maxFileSize, maxFiles, onError, files.length, controller]);
 
   const clearAttachments = useCallback(() =>
     usingProvider
       ? controller?.attachments.clear()
-      : setItems((prev) => {
-          for (const file of prev) {
-            if (file.url) {
-              URL.revokeObjectURL(file.url);
-            }
-          }
-          return [];
-        }), [usingProvider, controller]);
+      : setItems([]), [usingProvider, controller]);
 
   const clearReferencedSources = useCallback(() => setReferencedSources([]), []);
 
@@ -527,17 +460,6 @@ export const PromptInput = ({
     };
   }, [add, globalDrop]);
 
-  useEffect(() => () => {
-    if (!usingProvider) {
-      for (const f of filesRef.current) {
-        if (f.url) {
-          URL.revokeObjectURL(f.url);
-        }
-      }
-    }
-  }, // eslint-disable-next-line react-hooks/exhaustive-deps -- cleanup only on unmount; filesRef always current
-  [usingProvider]);
-
   const handleChange = useCallback((event) => {
     if (event.currentTarget.files) {
       add(event.currentTarget.files);
@@ -581,27 +503,13 @@ export const PromptInput = ({
           return (formData.get("message")) || "";
         })();
 
-    // Reset form immediately after capturing text to avoid race condition
-    // where user input during async blob conversion would be lost
     if (!usingProvider) {
       form.reset();
     }
 
     try {
-      // Convert blob URLs to data URLs asynchronously
-      const convertedFiles = await Promise.all(files.map(async ({ id: _id, ...item }) => {
-        if (item.url?.startsWith("blob:")) {
-          const dataUrl = await convertBlobUrlToDataUrl(item.url);
-          // If conversion failed, keep the original blob URL
-          return {
-            ...item,
-            url: dataUrl ?? item.url,
-          };
-        }
-        return item;
-      }));
-
-      const result = onSubmit({ files: convertedFiles, text }, event);
+      const attachments = files.map(({ id: _id, ...att }) => att)
+      const result = onSubmit({ files: attachments, attachments, text }, event);
 
       // Handle both sync and async onSubmit
       if (result instanceof Promise) {

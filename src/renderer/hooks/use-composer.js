@@ -10,7 +10,7 @@
  * Public API:
  *   useComposer()    — React hook returning { mode, config, value, updateDraft, submit, setMode }
  *   useComposerMode()— lightweight mode-only selector (avoids re-render on draft changes)
- *   composerActions  — imperative { setMode, setDraft } for IPC handlers outside React
+ *   composerActions  — imperative { setMode, setDraftText } for IPC handlers outside React
  */
 import { create } from "zustand"
 import { resolveMode, textFromParts } from "@/lib/composer-modes"
@@ -35,46 +35,55 @@ export const composerActions = {
   setMode: (sid, mode, overrides = {}) =>
     _put(sid, (s) => ({ ...s, mode, overrides })),
 
-  setDraft: (sid, mode, value) =>
-    _put(sid, (s) => ({ ...s, drafts: { ...s.drafts, [mode]: value } })),
+  setDraftText: (sid, mode, value) =>
+    _put(sid, (s) => ({ ...s, drafts: { ...s.drafts, [mode]: { ...(s.drafts[mode] ?? {}), text: value } } })),
+
+  setDraftFiles: (sid, mode, updaterOrValue) =>
+    _put(sid, (s) => {
+      const current = s.drafts[mode]?.files ?? []
+      const files = typeof updaterOrValue === 'function' ? updaterOrValue(current) : updaterOrValue
+      return { ...s, drafts: { ...s.drafts, [mode]: { ...(s.drafts[mode] ?? {}), files } } }
+    }),
 }
 
 // --- value derivation --------------------------------------------------------
 
 const deriveValue = (mode, overrides, drafts, prompt, messages) => {
-  if (mode === "prompt") return drafts[mode] || prompt || ""
+  if (mode === "prompt") return drafts[mode]?.text || prompt || ""
   if (mode.startsWith("edit:")) {
-    return drafts[mode] ?? textFromParts(messages?.find((m) => m.id === overrides.messageKey)) ?? ""
+    return drafts[mode]?.text ?? textFromParts(messages?.find((m) => m.id === overrides.messageKey)) ?? ""
   }
-  return drafts[mode] ?? ""
+  return drafts[mode]?.text ?? ""
 }
 
 // --- submit protocols --------------------------------------------------------
 
-const submitChat = (sid, value, sendMessage, promptRef, providerId, modelId) => {
-  sendMessage({ text: value }, { body: { promptRef, providerId, modelId } })
-  composerActions.setDraft(sid, "chat", "")
+const submitChat = (sid, value, files, attachments, sendMessage, promptRef, providerId, modelId) => {
+  sendMessage({ text: value, files }, { body: { promptRef, providerId, modelId, attachments } })
+  composerActions.setDraftText(sid, "chat", "")
+  composerActions.setDraftFiles(sid, "chat", [])
   act().session.commitDraft()
 }
 
-const submitEditUser = (sid, value, messages, messageKey, sendMessage, setMessages, promptRef, providerId, modelId) => {
+const submitEditUser = (sid, value, files, attachments, messages, messageKey, sendMessage, setMessages, promptRef, providerId, modelId) => {
   const idx = messages.findIndex((m) => m.id === messageKey)
   if (idx === -1) return
   setMessages(messages.slice(0, idx))
-  sendMessage({ text: value }, { body: { promptRef, providerId, modelId } })
-  composerActions.setDraft(sid, "edit:user", "")
+  sendMessage({ text: value, files }, { body: { promptRef, providerId, modelId, attachments } })
+  composerActions.setDraftText(sid, "edit:user", "")
+  composerActions.setDraftFiles(sid, "edit:user", [])
   composerActions.setMode(sid, "chat")
 }
 
 const submitEditAi = (sid, value, messageKey) => {
   window.api.call("message:edit-save", { sessionId: sid, messageId: messageKey, text: value })
-  composerActions.setDraft(sid, "edit:ai", "")
+  composerActions.setDraftText(sid, "edit:ai", "")
   composerActions.setMode(sid, "chat")
 }
 
 const submitPrompt = (sid, value) => {
   window.api.call("session:save-prompt", { id: sid, content: value })
-  composerActions.setDraft(sid, "prompt", "")
+  composerActions.setDraftText(sid, "prompt", "")
   composerActions.setMode(sid, "chat")
 }
 
@@ -101,17 +110,20 @@ export const useComposer = () => {
 
   const config = resolveMode(mode, overrides)
   const value = deriveValue(mode, overrides, drafts, prompt, messages)
+  const attachments = drafts[mode]?.files ?? []
 
   return {
     mode,
     config,
     value,
-    updateDraft: (val) => composerActions.setDraft(sid, mode, val),
+    attachments,
+    setAttachments: (updater) => composerActions.setDraftFiles(sid, mode, updater),
+    updateDraft: (val) => composerActions.setDraftText(sid, mode, val),
     setMode: (m, ov) => composerActions.setMode(sid, m, ov),
-    submit: (text) => {
+    submit: (text, files, attachments) => {
       if (mode === "prompt") return submitPrompt(sid, text)
-      if (mode === "chat") return submitChat(sid, text, sendMessage, promptRef, providerId, modelId)
-      if (mode === "edit:user") return submitEditUser(sid, text, messages, overrides.messageKey, sendMessage, setMessages, promptRef, providerId, modelId)
+      if (mode === "chat") return submitChat(sid, text, files, attachments, sendMessage, promptRef, providerId, modelId)
+      if (mode === "edit:user") return submitEditUser(sid, text, files, attachments, messages, overrides.messageKey, sendMessage, setMessages, promptRef, providerId, modelId)
       if (mode === "edit:ai") return submitEditAi(sid, text, overrides.messageKey)
     },
   }

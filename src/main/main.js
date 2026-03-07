@@ -1,8 +1,10 @@
-import { app, BrowserWindow, Menu } from 'electron';
+import { app, BrowserWindow, Menu, protocol, net } from 'electron';
+import fs from 'node:fs/promises';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import started from 'electron-squirrel-startup';
 import { initIpc, setMainWindow } from './router.js';
-import { resolve } from './arcfs.js';
+import { resolve, fromUrl } from './arcfs.js';
 import { getState, setState } from './services/state.js';
 import { pushSessions } from './routes/session.js';
 import { pushPrompts } from './routes/prompts.js';
@@ -17,6 +19,10 @@ import './routes/assist.js';
 if (started) {
   app.quit();
 }
+
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'arcfs', privileges: { standard: true, secure: true, supportFetchAPI: true } },
+])
 
 const stateFile = resolve('state.json')
 
@@ -79,6 +85,15 @@ const createWindow = async () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
+  fs.rm(resolve('tmp'), { recursive: true, force: true }).catch(() => {})
+
+  const arcfsRoot = resolve()
+  protocol.handle('arcfs', (request) => {
+    const filePath = fromUrl(request.url)
+    if (!filePath.startsWith(arcfsRoot)) return new Response('Forbidden', { status: 403 })
+    return net.fetch(pathToFileURL(filePath).toString())
+  })
+
   initIpc();
   createWindow();
 

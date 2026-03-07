@@ -30,6 +30,19 @@ const textFromParts = (msg) =>
 const reasoningFromParts = (msg) =>
   msg.parts.filter((p) => p.type === "reasoning").map((p) => p.text).join("\n\n")
 
+const UserMessageContent = ({ msg }) => (
+  <MessageContent>
+    {msg.parts.some(p => p.type === 'file' && p.mediaType?.startsWith('image/')) && (
+      <div className="flex flex-wrap gap-2">
+        {msg.parts.filter(p => p.type === 'file' && p.mediaType?.startsWith('image/')).map((p, i) => (
+          <img key={i} src={p.url} alt={p.filename || 'Image'} className="max-h-48 rounded-lg object-cover cursor-pointer" onClick={() => window.api.call('message:open-file', { url: p.url })} />
+        ))}
+      </div>
+    )}
+    {textFromParts(msg)}
+  </MessageContent>
+)
+
 const BranchInit = ({ total }) => {
   const { setBranches } = useMessageBranch()
   useEffect(() => { setBranches(Array(total).fill(null)) }, [total, setBranches])
@@ -137,7 +150,7 @@ export default function Workbench() {
                         className={cn(msg.id === config.messageKey && "blur-[2px]")}>
                         {msg.role === "assistant"
                           ? assistantContent
-                          : <MessageContent>{textFromParts(msg)}</MessageContent>
+                          : <UserMessageContent msg={msg} />
                         }
                       </Message>
                       <MessageBranchSelector className={cn(msg.role === "user" && "ml-auto")}>
@@ -155,7 +168,7 @@ export default function Workbench() {
                     className={cn(msg.id === config.messageKey && "blur-[2px]")}>
                     {msg.role === "assistant"
                       ? assistantContent
-                      : <MessageContent>{textFromParts(msg)}</MessageContent>
+                      : <UserMessageContent msg={msg} />
                     }
                   </Message>
                 )

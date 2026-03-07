@@ -72,7 +72,7 @@ register('session:save-prompt', async ({ id, content }) => {
   pushSessionState(id, { prompt })
 })
 
-registerStream('session:send', async ({ sessionId, messages, promptRef, providerId, modelId, send, signal }) => {
+registerStream('session:send', async ({ sessionId, messages: inputMessages, attachments, promptRef, providerId, modelId, send, signal }) => {
   if (!providerId || !modelId) {
     send({ type: 'error', errorText: 'No model selected' })
     return
@@ -84,12 +84,21 @@ registerStream('session:send', async ({ sessionId, messages, promptRef, provider
     return
   }
 
-  const title = fallbackTitle(messages)
+  const title = fallbackTitle(inputMessages)
   const isNew = await session.ensureMeta(dir, sessionId, promptRef, title)
   const system = await session.loadPrompt(dir, sessionId)
+  const messages = await message.extractFiles(resolve('sessions', sessionId), inputMessages, attachments)
   const filePath = message.messagesPath(dir, sessionId)
   const lastId = await message.persistNewMessages(filePath, messages)
 
+  const userMsg = messages.findLast(m => m.role === 'user')
+  const fileParts = userMsg?.parts.filter(p => p.type === 'file')
+  // Replace renderer's tmp attachment URLs with permanent session file URLs
+  if (fileParts?.length) {
+    pushSessionState(sessionId, { replaceFiles: { id: userMsg.id, parts: fileParts } })
+  }
+
+  // Persisting may have created new branch points; sync sidebar + message tree
   const { branches } = await message.loadMessages(dir, sessionId)
   pushSessionState(sessionId, { branches })
   await pushSessions()
@@ -101,15 +110,17 @@ registerStream('session:send', async ({ sessionId, messages, promptRef, provider
         const current = await session.getSession(dir, sessionId)
         if (current?.title !== title) return
         await session.renameSession(dir, sessionId, newTitle)
+        // Refresh sidebar with the AI-generated title
         await pushSessions()
       })
       .catch(() => {})
   }
 
-  const result = await llm.streamText({ provider, modelId, system, messages, send, signal, thinking: true })
+  const result = await llm.streamText({ provider, modelId, system, messages: messages, send, signal, thinking: true })
   if (!result) return
 
   await message.persistAssistantMessage(filePath, { ...result, lastId })
+  // Refresh sidebar (updated timestamp) and branch tree (new assistant node)
   await pushSessions()
   const updated = await message.loadMessages(dir, sessionId)
   pushSessionState(sessionId, { branches: updated.branches })

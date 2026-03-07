@@ -1,6 +1,7 @@
+import fs from 'node:fs/promises'
 import path from 'node:path'
 import { generateId } from 'ai'
-import { readJsonl, appendJsonl } from '../arcfs.js'
+import { readJsonl, appendJsonl, toUrl, fromUrl } from '../arcfs.js'
 
 export const messagesPath = (dir, sessionId) =>
   path.join(dir, sessionId, 'messages.jsonl')
@@ -90,6 +91,82 @@ export const exportMarkdown = async (dir, sessionId) => {
       return `**${role}:** ${text}`
     })
     .join('\n\n')
+}
+
+export const uploadAttachment = async (tmpDir, { data, path: filePath, filename, mediaType }) => {
+  await fs.mkdir(tmpDir, { recursive: true })
+  const id = generateId()
+  const ext = path.extname(filename)
+  const name = `${id}${ext}`
+  const dest = path.join(tmpDir, name)
+
+  if (filePath) {
+    await fs.copyFile(filePath, dest)
+  } else {
+    await fs.writeFile(dest, Buffer.from(data))
+  }
+
+  return { url: toUrl('tmp', name), filename, mediaType }
+}
+
+export const extractFiles = async (sessionDir, messages, attachments) => {
+  if (!attachments?.length) return messages
+
+  const filesDir = path.join(sessionDir, 'files')
+  await fs.mkdir(filesDir, { recursive: true })
+
+  const sessionId = path.basename(sessionDir)
+  const fileParts = []
+
+  for (const att of attachments) {
+    const id = generateId()
+    const ext = path.extname(att.filename)
+    const name = `${id}${ext}`
+
+    if (att.url?.startsWith('arcfs://')) {
+      await fs.rename(fromUrl(att.url), path.join(filesDir, name))
+    } else if (att.path) {
+      await fs.copyFile(att.path, path.join(filesDir, name))
+    } else if (att.data) {
+      await fs.writeFile(path.join(filesDir, name), Buffer.from(att.data))
+    }
+
+    fileParts.push({
+      type: 'file',
+      url: toUrl('sessions', sessionId, 'files', name),
+      filename: att.filename,
+      mediaType: att.mediaType,
+    })
+  }
+
+  const result = messages.map(m => ({ ...m }))
+  for (let i = result.length - 1; i >= 0; i--) {
+    if (result[i].role === 'user') {
+      result[i] = {
+        ...result[i],
+        parts: [
+          ...result[i].parts.filter(p => p.type !== 'file'),
+          ...fileParts,
+        ],
+      }
+      break
+    }
+  }
+
+  return result
+}
+
+export const resolveArcfsUrls = async (messages) => {
+  const resolved = []
+  for (const msg of messages) {
+    const parts = await Promise.all(msg.parts.map(async (p) => {
+      if (p.type !== 'file' || !p.url?.startsWith('arcfs://')) return p
+      const buf = await fs.readFile(fromUrl(p.url))
+      return { ...p, url: buf.toString('base64') }
+    }))
+    resolved.push({ ...msg, parts })
+  }
+  return resolved
 }
 
 export const persistNewMessages = async (filePath, messages) => {

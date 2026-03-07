@@ -6,6 +6,15 @@ import writeFileAtomic from 'write-file-atomic'
 export const resolve = (...segments) =>
   path.join(app.getPath('userData'), 'arcfs', ...segments)
 
+export const toUrl = (...segments) =>
+  `arcfs://${segments.join('/')}`
+
+export const fromUrl = (url) => {
+  const parsed = new URL(url)
+  const segments = [parsed.hostname, ...parsed.pathname.slice(1).split('/').filter(Boolean)]
+  return resolve(...segments)
+}
+
 export const readJson = async (filepath) => {
   try { return JSON.parse(await fs.readFile(filepath, 'utf-8')) }
   catch (e) { if (e.code === 'ENOENT') return null; throw e }

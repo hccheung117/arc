@@ -1,6 +1,8 @@
-import { Menu, clipboard } from 'electron'
+import { Menu, clipboard, shell, app } from 'electron'
+import fs from 'node:fs/promises'
+import { join } from 'node:path'
 import { register, push } from '../router.js'
-import { resolve } from '../arcfs.js'
+import { resolve, fromUrl } from '../arcfs.js'
 import * as session from '../services/session.js'
 import * as message from '../services/message.js'
 import { pushSessions, pushSessionState } from './session.js'
@@ -38,3 +40,15 @@ register('message:switch-branch', async ({ sessionId, targetId }) => {
   const { messages, branches } = await message.switchBranch(dir, sessionId, targetId)
   pushSessionState(sessionId, { messages, branches })
 })
+
+register('message:open-file', async ({ url, path, data, filename }) => {
+  if (url) return shell.openPath(fromUrl(url))
+  if (path) return shell.openPath(path)
+  const tmp = join(app.getPath('temp'), filename)
+  await fs.writeFile(tmp, Buffer.from(data))
+  await shell.openPath(tmp)
+})
+
+register('message:upload-attachment', ({ data, path, filename, mediaType }) =>
+  message.uploadAttachment(resolve('tmp'), { data, path, filename, mediaType })
+)

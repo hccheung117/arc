@@ -13,6 +13,12 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import {
+  Attachments,
+  Attachment,
+  AttachmentPreview,
+  AttachmentRemove,
+} from "@/components/ai-elements/attachments"
 import { ImageIcon, MicIcon, PencilLine, Sparkles, SquareIcon, Wand2 } from "lucide-react"
 import { cn } from "@/lib/shadcn"
 import { useComposer, useComposerMode } from "@/hooks/use-composer"
@@ -60,8 +66,41 @@ const HeaderAction = ({ action, onCancel, onRefine, onPromote, isRefining }) => 
   }
 }
 
+const openFile = (file) => window.api.call('message:open-file', { url: file.url })
+
+const ComposerAttachments = () => {
+  const attachments = usePromptInputAttachments()
+  if (attachments.files.length === 0) return null
+  return (
+    <Attachments variant="grid" className="ml-0 w-full flex-nowrap overflow-x-auto px-3 pt-3">
+      {attachments.files.map((file) => (
+        <Attachment key={file.id} data={file} onRemove={() => attachments.remove(file.id)} className="shrink-0 cursor-pointer" onClick={() => openFile(file)}>
+          <AttachmentPreview />
+          <AttachmentRemove />
+        </Attachment>
+      ))}
+    </Attachments>
+  )
+}
+
+const ComposerSubmit = ({ status, onStop, value, isRefining, config }) => {
+  const attachments = usePromptInputAttachments()
+  const hasContent = value.trim() || attachments.files.length > 0
+  return (
+    <PromptInputSubmit
+      status={status}
+      onStop={onStop}
+      disabled={(status === "ready" && !hasContent) || isRefining}
+      className="ml-1 rounded-full"
+      variant={status !== "ready" ? "destructive" : "default"}
+    >
+      {status === "ready" ? <config.submitIcon className="size-4" /> : null}
+    </PromptInputSubmit>
+  )
+}
+
 function BaseComposer({ shadowClass, footerClass }) {
-  const { mode, config, value, updateDraft, submit, setMode } = useComposer()
+  const { mode, config, value, updateDraft, submit, setMode, attachments, setAttachments } = useComposer()
   const sid = useAppStore((s) => s.activeSessionId)
   const { status, stop } = useSession()
   const { containerRef, isLocked, manualMaxHeight, startResizing, toggleLock } = useAutogrowLock()
@@ -72,7 +111,7 @@ function BaseComposer({ shadowClass, footerClass }) {
   const [promoteName, setPromoteName] = useState("")
 
   const handleDraftChange = (e) => updateDraft(e.target.value)
-  const handleSubmit = (message) => submit(message.text)
+  const handleSubmit = (message) => submit(message.text, message.files, message.attachments)
   const handleCancel = () => {
     abortRefine()
     setMode("chat")
@@ -102,7 +141,7 @@ function BaseComposer({ shadowClass, footerClass }) {
         isLocked={isLocked}
         onToggleLock={toggleLock}
       />
-      <PromptInput onSubmit={handleSubmit} accept="image/*" className={cn("rounded-2xl bg-background/50 backdrop-blur transition-shadow", shadowClass)}>
+      <PromptInput onSubmit={handleSubmit} accept="image/*" attachmentItems={attachments} onAttachmentItemsChange={setAttachments} className={cn("rounded-2xl bg-background/50 backdrop-blur transition-shadow", shadowClass)}>
         {/* pb-1.5 overrides the block-end variant's pb-3 so the header-to-textarea
             gap matches the textarea-to-footer gap (both 6px from base py-1.5). */}
         {config.header && (
@@ -120,6 +159,7 @@ function BaseComposer({ shadowClass, footerClass }) {
             </div>
           </PromptInputHeader>
         )}
+        <ComposerAttachments />
         <PromptInputBody>
           <PromptInputTextarea
             className="max-h-none"
@@ -136,15 +176,7 @@ function BaseComposer({ shadowClass, footerClass }) {
           </PromptInputTools>
           <div className={cn("flex items-center gap-1", footerClass)}>
             {config.tools.filter((t) => t !== "attach").map((t) => <ToolButton key={t} tool={t} />)}
-            <PromptInputSubmit
-              status={status}
-              onStop={stop}
-              disabled={(status === "ready" && !value.trim()) || isRefining}
-              className="ml-1 rounded-full"
-              variant={status !== "ready" ? "destructive" : "default"}
-            >
-              {status === "ready" ? <config.submitIcon className="size-4" /> : null}
-            </PromptInputSubmit>
+            <ComposerSubmit status={status} onStop={stop} value={value} isRefining={isRefining} config={config} />
           </div>
         </PromptInputFooter>
       </PromptInput>
