@@ -66,7 +66,7 @@ function InputGroupAddon({
         if ((e.target).closest("button")) {
           return
         }
-        e.currentTarget.parentElement?.querySelector("input")?.focus()
+        e.currentTarget.parentElement?.querySelector("textarea, input")?.focus()
       }}
       {...props} />
   );

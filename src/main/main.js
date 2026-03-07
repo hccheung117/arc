@@ -39,9 +39,22 @@ const createWindow = async () => {
     await setState(stateFile, { windowBounds: { width, height } })
   })
 
-  const editMenu = Menu.buildFromTemplate([{ role: 'editMenu' }]).items[0].submenu
   mainWindow.webContents.on('context-menu', (_event, params) => {
-    if (params.isEditable) editMenu.popup({ frame: params.frame })
+    if (!params.isEditable) return
+
+    const spellItems = []
+    if (params.misspelledWord) {
+      for (const suggestion of params.dictionarySuggestions) {
+        spellItems.push({
+          label: suggestion,
+          click: () => mainWindow.webContents.replaceMisspelling(suggestion),
+        })
+      }
+      if (spellItems.length) spellItems.push({ type: 'separator' })
+    }
+
+    const editItems = Menu.buildFromTemplate([{ role: 'editMenu' }]).items[0].submenu.items
+    Menu.buildFromTemplate([...spellItems, ...editItems]).popup({ frame: params.frame })
   });
 
   mainWindow.webContents.on('did-finish-load', async () => {
