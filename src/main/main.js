@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import started from 'electron-squirrel-startup';
-import { initIpc, setMainWindow } from './router.js';
+import { initIpc, setMainWindow, dispatch } from './router.js';
 import { resolve, fromUrl } from './arcfs.js';
 import { getState, setState } from './services/state.js';
 import { pushSessions } from './routes/session.js';
@@ -15,6 +15,7 @@ import { pushState } from './routes/state.js';
 import { pushSettings } from './routes/settings.js';
 import './routes/message.js';
 import './routes/assist.js';
+import './routes/profile.js';
 import { initUpdater } from './updater.js';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -98,7 +99,13 @@ app.whenReady().then(() => {
 
   const menu = Menu.buildFromTemplate([
     { role: 'appMenu' },
-    { role: 'fileMenu' },
+    { label: 'File', submenu: [
+      { label: 'Import Profile...', click: () => dispatch('profile:import') },
+      { label: 'Export Profile...', click: () => dispatch('profile:export') },
+      { label: 'Open Profile Folder', click: () => dispatch('profile:reveal') },
+      { type: 'separator' },
+      { role: 'close' },
+    ]},
     { role: 'editMenu' },
     { role: 'viewMenu' },
     { role: 'windowMenu' },

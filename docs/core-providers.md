@@ -10,6 +10,7 @@ A typical profile directory looks like this:
 
 ```text
 profiles/<profile-name>/
+├── arc.json            # Marker/manifest file for import/export
 ├── providers.json      # Defines AI backend endpoints and credentials
 ├── settings.json       # Defines default favorite models and other UI settings
 └── prompts/            # Reusable system prompts (.md files) available to users
@@ -150,4 +151,32 @@ Current system tasks include:
     "transcribe-audio": { "provider": "openai", "model": "whisper-1" }
   }
 }
+```
+
+## Import & Export
+
+Profiles can be exported and imported as `.arc` files. This allows you to easily backup or share your configured AI backends, default favorites, and reusable prompts. 
+
+### Exporting
+
+You can export the active profile directly from the application via **File > Export Profile**. This action packs the active profile directory into an `.arc` file (a standard zip archive). The exported file includes all your configuration files and credentials.
+
+### Importing
+
+You can import an existing profile via **File > Import Profile** and selecting a `.arc` file. The application will:
+1. Validate that it's a valid `.arc` archive (containing exactly one top-level folder with an `arc.json` marker file).
+2. Extract the contents into your local `profiles/` directory, overwriting any existing profile with the same name.
+3. Immediately activate the profile and reload all providers, settings, and prompts.
+
+**`.arc` File Format:**
+
+The `.arc` format is a zip archive structured identically to the local profile directory. The presence of `arc.json` acts as a marker/manifest to indicate it's a valid, importable profile.
+
+```text
+<profile-name>.arc (zip):
+└── <profile-name>/
+    ├── arc.json           # Marker/manifest file
+    ├── providers.json     # Providers configuration (credentials included)
+    ├── settings.json      # Default favorite models and settings
+    └── prompts/           # Reusable system prompts
 ```

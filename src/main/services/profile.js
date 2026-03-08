@@ -1,4 +1,6 @@
 import fs from 'node:fs/promises'
+import path from 'node:path'
+import AdmZip from 'adm-zip'
 import { resolve, readJson, writeJson } from '../arcfs.js'
 
 const configPath = () => resolve('profiles', 'config.json')
@@ -39,3 +41,25 @@ export const resolveDir = async (subpath, listFn) => {
 }
 
 export const appPath = (subpath) => resolve('profiles', '@app', subpath)
+
+export const exportProfile = (profileDir, destPath) => {
+  const zip = new AdmZip()
+  zip.addLocalFolder(profileDir, path.basename(profileDir))
+  zip.writeZip(destPath)
+}
+
+export const importProfile = async (arcFilePath, profilesDir) => {
+  const zip = new AdmZip(arcFilePath)
+  const entries = zip.getEntries()
+
+  const topDirs = new Set(entries.map(e => e.entryName.split('/')[0]))
+  if (topDirs.size !== 1) throw new Error('Invalid .arc file: must contain exactly one top-level folder')
+  const name = [...topDirs][0]
+  if (!entries.some(e => e.entryName === `${name}/arc.json`)) {
+    throw new Error('Invalid .arc file: missing arc.json marker')
+  }
+
+  await fs.rm(path.join(profilesDir, name), { recursive: true, force: true })
+  zip.extractAllTo(profilesDir, true)
+  return name
+}
