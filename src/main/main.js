@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, protocol, net } from 'electron';
+import { app, BrowserWindow, Menu, protocol, net, shell } from 'electron';
 import './init.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -94,6 +94,24 @@ app.whenReady().then(() => {
     if (!filePath.startsWith(arcfsRoot)) return new Response('Forbidden', { status: 403 })
     return net.fetch(pathToFileURL(filePath).toString())
   })
+
+  const menu = Menu.buildFromTemplate([
+    { role: 'appMenu' },
+    { role: 'fileMenu' },
+    { role: 'editMenu' },
+    { role: 'viewMenu' },
+    { role: 'windowMenu' },
+    { role: 'help', submenu: [
+      { label: 'Source Code', click: () => shell.openExternal('https://github.com/hccheung117/arc/') },
+    ]},
+  ])
+
+  const devRoles = new Set(['reload', 'forcereload', ...(app.isPackaged ? ['toggledevtools'] : [])])
+  for (const item of menu.items.find(i => i.role === 'viewmenu').submenu.items) {
+    if (devRoles.has(item.role)) item.visible = false
+  }
+
+  Menu.setApplicationMenu(menu)
 
   initIpc();
   createWindow();
