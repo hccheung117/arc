@@ -1,3 +1,5 @@
+import { experimental_transcribe as transcribe } from 'ai'
+import { createOpenAI } from '@ai-sdk/openai'
 import { getAssignment } from './settings.js'
 import { generateText, streamText } from './llm.js'
 
@@ -34,4 +36,17 @@ export async function generateTitle(messages) {
     messages: [{ role: 'user', parts: [{ type: 'text', text: `<first-user-message>${text}</first-user-message>` }] }],
   })
   return title.trim()
+}
+
+export const transcribeAudio = async ({ audio }) => {
+  const assignment = await getAssignment('transcribe-audio')
+  if (!assignment) return null
+  const { provider, modelId } = assignment
+  const client = createOpenAI({ baseURL: provider.baseUrl, apiKey: provider.apiKey })
+  const { text } = await transcribe({
+    model: client.transcription(modelId),
+    audio: new Uint8Array(audio),
+    providerOptions: { openai: {} },
+  })
+  try { return JSON.parse(text).text } catch { return text }
 }

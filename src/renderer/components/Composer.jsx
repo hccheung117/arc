@@ -9,7 +9,7 @@ import {
   PromptInputTools,
   usePromptInputAttachments,
 } from "@/components/ai-elements/prompt-input"
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -19,7 +19,8 @@ import {
   AttachmentPreview,
   AttachmentRemove,
 } from "@/components/ai-elements/attachments"
-import { ImageIcon, MicIcon, PencilLine, Sparkles, SquareIcon, Wand2 } from "lucide-react"
+import { SpeechInput } from "@/components/ai-elements/speech-input"
+import { ImageIcon, PencilLine, Sparkles, SquareIcon, Wand2 } from "lucide-react"
 import { cn } from "@/lib/shadcn"
 import { useComposer, useComposerMode } from "@/hooks/use-composer"
 import { useRefine } from "@/hooks/use-refine"
@@ -41,12 +42,30 @@ const ToolButton = ({ tool }) => {
     case "model":
       return <ModelSelectorButton />
     case "mic":
-      return (
-        <PromptInputButton>
-          <MicIcon className="size-5" />
-        </PromptInputButton>
-      )
+      return <MicButton />
   }
+}
+
+const MicButton = () => {
+  const { value, updateDraft } = useComposer()
+
+  const handleAudioRecorded = useCallback(async (audioBlob) => {
+    const audio = await audioBlob.arrayBuffer()
+    return await window.api.call('assist:transcribe-audio', { audio })
+  }, [])
+
+  const handleTranscriptionChange = useCallback((transcript) => {
+    updateDraft(value ? `${value} ${transcript}` : transcript)
+  }, [value, updateDraft])
+
+  return (
+    <SpeechInput
+      variant="ghost"
+      className="size-8 p-0"
+      onAudioRecorded={handleAudioRecorded}
+      onTranscriptionChange={handleTranscriptionChange}
+    />
+  )
 }
 
 const HeaderAction = ({ action, onCancel, onRefine, onPromote, isRefining }) => {
