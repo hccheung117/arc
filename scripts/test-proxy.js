@@ -1,7 +1,7 @@
 import { withApp } from '@cli/bootstrap.js'
 import { getProvider } from '@main/services/provider.js'
 import { createAnthropic } from '@ai-sdk/anthropic'
-import { createOpenAI } from '@ai-sdk/openai'
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { streamText } from 'ai'
 
 const [providerId] = process.argv.slice(2)
@@ -10,7 +10,7 @@ if (!providerId) {
   process.exit(1)
 }
 
-const defaultModels = { anthropic: 'claude-sonnet-4-6', openai: 'gpt-5' }
+const defaultModels = { anthropic: 'claude-sonnet-4-6', openai: 'gpt-5.4' }
 
 const bar = (label) => `═══ ${label} ${'═'.repeat(Math.max(3, 50 - label.length))}`
 
@@ -115,11 +115,12 @@ function parseAnthropicSseStream(readable) {
   })
 }
 
-// ── OpenAI Responses API SSE parser ─────────────────────────────────────
+// ── OpenAI Chat Completions SSE parser ──────────────────────────────────
 
-function parseOpenAiSseStream(readable) {
+function parseChatCompletionsSseStream(readable) {
   let text = ''
   let reasoning = ''
+  let logged = false
 
   const flush = (label, buf) => {
     if (!buf) return
@@ -127,80 +128,9 @@ function parseOpenAiSseStream(readable) {
   }
 
   return readSseStream(readable, (data) => {
-    let p
-    try { p = JSON.parse(data) }
-    catch { return console.log(`  ⚠ bad JSON: ${data.slice(0, 120)}`) }
-
-    switch (p.type) {
-      case 'response.created': {
-        const r = p.response
-        console.log('● response.created')
-        console.log(`  model: ${r.model}`)
-        console.log(`  id:    ${r.id}`)
-        console.log()
-        break
-      }
-      case 'response.output_item.added':
-        console.log(`● output_item.added [${p.output_index}] ${p.item?.type ?? '?'}`)
-        if (p.item?.type === 'message') text = ''
-        if (p.item?.type === 'reasoning') reasoning = ''
-        break
-      case 'response.output_text.delta':
-        text += p.delta
-        break
-      case 'response.reasoning_summary_text.delta':
-        reasoning += p.delta
-        break
-      case 'response.reasoning_summary_part.added':
-        reasoning = ''
-        console.log(`● reasoning_summary_part.added [${p.summary_index}]`)
-        break
-      case 'response.reasoning_summary_part.done':
-        flush('reasoning', reasoning)
-        console.log(`● reasoning_summary_part.done [${p.summary_index}]\n`)
-        reasoning = ''
-        break
-      case 'response.output_item.done': {
-        const item = p.item
-        if (item?.type === 'message') flush('text', text)
-        console.log(`● output_item.done [${p.output_index}] ${item?.type ?? '?'}\n`)
-        break
-      }
-      case 'response.completed':
-      case 'response.incomplete': {
-        const u = p.response?.usage
-        console.log(`● ${p.type}`)
-        if (u) {
-          const reasoning_tokens = u.output_tokens_details?.reasoning_tokens ?? 0
-          console.log(`  usage: { input: ${u.input_tokens}, output: ${u.output_tokens}, reasoning: ${reasoning_tokens} }`)
-        }
-        if (p.response?.incomplete_details) console.log(`  incomplete: ${p.response.incomplete_details.reason}`)
-        console.log()
-        break
-      }
-      case 'response.function_call_arguments.delta':
-        break
-      default:
-        console.log(`  ⚠ ${p.type}: ${data.slice(0, 120)}`)
-    }
-  })
-}
-
-// ── OpenAI Chat Completions SSE parser ──────────────────────────────────
-
-function parseChatCompletionsSseStream(readable) {
-  let text = ''
-  let logged = false
-
-  const flush = () => {
-    if (!text) return
-    for (const line of text.split('\n')) console.log(`  ┈ ${line}`)
-    text = ''
-  }
-
-  return readSseStream(readable, (data) => {
     if (data === '[DONE]') {
-      flush()
+      if (reasoning) { flush('reasoning', reasoning); console.log('● reasoning done\n') }
+      if (text) { flush('text', text); console.log('● text done\n') }
       console.log('● [DONE]')
       return
     }
@@ -216,9 +146,13 @@ function parseChatCompletionsSseStream(readable) {
       console.log()
     }
     const choice = p.choices?.[0]
-    if (choice?.delta?.content) text += choice.delta.content
+    if (choice?.delta?.reasoning_content) reasoning += choice.delta.reasoning_content
+    if (choice?.delta?.content) {
+      if (reasoning && !text) { flush('reasoning', reasoning); console.log('● reasoning done\n') ; reasoning = '' }
+      text += choice.delta.content
+    }
     if (choice?.finish_reason) {
-      flush()
+      if (text) { flush('text', text); text = '' }
       console.log(`● finish_reason: ${choice.finish_reason}`)
     }
     if (p.usage?.prompt_tokens != null) {
@@ -235,8 +169,7 @@ let activeParserType = 'anthropic'
 
 const sseParsers = {
   anthropic: parseAnthropicSseStream,
-  openai: parseOpenAiSseStream,
-  'openai-chat': parseChatCompletionsSseStream,
+  openai: parseChatCompletionsSseStream,
 }
 
 async function loggingFetch(url, init) {
@@ -281,10 +214,6 @@ withApp(async () => {
 
   console.log(`Using provider "${provider.name}" (${provider.type}) → model ${modelId}`)
 
-  const openaiClient = provider.type === 'openai'
-    ? createOpenAI({ baseURL: provider.baseUrl, apiKey: provider.apiKey, fetch: loggingFetch })
-    : null
-
   const clientFactories = {
     anthropic: (p) => createAnthropic({
       baseURL: p.baseUrl,
@@ -292,7 +221,13 @@ withApp(async () => {
       headers: { Authorization: `Bearer ${p.apiKey}` },
       fetch: loggingFetch,
     }),
-    openai: () => openaiClient,
+    openai: (p) => createOpenAICompatible({
+      name: 'geekai',
+      baseURL: p.baseUrl,
+      apiKey: p.apiKey,
+      fetch: loggingFetch,
+      includeUsage: true,
+    }),
   }
 
   const prompt = 'What is 27 * 453? Think step by step.'
@@ -312,7 +247,7 @@ withApp(async () => {
 
     console.log(`\n${bar('SDK PARSED')}`)
     console.log(`finish: ${finishReason}`)
-    if (usage) console.log(`usage:  { input: ${usage.promptTokens}, output: ${usage.completionTokens} }`)
+    if (usage) console.log(`usage:  { input: ${usage.inputTokens}, output: ${usage.outputTokens} }`)
 
     console.log('\n── reasoning ──')
     console.log(reasoning || '(none)')
@@ -325,7 +260,7 @@ withApp(async () => {
 
   const providerOptionsByType = {
     anthropic: { anthropic: { thinking: { type: 'enabled', budgetTokens: 5000 } } },
-    openai: { openai: { reasoningEffort: 'low', reasoningSummary: 'auto' } },
+    openai: { geekai: { reasoningEffort: 'high' } },
   }
 
   try {
@@ -334,15 +269,7 @@ withApp(async () => {
     const model = client(modelId)
     const providerOptions = providerOptionsByType[provider.type]
 
-    const { text, finishReason } = await runStream(model, { providerOptions })
-
-    // Auto-fallback: Responses API returned empty → retry with Chat Completions
-    if (provider.type === 'openai' && !text && finishReason === 'other') {
-      console.log(`\n${bar('FALLBACK → Chat Completions API')}`)
-      activeParserType = 'openai-chat'
-      const chatModel = openaiClient.chat(modelId)
-      await runStream(chatModel)
-    }
+    await runStream(model, { providerOptions })
 
     console.log(`\n${bar('DONE')}`)
   } catch (e) {

@@ -1,6 +1,6 @@
 import { generateId, generateText as aiGenerateText, streamText as aiStreamText, convertToModelMessages } from 'ai'
 import { createAnthropic } from '@ai-sdk/anthropic'
-import { createOpenAI } from '@ai-sdk/openai'
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { resolveArcfsUrls } from './message.js'
 
 const clientFactories = {
@@ -9,7 +9,8 @@ const clientFactories = {
     apiKey: p.apiKey,
     headers: { Authorization: `Bearer ${p.apiKey}` },
   }),
-  openai: (p) => createOpenAI({
+  openai: (p) => createOpenAICompatible({
+    name: p.name,
     baseURL: p.baseUrl,
     apiKey: p.apiKey,
   }),
@@ -23,10 +24,13 @@ const prepareMessages = async (messages) => {
   return convertToModelMessages(resolved)
 }
 
-const thinkingOptions = (provider, thinking) =>
-  thinking && provider.type === 'anthropic'
-    ? { anthropic: { thinking: { type: 'enabled', budgetTokens: 10000 } } }
-    : undefined
+const thinkingOptions = (provider, thinking) => {
+  if (!thinking) return undefined
+  if (provider.type === 'anthropic')
+    return { anthropic: { thinking: { type: 'enabled', budgetTokens: 10000 } } }
+  if (provider.type === 'openai')
+    return { [provider.name]: { reasoningEffort: 'high' } }
+}
 
 export const generateText = async ({ provider, modelId, messages, ...opts }) => {
   const model = modelFor(provider, modelId)
