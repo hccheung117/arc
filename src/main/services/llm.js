@@ -27,7 +27,8 @@ const prepareMessages = async (messages) => {
 const thinkingOptions = (provider, thinking) => {
   if (!thinking) return undefined
   if (provider.type === 'anthropic')
-    return { anthropic: { thinking: { type: 'enabled', budgetTokens: 10000 } } }
+    // budget_tokens must be < max_tokens; lowest model default is 32K (Opus 4/4.1)
+    return { anthropic: { thinking: { type: 'enabled', budgetTokens: 31999 }, effort: 'high' } }
   if (provider.type === 'openai-compatible')
     return { [provider.name]: { reasoningEffort: 'high' } }
 }
