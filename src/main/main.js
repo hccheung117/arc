@@ -1,5 +1,4 @@
 import { app, BrowserWindow, Menu, protocol, net, shell } from 'electron';
-import './init.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -114,9 +113,9 @@ app.whenReady().then(() => {
     ]},
   ])
 
-  const devRoles = new Set(['reload', 'forcereload', ...(app.isPackaged ? ['toggledevtools'] : [])])
+  const devRoles = new Set(['reload', 'forcereload', 'toggledevtools'])
   for (const item of menu.items.find(i => i.role === 'viewmenu').submenu.items) {
-    if (devRoles.has(item.role)) item.visible = false
+    if (devRoles.has(item.role)) { item.visible = false; item.enabled = false }
   }
 
   Menu.setApplicationMenu(menu)

@@ -12,4 +12,8 @@ export default defineConfig({
     },
   },
   plugins: [react(), tailwindcss()],
+  build: {
+    outDir: path.resolve(__dirname, '.vite/renderer/main_window'),
+    emptyOutDir: true,
+  },
 });

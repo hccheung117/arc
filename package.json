@@ -1,6 +1,6 @@
 {
   "name": "arc-desktop",
-  "productName": "Arc",
+  "productName": "Arc Desktop",
   "version": "1.0.0",
   "description": "AI chat client",
   "main": ".vite/build/main.js",
