@@ -17,7 +17,7 @@ Provider definitions are stored in `providers.json` at the root of a profile dir
 
 | Property | Description |
 |----------|-------------|
-| `type` | The SDK/protocol to use (`anthropic`, `openai`, `google`). |
+| `type` | The SDK/protocol to use (`anthropic`, `openai-compatible`, `google`). |
 | `name` | The human-readable display name for the UI. |
 | `baseUrl` | The explicit endpoint URL. |
 | `apiKey` | The authentication credential. |

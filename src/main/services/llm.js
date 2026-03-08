@@ -9,7 +9,7 @@ const clientFactories = {
     apiKey: p.apiKey,
     headers: { Authorization: `Bearer ${p.apiKey}` },
   }),
-  openai: (p) => createOpenAICompatible({
+  'openai-compatible': (p) => createOpenAICompatible({
     name: p.name,
     baseURL: p.baseUrl,
     apiKey: p.apiKey,
@@ -28,7 +28,7 @@ const thinkingOptions = (provider, thinking) => {
   if (!thinking) return undefined
   if (provider.type === 'anthropic')
     return { anthropic: { thinking: { type: 'enabled', budgetTokens: 10000 } } }
-  if (provider.type === 'openai')
+  if (provider.type === 'openai-compatible')
     return { [provider.name]: { reasoningEffort: 'high' } }
 }
 

@@ -10,7 +10,7 @@ if (!providerId) {
   process.exit(1)
 }
 
-const defaultModels = { anthropic: 'claude-sonnet-4-6', openai: 'gpt-5.4' }
+const defaultModels = { anthropic: 'claude-sonnet-4-6', 'openai-compatible': 'gpt-5.4' }
 
 const bar = (label) => `═══ ${label} ${'═'.repeat(Math.max(3, 50 - label.length))}`
 
@@ -169,7 +169,7 @@ let activeParserType = 'anthropic'
 
 const sseParsers = {
   anthropic: parseAnthropicSseStream,
-  openai: parseChatCompletionsSseStream,
+  'openai-compatible': parseChatCompletionsSseStream,
 }
 
 async function loggingFetch(url, init) {
@@ -221,7 +221,7 @@ withApp(async () => {
       headers: { Authorization: `Bearer ${p.apiKey}` },
       fetch: loggingFetch,
     }),
-    openai: (p) => createOpenAICompatible({
+    'openai-compatible': (p) => createOpenAICompatible({
       name: 'geekai',
       baseURL: p.baseUrl,
       apiKey: p.apiKey,
@@ -260,7 +260,7 @@ withApp(async () => {
 
   const providerOptionsByType = {
     anthropic: { anthropic: { thinking: { type: 'enabled', budgetTokens: 5000 } } },
-    openai: { geekai: { reasoningEffort: 'high' } },
+    'openai-compatible': { geekai: { reasoningEffort: 'high' } },
   }
 
   try {

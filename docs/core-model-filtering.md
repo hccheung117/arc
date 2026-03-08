@@ -13,12 +13,12 @@ The `models` key on a provider definition accepts an ordered array of pipeline s
 ```json
 {
   "openrouter": {
-    "type": "openai",
+    "type": "openai-compatible",
     "name": "OpenRouter",
     "baseUrl": "https://openrouter.ai/api/v1",
     "apiKey": "sk-or-...",
     "models": [
-      { "keep": ["anthropic/claude-*", "openai/gpt-4o*"] },
+      { "keep": ["claude-*", "gpt-4o*"] },
       { "drop": ["*-preview", "*-beta"] }
     ]
   }

@@ -23,7 +23,7 @@ const fetchOpenAI = async ({ baseUrl, apiKey }) => {
   return data.map(m => ({ id: m.id, name: m.id }))
 }
 
-const fetchers = { anthropic: fetchAnthropic, openai: fetchOpenAI }
+const fetchers = { anthropic: fetchAnthropic, 'openai-compatible': fetchOpenAI }
 
 const filterModels = (models, pipeline) =>
   pipeline.reduce((acc, step) => {
