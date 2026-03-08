@@ -28,6 +28,15 @@ module.exports = {
       config: {},
     },
   ],
+  publishers: [
+    {
+      name: '@electron-forge/publisher-github',
+      config: {
+        repository: { owner: 'hccheung117', name: 'arc' },
+        prerelease: false,
+      },
+    },
+  ],
   plugins: [
     {
       name: '@electron-forge/plugin-vite',

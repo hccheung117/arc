@@ -15,6 +15,7 @@ import { pushState } from './routes/state.js';
 import { pushSettings } from './routes/settings.js';
 import './routes/message.js';
 import './routes/assist.js';
+import { initUpdater } from './updater.js';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -115,6 +116,7 @@ app.whenReady().then(() => {
 
   initIpc();
   createWindow();
+  initUpdater();
 
   // On OS X it's common to re-create a window in the app when the
   // dock icon is clicked and there are no other windows open.
