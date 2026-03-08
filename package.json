@@ -1,8 +1,8 @@
 {
   "name": "arc-desktop",
-  "productName": "arc-desktop",
+  "productName": "Arc",
   "version": "1.0.0",
-  "description": "My Electron application description",
+  "description": "AI chat client",
   "main": ".vite/build/main.js",
   "private": true,
   "scripts": {

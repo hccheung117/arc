@@ -1,4 +1,5 @@
 import { app, BrowserWindow, Menu, protocol, net } from 'electron';
+import './init.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';

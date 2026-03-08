@@ -5,6 +5,7 @@ module.exports = {
   packagerConfig: {
     asar: true,
     icon: './assets/icon',
+    appBundleId: 'io.github.hccheung117.arc',
   },
   rebuildConfig: {},
   makers: [

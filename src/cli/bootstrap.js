@@ -1,5 +1,5 @@
 import { app } from 'electron'
-import '@cli/init.js'
+import '@main/init.js'
 import '@main/routes/session.js'
 import '@main/routes/prompts.js'
 import '@main/routes/models.js'
