@@ -83,14 +83,14 @@ const ComposerAttachments = () => {
   )
 }
 
-const ComposerSubmit = ({ status, onStop, value, isRefining, config }) => {
+const ComposerSubmit = ({ status, flags, onStop, value, isRefining, config }) => {
   const attachments = usePromptInputAttachments()
   const hasContent = value.trim() || attachments.files.length > 0
   return (
     <PromptInputSubmit
       status={status}
       onStop={onStop}
-      disabled={(status === "ready" && !hasContent) || isRefining}
+      disabled={(!flags.canStop && !hasContent) || isRefining}
       className="ml-1 rounded-full"
       variant={status !== "ready" ? "destructive" : "default"}
     >
@@ -102,7 +102,7 @@ const ComposerSubmit = ({ status, onStop, value, isRefining, config }) => {
 function BaseComposer({ shadowClass, footerClass }) {
   const { mode, config, value, updateDraft, submit, setMode, attachments, setAttachments } = useComposer()
   const sid = useAppStore((s) => s.activeSessionId)
-  const { status, stop } = useSession()
+  const { status, stop, flags } = useSession()
   const { containerRef, isLocked, manualMaxHeight, startResizing, toggleLock } = useAutogrowLock()
   const settings = useSubscription('settings:feed', { assignmentKeys: [] })
   const hasRefine = settings.assignmentKeys.includes('refine-prompt')
@@ -176,7 +176,7 @@ function BaseComposer({ shadowClass, footerClass }) {
           </PromptInputTools>
           <div className={cn("flex items-center gap-1", footerClass)}>
             {config.tools.filter((t) => t !== "attach").map((t) => <ToolButton key={t} tool={t} />)}
-            <ComposerSubmit status={status} onStop={stop} value={value} isRefining={isRefining} config={config} />
+            <ComposerSubmit status={status} flags={flags} onStop={stop} value={value} isRefining={isRefining} config={config} />
           </div>
         </PromptInputFooter>
       </PromptInput>

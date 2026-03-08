@@ -1,6 +1,7 @@
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Chat, useChat } from "@ai-sdk/react"
 import { IpcTransport } from "@/lib/ipc-session-transport"
+import { resolveStatus } from "@/lib/session-status"
 import { useAppStore, act } from "@/store/app-store"
 import { useSubscription } from "@/hooks/use-subscription"
 
@@ -63,7 +64,7 @@ export function SessionProvider({ children }) {
   }, [activeSessionId])
 
   return (
-    <SessionContext value={{ ...chat, prompt, branches, switchBranch }}>
+    <SessionContext value={{ ...chat, flags: resolveStatus(chat.status), prompt, branches, switchBranch }}>
       {children}
     </SessionContext>
   )
