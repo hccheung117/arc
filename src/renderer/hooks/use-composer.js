@@ -68,9 +68,12 @@ const submitChat = (sid, value, files, attachments, sendMessage, promptRef, prov
 const submitEditUser = (sid, value, files, attachments, messages, messageKey, sendMessage, setMessages, promptRef, providerId, modelId) => {
   const idx = messages.findIndex((m) => m.id === messageKey)
   if (idx === -1) return
+  const origMsg = messages[idx]
+  const origFiles = origMsg.parts.filter(p => p.type === 'file').map(({ type, ...rest }) => rest)
+  const merged = [...origFiles, ...(attachments ?? [])]
   setMessages(messages.slice(0, idx))
-  sendMessage({ text: value, files }, { body: { promptRef, providerId, modelId, attachments } })
-  composerActions.setDraftText(sid, "edit:user", "")
+  sendMessage({ text: value, files }, { body: { promptRef, providerId, modelId, attachments: merged } })
+  composerActions.setDraftText(sid, "edit:user", undefined)
   composerActions.setDraftFiles(sid, "edit:user", [])
   composerActions.setMode(sid, "chat")
 }

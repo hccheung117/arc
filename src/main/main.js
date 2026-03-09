@@ -68,7 +68,7 @@ const createWindow = async () => {
 
   mainWindow.webContents.on('did-finish-load', async () => {
     await pushAll();
-    refreshModels();
+    refreshModels(); // fire-and-forget: UI shows cached models immediately, fresh fetch updates in background
   });
 
   // and load the index.html of the app.

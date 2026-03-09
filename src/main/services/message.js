@@ -125,24 +125,26 @@ export const extractFiles = async (sessionDir, messages, attachments) => {
   const fileParts = []
 
   for (const att of attachments) {
-    const id = generateId()
-    const ext = path.extname(att.filename)
-    const name = `${id}${ext}`
-
     if (att.url?.startsWith('arcfs://')) {
-      await fs.rename(fromUrl(att.url), path.join(filesDir, name))
-    } else if (att.path) {
-      await fs.copyFile(att.path, path.join(filesDir, name))
-    } else if (att.data) {
-      await fs.writeFile(path.join(filesDir, name), Buffer.from(att.data))
+      const srcPath = fromUrl(att.url)
+      if (srcPath.startsWith(filesDir)) {
+        fileParts.push({ type: 'file', url: att.url, filename: att.filename, mediaType: att.mediaType })
+        continue
+      }
+      const id = generateId()
+      const name = `${id}${path.extname(att.filename)}`
+      await fs.rename(srcPath, path.join(filesDir, name))
+      fileParts.push({ type: 'file', url: toUrl('sessions', sessionId, 'files', name), filename: att.filename, mediaType: att.mediaType })
+    } else {
+      const id = generateId()
+      const name = `${id}${path.extname(att.filename)}`
+      if (att.path) {
+        await fs.copyFile(att.path, path.join(filesDir, name))
+      } else if (att.data) {
+        await fs.writeFile(path.join(filesDir, name), Buffer.from(att.data))
+      }
+      fileParts.push({ type: 'file', url: toUrl('sessions', sessionId, 'files', name), filename: att.filename, mediaType: att.mediaType })
     }
-
-    fileParts.push({
-      type: 'file',
-      url: toUrl('sessions', sessionId, 'files', name),
-      filename: att.filename,
-      mediaType: att.mediaType,
-    })
   }
 
   const result = messages.map(m => ({ ...m }))

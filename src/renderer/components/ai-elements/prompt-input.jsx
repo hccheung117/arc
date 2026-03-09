@@ -277,6 +277,8 @@ export const PromptInput = ({
     });
   }, [accept]);
 
+  const setItemsRef = useRef(setItems);
+  setItemsRef.current = setItems;
   const addLocal = useCallback(async (fileList) => {
     const incoming = [...fileList];
     const accepted = incoming.filter((f) => matchesAccept(f));
@@ -318,7 +320,7 @@ export const PromptInput = ({
       return window.api.call('message:upload-attachment', payload);
     }));
 
-    setItems((prev) => [
+    setItemsRef.current((prev) => [
       ...prev,
       ...uploaded.map((att) => ({ ...att, id: generateId(), type: 'file' })),
     ]);
