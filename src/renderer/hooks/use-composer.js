@@ -12,6 +12,7 @@
  *   useComposerMode()— lightweight mode-only selector (avoids re-render on draft changes)
  *   composerActions  — imperative { setMode, setDraftText } for IPC handlers outside React
  */
+import { useEffect } from "react"
 import { create } from "zustand"
 import { resolveMode, textFromParts } from "@/lib/composer-modes"
 import { useAppStore, act } from "@/store/app-store"
@@ -33,7 +34,12 @@ const _put = (sid, fn) =>
 
 export const composerActions = {
   setMode: (sid, mode, overrides = {}) =>
-    _put(sid, (s) => ({ ...s, mode, overrides })),
+    _put(sid, (s) => ({
+      ...s, mode, overrides,
+      drafts: mode.startsWith('edit:')
+        ? { ...s.drafts, [mode]: { text: undefined, files: undefined } }
+        : s.drafts,
+    })),
 
   setDraftText: (sid, mode, value) =>
     _put(sid, (s) => ({ ...s, drafts: { ...s.drafts, [mode]: { ...(s.drafts[mode] ?? {}), text: value } } })),
@@ -68,13 +74,10 @@ const submitChat = (sid, value, files, attachments, sendMessage, promptRef, prov
 const submitEditUser = (sid, value, files, attachments, messages, messageKey, sendMessage, setMessages, promptRef, providerId, modelId) => {
   const idx = messages.findIndex((m) => m.id === messageKey)
   if (idx === -1) return
-  const origMsg = messages[idx]
-  const origFiles = origMsg.parts.filter(p => p.type === 'file').map(({ type, ...rest }) => rest)
-  const merged = [...origFiles, ...(attachments ?? [])]
   setMessages(messages.slice(0, idx))
-  sendMessage({ text: value, files }, { body: { promptRef, providerId, modelId, attachments: merged } })
+  sendMessage({ text: value, files }, { body: { promptRef, providerId, modelId, attachments } })
   composerActions.setDraftText(sid, "edit:user", undefined)
-  composerActions.setDraftFiles(sid, "edit:user", [])
+  composerActions.setDraftFiles(sid, "edit:user", undefined)
   composerActions.setMode(sid, "chat")
 }
 
@@ -114,6 +117,18 @@ export const useComposer = () => {
   const config = resolveMode(mode, overrides)
   const value = deriveValue(mode, overrides, drafts, prompt, messages)
   const attachments = drafts[mode]?.files ?? []
+
+  useEffect(() => {
+    if (mode !== 'edit:user') return
+    if (drafts[mode]?.files !== undefined) return
+    const origMsg = messages?.find((m) => m.id === overrides.messageKey)
+    if (!origMsg) return
+    const fileParts = origMsg.parts
+      .filter((p) => p.type === 'file')
+      .map((p) => ({ id: p.url, type: 'file', url: p.url, filename: p.filename, mediaType: p.mediaType }))
+    if (fileParts.length === 0) return
+    composerActions.setDraftFiles(sid, mode, fileParts)
+  }, [mode, overrides.messageKey])
 
   return {
     mode,

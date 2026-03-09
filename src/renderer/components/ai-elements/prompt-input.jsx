@@ -327,7 +327,7 @@ export const PromptInput = ({
   }, [matchesAccept, maxFiles, maxFileSize, onError, items.length]);
 
   const removeLocal = useCallback((id) =>
-    setItems((prev) => prev.filter((file) => file.id !== id)), []);
+    setItemsRef.current((prev) => prev.filter((file) => file.id !== id)), []);
 
   // Wrapper that validates files before calling provider's add
   const addWithProviderValidation = useCallback(async (fileList) => {
