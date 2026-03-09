@@ -125,6 +125,7 @@ function BaseComposer({ shadowClass, footerClass }) {
   const { containerRef, isLocked, manualMaxHeight, startResizing, toggleLock } = useAutogrowLock()
   const settings = useSubscription('settings:feed', { assignmentKeys: [] })
   const hasRefine = settings.assignmentKeys.includes('refine-prompt')
+  const hasTranscribe = settings.assignmentKeys.includes('transcribe-audio')
   const { isRefining, handleRefine, abort: abortRefine } = useRefine(value, updateDraft)
   const [promoteOpen, setPromoteOpen] = useState(false)
   const [promoteName, setPromoteName] = useState("")
@@ -194,7 +195,7 @@ function BaseComposer({ shadowClass, footerClass }) {
             {config.tools.filter((t) => t === "attach").map((t) => <ToolButton key={t} tool={t} />)}
           </PromptInputTools>
           <div className={cn("flex items-center gap-1", footerClass)}>
-            {config.tools.filter((t) => t !== "attach").map((t) => <ToolButton key={t} tool={t} />)}
+            {config.tools.filter((t) => t !== "attach" && (t !== "mic" || hasTranscribe)).map((t) => <ToolButton key={t} tool={t} />)}
             <ComposerSubmit status={status} flags={flags} onStop={stop} value={value} isRefining={isRefining} config={config} />
           </div>
         </PromptInputFooter>
