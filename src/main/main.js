@@ -4,14 +4,15 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import started from 'electron-squirrel-startup';
 import { initIpc, setMainWindow, dispatch } from './router.js';
+import { pushAll } from './channel.js';
 import { resolve, fromUrl } from './arcfs.js';
 import { getState, setState } from './services/state.js';
-import { pushSessions } from './routes/session.js';
-import { pushPrompts } from './routes/prompts.js';
-import { pushModels, refreshModels } from './routes/models.js';
-import { pushProviders } from './routes/providers.js';
-import { pushState } from './routes/state.js';
-import { pushSettings } from './routes/settings.js';
+import { refreshModels } from './routes/models.js';
+import './routes/session.js';
+import './routes/prompts.js';
+import './routes/providers.js';
+import './routes/state.js';
+import './routes/settings.js';
 import './routes/message.js';
 import './routes/assist.js';
 import './routes/profile.js';
@@ -66,12 +67,7 @@ const createWindow = async () => {
   });
 
   mainWindow.webContents.on('did-finish-load', async () => {
-    await pushSessions();
-    await pushPrompts();
-    await pushModels();
-    await pushProviders();
-    await pushState();
-    await pushSettings();
+    await pushAll();
     refreshModels();
   });
 

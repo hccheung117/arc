@@ -1,12 +1,10 @@
-import { register, push } from '../router.js'
+import { register } from '../router.js'
+import { defineChannel } from '../channel.js'
 import { getSettings, setFavorite } from '../services/settings.js'
 
-register('settings:set-favorite', async ({ provider, model }) => {
-  await setFavorite(provider, model)
-  await pushSettings()
+export const settings = defineChannel('settings:feed', async () => {
+  const { assignments, favorites } = await getSettings()
+  return { assignmentKeys: Object.keys(assignments), favorites }
 })
 
-export const pushSettings = async () => {
-  const { assignments, favorites } = await getSettings()
-  push('settings:feed', { assignmentKeys: Object.keys(assignments), favorites })
-}
+register('settings:set-favorite', settings.mutate(({ provider, model }) => setFavorite(provider, model)))

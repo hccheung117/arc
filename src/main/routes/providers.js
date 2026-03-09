@@ -1,6 +1,4 @@
-import { push } from '../router.js'
+import { defineChannel } from '../channel.js'
 import { listProviders } from '../services/provider.js'
 
-export const pushProviders = async () => {
-  push('provider:feed', await listProviders())
-}
+export const providers = defineChannel('provider:feed', () => listProviders())

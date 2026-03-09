@@ -2,7 +2,7 @@ import { Menu, clipboard, shell, app } from 'electron'
 import { register, push } from '../router.js'
 import { resolve, fromUrl } from '../arcfs.js'
 import * as message from '../services/message.js'
-import { pushSessionState, forkFromMessage } from './session.js'
+import { sessionState, forkFromMessage } from './session.js'
 
 const dir = resolve('sessions')
 
@@ -25,12 +25,12 @@ register('message:context-menu', ({ sessionId, id, role, text }) => {
 register('message:edit-save', async ({ sessionId, messageId, text }) => {
   const newId = await message.editMessage(dir, sessionId, messageId, text)
   const { messages, branches } = await message.loadMessages(dir, sessionId, newId)
-  pushSessionState(sessionId, { messages, branches })
+  sessionState.patch({ sessionId, messages, branches })
 })
 
 register('message:switch-branch', async ({ sessionId, targetId }) => {
   const { messages, branches } = await message.switchBranch(dir, sessionId, targetId)
-  pushSessionState(sessionId, { messages, branches })
+  sessionState.patch({ sessionId, messages, branches })
 })
 
 register('message:open-file', async ({ url, path, data, filename }) => {
