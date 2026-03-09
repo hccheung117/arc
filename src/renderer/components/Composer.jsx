@@ -161,7 +161,7 @@ function BaseComposer({ shadowClass, footerClass }) {
         isLocked={isLocked}
         onToggleLock={toggleLock}
       />
-      <PromptInput onSubmit={handleSubmit} accept="image/*" attachmentItems={attachments} onAttachmentItemsChange={setAttachments} className={cn("rounded-2xl bg-background/50 backdrop-blur transition-shadow", shadowClass)}>
+      <PromptInput onSubmit={handleSubmit} accept="image/*" attachmentItems={attachments} onAttachmentItemsChange={setAttachments} className={cn("rounded-2xl bg-background/55 backdrop-blur-md transition-shadow", shadowClass)}>
         {/* pb-1.5 overrides the block-end variant's pb-3 so the header-to-textarea
             gap matches the textarea-to-footer gap (both 6px from base py-1.5). */}
         {config.header && (
