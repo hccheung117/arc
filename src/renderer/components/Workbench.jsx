@@ -39,7 +39,7 @@ const UserMessageContent = ({ msg }) => (
         ))}
       </div>
     )}
-    {textFromParts(msg)}
+    <span className="whitespace-pre-wrap">{textFromParts(msg)}</span>
   </MessageContent>
 )
 
