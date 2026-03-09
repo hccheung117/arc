@@ -22,6 +22,7 @@ import {
 import {
   Reasoning, ReasoningContent, ReasoningTrigger,
 } from "@/components/ai-elements/reasoning"
+import { WaitingShimmer } from "@/components/WaitingShimmer"
 import { cn } from "@/lib/shadcn"
 
 const textFromParts = (msg) =>
@@ -121,31 +122,60 @@ export default function Workbench() {
               className="flex flex-1 min-h-0 flex-col gap-6 px-(--content-px) pt-4"
               style={{ paddingBottom: "var(--footer-h)" }}
             >
-              {messages.map((msg, index) => {
-                const isLastMsg = index === messages.length - 1
-                const reasoningText = msg.role === "assistant" ? reasoningFromParts(msg) : ""
-                const isReasoningStreaming = isLastMsg && status === "streaming"
-                  && msg.parts.at(-1)?.type === "reasoning"
+              {(() => {
+                const lastMsg = messages.at(-1)
+                const waitingForFirstDelta =
+                  status === "submitted" ||
+                  (status === "streaming" && lastMsg?.role === "assistant"
+                    && !textFromParts(lastMsg) && !reasoningFromParts(lastMsg))
+                const displayMessages = waitingForFirstDelta && status === "streaming"
+                  ? messages.slice(0, -1)
+                  : messages
+                return (<>
+                  {displayMessages.map((msg, index) => {
+                    const isLastMsg = index === displayMessages.length - 1
+                    const reasoningText = msg.role === "assistant" ? reasoningFromParts(msg) : ""
+                    const isReasoningStreaming = isLastMsg && status === "streaming"
+                      && msg.parts.at(-1)?.type === "reasoning"
+                    const msgText = textFromParts(msg)
 
-                const assistantContent = (
-                  <>
-                    {reasoningText && (
-                      <Reasoning isStreaming={isReasoningStreaming}>
-                        <ReasoningTrigger />
-                        <ReasoningContent>{reasoningText}</ReasoningContent>
-                      </Reasoning>
-                    )}
-                    <MessageResponse>{textFromParts(msg)}</MessageResponse>
-                  </>
-                )
+                    const assistantContent = (
+                      <>
+                        {reasoningText && (
+                          <Reasoning isStreaming={isReasoningStreaming}>
+                            <ReasoningTrigger />
+                            <ReasoningContent>{reasoningText}</ReasoningContent>
+                          </Reasoning>
+                        )}
+                        <MessageResponse>{msgText}</MessageResponse>
+                      </>
+                    )
 
-                const branch = branches[msg.id]
-                if (branch) {
-                  return (
-                    <MessageBranch key={msg.id} defaultBranch={branch.index}
-                      onBranchChange={(i) => switchBranch(branch.siblings[i])}>
-                      <BranchInit total={branch.total} />
-                      <Message from={msg.role}
+                    const branch = branches[msg.id]
+                    if (branch) {
+                      return (
+                        <MessageBranch key={msg.id} defaultBranch={branch.index}
+                          onBranchChange={(i) => switchBranch(branch.siblings[i])}>
+                          <BranchInit total={branch.total} />
+                          <Message from={msg.role}
+                            onContextMenu={(e) => handleContextMenu(e, msg)}
+                            className={cn(msg.id === config.messageKey && "blur-[2px]")}>
+                            {msg.role === "assistant"
+                              ? assistantContent
+                              : <UserMessageContent msg={msg} />
+                            }
+                          </Message>
+                          <MessageBranchSelector className={cn(msg.role === "user" && "ml-auto")}>
+                            <MessageBranchPrevious disabled={!flags.canEditMessages} />
+                            <MessageBranchPage />
+                            <MessageBranchNext disabled={!flags.canEditMessages} />
+                          </MessageBranchSelector>
+                        </MessageBranch>
+                      )
+                    }
+                    return (
+                      <Message
+                        from={msg.role} key={msg.id}
                         onContextMenu={(e) => handleContextMenu(e, msg)}
                         className={cn(msg.id === config.messageKey && "blur-[2px]")}>
                         {msg.role === "assistant"
@@ -153,26 +183,15 @@ export default function Workbench() {
                           : <UserMessageContent msg={msg} />
                         }
                       </Message>
-                      <MessageBranchSelector className={cn(msg.role === "user" && "ml-auto")}>
-                        <MessageBranchPrevious disabled={!flags.canEditMessages} />
-                        <MessageBranchPage />
-                        <MessageBranchNext disabled={!flags.canEditMessages} />
-                      </MessageBranchSelector>
-                    </MessageBranch>
-                  )
-                }
-                return (
-                  <Message
-                    from={msg.role} key={msg.id}
-                    onContextMenu={(e) => handleContextMenu(e, msg)}
-                    className={cn(msg.id === config.messageKey && "blur-[2px]")}>
-                    {msg.role === "assistant"
-                      ? assistantContent
-                      : <UserMessageContent msg={msg} />
-                    }
-                  </Message>
-                )
-              })}
+                    )
+                  })}
+                  {waitingForFirstDelta && (
+                    <Message from="assistant">
+                      <WaitingShimmer>Waiting...</WaitingShimmer>
+                    </Message>
+                  )}
+                </>)
+              })()}
             </div>
           )}
         </ConversationContent>
