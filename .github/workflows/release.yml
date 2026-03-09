@@ -49,18 +49,31 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      # Collect artifacts from build matrix
+      - name: Generate changelog
+        run: |
+          LOG=$(git log $(git describe --tags --abbrev=0 HEAD^)..HEAD --pretty=format:"%s" | grep -v "^chore: release" || true)
+          for section in "feat:Features" "fix:Fixes" "refactor:Refactors" "perf:Performance" "docs:Docs" "chore:Chores" "style:Style"; do
+            type="${section%%:*}"
+            heading="${section##*:}"
+            entries=$(echo "$LOG" | grep "^$type" | sed 's/^/- /')
+            if [ -n "$entries" ]; then
+              printf "## %s\n%s\n\n" "$heading" "$entries" >> changelog.md
+            fi
+          done
+
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      # Create release with installers and Squirrel update files
       - uses: softprops/action-gh-release@v2
         with:
           name: ${{ github.ref_name }}
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
+          body_path: changelog.md
           files: |
             artifacts/**/*.zip
             artifacts/**/*.exe

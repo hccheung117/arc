@@ -11,7 +11,8 @@
     "make": "electron-forge make",
     "publish": "electron-forge publish",
     "lint": "echo \"No linting configured\"",
-    "task": "node src/cli/run.js"
+    "task": "node src/cli/run.js",
+    "release": "bash release.sh"
   },
   "keywords": [],
   "author": {
