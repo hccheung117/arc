@@ -21,7 +21,7 @@ if [ -z "$TYPE" ]; then
 fi
 
 echo ""
-npm version "$TYPE"
+npm version "$TYPE" -m "chore: release %s"
 git push && git push --tags
 echo ""
 echo "  Done! Release triggered."
