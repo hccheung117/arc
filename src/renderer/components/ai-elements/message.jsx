@@ -25,7 +25,8 @@ import {
   useMemo,
   useState,
 } from "react";
-import { Streamdown } from "streamdown";
+import remarkBreaks from "remark-breaks";
+import { Streamdown, defaultRemarkPlugins } from "streamdown";
 
 export const Message = ({
   className,
@@ -258,6 +259,7 @@ export const MessageBranchPage = ({
 };
 
 const streamdownPlugins = { cjk, code, math, mermaid };
+const streamdownRemarkPlugins = [...Object.values(defaultRemarkPlugins), remarkBreaks];
 
 export const MessageResponse = memo(({
   className,
@@ -266,6 +268,7 @@ export const MessageResponse = memo(({
   <Streamdown
     className={cn("size-full select-text [&>*:first-child]:mt-0 [&>*:last-child]:mb-0", className)}
     plugins={streamdownPlugins}
+    remarkPlugins={streamdownRemarkPlugins}
     {...props} />
 ), (prevProps, nextProps) => prevProps.children === nextProps.children);
 
