@@ -35,7 +35,9 @@ export const Message = ({
 }) => (
   <div
     className={cn(
-      "group flex w-full max-w-[95%] flex-col gap-2",
+      // min-w-0: as a grid item inside MessageBranch, min-width:auto
+      // would expand to content width and override max-w-[95%].
+      "group flex w-full min-w-0 max-w-[95%] flex-col gap-2",
       from === "user" ? "is-user ml-auto justify-end" : "is-assistant",
       className
     )}

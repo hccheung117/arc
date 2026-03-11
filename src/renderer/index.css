@@ -159,3 +159,13 @@
     margin-bottom: var(--footer-h);
   }
 }
+
+/* Streamdown overrides — un-layered so they beat the library's Tailwind utilities.
+   Inline code: streamdown applies text-sm which shrinks code inside headings.
+   Code blocks: the <pre> needs horizontal scroll for long lines. */
+[data-streamdown^="heading-"] [data-streamdown="inline-code"] {
+  font-size: inherit;
+}
+[data-streamdown="code-block-body"] pre {
+  overflow-x: auto;
+}
