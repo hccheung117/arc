@@ -163,7 +163,7 @@ registerStream('session:send', async ({ sessionId, messages: inputMessages, atta
   const result = await llm.streamText({ provider, modelId, system, messages: messages, send, signal, thinking: true })
   if (!result) return
 
-  await message.persistAssistantMessage(filePath, { ...result, lastId })
+  await message.persistAssistantMessage(filePath, { ...result, lastId, arcProviderId: providerId, arcModelId: modelId })
   await sessions.push()
   const updated = await message.loadMessages(dir, sessionId)
   sessionState.patch({ sessionId, branches: updated.branches })

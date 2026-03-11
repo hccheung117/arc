@@ -40,7 +40,17 @@ export function SessionProvider({ children }) {
         m.id === id ? { ...m, parts: [...m.parts.filter(p => p.type !== 'file'), ...parts] } : m
       ))
     }
-    if (payload.messages) chat.setMessages(payload.messages)
+    if (payload.messages) {
+      chat.setMessages(payload.messages)
+      const lastAssistant = payload.messages.findLast(m => m.role === 'assistant')
+      const wb = useAppStore.getState().workbenches[activeSessionId]
+      if (lastAssistant?.arcModelId && !wb?.modelId) {
+        act().workbench.update({
+          providerId: lastAssistant.arcProviderId,
+          modelId: lastAssistant.arcModelId,
+        })
+      }
+    }
     if (payload.branches) setBranches(payload.branches)
     if ('prompt' in payload) setPrompt(payload.prompt)
   }), [activeSessionId])
