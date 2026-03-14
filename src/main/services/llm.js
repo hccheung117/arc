@@ -129,8 +129,9 @@ export const stream = async ({ provider, modelId, system, messages, tools, send,
 
   if (signal.aborted) return null
   try {
-    const [text, reasoning, steps] = await Promise.all([result.text, result.reasoning, result.steps])
+    const [text, steps] = await Promise.all([result.text, result.steps])
     const toolParts = steps.flatMap(step => [...step.toolCalls, ...step.toolResults])
+    const reasoning = steps.flatMap(step => step.reasoning)
     return { assistantId, text, reasoning, toolParts }
   } catch (e) {
     send({ type: 'error', errorText: e.message ?? 'No response generated' })
