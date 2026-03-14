@@ -1,4 +1,5 @@
-import { generateId, generateText as aiGenerateText, streamText as aiStreamText, convertToModelMessages } from 'ai'
+import { generateId, generateText as aiGenerateText, streamText as aiStreamText, convertToModelMessages, wrapLanguageModel } from 'ai'
+import { devToolsMiddleware } from '@ai-sdk/devtools'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { resolveArcfsUrls } from './message.js'
@@ -17,7 +18,11 @@ const clientFactories = {
 }
 
 const clientFor = (provider) => clientFactories[provider.type](provider)
-const modelFor = (provider, modelId) => clientFor(provider)(modelId)
+const modelFor = (provider, modelId) => {
+  const model = clientFor(provider)(modelId)
+  if (process.env.NODE_ENV === 'production') return model
+  return wrapLanguageModel({ model, middleware: devToolsMiddleware() })
+}
 
 const prepareMessages = async (messages) => {
   const resolved = await resolveArcfsUrls(messages)
