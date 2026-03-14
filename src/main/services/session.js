@@ -1,8 +1,14 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { sessionId } from '@shared/ids.js'
-import { readJson, writeJson, readJsonl, appendJsonl } from '../arcfs.js'
+import { readJson, writeJson, readJsonl, appendJsonl, resolve } from '../arcfs.js'
 import { resolveSessionPrompt, saveSessionPrompt, savePrompt as saveAppPrompt, promptsAppDir } from './prompts.js'
+import { getProvider } from './provider.js'
+import { fallbackTitle, generateTitle } from './assist.js'
+import { discoverSkills, buildSkillsPrompt } from './skill.js'
+import { buildTools } from './tools.js'
+import * as llm from './llm.js'
+import * as message from './message.js'
 
 const readLayout = (dir) => readJson(path.join(dir, 'layout.json'))
 const writeLayout = (dir, layout) => writeJson(path.join(dir, 'layout.json'), layout)
@@ -216,4 +222,52 @@ export const toggleFolderCollapse = async (dir, folderIndex) => {
   const layout = await loadLayout(dir)
   const folders = layout.folders.map((f, i) => i === folderIndex ? { ...f, collapsed: !f.collapsed } : f)
   await writeLayout(dir, { ...layout, folders })
+}
+
+export const prepareSend = async (dir, { sessionId, inputMessages, attachments, promptRef, providerId, modelId }) => {
+  const provider = await getProvider(providerId)
+  if (!provider) throw new Error(`Provider "${providerId}" not found`)
+
+  const title = fallbackTitle(inputMessages)
+  const isNew = await ensureMeta(dir, sessionId, promptRef, title)
+  const system = await loadPrompt(dir, sessionId)
+  const messages = await message.extractFiles(resolve('sessions', sessionId), inputMessages, attachments)
+  const filePath = message.messagesPath(dir, sessionId)
+  const lastId = await message.persistNewMessages(filePath, messages)
+
+  const userMsg = messages.findLast(m => m.role === 'user')
+  const fileParts = userMsg?.parts.filter(p => p.type === 'file')
+  const fileReplacement = fileParts?.length ? { id: userMsg.id, parts: fileParts } : null
+  const { branches } = await message.loadMessages(dir, sessionId)
+
+  const skills = await discoverSkills()
+  const fullSystem = [system, buildSkillsPrompt(skills)].filter(Boolean).join('\n\n')
+  const tools = buildTools({ skills })
+
+  return {
+    isNew,
+    fileReplacement,
+    branches,
+
+    stream: (send, signal) =>
+      llm.stream({ provider, modelId, system: fullSystem, messages, tools, send, signal, thinking: true }),
+
+    finalize: async (result) => {
+      await message.persistAssistantMessage(filePath, {
+        ...result, lastId, arcProviderId: providerId, arcModelId: modelId,
+      })
+      const updated = await message.loadMessages(dir, sessionId)
+      return updated.branches
+    },
+
+    afterSend: async () => {
+      if (!isNew) return false
+      const newTitle = await generateTitle(messages)
+      if (!newTitle) return false
+      const current = await getSession(dir, sessionId)
+      if (current?.title !== title) return false
+      await renameSession(dir, sessionId, newTitle)
+      return true
+    },
+  }
 }

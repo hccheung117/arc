@@ -5,11 +5,6 @@ import { defineChannel } from '../channel.js'
 import { resolve } from '../arcfs.js'
 import * as session from '../services/session.js'
 import * as message from '../services/message.js'
-import * as llm from '../services/llm.js'
-import { getProvider } from '../services/provider.js'
-import { fallbackTitle, generateTitle } from '../services/assist.js'
-import { buildTools } from '../services/tools.js'
-import { discoverSkills, buildSkillsPrompt } from '../services/skill.js'
 import { promptsCh } from './prompts.js'
 
 const dir = resolve('sessions')
@@ -122,55 +117,27 @@ register('session:save-prompt', async ({ id, content }) => {
 })
 
 registerStream('session:send', async ({ sessionId, messages: inputMessages, attachments, promptRef, providerId, modelId, send, signal }) => {
-  if (!providerId || !modelId) {
-    send({ type: 'error', errorText: 'No model selected' })
-    return
+  if (!providerId || !modelId) return send({ type: 'error', errorText: 'No model selected' })
+
+  let ctx
+  try {
+    ctx = await session.prepareSend(dir, { sessionId, inputMessages, attachments, promptRef, providerId, modelId })
+  } catch (e) {
+    return send({ type: 'error', errorText: e.message })
   }
 
-  const provider = await getProvider(providerId)
-  if (!provider) {
-    send({ type: 'error', errorText: `Provider "${providerId}" not found` })
-    return
-  }
-
-  const title = fallbackTitle(inputMessages)
-  const isNew = await session.ensureMeta(dir, sessionId, promptRef, title)
-  const system = await session.loadPrompt(dir, sessionId)
-  const messages = await message.extractFiles(resolve('sessions', sessionId), inputMessages, attachments)
-  const filePath = message.messagesPath(dir, sessionId)
-  const lastId = await message.persistNewMessages(filePath, messages)
-
-  const userMsg = messages.findLast(m => m.role === 'user')
-  const fileParts = userMsg?.parts.filter(p => p.type === 'file')
-  if (fileParts?.length) {
-    sessionState.patch({ sessionId, replaceFiles: { id: userMsg.id, parts: fileParts } })
-  }
-
-  const { branches } = await message.loadMessages(dir, sessionId)
-  sessionState.patch({ sessionId, branches })
+  if (ctx.fileReplacement) sessionState.patch({ sessionId, replaceFiles: ctx.fileReplacement })
+  sessionState.patch({ sessionId, branches: ctx.branches })
   await sessions.push()
 
-  if (isNew) {
-    generateTitle(messages)
-      .then(async (newTitle) => {
-        if (!newTitle) return
-        const current = await session.getSession(dir, sessionId)
-        if (current?.title !== title) return
-        await session.renameSession(dir, sessionId, newTitle)
-        await sessions.push()
-      })
-      .catch(() => {})
-  }
+  ctx.afterSend()
+    .then(async (changed) => { if (changed) await sessions.push() })
+    .catch(() => {})
 
-  const skills = await discoverSkills()
-  const skillsPrompt = buildSkillsPrompt(skills)
-  const fullSystem = [system, skillsPrompt].filter(Boolean).join('\n\n')
-  const tools = buildTools({ skills })
-  const result = await llm.stream({ provider, modelId, system: fullSystem, messages, tools, send, signal, thinking: true })
+  const result = await ctx.stream(send, signal)
   if (!result) return
 
-  await message.persistAssistantMessage(filePath, { ...result, lastId, arcProviderId: providerId, arcModelId: modelId })
+  const branches = await ctx.finalize(result)
   await sessions.push()
-  const updated = await message.loadMessages(dir, sessionId)
-  sessionState.patch({ sessionId, branches: updated.branches })
+  sessionState.patch({ sessionId, branches })
 })
