@@ -198,6 +198,31 @@ skills/
 
 This progressive-disclosure approach keeps the initial system prompt lean while giving the model access to deep domain knowledge, specialized workflows, and supplementary files when needed.
 
+### Executing Scripts
+
+Skills can ship with executable code in their `scripts/` directory. To run these scripts during a conversation, the LLM is provided with an `exec` tool. 
+
+**Constraints & Runtimes:**
+- **`node`**: Universally available via Electron's bundled binary (using `ELECTRON_RUN_AS_NODE`).
+- **`bash`**: Available on macOS and Linux.
+- **`powershell`**: Available on Windows.
+
+**`exec` Tool Schema:**
+
+```json
+{
+  "runner": "node | bash | powershell",
+  "script": "string",
+  "cwd": "string"
+}
+```
+
+- **`runner`**: The interpreter to use. Must be explicitly specified.
+- **`script`**: The script path and arguments, relative to the working directory (e.g., `scripts/run.js --input data.csv`).
+- **`cwd`**: The working directory. This is typically the `skillDirectory` URL returned by `load_skill` (e.g., `arcfs://skills/my-skill`).
+
+The tool executes the process until completion (no timeout) and returns `{ stdout, stderr, exitCode }` back to the LLM. If the runner is unknown, unavailable on the current platform, or the script file is not found, the tool returns a descriptive error message string instead.
+
 ## Import & Export
 
 Profiles can be exported and imported as `.arc` files. This allows you to easily backup or share your configured AI backends, default favorites, and reusable prompts. 

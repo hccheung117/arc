@@ -1,4 +1,4 @@
-import { BookOpenIcon, FileTextIcon, WrenchIcon } from "lucide-react"
+import { BookOpenIcon, FileTextIcon, TerminalSquareIcon, WrenchIcon } from "lucide-react"
 
 const tools = {
   read: {
@@ -13,6 +13,14 @@ const tools = {
     icon: BookOpenIcon,
     label: (input) => `Loading ${input?.name ?? 'a skill'} skill`,
     summary: (count) => `Loaded ${count} skill${count > 1 ? 's' : ''}`,
+  },
+  exec: {
+    icon: TerminalSquareIcon,
+    label: (input) => {
+      const scriptPath = input?.script?.split(' ')[0]
+      return scriptPath ? `Running ${scriptPath}` : 'Running a script'
+    },
+    summary: (count) => `Ran ${count} script${count > 1 ? 's' : ''}`,
   },
 }
 

@@ -1,4 +1,7 @@
+import { execFile } from 'node:child_process'
 import fs from 'node:fs/promises'
+import path from 'node:path'
+import process from 'node:process'
 import { tool } from 'ai'
 import { z } from 'zod'
 import { fromUrl } from '../arcfs.js'
@@ -64,11 +67,53 @@ const read = tool({
   },
 })
 
+const RUNNERS = {
+  node: { bin: () => process.execPath, env: { ELECTRON_RUN_AS_NODE: '1' }, platforms: null },
+  bash: { bin: () => '/bin/bash', env: {}, platforms: new Set(['darwin', 'linux']) },
+  powershell: { bin: () => 'powershell.exe', env: {}, platforms: new Set(['win32']) },
+}
+
 export const buildTools = ({ skills }) => {
+  const trustedDirs = skills.map(s => fromUrl(s.directory))
+
   const load_skill = tool({
     description: "Load a skill's full instructions by name",
     inputSchema: z.object({ name: z.string() }),
     execute: async ({ name }) => loadSkillContent(skills, name),
   })
-  return { read, load_skill }
+
+  const exec = tool({
+    description: 'Run a script bundled with a skill',
+    inputSchema: z.object({
+      runner: z.enum(['node', 'bash', 'powershell']).describe('Which interpreter to use'),
+      script: z.string().describe('Script path + args, relative to cwd'),
+      cwd: z.string().describe('Working directory (skillDirectory from load_skill)'),
+    }),
+    execute: async ({ runner, script, cwd: rawCwd }) => {
+      const cfg = RUNNERS[runner]
+      if (cfg.platforms && !cfg.platforms.has(process.platform))
+        return `${runner} is not available on ${process.platform}`
+
+      const resolvedCwd = rawCwd.startsWith('arcfs://') ? fromUrl(rawCwd) : rawCwd
+      const [scriptPath, ...args] = script.split(' ')
+      const resolved = path.resolve(resolvedCwd, scriptPath)
+
+      if (!trustedDirs.some(dir => resolved.startsWith(dir + path.sep)))
+        return `Script is outside trusted skill directories`
+
+      try { await fs.access(resolved) }
+      catch { return `Script not found: ${scriptPath}` }
+
+      return new Promise((resolve) => {
+        execFile(cfg.bin(), [resolved, ...args], {
+          cwd: resolvedCwd,
+          env: { ...process.env, ...cfg.env },
+        }, (error, stdout, stderr) => {
+          resolve({ stdout, stderr, exitCode: error ? error.code ?? 1 : 0 })
+        })
+      })
+    },
+  })
+
+  return { read, load_skill, exec }
 }
