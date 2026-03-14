@@ -1,7 +1,7 @@
 import { generateId, generateText as aiGenerateText, streamText as aiStreamText, convertToModelMessages, wrapLanguageModel } from 'ai'
-import { devToolsMiddleware } from '@ai-sdk/devtools'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
+import { app } from 'electron'
 import { resolveArcfsUrls } from './message.js'
 
 const clientFactories = {
@@ -18,9 +18,10 @@ const clientFactories = {
 }
 
 const clientFor = (provider) => clientFactories[provider.type](provider)
-const modelFor = (provider, modelId) => {
+const modelFor = async (provider, modelId) => {
   const model = clientFor(provider)(modelId)
-  if (process.env.NODE_ENV === 'production') return model
+  if (app.isPackaged) return model
+  const { devToolsMiddleware } = await import('@ai-sdk/devtools')
   return wrapLanguageModel({ model, middleware: devToolsMiddleware() })
 }
 
@@ -39,7 +40,7 @@ const thinkingOptions = (provider, thinking) => {
 }
 
 export const generateText = async ({ provider, modelId, messages, ...opts }) => {
-  const model = modelFor(provider, modelId)
+  const model = await modelFor(provider, modelId)
   const prepared = messages ? { messages: await prepareMessages(messages) } : {}
   try {
     const result = await aiGenerateText({ model, ...prepared, ...opts })
@@ -55,7 +56,7 @@ export const generateText = async ({ provider, modelId, messages, ...opts }) => 
 
 export const streamText = async ({ provider, modelId, system, messages, send, signal, thinking = false }) => {
   const assistantId = generateId()
-  const model = modelFor(provider, modelId)
+  const model = await modelFor(provider, modelId)
   const modelMessages = await prepareMessages(messages)
 
   const providerOptions = thinkingOptions(provider, thinking)
