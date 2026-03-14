@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "agentSkills": {
+      "type": "http",
+      "url": "https://agentskills.io/mcp"
+    }
+  }
+}
