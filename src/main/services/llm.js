@@ -1,4 +1,4 @@
-import { generateId, generateText as aiGenerateText, streamText as aiStreamText, convertToModelMessages, wrapLanguageModel } from 'ai'
+import { generateId, generateText as aiGenerateText, streamText as aiStreamText, convertToModelMessages, wrapLanguageModel, ToolLoopAgent } from 'ai'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { app } from 'electron'
@@ -39,6 +39,17 @@ const thinkingOptions = (provider, thinking) => {
     return { [provider.name]: { reasoningEffort: 'high' } }
 }
 
+const loop = new ToolLoopAgent({
+  model: null,
+  prepareCall: ({ options, ...rest }) => ({
+    ...rest,
+    model: options.model,
+    instructions: options.system,
+    ...(options.tools && { tools: options.tools }),
+    ...(options.providerOptions && { providerOptions: options.providerOptions }),
+  }),
+})
+
 export const generateText = async ({ provider, modelId, messages, ...opts }) => {
   const model = await modelFor(provider, modelId)
   const prepared = messages ? { messages: await prepareMessages(messages) } : {}
@@ -67,6 +78,40 @@ export const streamText = async ({ provider, modelId, system, messages, send, si
     messages: modelMessages,
     abortSignal: signal,
     ...(providerOptions && { providerOptions }),
+  })
+
+  try {
+    for await (const chunk of result.toUIMessageStream({
+      sendReasoning: true,
+      generateMessageId: () => assistantId,
+    })) {
+      send(chunk)
+    }
+  } catch (e) {
+    send({ type: 'error', errorText: e.message ?? 'Streaming failed' })
+    return null
+  }
+
+  if (signal.aborted) return null
+  try {
+    const [text, reasoning] = await Promise.all([result.text, result.reasoning])
+    return { assistantId, text, reasoning }
+  } catch (e) {
+    send({ type: 'error', errorText: e.message ?? 'No response generated' })
+    return null
+  }
+}
+
+export const stream = async ({ provider, modelId, system, messages, tools, send, signal, thinking = false }) => {
+  const assistantId = generateId()
+  const model = await modelFor(provider, modelId)
+  const modelMessages = await prepareMessages(messages)
+  const providerOptions = thinkingOptions(provider, thinking)
+
+  const result = await loop.stream({
+    messages: modelMessages,
+    options: { model, system, tools, providerOptions },
+    abortSignal: signal,
   })
 
   try {
