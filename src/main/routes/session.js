@@ -8,6 +8,7 @@ import * as message from '../services/message.js'
 import * as llm from '../services/llm.js'
 import { getProvider } from '../services/provider.js'
 import { fallbackTitle, generateTitle } from '../services/assist.js'
+import { buildTools } from '../services/tools.js'
 import { promptsCh } from './prompts.js'
 
 const dir = resolve('sessions')
@@ -160,7 +161,8 @@ registerStream('session:send', async ({ sessionId, messages: inputMessages, atta
       .catch(() => {})
   }
 
-  const result = await llm.stream({ provider, modelId, system, messages, send, signal, thinking: true })
+  const tools = buildTools()
+  const result = await llm.stream({ provider, modelId, system, messages, tools, send, signal, thinking: true })
   if (!result) return
 
   await message.persistAssistantMessage(filePath, { ...result, lastId, arcProviderId: providerId, arcModelId: modelId })

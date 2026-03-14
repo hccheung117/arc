@@ -41,6 +41,7 @@ const thinkingOptions = (provider, thinking) => {
 
 const loop = new ToolLoopAgent({
   model: null,
+  stopWhen: () => false,
   prepareCall: ({ options, ...rest }) => ({
     ...rest,
     model: options.model,
