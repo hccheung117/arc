@@ -22,6 +22,10 @@ import {
 import {
   Reasoning, ReasoningContent, ReasoningTrigger,
 } from "@/components/ai-elements/reasoning"
+import {
+  ChainOfThought, ChainOfThoughtHeader, ChainOfThoughtContent, ChainOfThoughtStep,
+} from "@/components/ai-elements/chain-of-thought"
+import { toolUI, toolSummary } from "@/lib/tool-ui"
 import { WaitingShimmer } from "@/components/WaitingShimmer"
 import { cn } from "@/lib/shadcn"
 
@@ -30,6 +34,34 @@ const textFromParts = (msg) =>
 
 const reasoningFromParts = (msg) =>
   msg.parts.filter((p) => p.type === "reasoning").map((p) => p.text).join("\n\n")
+
+const toolStepsFromParts = (msg) => {
+  const steps = []
+  const resultIds = new Set()
+
+  for (const p of msg.parts) {
+    // UI-level (streaming): type is 'tool-{name}' or 'dynamic-tool', has state
+    if (p.toolCallId && p.state) {
+      steps.push({
+        toolCallId: p.toolCallId,
+        toolName: p.type === 'dynamic-tool' ? p.toolName : p.type.slice(5),
+        input: p.input,
+        hasResult: p.state === 'output-available',
+      })
+      continue
+    }
+    // Model-level (disk): tool-call / tool-result
+    if (p.type === 'tool-call')
+      steps.push({ toolCallId: p.toolCallId, toolName: p.toolName, input: p.input, hasResult: false })
+    else if (p.type === 'tool-result')
+      resultIds.add(p.toolCallId)
+  }
+
+  for (const step of steps)
+    if (resultIds.has(step.toolCallId)) step.hasResult = true
+
+  return steps
+}
 
 const UserMessageContent = ({ msg }) => (
   <MessageContent>
@@ -127,7 +159,8 @@ export default function Workbench() {
                 const waitingForFirstDelta =
                   status === "submitted" ||
                   (status === "streaming" && lastMsg?.role === "assistant"
-                    && !textFromParts(lastMsg) && !reasoningFromParts(lastMsg))
+                    && !textFromParts(lastMsg) && !reasoningFromParts(lastMsg)
+                    && !lastMsg.parts.some(p => p.toolCallId))
                 const displayMessages = waitingForFirstDelta && status === "streaming"
                   ? messages.slice(0, -1)
                   : messages
@@ -138,6 +171,8 @@ export default function Workbench() {
                     const isReasoningStreaming = isLastMsg && status === "streaming"
                       && msg.parts.at(-1)?.type === "reasoning"
                     const msgText = textFromParts(msg)
+                    const steps = msg.role === "assistant" ? toolStepsFromParts(msg) : []
+                    const isStreaming = isLastMsg && status === "streaming"
 
                     const assistantContent = (
                       <>
@@ -146,6 +181,26 @@ export default function Workbench() {
                             <ReasoningTrigger />
                             <ReasoningContent>{reasoningText}</ReasoningContent>
                           </Reasoning>
+                        )}
+                        {steps.length > 0 && (
+                          <ChainOfThought defaultOpen={isStreaming}>
+                            <ChainOfThoughtHeader>
+                              {isStreaming ? 'Acting' : toolSummary(steps)}
+                            </ChainOfThoughtHeader>
+                            <ChainOfThoughtContent>
+                              {steps.map(step => {
+                                const tool = toolUI(step.toolName)
+                                return (
+                                  <ChainOfThoughtStep
+                                    key={step.toolCallId}
+                                    icon={tool.icon}
+                                    label={tool.label(step.input)}
+                                    status={step.hasResult ? 'complete' : 'active'}
+                                  />
+                                )
+                              })}
+                            </ChainOfThoughtContent>
+                          </ChainOfThought>
                         )}
                         <MessageResponse>{msgText}</MessageResponse>
                       </>

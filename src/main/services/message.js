@@ -195,11 +195,11 @@ export const persistNewMessages = async (filePath, messages) => {
   return lastId
 }
 
-export const persistAssistantMessage = async (filePath, { assistantId, text, reasoning, lastId, arcProviderId, arcModelId }) => {
+export const persistAssistantMessage = async (filePath, { assistantId, text, reasoning, toolParts = [], lastId, arcProviderId, arcModelId }) => {
   await appendJsonl(filePath, {
     id: assistantId,
     role: 'assistant',
-    parts: [...reasoning, { type: 'text', text }],
+    parts: [...toolParts, ...reasoning, { type: 'text', text }],
     arcParentId: lastId,
     arcProviderId,
     arcModelId,
