@@ -1,6 +1,8 @@
 import fs from 'node:fs/promises'
 import { tool } from 'ai'
 import { z } from 'zod'
+import { fromUrl } from '../arcfs.js'
+import { loadSkillContent } from './skill.js'
 
 const SMALL_FILE_THRESHOLD = 500
 const DEFAULT_PREVIEW_LINES = 200
@@ -12,7 +14,8 @@ const read = tool({
     offset: z.number().optional().describe('Line to start from (1-indexed)'),
     limit: z.number().optional().describe('Number of lines to return'),
   }),
-  execute: async ({ path, offset, limit }) => {
+  execute: async ({ path: rawPath, offset, limit }) => {
+    const path = rawPath.startsWith('arcfs://') ? fromUrl(rawPath) : rawPath
     let stat
     try {
       stat = await fs.stat(path)
@@ -61,4 +64,11 @@ const read = tool({
   },
 })
 
-export const buildTools = () => ({ read })
+export const buildTools = ({ skills }) => {
+  const load_skill = tool({
+    description: "Load a skill's full instructions by name",
+    inputSchema: z.object({ name: z.string() }),
+    execute: async ({ name }) => loadSkillContent(skills, name),
+  })
+  return { read, load_skill }
+}

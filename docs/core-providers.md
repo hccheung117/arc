@@ -13,9 +13,12 @@ profiles/<profile-name>/
 ├── arc.json            # Marker/manifest file for import/export
 ├── providers.json      # Defines AI backend endpoints and credentials
 ├── settings.json       # Defines default favorite models and other UI settings
-└── prompts/            # Reusable system prompts (.md files) available to users
-    ├── coding.md
-    └── writing.md
+├── prompts/            # Reusable system prompts (.md files) available to users
+│   ├── coding.md
+│   └── writing.md
+└── skills/             # Agent skills loaded on-demand via tools
+    └── <skill-name>/
+        └── SKILL.md
 ```
 
 ## Providers
@@ -153,6 +156,48 @@ Current system tasks include:
 }
 ```
 
+## Skills
+
+The application supports progressive-disclosure skill loading following the [Agent Skills spec](https://agentskills.io/specification). Skills are specialized capabilities that the LLM can invoke dynamically during a conversation.
+
+### Defining Skills
+
+Skills are directory structures that live in the `skills/<skill-name>/` directory within your profile. Each skill must contain a `SKILL.md` file with YAML frontmatter that defines its metadata:
+
+```markdown
+---
+name: my-skill
+description: Useful for performing specialized tasks when requested.
+---
+
+# Skill Instructions
+Here are the detailed instructions for this skill...
+```
+
+**Frontmatter Constraints:**
+- `name` (Required): Max 64 chars. Lowercase letters, numbers, hyphens. No leading/trailing hyphens.
+- `description` (Required): Max 1024 chars. Non-empty.
+- `license`, `compatibility`, `metadata` (Optional).
+
+**Skill Directory Structure:**
+```text
+skills/
+└── <skill-name>/
+    ├── SKILL.md       # Required: The main instructions
+    ├── references/    # Optional: Companion files
+    ├── scripts/       # Optional: Companion scripts
+    └── assets/        # Optional: Companion assets
+```
+
+### How Skills Work
+
+1. **Discovery & Merging:** At conversation time, the application scans for all available skills. It merges skills from the built-in `@app` profile and your active profile. Active profile skills take precedence by name, allowing you to override default skills.
+2. **System Prompt Injection:** The names and descriptions of all discovered skills are automatically injected into the system prompt as an XML catalog.
+3. **On-Demand Loading:** The LLM is provided with a `load_skill` tool. When the model determines a task matches a skill's description, it calls this tool to pull the full `SKILL.md` instructions into its context window.
+4. **Companion Files:** The `load_skill` tool returns the skill's instructions along with its directory URL (`arcfs://...`). The LLM can subsequently use the `read` tool to load any companion files from the `references/`, `scripts/`, or `assets/` subdirectories.
+
+This progressive-disclosure approach keeps the initial system prompt lean while giving the model access to deep domain knowledge, specialized workflows, and supplementary files when needed.
+
 ## Import & Export
 
 Profiles can be exported and imported as `.arc` files. This allows you to easily backup or share your configured AI backends, default favorites, and reusable prompts. 
@@ -178,5 +223,6 @@ The `.arc` format is a zip archive structured identically to the local profile d
     ├── arc.json           # Marker/manifest file
     ├── providers.json     # Providers configuration (credentials included)
     ├── settings.json      # Default favorite models and settings
-    └── prompts/           # Reusable system prompts
+    ├── prompts/           # Reusable system prompts
+    └── skills/            # Agent skills loaded on-demand
 ```

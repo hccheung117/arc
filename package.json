@@ -53,6 +53,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "electron-squirrel-startup": "^1.0.1",
+    "js-yaml": "^4.1.1",
     "lucide-react": "^0.564.0",
     "motion": "^12.35.0",
     "picomatch": "^4.0.3",

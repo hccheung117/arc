@@ -9,6 +9,7 @@ import * as llm from '../services/llm.js'
 import { getProvider } from '../services/provider.js'
 import { fallbackTitle, generateTitle } from '../services/assist.js'
 import { buildTools } from '../services/tools.js'
+import { discoverSkills, buildSkillsPrompt } from '../services/skill.js'
 import { promptsCh } from './prompts.js'
 
 const dir = resolve('sessions')
@@ -161,8 +162,11 @@ registerStream('session:send', async ({ sessionId, messages: inputMessages, atta
       .catch(() => {})
   }
 
-  const tools = buildTools()
-  const result = await llm.stream({ provider, modelId, system, messages, tools, send, signal, thinking: true })
+  const skills = await discoverSkills()
+  const skillsPrompt = buildSkillsPrompt(skills)
+  const fullSystem = [system, skillsPrompt].filter(Boolean).join('\n\n')
+  const tools = buildTools({ skills })
+  const result = await llm.stream({ provider, modelId, system: fullSystem, messages, tools, send, signal, thinking: true })
   if (!result) return
 
   await message.persistAssistantMessage(filePath, { ...result, lastId, arcProviderId: providerId, arcModelId: modelId })

@@ -1,4 +1,4 @@
-import { FileTextIcon, WrenchIcon } from "lucide-react"
+import { BookOpenIcon, FileTextIcon, WrenchIcon } from "lucide-react"
 
 const tools = {
   read: {
@@ -8,6 +8,11 @@ const tools = {
       return filename ? `Reading ${filename}` : 'Reading a file'
     },
     summary: (count) => `Read ${count} file${count > 1 ? 's' : ''}`,
+  },
+  load_skill: {
+    icon: BookOpenIcon,
+    label: (input) => `Loading ${input?.name ?? 'a skill'} skill`,
+    summary: (count) => `Loaded ${count} skill${count > 1 ? 's' : ''}`,
   },
 }
 
