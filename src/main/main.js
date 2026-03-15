@@ -16,6 +16,7 @@ import './routes/settings.js';
 import './routes/message.js';
 import './routes/assist.js';
 import './routes/profile.js';
+import './routes/skills.js';
 import { initUpdater } from './updater.js';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.

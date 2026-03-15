@@ -5,7 +5,7 @@ import { readJson, writeJson, readJsonl, appendJsonl, resolve } from '../arcfs.j
 import { resolveSessionPrompt, saveSessionPrompt, savePrompt as saveAppPrompt, promptsAppDir } from './prompts.js'
 import { getProvider } from './provider.js'
 import { fallbackTitle, generateTitle } from './assist.js'
-import { discoverSkills, buildSkillsPrompt } from './skill.js'
+import { discoverSkills, buildSkillsPrompt, loadSkillContent, buildSkillAugment, buildSkillReminder, hasSkillAugment } from './skill.js'
 import { buildTools } from './tools.js'
 import * as llm from './llm.js'
 import * as message from './message.js'
@@ -224,7 +224,7 @@ export const toggleFolderCollapse = async (dir, folderIndex) => {
   await writeLayout(dir, { ...layout, folders })
 }
 
-export const prepareSend = async (dir, { sessionId, inputMessages, attachments, promptRef, providerId, modelId }) => {
+export const prepareSend = async (dir, { sessionId, inputMessages, attachments, promptRef, providerId, modelId, activeSkill }) => {
   const provider = await getProvider(providerId)
   if (!provider) throw new Error(`Provider "${providerId}" not found`)
 
@@ -233,16 +233,35 @@ export const prepareSend = async (dir, { sessionId, inputMessages, attachments, 
   const system = await loadPrompt(dir, sessionId)
   const messages = await message.extractFiles(resolve('sessions', sessionId), inputMessages, attachments)
   const filePath = message.messagesPath(dir, sessionId)
-  const lastId = await message.persistNewMessages(filePath, messages)
 
-  const userMsg = messages.findLast(m => m.role === 'user')
+  // Skill augmentation: inject content as user message parts, not system prompt
+  const skills = await discoverSkills()
+  const skillContent = activeSkill ? await loadSkillContent(skills, activeSkill) : null
+  const activeSkillBody = typeof skillContent === 'object' ? skillContent.content : null
+
+  // Scan persisted history for existing augment (renderer doesn't receive arcSynthetic parts)
+  const { messages: history } = await message.loadMessages(dir, sessionId)
+  const alreadyAugmented = activeSkill && activeSkillBody && hasSkillAugment(history, activeSkill)
+
+  // First activation → append full augment before persistence
+  const augmentedMessages = activeSkill && activeSkillBody && !alreadyAugmented
+    ? message.augmentUserMessage(messages, [buildSkillAugment(activeSkill, activeSkillBody)], { prepend: true })
+    : messages
+
+  const lastId = await message.persistNewMessages(filePath, augmentedMessages)
+
+  const userMsg = augmentedMessages.findLast(m => m.role === 'user')
   const fileParts = userMsg?.parts.filter(p => p.type === 'file')
   const fileReplacement = fileParts?.length ? { id: userMsg.id, parts: fileParts } : null
   const { branches } = await message.loadMessages(dir, sessionId)
 
-  const skills = await discoverSkills()
   const fullSystem = [system, buildSkillsPrompt(skills)].filter(Boolean).join('\n\n')
   const tools = buildTools({ skills })
+
+  // Ephemeral reminder (not persisted) — always added when skill is active
+  const modelMessages = activeSkill && activeSkillBody
+    ? message.augmentUserMessage(augmentedMessages, [buildSkillReminder(activeSkill)])
+    : augmentedMessages
 
   return {
     isNew,
@@ -250,7 +269,7 @@ export const prepareSend = async (dir, { sessionId, inputMessages, attachments, 
     branches,
 
     stream: (send, signal) =>
-      llm.stream({ provider, modelId, system: fullSystem, messages, tools, send, signal, thinking: true }),
+      llm.stream({ provider, modelId, system: fullSystem, messages: modelMessages, tools, send, signal, thinking: true }),
 
     finalize: async (result) => {
       await message.persistAssistantMessage(filePath, {

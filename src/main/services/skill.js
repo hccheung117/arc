@@ -41,6 +41,24 @@ export const loadSkillContent = async (skills, name) => {
   return { content: body, skillDirectory: skill.directory }
 }
 
+export const buildSkillReminder = (activeSkill) => {
+  if (!activeSkill) return null
+  return {
+    type: 'text',
+    text: `<skill_reminder>\nThe "${activeSkill}" skill is active. Follow its instructions from earlier in the conversation.\n</skill_reminder>`,
+    arcSynthetic: `skill-reminder:${activeSkill}`,
+  }
+}
+
+export const buildSkillAugment = (activeSkill, body) => ({
+  type: 'text',
+  text: `<active_skill name="${activeSkill}">\n${body}\n</active_skill>`,
+  arcSynthetic: `skill:${activeSkill}`,
+})
+
+export const hasSkillAugment = (messages, skillName) =>
+  messages.some(m => m.parts?.some(p => p.arcSynthetic === `skill:${skillName}`))
+
 export const buildSkillsPrompt = (skills) => {
   if (!skills.length) return null
   const entries = skills.map(s => `<skill name="${s.name}">${s.description}</skill>`).join('\n')

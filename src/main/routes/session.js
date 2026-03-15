@@ -20,7 +20,7 @@ const sessions = defineChannel('session:feed', async () => {
 const sessionState = defineChannel('session:state:feed', async (sessionId) => {
   const { messages, branches } = await message.loadMessages(dir, sessionId)
   const prompt = await session.loadPrompt(dir, sessionId)
-  return { sessionId, messages, branches, prompt }
+  return { sessionId, messages: message.stripSyntheticParts(messages), branches, prompt }
 }, { hydrate: false })
 
 const forkFromMessage = async (sessionId, messageId) => {
@@ -116,12 +116,12 @@ register('session:save-prompt', async ({ id, content }) => {
   sessionState.patch({ sessionId: id, prompt })
 })
 
-registerStream('session:send', async ({ sessionId, messages: inputMessages, attachments, promptRef, providerId, modelId, send, signal }) => {
+registerStream('session:send', async ({ sessionId, messages: inputMessages, attachments, promptRef, providerId, modelId, activeSkill, send, signal }) => {
   if (!providerId || !modelId) return send({ type: 'error', errorText: 'No model selected' })
 
   let ctx
   try {
-    ctx = await session.prepareSend(dir, { sessionId, inputMessages, attachments, promptRef, providerId, modelId })
+    ctx = await session.prepareSend(dir, { sessionId, inputMessages, attachments, promptRef, providerId, modelId, activeSkill })
   } catch (e) {
     return send({ type: 'error', errorText: e.message })
   }

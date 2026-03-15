@@ -25,12 +25,12 @@ register('message:context-menu', ({ sessionId, id, role, text }) => {
 register('message:edit-save', async ({ sessionId, messageId, text }) => {
   const newId = await message.editMessage(dir, sessionId, messageId, text)
   const { messages, branches } = await message.loadMessages(dir, sessionId, newId)
-  sessionState.patch({ sessionId, messages, branches })
+  sessionState.patch({ sessionId, messages: message.stripSyntheticParts(messages), branches })
 })
 
 register('message:switch-branch', async ({ sessionId, targetId }) => {
   const { messages, branches } = await message.switchBranch(dir, sessionId, targetId)
-  sessionState.patch({ sessionId, messages, branches })
+  sessionState.patch({ sessionId, messages: message.stripSyntheticParts(messages), branches })
 })
 
 register('message:open-file', async ({ url, path, data, filename }) => {

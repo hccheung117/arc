@@ -90,7 +90,7 @@ export const editMessage = async (dir, sessionId, messageId, text) => {
 
 export const exportMarkdown = async (dir, sessionId) => {
   const { messages } = await loadMessages(dir, sessionId)
-  return messages
+  return stripSyntheticParts(messages)
     .map(m => {
       const role = m.role.charAt(0).toUpperCase() + m.role.slice(1)
       const text = m.parts.filter(p => p.type === 'text').map(p => p.text).join('')
@@ -163,6 +163,24 @@ export const extractFiles = async (sessionDir, messages, attachments) => {
 
   return result
 }
+
+export const augmentUserMessage = (messages, parts, { prepend } = {}) => {
+  if (!parts.length) return messages
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role !== 'user') continue
+    return messages.map((m, j) => j !== i ? m : {
+      ...m,
+      parts: prepend ? [...parts, ...m.parts] : [...m.parts, ...parts],
+    })
+  }
+  return messages
+}
+
+export const stripSyntheticParts = (messages) =>
+  messages.map(m => {
+    const filtered = m.parts.filter(p => !p.arcSynthetic)
+    return filtered.length === m.parts.length ? m : { ...m, parts: filtered }
+  })
 
 export const resolveArcfsUrls = async (messages) => {
   const resolved = []
