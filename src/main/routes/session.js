@@ -4,6 +4,7 @@ import { register, registerStream, push, getMainWindow } from '../router.js'
 import { defineChannel } from '../channel.js'
 import { resolve } from '../arcfs.js'
 import * as session from '../services/session.js'
+import * as layout from '../services/layout.js'
 import * as message from '../services/message.js'
 import { promptsCh } from './prompts.js'
 
@@ -12,7 +13,7 @@ const dir = resolve('sessions')
 const sessions = defineChannel('session:feed', async () => {
   const [list, folders] = await Promise.all([
     session.listSessions(dir),
-    session.listFolders(dir),
+    layout.listFolders(dir),
   ])
   return { sessions: list, folders }
 })
@@ -37,35 +38,35 @@ register('session:list', () => session.listSessions(dir))
 register('session:context-menu', async ({ id }) => {
   const chat = await session.getSession(dir, id)
   if (!chat) return
-  const folders = await session.listFolders(dir)
+  const folders = await layout.listFolders(dir)
   const folderIdx = folders.findIndex(f => f.sessions.includes(id))
   const inFolder = folderIdx !== -1
 
   const moveSubmenu = [
     ...folders
-      .map((f, i) => ({ label: f.name, click: sessions.mutate(() => session.moveToFolder(dir, id, i)) }))
+      .map((f, i) => ({ label: f.name, click: sessions.mutate(() => layout.moveToFolder(dir, id, i)) }))
       .filter((_, i) => i !== folderIdx),
     ...(folders.length > (inFolder ? 1 : 0) ? [{ type: 'separator' }] : []),
     { label: 'New Folder', click: async () => {
-      await session.createFolder(dir, 'New Folder', id)
+      await layout.createFolder(dir, 'New Folder', id)
       await sessions.push()
-      const updated = await session.listFolders(dir)
+      const updated = await layout.listFolders(dir)
       push('session:folder-rename:start', updated.length - 1)
     } },
   ]
 
   Menu.buildFromTemplate([
     ...(!inFolder ? [
-      { label: chat.pinned ? 'Unpin' : 'Pin', click: sessions.mutate(() => session.pinSession(dir, id)) },
+      { label: chat.pinned ? 'Unpin' : 'Pin', click: sessions.mutate(() => layout.pinSession(dir, id)) },
       { type: 'separator' },
     ] : []),
     { label: 'Rename', click: () => push('session:rename:start', id) },
     { label: 'Duplicate', click: sessions.mutate(async () => {
       const newId = await session.duplicateSession(dir, id)
-      if (inFolder && newId) await session.moveToFolder(dir, newId, folderIdx)
+      if (inFolder && newId) await layout.moveToFolder(dir, newId, folderIdx)
     }) },
     { type: 'separator' },
-    ...(inFolder ? [{ label: 'Remove from Folder', click: sessions.mutate(() => session.removeFromFolder(dir, id)) }] : []),
+    ...(inFolder ? [{ label: 'Remove from Folder', click: sessions.mutate(() => layout.removeFromFolder(dir, id)) }] : []),
     { label: 'Move to Folder', submenu: moveSubmenu },
     { type: 'separator' },
     { label: 'Delete', click: sessions.mutate(() => session.deleteSession(dir, id)) },
@@ -73,17 +74,17 @@ register('session:context-menu', async ({ id }) => {
 })
 
 register('session:rename', sessions.mutate(({ id, title }) => session.renameSession(dir, id, title)))
-register('session:create-folder', sessions.mutate(({ name, id }) => session.createFolder(dir, name, id)))
-register('session:move-to-folder', sessions.mutate(({ id, folderIndex }) => session.moveToFolder(dir, id, folderIndex)))
-register('session:remove-from-folder', sessions.mutate(({ id }) => session.removeFromFolder(dir, id)))
-register('session:rename-folder', sessions.mutate(({ folderIndex, name }) => session.renameFolder(dir, folderIndex, name)))
-register('session:delete-folder', sessions.mutate(({ folderIndex }) => session.deleteFolder(dir, folderIndex)))
-register('session:toggle-folder-collapse', sessions.mutate(({ folderIndex }) => session.toggleFolderCollapse(dir, folderIndex)))
+register('session:create-folder', sessions.mutate(({ name, id }) => layout.createFolder(dir, name, id)))
+register('session:move-to-folder', sessions.mutate(({ id, folderIndex }) => layout.moveToFolder(dir, id, folderIndex)))
+register('session:remove-from-folder', sessions.mutate(({ id }) => layout.removeFromFolder(dir, id)))
+register('session:rename-folder', sessions.mutate(({ folderIndex, name }) => layout.renameFolder(dir, folderIndex, name)))
+register('session:delete-folder', sessions.mutate(({ folderIndex }) => layout.deleteFolder(dir, folderIndex)))
+register('session:toggle-folder-collapse', sessions.mutate(({ folderIndex }) => layout.toggleFolderCollapse(dir, folderIndex)))
 
 register('session:folder-context-menu', ({ folderIndex }) => {
   Menu.buildFromTemplate([
     { label: 'Rename', click: () => push('session:folder-rename:start', folderIndex) },
-    { label: 'Delete', click: sessions.mutate(() => session.deleteFolder(dir, folderIndex)) },
+    { label: 'Delete', click: sessions.mutate(() => layout.deleteFolder(dir, folderIndex)) },
   ]).popup()
 })
 

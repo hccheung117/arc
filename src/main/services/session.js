@@ -9,11 +9,7 @@ import { discoverSkills, buildSkillsPrompt, loadSkillContent, buildSkillAugment,
 import { buildTools } from './tools.js'
 import * as llm from './llm.js'
 import * as message from './message.js'
-
-const readLayout = (dir) => readJson(path.join(dir, 'layout.json'))
-const writeLayout = (dir, layout) => writeJson(path.join(dir, 'layout.json'), layout)
-const loadLayout = async (dir) => ({ pinned: [], folders: [], ...await readLayout(dir) })
-const findFolder = (layout, sessionId) => layout.folders.findIndex(f => f.sessions.includes(sessionId))
+import { loadLayout, cleanupSession } from './layout.js'
 
 export const listSessions = async (dir) => {
   const entries = await fs.readdir(dir, { withFileTypes: true }).catch(e => {
@@ -72,14 +68,6 @@ export const renameSession = async (dir, id, title) => {
   await writeJson(metaPath, { ...meta, title })
 }
 
-export const pinSession = async (dir, id) => {
-  const layout = await loadLayout(dir)
-  const pinned = layout.pinned.includes(id)
-    ? layout.pinned.filter(p => p !== id)
-    : [...layout.pinned, id]
-  await writeLayout(dir, { ...layout, pinned })
-}
-
 const ignore = (code) => (e) => { if (e.code !== code) throw e }
 
 const deriveSession = async (dir, sourceId, { titleFn, messageFn, fileFn }) => {
@@ -129,14 +117,7 @@ export const forkSession = (dir, sourceId, messageId) =>
 
 export const deleteSession = async (dir, id) => {
   await fs.rm(path.join(dir, id), { recursive: true, force: true })
-  const layout = await loadLayout(dir)
-  const folderIdx = findFolder(layout, id)
-  const pinned = layout.pinned.filter(p => p !== id)
-  const folders = folderIdx === -1 ? layout.folders
-    : layout.folders.map((f, i) => i === folderIdx ? { ...f, sessions: f.sessions.filter(s => s !== id) } : f)
-  if (pinned.length !== layout.pinned.length || folderIdx !== -1) {
-    await writeLayout(dir, { ...layout, pinned, folders })
-  }
+  await cleanupSession(dir, id)
 }
 
 const promptPath = (dir, sessionId) =>
@@ -175,53 +156,6 @@ export const savePrompt = async (dir, id, content) => {
   }
   await saveSessionPrompt(promptPath(dir, id), content)
   return false
-}
-
-export const listFolders = async (dir) => (await loadLayout(dir)).folders
-
-const removeFromAnyFolder = (layout, sessionId) => {
-  const idx = findFolder(layout, sessionId)
-  return idx === -1 ? layout.folders
-    : layout.folders.map((f, i) => i === idx ? { ...f, sessions: f.sessions.filter(s => s !== sessionId) } : f)
-}
-
-export const createFolder = async (dir, name, sessionId) => {
-  const layout = await loadLayout(dir)
-  const folders = [...removeFromAnyFolder(layout, sessionId), { name, sessions: [sessionId], collapsed: false }]
-  const pinned = layout.pinned.filter(p => p !== sessionId)
-  await writeLayout(dir, { ...layout, pinned, folders })
-}
-
-export const moveToFolder = async (dir, sessionId, folderIndex) => {
-  const layout = await loadLayout(dir)
-  const folders = removeFromAnyFolder(layout, sessionId)
-    .map((f, i) => i === folderIndex ? { ...f, sessions: [...f.sessions, sessionId] } : f)
-  const pinned = layout.pinned.filter(p => p !== sessionId)
-  await writeLayout(dir, { ...layout, pinned, folders })
-}
-
-export const removeFromFolder = async (dir, sessionId) => {
-  const layout = await loadLayout(dir)
-  const folders = removeFromAnyFolder(layout, sessionId)
-  await writeLayout(dir, { ...layout, folders })
-}
-
-export const renameFolder = async (dir, folderIndex, name) => {
-  const layout = await loadLayout(dir)
-  const folders = layout.folders.map((f, i) => i === folderIndex ? { ...f, name } : f)
-  await writeLayout(dir, { ...layout, folders })
-}
-
-export const deleteFolder = async (dir, folderIndex) => {
-  const layout = await loadLayout(dir)
-  const folders = layout.folders.filter((_, i) => i !== folderIndex)
-  await writeLayout(dir, { ...layout, folders })
-}
-
-export const toggleFolderCollapse = async (dir, folderIndex) => {
-  const layout = await loadLayout(dir)
-  const folders = layout.folders.map((f, i) => i === folderIndex ? { ...f, collapsed: !f.collapsed } : f)
-  await writeLayout(dir, { ...layout, folders })
 }
 
 export const prepareSend = async (dir, { sessionId, inputMessages, attachments, promptRef, providerId, modelId, activeSkill }) => {
