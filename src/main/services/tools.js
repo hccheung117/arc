@@ -71,6 +71,7 @@ const RUNNERS = {
   node: { bin: () => process.execPath, env: { ELECTRON_RUN_AS_NODE: '1' }, platforms: null },
   bash: { bin: () => '/bin/bash', env: {}, platforms: new Set(['darwin', 'linux']) },
   powershell: { bin: () => 'powershell.exe', env: {}, platforms: new Set(['win32']) },
+  native: { bin: null, env: {}, platforms: null },
 }
 
 export const buildTools = ({ skills }) => {
@@ -85,7 +86,7 @@ export const buildTools = ({ skills }) => {
   const exec = tool({
     description: 'Run a script bundled with a skill',
     inputSchema: z.object({
-      runner: z.enum(['node', 'bash', 'powershell']).describe('Which interpreter to use'),
+      runner: z.enum(['node', 'bash', 'powershell', 'native']).describe('Which runner to use'),
       script: z.string().describe('Script path + args, relative to cwd'),
       cwd: z.string().describe('Working directory (skillDirectory from load_skill)'),
     }),
@@ -104,8 +105,13 @@ export const buildTools = ({ skills }) => {
       try { await fs.access(resolved) }
       catch { return `Script not found: ${scriptPath}` }
 
+      if (runner === 'native' && process.platform !== 'win32')
+        await fs.chmod(resolved, 0o755)
+
+      const execBin = cfg.bin ? cfg.bin() : resolved
+      const execArgs = cfg.bin ? [resolved, ...args] : args
       return new Promise((resolve) => {
-        execFile(cfg.bin(), [resolved, ...args], {
+        execFile(execBin, execArgs, {
           cwd: resolvedCwd,
           env: { ...process.env, ...cfg.env },
         }, (error, stdout, stderr) => {
