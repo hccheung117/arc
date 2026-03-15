@@ -6,6 +6,14 @@ module.exports = {
     asar: true,
     icon: './assets/icon',
     appBundleId: 'io.github.hccheung117.arc',
+    osxSign: {},
+    ...(process.env.APPLE_API_KEY_ID && {
+      osxNotarize: {
+        appleApiKey: process.env.APPLE_API_KEY_PATH,
+        appleApiKeyId: process.env.APPLE_API_KEY_ID,
+        appleApiIssuer: process.env.APPLE_API_ISSUER,
+      },
+    }),
   },
   rebuildConfig: {},
   makers: [
