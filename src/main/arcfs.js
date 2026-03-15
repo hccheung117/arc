@@ -12,7 +12,11 @@ export const toUrl = (...segments) =>
 export const fromUrl = (url) => {
   const parsed = new URL(url)
   const segments = [parsed.hostname, ...parsed.pathname.slice(1).split('/').filter(Boolean)]
-  return resolve(...segments)
+  const resolved = resolve(...segments)
+  const root = resolve()
+  if (!resolved.startsWith(root + path.sep) && resolved !== root)
+    throw new Error(`arcfs URL escapes sandbox: ${url}`)
+  return resolved
 }
 
 export const readJson = async (filepath) => {

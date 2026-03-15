@@ -11,14 +11,15 @@ const SMALL_FILE_THRESHOLD = 500
 const DEFAULT_PREVIEW_LINES = 200
 
 const read = tool({
-  description: 'Read a text file from the filesystem',
+  description: 'Read a text file from the arcfs virtual filesystem',
   inputSchema: z.object({
-    path: z.string().describe('Absolute path to the file'),
+    path: z.string().describe('arcfs:// URL of the file'),
     offset: z.number().optional().describe('Line to start from (1-indexed)'),
     limit: z.number().optional().describe('Number of lines to return'),
   }),
   execute: async ({ path: rawPath, offset, limit }) => {
-    const path = rawPath.startsWith('arcfs://') ? fromUrl(rawPath) : rawPath
+    if (!rawPath.startsWith('arcfs://')) return 'Invalid path: only arcfs:// URLs are accepted'
+    const path = fromUrl(rawPath)
     let stat
     try {
       stat = await fs.stat(path)
@@ -88,14 +89,15 @@ export const buildTools = ({ skills }) => {
     inputSchema: z.object({
       runner: z.enum(['node', 'bash', 'powershell', 'native']).describe('Which runner to use'),
       script: z.string().describe('Script path + args, relative to cwd'),
-      cwd: z.string().describe('Working directory (skillDirectory from load_skill)'),
+      cwd: z.string().describe('Skill directory as arcfs:// URL (skillDirectory from load_skill)'),
     }),
     execute: async ({ runner, script, cwd: rawCwd }) => {
       const cfg = RUNNERS[runner]
       if (cfg.platforms && !cfg.platforms.has(process.platform))
         return `${runner} is not available on ${process.platform}`
 
-      const resolvedCwd = rawCwd.startsWith('arcfs://') ? fromUrl(rawCwd) : rawCwd
+      if (!rawCwd.startsWith('arcfs://')) return 'Invalid cwd: only arcfs:// URLs are accepted'
+      const resolvedCwd = fromUrl(rawCwd)
       const [scriptPath, ...args] = script.split(' ')
       const resolved = path.resolve(resolvedCwd, scriptPath)
 
