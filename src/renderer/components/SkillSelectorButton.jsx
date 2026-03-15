@@ -1,12 +1,6 @@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
+import { CommandInput } from "@/components/ui/command"
+import SkillList from "@/components/SkillList"
 import { PromptInputButton } from "@/components/ai-elements/prompt-input"
 import { act } from "@/store/app-store"
 import { BookOpenIcon } from "lucide-react"
@@ -32,22 +26,9 @@ export default function SkillSelectorButton() {
         </PromptInputButton>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="start">
-        <Command>
+        <SkillList skills={skills} onSelect={(skill) => selectSkill(skill.name)}>
           <CommandInput placeholder="Search skills..." />
-          <CommandList>
-            <CommandEmpty>No skills found.</CommandEmpty>
-            <CommandGroup>
-              {skills.map((skill) => (
-                <CommandItem key={skill.name} value={skill.name} onSelect={() => selectSkill(skill.name)}>
-                  <div className="flex-1 min-w-0">
-                    <div>{skill.name}</div>
-                    <div className="text-xs text-muted-foreground">{skill.description}</div>
-                  </div>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
+        </SkillList>
       </PopoverContent>
     </Popover>
   )

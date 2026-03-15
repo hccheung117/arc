@@ -8,13 +8,15 @@
  * store and MODES config.
  *
  * Public API:
- *   useComposer()    — React hook returning { mode, config, value, updateDraft, submit, setMode }
+ *   useComposer()    — React hook returning { mode, config, plainText, content, version, setContent, syncContent, submit, setMode }
  *   useComposerMode()— lightweight mode-only selector (avoids re-render on draft changes)
- *   composerActions  — imperative { setMode, setDraftText } for IPC handlers outside React
+ *   composerActions  — imperative { setMode, setContent, syncContent } for IPC handlers outside React
  */
 import { useEffect } from "react"
 import { create } from "zustand"
+import { generateText as tiptapGenerateText } from "@tiptap/core"
 import { resolveMode, textFromParts } from "@/lib/composer-modes"
+import { createExtensions } from "@/lib/composer-extensions"
 import { useAppStore, act } from "@/store/app-store"
 import { useSession } from "@/contexts/SessionContext"
 import { useSubscription } from "@/hooks/use-subscription"
@@ -37,12 +39,20 @@ export const composerActions = {
     _put(sid, (s) => ({
       ...s, mode, overrides,
       drafts: mode.startsWith('edit:')
-        ? { ...s.drafts, [mode]: { text: undefined, files: undefined } }
+        ? { ...s.drafts, [mode]: { content: undefined, version: 0, files: undefined } }
         : s.drafts,
     })),
 
-  setDraftText: (sid, mode, value) =>
-    _put(sid, (s) => ({ ...s, drafts: { ...s.drafts, [mode]: { ...(s.drafts[mode] ?? {}), text: value } } })),
+  /** Editor's onUpdate — writes JSON to store, does NOT bump version. */
+  syncContent: (sid, mode, json) =>
+    _put(sid, (s) => ({ ...s, drafts: { ...s.drafts, [mode]: { ...(s.drafts[mode] ?? {}), content: json } } })),
+
+  /** External writers (speech, refine, clear, submit) — bumps version so editor picks it up. */
+  setContent: (sid, mode, value) =>
+    _put(sid, (s) => ({
+      ...s,
+      drafts: { ...s.drafts, [mode]: { ...(s.drafts[mode] ?? {}), content: value, version: (s.drafts[mode]?.version ?? 0) + 1 } },
+    })),
 
   setDraftFiles: (sid, mode, updaterOrValue) =>
     _put(sid, (s) => {
@@ -52,22 +62,30 @@ export const composerActions = {
     }),
 }
 
-// --- value derivation --------------------------------------------------------
+// --- plain text derivation ---------------------------------------------------
 
-const deriveValue = (mode, overrides, drafts, prompt, messages) => {
-  if (mode === "prompt") return drafts[mode]?.text || prompt || ""
-  if (mode.startsWith("edit:")) {
-    return drafts[mode]?.text ?? textFromParts(messages?.find((m) => m.id === overrides.messageKey)) ?? ""
+const _extensions = createExtensions('')
+
+const derivePlainText = (mode, overrides, drafts, prompt, messages) => {
+  const content = drafts[mode]?.content
+  if (mode === "prompt") {
+    const text = typeof content === 'string' ? content : content ? tiptapGenerateText(content, _extensions) : ''
+    return text || prompt || ""
   }
-  return drafts[mode]?.text ?? ""
+  if (mode.startsWith("edit:")) {
+    return content ?? textFromParts(messages?.find((m) => m.id === overrides.messageKey)) ?? ""
+  }
+  if (!content) return ""
+  return typeof content === 'string' ? content : tiptapGenerateText(content, _extensions)
 }
 
 // --- submit protocols --------------------------------------------------------
 
 const submitChat = (sid, value, files, attachments, sendMessage, promptRef, providerId, modelId, activeSkill) => {
   sendMessage({ text: value, files }, { body: { promptRef, providerId, modelId, attachments, activeSkill } })
-  composerActions.setDraftText(sid, "chat", "")
+  composerActions.setContent(sid, "chat", "")
   composerActions.setDraftFiles(sid, "chat", [])
+  act().workbench.update({ activeSkill: null })
   act().session.commitDraft()
 }
 
@@ -76,20 +94,21 @@ const submitEditUser = (sid, value, files, attachments, messages, messageKey, se
   if (idx === -1) return
   setMessages(messages.slice(0, idx))
   sendMessage({ text: value, files }, { body: { promptRef, providerId, modelId, attachments, activeSkill } })
-  composerActions.setDraftText(sid, "edit:user", undefined)
+  composerActions.setContent(sid, "edit:user", undefined)
   composerActions.setDraftFiles(sid, "edit:user", undefined)
+  act().workbench.update({ activeSkill: null })
   composerActions.setMode(sid, "chat")
 }
 
 const submitEditAi = (sid, value, messageKey) => {
   window.api.call("message:edit-save", { sessionId: sid, messageId: messageKey, text: value })
-  composerActions.setDraftText(sid, "edit:ai", "")
+  composerActions.setContent(sid, "edit:ai", "")
   composerActions.setMode(sid, "chat")
 }
 
 const submitPrompt = (sid, value) => {
   window.api.call("session:save-prompt", { id: sid, content: value })
-  composerActions.setDraftText(sid, "prompt", "")
+  composerActions.setContent(sid, "prompt", "")
   composerActions.setMode(sid, "chat")
 }
 
@@ -116,7 +135,9 @@ export const useComposer = () => {
   )
 
   const config = resolveMode(mode, overrides)
-  const value = deriveValue(mode, overrides, drafts, prompt, messages)
+  const plainText = derivePlainText(mode, overrides, drafts, prompt, messages)
+  const content = drafts[mode]?.content
+  const version = drafts[mode]?.version ?? 0
   const attachments = drafts[mode]?.files ?? []
 
   useEffect(() => {
@@ -134,10 +155,13 @@ export const useComposer = () => {
   return {
     mode,
     config,
-    value,
+    plainText,
+    content,
+    version,
     attachments,
     setAttachments: (updater) => composerActions.setDraftFiles(sid, mode, updater),
-    updateDraft: (val) => composerActions.setDraftText(sid, mode, val),
+    setContent: (val) => composerActions.setContent(sid, mode, val),
+    syncContent: (json) => composerActions.syncContent(sid, mode, json),
     setMode: (m, ov) => composerActions.setMode(sid, m, ov),
     submit: (text, files, attachments) => {
       if (mode === "prompt") return submitPrompt(sid, text)

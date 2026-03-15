@@ -165,6 +165,15 @@
   }
 }
 
+/* ProseMirror (tiptap) placeholder */
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--color-muted-foreground);
+  pointer-events: none;
+  height: 0;
+}
+
 /* Streamdown overrides — un-layered so they beat the library's Tailwind utilities.
    Inline code: streamdown applies text-sm which shrinks code inside headings.
    Code blocks: the <pre> needs horizontal scroll for long lines. */

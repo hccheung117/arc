@@ -5,7 +5,7 @@ import { readJson, writeJson, readJsonl, appendJsonl, resolve } from '../arcfs.j
 import { resolveSessionPrompt, saveSessionPrompt, savePrompt as saveAppPrompt, promptsAppDir } from './prompts.js'
 import { getProvider } from './provider.js'
 import { fallbackTitle, generateTitle } from './assist.js'
-import { discoverSkills, buildSkillsPrompt, loadSkillContent, buildSkillAugment, buildSkillReminder, hasSkillAugment } from './skill.js'
+import { discoverSkills, buildSkillsPrompt, loadSkillContent, buildSkillAugment, hasSkillAugment } from './skill.js'
 import { buildTools } from './tools.js'
 import * as llm from './llm.js'
 import * as message from './message.js'
@@ -192,18 +192,13 @@ export const prepareSend = async (dir, { sessionId, inputMessages, attachments, 
   const fullSystem = [system, buildSkillsPrompt(skills)].filter(Boolean).join('\n\n')
   const tools = buildTools({ skills })
 
-  // Ephemeral reminder (not persisted) — always added when skill is active
-  const modelMessages = activeSkill && activeSkillBody
-    ? message.augmentUserMessage(augmentedMessages, [buildSkillReminder(activeSkill)])
-    : augmentedMessages
-
   return {
     isNew,
     fileReplacement,
     branches,
 
     stream: (send, signal) =>
-      llm.stream({ provider, modelId, system: fullSystem, messages: modelMessages, tools, send, signal, thinking: true }),
+      llm.stream({ provider, modelId, system: fullSystem, messages: augmentedMessages, tools, send, signal, thinking: true }),
 
     finalize: async (result) => {
       await message.persistAssistantMessage(filePath, {

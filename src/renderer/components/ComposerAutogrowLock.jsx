@@ -16,7 +16,7 @@ export function useAutogrowLock() {
       if (!container) return
       const parent = container.closest("[data-body]")
       if (!parent) return
-      const textarea = container.querySelector("textarea")
+      const textarea = container.querySelector("textarea, [contenteditable]")
       if (!textarea) return
 
       const styles = getComputedStyle(textarea)
@@ -45,7 +45,7 @@ export function useAutogrowLock() {
       setManualMaxHeight(undefined)
       return
     }
-    const textarea = containerRef.current?.querySelector("textarea")
+    const textarea = containerRef.current?.querySelector("textarea, [contenteditable]")
     if (!textarea) return
     setManualMaxHeight(textarea.getBoundingClientRect().height)
   }, [manualMaxHeight])

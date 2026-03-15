@@ -5,7 +5,6 @@ import {
   PromptInputFooter,
   PromptInputHeader,
   PromptInputSubmit,
-  PromptInputTextarea,
   PromptInputTools,
   usePromptInputAttachments,
 } from "@/components/ai-elements/prompt-input"
@@ -30,6 +29,7 @@ import { useSubscription } from "@/hooks/use-subscription"
 import { useAppStore, act } from "@/store/app-store"
 import ModelSelectorButton from "@/components/ModelSelectorButton"
 import SkillSelectorButton from "@/components/SkillSelectorButton"
+import ComposerEditor from "@/components/ComposerEditor"
 
 const ToolButton = ({ tool }) => {
   const attachments = usePromptInputAttachments()
@@ -50,7 +50,7 @@ const ToolButton = ({ tool }) => {
 }
 
 const MicButton = () => {
-  const { value, updateDraft } = useComposer()
+  const { plainText, setContent } = useComposer()
 
   const handleAudioRecorded = useCallback(async (audioBlob) => {
     const audio = await audioBlob.arrayBuffer()
@@ -58,8 +58,8 @@ const MicButton = () => {
   }, [])
 
   const handleTranscriptionChange = useCallback((transcript) => {
-    updateDraft(value ? `${value} ${transcript}` : transcript)
-  }, [value, updateDraft])
+    setContent(plainText ? `${plainText} ${transcript}` : transcript)
+  }, [plainText, setContent])
 
   return (
     <SpeechInput
@@ -105,9 +105,9 @@ const ComposerAttachments = () => {
   )
 }
 
-const ComposerSubmit = ({ status, flags, onStop, value, isRefining, config }) => {
+const ComposerSubmit = ({ status, flags, onStop, plainText, isRefining, config }) => {
   const attachments = usePromptInputAttachments()
-  const hasContent = value.trim() || attachments.files.length > 0
+  const hasContent = plainText.trim() || attachments.files.length > 0
   return (
     <PromptInputSubmit
       status={status}
@@ -122,18 +122,17 @@ const ComposerSubmit = ({ status, flags, onStop, value, isRefining, config }) =>
 }
 
 function BaseComposer({ shadowClass, footerClass }) {
-  const { mode, config, value, updateDraft, submit, setMode, attachments, setAttachments } = useComposer()
+  const { mode, config, plainText, setContent, submit, setMode, attachments, setAttachments } = useComposer()
   const sid = useAppStore((s) => s.activeSessionId)
   const { status, stop, flags } = useSession()
   const { containerRef, isLocked, manualMaxHeight, startResizing, toggleLock } = useAutogrowLock()
   const settings = useSubscription('settings:feed', { assignmentKeys: [] })
   const hasRefine = settings.assignmentKeys.includes('refine-prompt')
   const hasTranscribe = settings.assignmentKeys.includes('transcribe-audio')
-  const { isRefining, handleRefine, abort: abortRefine } = useRefine(value, updateDraft)
+  const { isRefining, handleRefine, abort: abortRefine } = useRefine(plainText, setContent)
   const [promoteOpen, setPromoteOpen] = useState(false)
   const [promoteName, setPromoteName] = useState("")
 
-  const handleDraftChange = (e) => updateDraft(e.target.value)
   const handleSubmit = (message) => submit(message.text, message.files, message.attachments)
   const handleCancel = () => {
     abortRefine()
@@ -146,17 +145,17 @@ function BaseComposer({ shadowClass, footerClass }) {
   const handlePromoteSave = async () => {
     const name = promoteName.trim()
     if (!name) return
-    await window.api.call('prompt:commit', { name, content: value })
+    await window.api.call('prompt:commit', { name, content: plainText })
     await window.api.call('session:link-prompt', { id: sid, promptRef: name })
     act().workbench.update({ promptRef: name })
     setPromoteOpen(false)
-    updateDraft("")
+    setContent("")
     setMode("chat")
   }
 
   return (
     <div ref={containerRef} className="flex min-h-0 flex-col px-[var(--content-px)] pb-[var(--content-px)]">
-      {/* Part of flex-column chain from App.jsx footerRef → here → form → InputGroup → textarea.
+      {/* Part of flex-column chain from App.jsx footerRef → here → form → InputGroup → editor.
           No top padding — the Handle's height acts as the top inset so all four
           edges of the card sit at equal distance from the viewport/header. */}
       <ComposerAutogrowLockHandle
@@ -184,13 +183,11 @@ function BaseComposer({ shadowClass, footerClass }) {
         )}
         <ComposerAttachments />
         <PromptInputBody>
-          <PromptInputTextarea
-            className="max-h-none"
+          <ComposerEditor
             placeholder={config.placeholder}
-            value={value}
-            onChange={handleDraftChange}
             readOnly={isRefining}
             style={manualMaxHeight !== undefined ? { maxHeight: manualMaxHeight } : undefined}
+            className="max-h-none"
           />
         </PromptInputBody>
         <PromptInputFooter>
@@ -199,7 +196,7 @@ function BaseComposer({ shadowClass, footerClass }) {
           </PromptInputTools>
           <div className={cn("flex items-center gap-1", footerClass)}>
             {config.tools.filter((t) => t !== "attach" && t !== "skill" && (t !== "mic" || hasTranscribe)).map((t) => <ToolButton key={t} tool={t} />)}
-            <ComposerSubmit status={status} flags={flags} onStop={stop} value={value} isRefining={isRefining} config={config} />
+            <ComposerSubmit status={status} flags={flags} onStop={stop} plainText={plainText} isRefining={isRefining} config={config} />
           </div>
         </PromptInputFooter>
       </PromptInput>
