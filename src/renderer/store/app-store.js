@@ -7,6 +7,7 @@ const defaultWorkbench = () => ({
   promptRef: null,
   branchLeaf: null,
   scrollAnchor: null,
+  activeSkill: null,
 })
 
 const initialDraftId = sessionId()

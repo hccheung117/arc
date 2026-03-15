@@ -29,10 +29,13 @@ import { useAutogrowLock, ComposerAutogrowLockHandle } from "@/components/Compos
 import { useSubscription } from "@/hooks/use-subscription"
 import { useAppStore, act } from "@/store/app-store"
 import ModelSelectorButton from "@/components/ModelSelectorButton"
+import SkillSelectorButton from "@/components/SkillSelectorButton"
 
 const ToolButton = ({ tool }) => {
   const attachments = usePromptInputAttachments()
   switch (tool) {
+    case "skill":
+      return <SkillSelectorButton />
     case "attach":
       return (
         <PromptInputButton onClick={() => attachments.openFileDialog()}>
@@ -192,10 +195,10 @@ function BaseComposer({ shadowClass, footerClass }) {
         </PromptInputBody>
         <PromptInputFooter>
           <PromptInputTools>
-            {config.tools.filter((t) => t === "attach").map((t) => <ToolButton key={t} tool={t} />)}
+            {config.tools.filter((t) => t === "skill" || t === "attach").map((t) => <ToolButton key={t} tool={t} />)}
           </PromptInputTools>
           <div className={cn("flex items-center gap-1", footerClass)}>
-            {config.tools.filter((t) => t !== "attach" && (t !== "mic" || hasTranscribe)).map((t) => <ToolButton key={t} tool={t} />)}
+            {config.tools.filter((t) => t !== "attach" && t !== "skill" && (t !== "mic" || hasTranscribe)).map((t) => <ToolButton key={t} tool={t} />)}
             <ComposerSubmit status={status} flags={flags} onStop={stop} value={value} isRefining={isRefining} config={config} />
           </div>
         </PromptInputFooter>

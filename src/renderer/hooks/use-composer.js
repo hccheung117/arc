@@ -64,18 +64,18 @@ const deriveValue = (mode, overrides, drafts, prompt, messages) => {
 
 // --- submit protocols --------------------------------------------------------
 
-const submitChat = (sid, value, files, attachments, sendMessage, promptRef, providerId, modelId) => {
-  sendMessage({ text: value, files }, { body: { promptRef, providerId, modelId, attachments } })
+const submitChat = (sid, value, files, attachments, sendMessage, promptRef, providerId, modelId, activeSkill) => {
+  sendMessage({ text: value, files }, { body: { promptRef, providerId, modelId, attachments, activeSkill } })
   composerActions.setDraftText(sid, "chat", "")
   composerActions.setDraftFiles(sid, "chat", [])
   act().session.commitDraft()
 }
 
-const submitEditUser = (sid, value, files, attachments, messages, messageKey, sendMessage, setMessages, promptRef, providerId, modelId) => {
+const submitEditUser = (sid, value, files, attachments, messages, messageKey, sendMessage, setMessages, promptRef, providerId, modelId, activeSkill) => {
   const idx = messages.findIndex((m) => m.id === messageKey)
   if (idx === -1) return
   setMessages(messages.slice(0, idx))
-  sendMessage({ text: value, files }, { body: { promptRef, providerId, modelId, attachments } })
+  sendMessage({ text: value, files }, { body: { promptRef, providerId, modelId, attachments, activeSkill } })
   composerActions.setDraftText(sid, "edit:user", undefined)
   composerActions.setDraftFiles(sid, "edit:user", undefined)
   composerActions.setMode(sid, "chat")
@@ -106,6 +106,7 @@ export const useComposer = () => {
   const wbProviderId = useAppStore((s) => s.workbenches[s.activeSessionId]?.providerId)
   const wbModelId = useAppStore((s) => s.workbenches[s.activeSessionId]?.modelId)
   const state = useSubscription('state:feed', {})
+  const activeSkill = useAppStore((s) => s.workbenches[s.activeSessionId]?.activeSkill)
   const providerId = wbProviderId ?? state.lastUsedProvider
   const modelId = wbModelId ?? state.lastUsedModel
   const { sendMessage, setMessages, prompt, messages } = useSession()
@@ -140,8 +141,8 @@ export const useComposer = () => {
     setMode: (m, ov) => composerActions.setMode(sid, m, ov),
     submit: (text, files, attachments) => {
       if (mode === "prompt") return submitPrompt(sid, text)
-      if (mode === "chat") return submitChat(sid, text, files, attachments, sendMessage, promptRef, providerId, modelId)
-      if (mode === "edit:user") return submitEditUser(sid, text, files, attachments, messages, overrides.messageKey, sendMessage, setMessages, promptRef, providerId, modelId)
+      if (mode === "chat") return submitChat(sid, text, files, attachments, sendMessage, promptRef, providerId, modelId, activeSkill)
+      if (mode === "edit:user") return submitEditUser(sid, text, files, attachments, messages, overrides.messageKey, sendMessage, setMessages, promptRef, providerId, modelId, activeSkill)
       if (mode === "edit:ai") return submitEditAi(sid, text, overrides.messageKey)
     },
   }

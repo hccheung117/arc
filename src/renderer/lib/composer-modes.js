@@ -7,13 +7,13 @@ export const MODES = {
   chat: {
     header: false,
     placeholder: "How can I help you today?",
-    tools: ["attach", "model", "mic"],
+    tools: ["skill", "attach", "model", "mic"],
     submitIcon: ArrowUp,
   },
   "edit:user": {
     header: { title: "USER MESSAGE", actions: ["cancel"] },
     placeholder: "",
-    tools: ["attach", "model", "mic"],
+    tools: ["skill", "attach", "model", "mic"],
     submitIcon: Split,
   },
   "edit:ai": {
