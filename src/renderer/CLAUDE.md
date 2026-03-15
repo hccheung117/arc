@@ -2,6 +2,7 @@ Global Styling Rules:
 - No focus ring anywhere to match native app feel.
 - No HTML tooltips; always use the native tooltip.
 - Text selection is disabled globally (`select-none` on `body`). Opt in with `select-text` only on editable content components. Form elements (`input`, `textarea`) are immune automatically.
+- Scrollbar sizing: Two tiers via CSS vars — `--scrollbar-w` (default) and `--scrollbar-w-sm` (smaller). Add `.scrollbar-sm` class to opt a scroll container into the smaller size. Use `scrollbar-gutter: stable` + `pr-0` on child groups so left/top/right spacing is pixel-equal (see `CommandList`/`SidebarContent`).
 
 State Rules:
 - **Domain State (Global):** Use `useSubscription` for global data from main (session list, models, prompts). Read-only; mutate via `api.call()`, which triggers a server push back.

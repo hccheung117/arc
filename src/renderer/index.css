@@ -10,6 +10,8 @@
      and composer max-height cap (App.jsx). */
   --header-h: 3rem;
   --content-px: 1rem;
+  --scrollbar-w: 10px;
+  --scrollbar-w-sm: 6px;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -134,7 +136,7 @@
   }
   /* Global scrollbar — auto-hide, shadcn-matched handle */
   *::-webkit-scrollbar {
-    width: 10px;
+    width: var(--scrollbar-w);
     height: 8px;
   }
   *::-webkit-scrollbar-track {
@@ -152,6 +154,9 @@
   }
   *::-webkit-scrollbar-thumb:hover {
     background-color: var(--ring);
+  }
+  .scrollbar-sm {
+    --scrollbar-w: var(--scrollbar-w-sm);
   }
   /* Scrollbar track insets — see docs/ui-chat-viewport-layout.md */
   [role="log"] > div::-webkit-scrollbar-track {
