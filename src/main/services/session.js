@@ -171,7 +171,8 @@ export const prepareSend = async (dir, { sessionId, inputMessages, attachments, 
   // Skill augmentation: inject content as user message parts, not system prompt
   const skills = await discoverSkills()
   const skillContent = activeSkill ? await loadSkillContent(skills, activeSkill) : null
-  const activeSkillBody = typeof skillContent === 'object' ? skillContent.content : null
+  // typeof null === 'object' in JS — don't use typeof to guard property access
+  const activeSkillBody = skillContent?.content ?? null
 
   // Scan persisted history for existing augment (renderer doesn't receive arcSynthetic parts)
   const { messages: history } = await message.loadMessages(dir, sessionId)

@@ -73,7 +73,8 @@ const derivePlainText = (mode, overrides, drafts, prompt, messages) => {
     return text || prompt || ""
   }
   if (mode.startsWith("edit:")) {
-    return content ?? textFromParts(messages?.find((m) => m.id === overrides.messageKey)) ?? ""
+    if (content == null) return textFromParts(messages?.find((m) => m.id === overrides.messageKey)) ?? ""
+    return typeof content === 'string' ? content : tiptapGenerateText(content, _extensions)
   }
   if (!content) return ""
   return typeof content === 'string' ? content : tiptapGenerateText(content, _extensions)

@@ -184,12 +184,14 @@ export default function ComposerEditor({ placeholder, readOnly, style, className
 
   // --- editor ----------------------------------------------------------------
 
+  const extensions = useMemo(() => [
+    SubmitOnEnter,
+    BackspaceRemoveAttachment,
+    ...createExtensions(placeholder, SkillMentionWithSuggestion),
+  ], [placeholder, BackspaceRemoveAttachment, SkillMentionWithSuggestion])
+
   const editor = useEditor({
-    extensions: [
-      SubmitOnEnter,
-      BackspaceRemoveAttachment,
-      ...createExtensions(placeholder, SkillMentionWithSuggestion),
-    ],
+    extensions,
     content: content || '',
     editorProps: {
       attributes: {
