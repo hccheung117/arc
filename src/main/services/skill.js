@@ -54,5 +54,5 @@ export const hasSkillAugment = (messages, skillName) =>
 export const buildSkillsPrompt = (skills) => {
   if (!skills.length) return null
   const entries = skills.map(s => `<skill name="${s.name}">${s.description}</skill>`).join('\n')
-  return `<available_skills>\nYou can load any of these skills using the load_skill tool when a task matches a skill's description.\n\n${entries}\n</available_skills>`
+  return `<available_skills>\nProactively load a skill using the load_skill tool whenever it can help with the current task.\n\n${entries}\n</available_skills>`
 }

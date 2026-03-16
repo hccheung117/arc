@@ -33,7 +33,7 @@ export async function generateTitle(messages) {
 
   const { text: title } = await generateText({
     ...assignment, system: SYSTEM_TITLE,
-    messages: [{ role: 'user', parts: [{ type: 'text', text: `<first-user-message>${text}</first-user-message>` }] }],
+    messages: [{ role: 'user', parts: [{ type: 'text', text: `<first_user_message>${text}</first_user_message>` }] }],
   })
   return title.trim()
 }
