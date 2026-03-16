@@ -4,7 +4,8 @@ import yaml from 'js-yaml'
 import { resolve, readMarkdown, toUrl, fromUrl } from '../arcfs.js'
 import { resolveDir } from './profile.js'
 
-const parseFrontmatter = (content) => {
+const parseFrontmatter = (raw) => {
+  const content = raw.replace(/\r\n/g, '\n')
   const match = content.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/)
   if (!match) return { meta: {}, body: content }
   return { meta: yaml.load(match[1]) ?? {}, body: match[2] }

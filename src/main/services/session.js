@@ -168,7 +168,9 @@ export const prepareSend = async (dir, { sessionId, inputMessages, attachments, 
   const messages = await message.extractFiles(resolve('sessions', sessionId), inputMessages, attachments)
   const filePath = message.messagesPath(dir, sessionId)
 
-  // Skill augmentation: inject content as user message parts, not system prompt
+  // Skill augmentation: inject full skill content as a user message part.
+  // The `/skillName` prefix is intentionally kept in the user text so the LLM
+  // sees which skill was invoked; the augmentation adds the skill's instructions.
   const skills = await discoverSkills()
   const skillContent = activeSkill ? await loadSkillContent(skills, activeSkill) : null
   // typeof null === 'object' in JS — don't use typeof to guard property access
@@ -178,7 +180,7 @@ export const prepareSend = async (dir, { sessionId, inputMessages, attachments, 
   const { messages: history } = await message.loadMessages(dir, sessionId)
   const alreadyAugmented = activeSkill && activeSkillBody && hasSkillAugment(history, activeSkill)
 
-  // First activation → append full augment before persistence
+  // First activation → prepend full augment before persistence; subsequent sends skip injection
   const augmentedMessages = activeSkill && activeSkillBody && !alreadyAugmented
     ? message.augmentUserMessage(messages, [buildSkillAugment(activeSkill, activeSkillBody)], { prepend: true })
     : messages
