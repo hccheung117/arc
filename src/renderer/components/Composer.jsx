@@ -184,6 +184,7 @@ function BaseComposer({ shadowClass, footerClass }) {
         <ComposerAttachments />
         <PromptInputBody>
           <ComposerEditor
+            key={sid}
             placeholder={config.placeholder}
             readOnly={isRefining}
             style={manualMaxHeight !== undefined ? { maxHeight: manualMaxHeight } : undefined}
