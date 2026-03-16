@@ -158,7 +158,11 @@ export const savePrompt = async (dir, id, content) => {
   return false
 }
 
-export const prepareSend = async (dir, { sessionId, inputMessages, attachments, promptRef, providerId, modelId, activeSkill }) => {
+// [DETECT-MAIN] activeSkill detected from last user message text, not from renderer.
+// [SSOT] The renderer no longer extracts or passes activeSkill — the editor document
+// is the single source of truth, and the SkillMention node renders to `/skillName`
+// in plain text (see composer-extensions.js renderText).
+export const prepareSend = async (dir, { sessionId, inputMessages, attachments, promptRef, providerId, modelId }) => {
   const provider = await getProvider(providerId)
   if (!provider) throw new Error(`Provider "${providerId}" not found`)
 
@@ -172,6 +176,11 @@ export const prepareSend = async (dir, { sessionId, inputMessages, attachments, 
   // The `/skillName` prefix is intentionally kept in the user text so the LLM
   // sees which skill was invoked; the augmentation adds the skill's instructions.
   const skills = await discoverSkills()
+  // [DETECT-MAIN] Detect active skill from the last user message's first text part.
+  // The SkillMention node renders as `/skillName` (see composer-extensions.js renderText).
+  // Messages use the AI SDK format: { role, parts: [{ type: 'text', text }, ...] }.
+  const lastUserText = inputMessages.at(-1)?.parts?.find(p => p.type === 'text')?.text
+  const activeSkill = skills.find(s => lastUserText?.startsWith(`/${s.name}`))?.name ?? null
   const skillContent = activeSkill ? await loadSkillContent(skills, activeSkill) : null
   // typeof null === 'object' in JS — don't use typeof to guard property access
   const activeSkillBody = skillContent?.content ?? null

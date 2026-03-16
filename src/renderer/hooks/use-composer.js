@@ -8,9 +8,9 @@
  * store and MODES config.
  *
  * Public API:
- *   useComposer()    — React hook returning { mode, config, plainText, content, version, setContent, syncContent, submit, setMode }
+ *   useComposer()    — React hook returning { mode, config, plainText, content, version, pendingMention, setContent, syncContent, submit, setMode }
  *   useComposerMode()— lightweight mode-only selector (avoids re-render on draft changes)
- *   composerActions  — imperative { setMode, setContent, syncContent } for IPC handlers outside React
+ *   composerActions  — imperative { setMode, setContent, syncContent, insertMention } for IPC handlers outside React
  */
 import { useEffect } from "react"
 import { create } from "zustand"
@@ -35,23 +35,34 @@ const _put = (sid, fn) =>
 // --- imperative actions (usable outside React) -------------------------------
 
 export const composerActions = {
+  // [CMD-CHANNEL] Clears pendingMention for target mode (defensive).
+  // [SSOT] activeSkill removed from workbench store — nothing to reset.
   setMode: (sid, mode, overrides = {}) =>
-    _put(sid, (s) => ({
-      ...s, mode, overrides,
-      drafts: mode.startsWith('edit:')
-        ? { ...s.drafts, [mode]: { content: undefined, version: 0, files: undefined } }
-        : s.drafts,
-    })),
+    _put(sid, (s) => {
+      const draft = s.drafts[mode] ?? {}
+      return {
+        ...s, mode, overrides,
+        drafts: {
+          ...s.drafts,
+          [mode]: mode.startsWith('edit:')
+            ? { content: undefined, version: 0, files: undefined }
+            : { ...draft, pendingMention: null },
+        },
+      }
+    }),
 
-  /** Editor's onUpdate — writes JSON to store, does NOT bump version. */
+  // [CMD-CHANNEL] Editor's onUpdate — writes JSON and clears pendingMention (the "consume" side).
+  // Once the editor applies the pending mention, the next onUpdate → syncContent clears the flag.
+  // See pendingMention effect in ComposerEditor.jsx.
   syncContent: (sid, mode, json) =>
-    _put(sid, (s) => ({ ...s, drafts: { ...s.drafts, [mode]: { ...(s.drafts[mode] ?? {}), content: json } } })),
+    _put(sid, (s) => ({ ...s, drafts: { ...s.drafts, [mode]: { ...(s.drafts[mode] ?? {}), content: json, pendingMention: null } } })),
 
-  /** External writers (speech, refine, clear, submit) — bumps version so editor picks it up. */
+  // [CMD-CHANNEL] External writers (speech, refine, clear, submit) — bumps version so editor
+  // picks it up. Clears pendingMention to prevent stale reinsertion into fresh content.
   setContent: (sid, mode, value) =>
     _put(sid, (s) => ({
       ...s,
-      drafts: { ...s.drafts, [mode]: { ...(s.drafts[mode] ?? {}), content: value, version: (s.drafts[mode]?.version ?? 0) + 1 } },
+      drafts: { ...s.drafts, [mode]: { ...(s.drafts[mode] ?? {}), content: value, version: (s.drafts[mode]?.version ?? 0) + 1, pendingMention: null } },
     })),
 
   setDraftFiles: (sid, mode, updaterOrValue) =>
@@ -60,6 +71,17 @@ export const composerActions = {
       const files = typeof updaterOrValue === 'function' ? updaterOrValue(current) : updaterOrValue
       return { ...s, drafts: { ...s.drafts, [mode]: { ...(s.drafts[mode] ?? {}), files } } }
     }),
+
+  // [CMD-CHANNEL] One-shot command: sets pendingMention on the target mode's draft.
+  // Producer: SkillSelectorButton.jsx. Consumer: pendingMention effect in ComposerEditor.jsx.
+  insertMention: (sid, mode, name) =>
+    _put(sid, (s) => ({
+      ...s,
+      drafts: {
+        ...s.drafts,
+        [mode]: { ...(s.drafts[mode] ?? {}), pendingMention: name },
+      },
+    })),
 }
 
 // --- plain text derivation ---------------------------------------------------
@@ -82,22 +104,24 @@ const derivePlainText = (mode, overrides, drafts, prompt, messages) => {
 
 // --- submit protocols --------------------------------------------------------
 
-const submitChat = (sid, value, files, attachments, sendMessage, promptRef, providerId, modelId, activeSkill) => {
-  sendMessage({ text: value, files }, { body: { promptRef, providerId, modelId, attachments, activeSkill } })
+// [DETECT-MAIN] activeSkill is no longer passed from the renderer — main detects it
+// from the last user message text (see services/session.js prepareSend).
+// [SSOT] No workbench.update({ activeSkill }) — store field removed.
+const submitChat = (sid, value, files, attachments, sendMessage, promptRef, providerId, modelId) => {
+  sendMessage({ text: value, files }, { body: { promptRef, providerId, modelId, attachments } })
   composerActions.setContent(sid, "chat", "")
   composerActions.setDraftFiles(sid, "chat", [])
-  act().workbench.update({ activeSkill: null })
   act().session.commitDraft()
 }
 
-const submitEditUser = (sid, value, files, attachments, messages, messageKey, sendMessage, setMessages, promptRef, providerId, modelId, activeSkill) => {
+// [DETECT-MAIN] Same as submitChat — activeSkill removed from params and body.
+const submitEditUser = (sid, value, files, attachments, messages, messageKey, sendMessage, setMessages, promptRef, providerId, modelId) => {
   const idx = messages.findIndex((m) => m.id === messageKey)
   if (idx === -1) return
   setMessages(messages.slice(0, idx))
-  sendMessage({ text: value, files }, { body: { promptRef, providerId, modelId, attachments, activeSkill } })
+  sendMessage({ text: value, files }, { body: { promptRef, providerId, modelId, attachments } })
   composerActions.setContent(sid, "edit:user", undefined)
   composerActions.setDraftFiles(sid, "edit:user", undefined)
-  act().workbench.update({ activeSkill: null })
   composerActions.setMode(sid, "chat")
 }
 
@@ -126,7 +150,6 @@ export const useComposer = () => {
   const wbProviderId = useAppStore((s) => s.workbenches[s.activeSessionId]?.providerId)
   const wbModelId = useAppStore((s) => s.workbenches[s.activeSessionId]?.modelId)
   const state = useSubscription('state:feed', {})
-  const activeSkill = useAppStore((s) => s.workbenches[s.activeSessionId]?.activeSkill)
   const providerId = wbProviderId ?? state.lastUsedProvider
   const modelId = wbModelId ?? state.lastUsedModel
   const { sendMessage, setMessages, prompt, messages } = useSession()
@@ -140,6 +163,8 @@ export const useComposer = () => {
   const content = drafts[mode]?.content
   const version = drafts[mode]?.version ?? 0
   const attachments = drafts[mode]?.files ?? []
+  // [CMD-CHANNEL] Consumed by the pendingMention effect in ComposerEditor.jsx.
+  const pendingMention = drafts[mode]?.pendingMention ?? null
 
   useEffect(() => {
     if (mode !== 'edit:user') return
@@ -160,14 +185,15 @@ export const useComposer = () => {
     content,
     version,
     attachments,
+    pendingMention,
     setAttachments: (updater) => composerActions.setDraftFiles(sid, mode, updater),
     setContent: (val) => composerActions.setContent(sid, mode, val),
     syncContent: (json) => composerActions.syncContent(sid, mode, json),
     setMode: (m, ov) => composerActions.setMode(sid, m, ov),
     submit: (text, files, attachments) => {
       if (mode === "prompt") return submitPrompt(sid, text)
-      if (mode === "chat") return submitChat(sid, text, files, attachments, sendMessage, promptRef, providerId, modelId, activeSkill)
-      if (mode === "edit:user") return submitEditUser(sid, text, files, attachments, messages, overrides.messageKey, sendMessage, setMessages, promptRef, providerId, modelId, activeSkill)
+      if (mode === "chat") return submitChat(sid, text, files, attachments, sendMessage, promptRef, providerId, modelId)
+      if (mode === "edit:user") return submitEditUser(sid, text, files, attachments, messages, overrides.messageKey, sendMessage, setMessages, promptRef, providerId, modelId)
       if (mode === "edit:ai") return submitEditAi(sid, text, overrides.messageKey)
     },
   }

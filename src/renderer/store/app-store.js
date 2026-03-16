@@ -1,13 +1,15 @@
 import { create } from "zustand"
 import { sessionId } from "@shared/ids.js"
 
+// [SSOT] activeSkill removed — editor document is single source of truth for mentions.
+// External actors use composerActions.insertMention() [CMD-CHANNEL].
+// Main detects activeSkill from message text [DETECT-MAIN].
 const defaultWorkbench = () => ({
   providerId: null,
   modelId: null,
   promptRef: null,
   branchLeaf: null,
   scrollAnchor: null,
-  activeSkill: null,
 })
 
 const initialDraftId = sessionId()

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { useEditor, EditorContent } from "@tiptap/react"
 import { Extension } from "@tiptap/core"
+import { Plugin, PluginKey } from "@tiptap/pm/state"
 import Suggestion from "@tiptap/suggestion"
 import { useFloating, flip, shift } from "@floating-ui/react"
 import { cn } from "@/lib/shadcn"
@@ -10,7 +11,6 @@ import { useComposer } from "@/hooks/use-composer"
 import { useSession } from "@/contexts/SessionContext"
 import { usePromptInputAttachments } from "@/components/ai-elements/prompt-input"
 import { useSubscription } from "@/hooks/use-subscription"
-import { useAppStore, act } from "@/store/app-store"
 import SkillList from "@/components/SkillList"
 
 // --- helpers -----------------------------------------------------------------
@@ -42,6 +42,49 @@ const insertMention = (editor, name) => {
   ]).run()
 }
 
+// --- bridge extension --------------------------------------------------------
+// Owns mutable storage for all React-driven values. Extensions read from
+// editor.storage.composerBridge.* at call time instead of closing over refs.
+
+const ComposerBridge = Extension.create({
+  name: 'composerBridge',
+  addStorage() {
+    return {
+      attachments: null,  // PromptInputAttachments context
+      skills: [],         // skills:feed subscription
+      placeholder: '',    // derived from props + hasMessages
+      // Future: add keys here for @-mention sources (files, agents, contexts)
+    }
+  },
+  addProseMirrorPlugins() {
+    const editor = this.editor
+    return [
+      new Plugin({
+        key: new PluginKey('composerBridgePaste'),
+        props: {
+          handlePaste: (_view, event) => {
+            const items = event.clipboardData?.items
+            if (!items) return false
+            const files = []
+            for (const item of items) {
+              if (item.kind === 'file') {
+                const file = item.getAsFile()
+                if (file) files.push(file)
+              }
+            }
+            if (files.length > 0) {
+              event.preventDefault()
+              editor.storage.composerBridge.attachments?.add(files)
+              return true
+            }
+            return false
+          },
+        },
+      }),
+    ]
+  },
+})
+
 // --- keyboard extensions -----------------------------------------------------
 
 const SubmitOnEnter = Extension.create({
@@ -64,22 +107,14 @@ const SubmitOnEnter = Extension.create({
 // --- component ---------------------------------------------------------------
 
 export default function ComposerEditor({ placeholder, readOnly, style, className }) {
-  const { plainText, content, version, syncContent } = useComposer()
+  // [CMD-CHANNEL] pendingMention is consumed by the pendingMention effect below.
+  const { plainText, content, version, syncContent, pendingMention } = useComposer()
   const { messages } = useSession()
-  const activeSkill = useAppStore((s) => s.workbenches[s.activeSessionId]?.activeSkill)
   const skills = useSubscription('skills:feed', [])
   const attachments = usePromptInputAttachments()
   const hasMessages = messages.length > 0
 
   const versionRef = useRef(0)
-  const placeholderRef = useRef(placeholder)
-  placeholderRef.current = hasMessages ? '' : placeholder
-  const attachmentsRef = useRef(attachments)
-  attachmentsRef.current = attachments
-  const skillsRef = useRef(skills)
-  skillsRef.current = skills
-  const internalWriteRef = useRef(false)
-  const hadMentionRef = useRef(false)
 
   // Suggestion popup state
   const [suggestion, setSuggestion] = useState(null)
@@ -106,10 +141,11 @@ export default function ComposerEditor({ placeholder, readOnly, style, className
       return {
         Backspace: ({ editor }) => {
           if (editor.isEmpty) {
-            const files = attachmentsRef.current?.files
+            const att = editor.storage.composerBridge.attachments
+            const files = att?.files
             if (files?.length > 0) {
               const last = files.at(-1)
-              if (last) attachmentsRef.current.remove(last.id)
+              if (last) att.remove(last.id)
               return true
             }
           }
@@ -126,8 +162,8 @@ export default function ComposerEditor({ placeholder, readOnly, style, className
           editor: this.editor,
           char: '/',
           allow: ({ editor }) => !getMentionName(editor.state.doc),
-          items: ({ query }) =>
-            skillsRef.current.filter((s) => s.name.toLowerCase().includes(query.toLowerCase())),
+          items: ({ editor, query }) =>
+            editor.storage.composerBridge.skills.filter((s) => s.name.toLowerCase().includes(query.toLowerCase())),
           command: ({ editor, range, props }) => {
             editor.chain().focus().deleteRange(range).run()
             insertMention(editor, props.name)
@@ -190,9 +226,13 @@ export default function ComposerEditor({ placeholder, readOnly, style, className
   // --- editor ----------------------------------------------------------------
 
   const extensions = useMemo(() => [
+    ComposerBridge, // must be first so storage exists before other extensions read it
     SubmitOnEnter,
     BackspaceRemoveAttachment,
-    ...createExtensions(() => placeholderRef.current, SkillMentionWithSuggestion),
+    ...createExtensions(
+      ({ editor }) => editor?.storage.composerBridge?.placeholder ?? '',
+      SkillMentionWithSuggestion
+    ),
   ], [BackspaceRemoveAttachment, SkillMentionWithSuggestion])
 
   const editor = useEditor({
@@ -203,38 +243,12 @@ export default function ComposerEditor({ placeholder, readOnly, style, className
         'data-slot': 'input-group-control',
         class: 'flex-1 resize-none rounded-none border-0 bg-transparent px-3 py-3 shadow-none focus-visible:ring-0 dark:bg-transparent select-text outline-none min-h-0 whitespace-pre-wrap break-words',
       },
-      handlePaste: (view, event) => {
-        const items = event.clipboardData?.items
-        if (!items) return false
-        const files = []
-        for (const item of items) {
-          if (item.kind === 'file') {
-            const file = item.getAsFile()
-            if (file) files.push(file)
-          }
-        }
-        if (files.length > 0) {
-          event.preventDefault()
-          attachmentsRef.current?.add(files)
-          return true
-        }
-        return false
-      },
     },
-    onCreate: ({ editor }) => {
-      hadMentionRef.current = !!getMentionName(editor.state.doc)
-    },
+    // [SSOT] The editor document is the single source of truth for mentions.
+    // No mention → store sync needed. syncContent writes JSON to the composer
+    // store and clears pendingMention [CMD-CHANNEL].
     onUpdate: ({ editor }) => {
       syncContent(editor.getJSON())
-
-      // Sync mention presence → workbench activeSkill
-      if (internalWriteRef.current) return
-      const mentionName = getMentionName(editor.state.doc)
-      const hasMention = !!mentionName
-      if (hasMention !== hadMentionRef.current || (hasMention && mentionName !== activeSkill)) {
-        act().workbench.update({ activeSkill: mentionName ?? null })
-      }
-      hadMentionRef.current = hasMention
     },
   })
 
@@ -243,14 +257,21 @@ export default function ComposerEditor({ placeholder, readOnly, style, className
     if (!editor || version === versionRef.current) return
     versionRef.current = version
     editor.commands.setContent(content || '')
-    hadMentionRef.current = !!getMentionName(editor.state.doc)
   }, [version])
 
-  // Hide placeholder when chat has messages
+  // Bridge sync — pushes all reactive values into editor.storage
+  // Future: add new @-mention sources here (files, agents, contexts)
   useEffect(() => {
     if (!editor) return
-    editor.view.dispatch(editor.state.tr)
-  }, [editor, hasMessages])
+    const prev = editor.storage.composerBridge.placeholder
+    Object.assign(editor.storage.composerBridge, {
+      attachments, skills,
+      placeholder: hasMessages ? '' : placeholder,
+    })
+    if (prev !== editor.storage.composerBridge.placeholder) {
+      editor.view.dispatch(editor.state.tr)
+    }
+  }, [editor, attachments, skills, hasMessages, placeholder])
 
   // ReadOnly toggle
   useEffect(() => {
@@ -258,27 +279,16 @@ export default function ComposerEditor({ placeholder, readOnly, style, className
     editor.setEditable(!readOnly)
   }, [editor, readOnly])
 
-  // Workbench → editor: sync SkillMention node with activeSkill from store
+  // [CMD-CHANNEL] Consume pendingMention: insert the requested skill mention.
+  // syncContent (called by onUpdate after insertion) clears pendingMention.
+  // Producer: composerActions.insertMention() called by SkillSelectorButton.jsx.
   useEffect(() => {
-    if (!editor) return
-    const mentionName = getMentionName(editor.state.doc)
-    internalWriteRef.current = true
-
-    // Remove stale mention
-    if (mentionName && mentionName !== activeSkill) {
-      removeMention(editor)
-      hadMentionRef.current = false
-    }
-
-    // Insert mention when activeSkill set externally (e.g. book button)
-    if (activeSkill && !getMentionName(editor.state.doc)) {
-      editor.chain().focus().setTextSelection(0).run()
-      insertMention(editor, activeSkill)
-      hadMentionRef.current = true
-    }
-
-    internalWriteRef.current = false
-  }, [activeSkill])
+    if (!editor || !pendingMention) return
+    const existing = getMentionName(editor.state.doc)
+    if (existing) removeMention(editor)
+    editor.chain().focus().setTextSelection(0).run()
+    insertMention(editor, pendingMention)
+  }, [pendingMention])
 
   // --- popup -----------------------------------------------------------------
 
