@@ -36,7 +36,7 @@ const thinkingOptions = (provider, thinking) => {
     // budget_tokens must be < max_tokens; lowest model default is 32K (Opus 4/4.1)
     return { anthropic: { thinking: { type: 'enabled', budgetTokens: 31999 }, effort: 'high' } }
   if (provider.type === 'openai-compatible')
-    return { [provider.name]: { reasoningEffort: 'high' } }
+    return { openaiCompatible: { reasoningEffort: 'high' } }
 }
 
 const loop = new ToolLoopAgent({

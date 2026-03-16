@@ -260,7 +260,7 @@ withApp(async () => {
 
   const providerOptionsByType = {
     anthropic: { anthropic: { thinking: { type: 'enabled', budgetTokens: 5000 } } },
-    'openai-compatible': { geekai: { reasoningEffort: 'high' } },
+    'openai-compatible': { openaiCompatible: { reasoningEffort: 'high' } },
   }
 
   try {
