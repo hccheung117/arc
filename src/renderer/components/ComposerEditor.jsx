@@ -7,6 +7,7 @@ import { useFloating, flip, shift } from "@floating-ui/react"
 import { cn } from "@/lib/shadcn"
 import { createExtensions, SkillMention } from "@/lib/composer-extensions"
 import { useComposer } from "@/hooks/use-composer"
+import { useSession } from "@/contexts/SessionContext"
 import { usePromptInputAttachments } from "@/components/ai-elements/prompt-input"
 import { useSubscription } from "@/hooks/use-subscription"
 import { useAppStore, act } from "@/store/app-store"
@@ -64,11 +65,15 @@ const SubmitOnEnter = Extension.create({
 
 export default function ComposerEditor({ placeholder, readOnly, style, className }) {
   const { plainText, content, version, syncContent } = useComposer()
+  const { messages } = useSession()
   const activeSkill = useAppStore((s) => s.workbenches[s.activeSessionId]?.activeSkill)
   const skills = useSubscription('skills:feed', [])
   const attachments = usePromptInputAttachments()
+  const hasMessages = messages.length > 0
 
   const versionRef = useRef(0)
+  const placeholderRef = useRef(placeholder)
+  placeholderRef.current = hasMessages ? '' : placeholder
   const attachmentsRef = useRef(attachments)
   attachmentsRef.current = attachments
   const skillsRef = useRef(skills)
@@ -187,8 +192,8 @@ export default function ComposerEditor({ placeholder, readOnly, style, className
   const extensions = useMemo(() => [
     SubmitOnEnter,
     BackspaceRemoveAttachment,
-    ...createExtensions(placeholder, SkillMentionWithSuggestion),
-  ], [placeholder, BackspaceRemoveAttachment, SkillMentionWithSuggestion])
+    ...createExtensions(() => placeholderRef.current, SkillMentionWithSuggestion),
+  ], [BackspaceRemoveAttachment, SkillMentionWithSuggestion])
 
   const editor = useEditor({
     extensions,
@@ -240,6 +245,12 @@ export default function ComposerEditor({ placeholder, readOnly, style, className
     editor.commands.setContent(content || '')
     hadMentionRef.current = !!getMentionName(editor.state.doc)
   }, [version])
+
+  // Hide placeholder when chat has messages
+  useEffect(() => {
+    if (!editor) return
+    editor.view.dispatch(editor.state.tr)
+  }, [editor, hasMessages])
 
   // ReadOnly toggle
   useEffect(() => {
