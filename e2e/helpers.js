@@ -49,8 +49,7 @@ export const sel = {
   lockBtn: 'button[aria-label="Lock composer height"]',
   unlockBtn: 'button[aria-label="Unlock composer height"]',
   resizeHandle: '.cursor-row-resize',
-  mention: 'span[data-type="skill-mention"]',
-  hiddenInput: 'input[name="message"][type="hidden"]',
+  mention: 'span[data-type="mention"]',
   userMessage: '.is-user',
   assistantMessage: '.is-assistant',
   dialog: '[role="dialog"]',
@@ -72,7 +71,9 @@ export async function clearEditor(window) {
 }
 
 export async function getEditorText(window) {
-  return window.locator(sel.hiddenInput).inputValue()
+  return window.locator(sel.contenteditable).evaluate((el) => {
+    return el.innerText.trim()
+  })
 }
 
 export async function getEditorPlaceholder(window) {
@@ -199,6 +200,11 @@ export async function mockInvokeRoute(electronApp, route, result) {
     if (!globalThis.__testMockInvokeRoutes) return
     globalThis.__testMockInvokeRoutes[route] = () => result
   }, { route, result })
+}
+
+// Convenience: mock message:upload-attachment
+export async function mockUploadAttachment(electronApp, result = { url: 'arcfs://tmp/test.png', filename: 'test.png', mediaType: 'image/png' }) {
+  await mockInvokeRoute(electronApp, 'message:upload-attachment', result)
 }
 
 // Convenience: mock session:send to return a canned AI response

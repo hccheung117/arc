@@ -7,6 +7,7 @@ import { getProvider } from './provider.js'
 import { fallbackTitle, generateTitle } from './assist.js'
 import { discoverSkills, buildSkillsPrompt, loadSkillContent, buildSkillAugment, hasSkillAugment } from './skill.js'
 import { buildTools } from './tools.js'
+import { extractSkillRefs } from '../../shared/text-patterns.js'
 import * as llm from './llm.js'
 import * as message from './message.js'
 import { loadLayout, cleanupSession } from './layout.js'
@@ -180,7 +181,8 @@ export const prepareSend = async (dir, { sessionId, inputMessages, attachments, 
   // The SkillMention node renders as `/skillName` (see composer-extensions.js renderText).
   // Messages use the AI SDK format: { role, parts: [{ type: 'text', text }, ...] }.
   const lastUserText = inputMessages.at(-1)?.parts?.find(p => p.type === 'text')?.text
-  const activeSkill = skills.find(s => lastUserText?.startsWith(`/${s.name}`))?.name ?? null
+  const skillRefs = extractSkillRefs(lastUserText ?? '', skills.map(s => s.name))
+  const activeSkill = skillRefs[0]?.name ?? null
   const skillContent = activeSkill ? await loadSkillContent(skills, activeSkill) : null
   // typeof null === 'object' in JS — don't use typeof to guard property access
   const activeSkillBody = skillContent?.content ?? null

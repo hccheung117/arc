@@ -6,24 +6,18 @@ import {
   PromptInputHeader,
   PromptInputSubmit,
   PromptInputTools,
-  usePromptInputAttachments,
 } from "@/components/ai-elements/prompt-input"
 import { useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import {
-  Attachments,
-  Attachment,
-  AttachmentPreview,
-  AttachmentRemove,
-} from "@/components/ai-elements/attachments"
 import { SpeechInput } from "@/components/ai-elements/speech-input"
 import { ImageIcon, PencilLine, Sparkles, SquareIcon, Wand2 } from "lucide-react"
 import { cn } from "@/lib/shadcn"
 import { useComposer, useComposerMode } from "@/hooks/use-composer"
 import { useRefine } from "@/hooks/use-refine"
 import { useSession } from "@/contexts/SessionContext"
+import { TiptapProvider, useTiptap } from "@/contexts/TiptapContext"
 import { useAutogrowLock, ComposerAutogrowLockHandle } from "@/components/ComposerAutogrowLock"
 import { useSubscription } from "@/hooks/use-subscription"
 import { useAppStore, act } from "@/store/app-store"
@@ -32,13 +26,13 @@ import SkillSelectorButton from "@/components/SkillSelectorButton"
 import ComposerEditor from "@/components/ComposerEditor"
 
 const ToolButton = ({ tool }) => {
-  const attachments = usePromptInputAttachments()
+  const tiptap = useTiptap()
   switch (tool) {
     case "skill":
       return <SkillSelectorButton />
     case "attach":
       return (
-        <PromptInputButton onClick={() => attachments.openFileDialog()}>
+        <PromptInputButton onClick={() => tiptap?.openFileDialog?.()}>
           <ImageIcon className="size-4" />
         </PromptInputButton>
       )
@@ -50,7 +44,7 @@ const ToolButton = ({ tool }) => {
 }
 
 const MicButton = () => {
-  const { plainText, setContent } = useComposer()
+  const { text, setContent } = useComposer()
 
   const handleAudioRecorded = useCallback(async (audioBlob) => {
     const audio = await audioBlob.arrayBuffer()
@@ -58,8 +52,8 @@ const MicButton = () => {
   }, [])
 
   const handleTranscriptionChange = useCallback((transcript) => {
-    setContent(plainText ? `${plainText} ${transcript}` : transcript)
-  }, [plainText, setContent])
+    setContent(text ? `${text} ${transcript}` : transcript)
+  }, [text, setContent])
 
   return (
     <SpeechInput
@@ -88,26 +82,8 @@ const HeaderAction = ({ action, onCancel, onRefine, onPromote, isRefining }) => 
   }
 }
 
-const openFile = (file) => window.api.call('message:open-file', { url: file.url })
-
-const ComposerAttachments = () => {
-  const attachments = usePromptInputAttachments()
-  if (attachments.files.length === 0) return null
-  return (
-    <Attachments variant="grid" className="ml-0 w-full flex-nowrap overflow-x-auto px-3 pt-3">
-      {attachments.files.map((file) => (
-        <Attachment key={file.id} data={file} onRemove={() => attachments.remove(file.id)} className="shrink-0 cursor-pointer" onClick={() => openFile(file)}>
-          <AttachmentPreview />
-          <AttachmentRemove />
-        </Attachment>
-      ))}
-    </Attachments>
-  )
-}
-
-const ComposerSubmit = ({ status, flags, onStop, plainText, isRefining, config }) => {
-  const attachments = usePromptInputAttachments()
-  const hasContent = plainText.trim() || attachments.files.length > 0
+const ComposerSubmit = ({ status, flags, onStop, text, isRefining, config }) => {
+  const hasContent = text.trim().length > 0
   return (
     <PromptInputSubmit
       status={status}
@@ -122,18 +98,19 @@ const ComposerSubmit = ({ status, flags, onStop, plainText, isRefining, config }
 }
 
 function BaseComposer({ shadowClass, footerClass }) {
-  const { mode, config, plainText, setContent, submit, setMode, attachments, setAttachments } = useComposer()
+  const { mode, config, text, setContent, submit, setMode } = useComposer()
   const sid = useAppStore((s) => s.activeSessionId)
   const { status, stop, flags } = useSession()
   const { containerRef, isLocked, manualMaxHeight, startResizing, toggleLock } = useAutogrowLock()
   const settings = useSubscription('settings:feed', { assignmentKeys: [] })
   const hasRefine = settings.assignmentKeys.includes('refine-prompt')
   const hasTranscribe = settings.assignmentKeys.includes('transcribe-audio')
-  const { isRefining, handleRefine, abort: abortRefine } = useRefine(plainText, setContent)
+  const { isRefining, handleRefine, abort: abortRefine } = useRefine(text, setContent)
   const [promoteOpen, setPromoteOpen] = useState(false)
   const [promoteName, setPromoteName] = useState("")
+  const [tiptap, setTiptap] = useState(null)
 
-  const handleSubmit = (message) => submit(message.text, message.files, message.attachments)
+  const handleSubmit = () => submit(text)
   const handleCancel = () => {
     abortRefine()
     setMode("chat")
@@ -145,7 +122,7 @@ function BaseComposer({ shadowClass, footerClass }) {
   const handlePromoteSave = async () => {
     const name = promoteName.trim()
     if (!name) return
-    await window.api.call('prompt:commit', { name, content: plainText })
+    await window.api.call('prompt:commit', { name, content: text })
     await window.api.call('session:link-prompt', { id: sid, promptRef: name })
     act().workbench.update({ promptRef: name })
     setPromoteOpen(false)
@@ -163,44 +140,46 @@ function BaseComposer({ shadowClass, footerClass }) {
         isLocked={isLocked}
         onToggleLock={toggleLock}
       />
-      <PromptInput onSubmit={handleSubmit} accept="image/*" attachmentItems={attachments} onAttachmentItemsChange={setAttachments} className={cn("rounded-2xl bg-background/55 backdrop-blur-md transition-shadow", shadowClass)}>
-        {/* pb-1.5 overrides the block-end variant's pb-3 so the header-to-textarea
-            gap matches the textarea-to-footer gap (both 6px from base py-1.5). */}
-        {config.header && (
-          <PromptInputHeader className="justify-between pb-1.5">
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <PencilLine className="size-3" />
-              <span>{config.header.title}</span>
+      <TiptapProvider value={tiptap}>
+        <PromptInput onSubmit={handleSubmit} className={cn("rounded-2xl bg-background/55 backdrop-blur-md transition-shadow", shadowClass)}>
+          {/* pb-1.5 overrides the block-end variant's pb-3 so the header-to-textarea
+              gap matches the textarea-to-footer gap (both 6px from base py-1.5). */}
+          {config.header && (
+            <PromptInputHeader className="justify-between pb-1.5">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <PencilLine className="size-3" />
+                <span>{config.header.title}</span>
+              </div>
+              <div className="flex items-center gap-0.5">
+                {config.header.actions
+                  .filter((action) => action !== 'refine' || hasRefine)
+                  .map((action) => (
+                    <HeaderAction key={action} action={action} onCancel={handleCancel} onRefine={handleRefine} onPromote={handlePromote} isRefining={isRefining} />
+                  ))}
+              </div>
+            </PromptInputHeader>
+          )}
+          <PromptInputBody>
+            <ComposerEditor
+              key={sid}
+              placeholder={config.placeholder}
+              readOnly={isRefining}
+              onEditorReady={setTiptap}
+              style={manualMaxHeight !== undefined ? { maxHeight: manualMaxHeight } : undefined}
+              className="max-h-none"
+            />
+          </PromptInputBody>
+          <PromptInputFooter>
+            <PromptInputTools>
+              {config.tools.filter((t) => t === "skill" || t === "attach").map((t) => <ToolButton key={t} tool={t} />)}
+            </PromptInputTools>
+            <div className={cn("flex items-center gap-1", footerClass)}>
+              {config.tools.filter((t) => t !== "attach" && t !== "skill" && (t !== "mic" || hasTranscribe)).map((t) => <ToolButton key={t} tool={t} />)}
+              <ComposerSubmit status={status} flags={flags} onStop={stop} text={text} isRefining={isRefining} config={config} />
             </div>
-            <div className="flex items-center gap-0.5">
-              {config.header.actions
-                .filter((action) => action !== 'refine' || hasRefine)
-                .map((action) => (
-                  <HeaderAction key={action} action={action} onCancel={handleCancel} onRefine={handleRefine} onPromote={handlePromote} isRefining={isRefining} />
-                ))}
-            </div>
-          </PromptInputHeader>
-        )}
-        <ComposerAttachments />
-        <PromptInputBody>
-          <ComposerEditor
-            key={sid}
-            placeholder={config.placeholder}
-            readOnly={isRefining}
-            style={manualMaxHeight !== undefined ? { maxHeight: manualMaxHeight } : undefined}
-            className="max-h-none"
-          />
-        </PromptInputBody>
-        <PromptInputFooter>
-          <PromptInputTools>
-            {config.tools.filter((t) => t === "skill" || t === "attach").map((t) => <ToolButton key={t} tool={t} />)}
-          </PromptInputTools>
-          <div className={cn("flex items-center gap-1", footerClass)}>
-            {config.tools.filter((t) => t !== "attach" && t !== "skill" && (t !== "mic" || hasTranscribe)).map((t) => <ToolButton key={t} tool={t} />)}
-            <ComposerSubmit status={status} flags={flags} onStop={stop} plainText={plainText} isRefining={isRefining} config={config} />
-          </div>
-        </PromptInputFooter>
-      </PromptInput>
+          </PromptInputFooter>
+        </PromptInput>
+      </TiptapProvider>
       <Dialog open={promoteOpen} onOpenChange={setPromoteOpen}>
         <DialogContent>
           <DialogHeader>

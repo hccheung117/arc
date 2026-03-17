@@ -6,12 +6,13 @@
 //   strict mode violations from multiple matches.
 // - The "/" suggestion popup is a portal on document.body (.z-50.w-80),
 //   while the skill selector button opens a [data-slot="popover-content"] — different selectors.
-// - Only one mention allowed at a time. The "/" popup won't appear if a mention already exists.
+// - Multiple mentions are allowed; the "/" popup will always appear.
 import { test, expect } from '@playwright/test'
 import {
   launchApp, sel,
   typeInEditor, clearEditor, getEditorText,
   injectSkills,
+  setupMainProcessMock, mockUploadAttachment, mockInvokeRoute,
 } from '../helpers.js'
 
 const TEST_SKILLS = [
@@ -100,19 +101,6 @@ test.describe('4.1 Autocomplete via "/"', () => {
     await expect(window.locator(sel.mention)).not.toBeVisible()
   })
 
-  test('popup does not appear if mention already exists', async () => {
-    // Insert a mention first
-    await typeInEditor(window, '/')
-    await expect(window.locator('.z-50.w-80')).toBeVisible({ timeout: 2000 })
-    await window.keyboard.press('Enter')
-    await window.waitForTimeout(200)
-    await expect(window.locator(sel.mention)).toBeVisible()
-
-    // Type "/" again — popup should NOT appear
-    await typeInEditor(window, ' /')
-    await window.waitForTimeout(500)
-    await expect(window.locator('.z-50.w-80')).not.toBeVisible()
-  })
 })
 
 // ─── 4.2 Insertion via Skill Selector Button ────────────────────────────────
@@ -135,7 +123,7 @@ test.describe('4.2 Skill Selector Button', () => {
     }
   })
 
-  test('select skill → mention node inserted at position 0', async () => {
+  test('select skill → mention node inserted at cursor position', async () => {
     await typeInEditor(window, 'some text')
     await window.waitForTimeout(100)
 
@@ -152,14 +140,12 @@ test.describe('4.2 Skill Selector Button', () => {
     await expect(popover).not.toBeVisible()
   })
 
-  test('if mention already exists → old mention replaced with new one', async () => {
+  test('select another skill → both mentions coexist', async () => {
     // Insert first mention
     await typeInEditor(window, '/')
     await expect(window.locator('.z-50.w-80')).toBeVisible({ timeout: 2000 })
     await window.keyboard.press('Enter')
     await window.waitForTimeout(200)
-
-    const firstMention = await window.locator(sel.mention).textContent()
 
     // Use selector button to insert a different skill
     const skillBtn = window.locator('svg.lucide-book-open').first().locator('..')
@@ -169,17 +155,15 @@ test.describe('4.2 Skill Selector Button', () => {
     await popover.locator('[data-slot="command-item"]').nth(1).click()
     await window.waitForTimeout(300)
 
-    // Should still be exactly one mention (replaced)
-    expect(await window.locator(sel.mention).count()).toBe(1)
-    const secondMention = await window.locator(sel.mention).textContent()
-    expect(secondMention).not.toBe(firstMention)
+    // Both mentions should coexist
+    expect(await window.locator(sel.mention).count()).toBe(2)
   })
 })
 
 // ─── 4.3 Mention Rendering ──────────────────────────────────────────────────
 
 test.describe('4.3 Mention Rendering', () => {
-  test('mention renders as purple text with data-type and data-name', async () => {
+  test('mention renders as purple text with data-type and data-mention-type', async () => {
     await clearEditor(window)
     await typeInEditor(window, '/')
     await expect(window.locator('.z-50.w-80')).toBeVisible({ timeout: 2000 })
@@ -195,8 +179,65 @@ test.describe('4.3 Mention Rendering', () => {
     const classes = await mention.getAttribute('class')
     expect(classes).toContain('text-purple-600')
 
-    expect(await mention.getAttribute('data-type')).toBe('skill-mention')
-    expect(await mention.getAttribute('data-name')).toBeTruthy()
+    expect(await mention.getAttribute('data-type')).toBe('mention')
+    expect(await mention.getAttribute('data-mention-type')).toBe('skill')
+  })
+})
+
+// ─── 4.5 Auto-convert fully typed slash commands ─────────────────────────────
+
+test.describe('4.5 Auto-convert fully typed slash commands', () => {
+  test.beforeEach(async () => {
+    await clearEditor(window)
+    await window.waitForTimeout(100)
+  })
+  test.afterEach(async () => {
+    await window.keyboard.press('Escape')
+    await window.waitForTimeout(100)
+    await clearEditor(window)
+    await window.waitForTimeout(100)
+  })
+
+  test('type full skill name + space → mention node created', async () => {
+    await typeInEditor(window, '/summarize ')
+    await window.waitForTimeout(300)
+
+    const mention = window.locator(sel.mention)
+    await expect(mention).toBeVisible()
+    const classes = await mention.getAttribute('class')
+    expect(classes).toContain('text-purple-600')
+    expect(await mention.textContent()).toBe('/summarize')
+  })
+
+  test('type full skill name + continue typing → mention + trailing text', async () => {
+    await typeInEditor(window, '/summarize do something')
+    await window.waitForTimeout(300)
+
+    const mention = window.locator(sel.mention)
+    await expect(mention).toBeVisible()
+    expect(await mention.textContent()).toBe('/summarize')
+    const text = await getEditorText(window)
+    expect(text).toContain('do something')
+  })
+
+  test('partial name + space → no auto-convert', async () => {
+    await typeInEditor(window, '/summ ')
+    await window.waitForTimeout(300)
+
+    await expect(window.locator(sel.mention)).not.toBeVisible()
+    const text = await getEditorText(window)
+    expect(text).toContain('/summ')
+  })
+
+  test('Escape after full name → still auto-converts', async () => {
+    await typeInEditor(window, '/summarize')
+    await window.waitForTimeout(300)
+    await window.keyboard.press('Escape')
+    await window.waitForTimeout(300)
+
+    const mention = window.locator(sel.mention)
+    await expect(mention).toBeVisible()
+    expect(await mention.textContent()).toBe('/summarize')
   })
 })
 
@@ -215,5 +256,172 @@ test.describe('4.4 Mention in Submitted Text', () => {
     const text = await getEditorText(window)
     expect(text).toMatch(/\/code-review/)
     expect(text).toContain('do something')
+  })
+})
+
+// ─── 5.1 File Mention via Paste ──────────────────────────────────────────────
+
+test.describe('5.1 File Mention via Paste', () => {
+  test.beforeAll(async () => {
+    await setupMainProcessMock(electronApp)
+    await mockUploadAttachment(electronApp)
+    await mockInvokeRoute(electronApp, 'message:open-file', undefined)
+  })
+
+  test.beforeEach(async () => {
+    await clearEditor(window)
+    await window.waitForTimeout(100)
+  })
+
+  test('paste file → orange pill with data-mention-type="file" appears', async () => {
+    await window.locator(sel.contenteditable).evaluate(async (el) => {
+      const file = new File(['test'], 'test.png', { type: 'image/png' })
+      const dt = new DataTransfer()
+      dt.items.add(file)
+      el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true }))
+    })
+    await window.waitForTimeout(1000)
+
+    const mention = window.locator('span[data-type="mention"][data-mention-type="file"]')
+    await expect(mention).toBeVisible({ timeout: 2000 })
+
+    const classes = await mention.getAttribute('class')
+    expect(classes).toContain('text-orange-600')
+  })
+
+  test('file mention renders filename as visible text', async () => {
+    await window.locator(sel.contenteditable).evaluate(async (el) => {
+      const file = new File(['test'], 'test.png', { type: 'image/png' })
+      const dt = new DataTransfer()
+      dt.items.add(file)
+      el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true }))
+    })
+    await window.waitForTimeout(1000)
+
+    const text = await getEditorText(window)
+    expect(text).toContain('test.png')
+  })
+
+  test('file mention shows @ prefix', async () => {
+    await window.locator(sel.contenteditable).evaluate(async (el) => {
+      const file = new File(['test'], 'test.png', { type: 'image/png' })
+      const dt = new DataTransfer()
+      dt.items.add(file)
+      el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true }))
+    })
+    await window.waitForTimeout(1000)
+
+    const mention = window.locator('span[data-type="mention"][data-mention-type="file"]')
+    await expect(mention).toBeVisible({ timeout: 2000 })
+    const beforeContent = await mention.evaluate((el) => getComputedStyle(el, '::before').content)
+    expect(beforeContent).toBe('"@"')
+  })
+
+  test('click file mention calls open-file IPC', async () => {
+    await window.locator(sel.contenteditable).evaluate(async (el) => {
+      const file = new File(['test'], 'test.png', { type: 'image/png' })
+      const dt = new DataTransfer()
+      dt.items.add(file)
+      el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true }))
+    })
+    await window.waitForTimeout(1000)
+
+    // Set up tracking mock before click
+    await electronApp.evaluate(() => {
+      globalThis.__openFileCallPayload = null
+      globalThis.__testMockInvokeRoutes['message:open-file'] = (payload) => {
+        globalThis.__openFileCallPayload = payload
+      }
+    })
+
+    const mention = window.locator('span[data-type="mention"][data-mention-type="file"]')
+    await expect(mention).toBeVisible({ timeout: 2000 })
+    await mention.locator('span').first().click()
+    await window.waitForTimeout(300)
+
+    const called = await electronApp.evaluate(() => globalThis.__openFileCallPayload)
+    expect(called).toBeTruthy()
+    expect(called.url).toBe('arcfs://tmp/test.png')
+  })
+})
+
+// ─── 5.1b Deleting a File Mention ────────────────────────────────────────
+
+test.describe('5.1b Deleting a File Mention', () => {
+  test.beforeAll(async () => {
+    await setupMainProcessMock(electronApp)
+    await mockUploadAttachment(electronApp)
+  })
+
+  test.beforeEach(async () => {
+    await clearEditor(window)
+    await window.waitForTimeout(100)
+  })
+
+  test('backspace on mention → entire mention deleted, no leftover @', async () => {
+    await window.locator(sel.contenteditable).evaluate(async (el) => {
+      const file = new File(['test'], 'test.png', { type: 'image/png' })
+      const dt = new DataTransfer()
+      dt.items.add(file)
+      el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true }))
+    })
+    await window.waitForTimeout(1000)
+
+    const mention = window.locator('span[data-type="mention"][data-mention-type="file"]')
+    await expect(mention).toBeVisible({ timeout: 2000 })
+
+    // Place cursor at end and press Backspace twice (trailing space + mention)
+    await window.keyboard.press('End')
+    await window.keyboard.press('Backspace')
+    await window.keyboard.press('Backspace')
+    await window.waitForTimeout(300)
+
+    await expect(mention).not.toBeVisible()
+    const text = await getEditorText(window)
+    expect(text).not.toContain('@')
+  })
+})
+
+// ─── 5.2 File Mention via Attach Button ──────────────────────────────────────
+
+test.describe('5.2 File Mention via Attach Button', () => {
+  test.beforeAll(async () => {
+    await setupMainProcessMock(electronApp)
+    await mockUploadAttachment(electronApp)
+  })
+
+  test.beforeEach(async () => {
+    await clearEditor(window)
+    await window.waitForTimeout(100)
+  })
+
+  test('attach button opens file dialog that only accepts image files', async () => {
+    const attachBtn = window.locator('svg.lucide-image').first().locator('..')
+    await attachBtn.click()
+    await window.waitForTimeout(100)
+
+    const fileInput = window.locator('input[type="file"][accept]')
+    const accept = await fileInput.getAttribute('accept')
+    expect(accept).toBeTruthy()
+    expect(accept).toMatch(/image\//)
+  })
+
+  test('attach button → file input → orange pill inserted', async () => {
+    // Click the attach button to trigger the hidden file input
+    const attachBtn = window.locator('svg.lucide-image').first().locator('..')
+    await attachBtn.click()
+    await window.waitForTimeout(100)
+
+    // Set files on the hidden input
+    const fileInput = window.locator('input[type="file"][accept]')
+    await fileInput.setInputFiles({
+      name: 'photo.jpg',
+      mimeType: 'image/jpeg',
+      buffer: Buffer.from('fake-image'),
+    })
+    await window.waitForTimeout(1000)
+
+    const mention = window.locator('span[data-type="mention"][data-mention-type="file"]')
+    await expect(mention).toBeVisible({ timeout: 2000 })
   })
 })
