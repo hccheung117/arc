@@ -91,6 +91,10 @@ typings/
 # Electron-Forge
 out/
 
+# Playwright
+test-results/
+*.png
+
 # IDE
 .idea/
 .devtools
