@@ -30,7 +30,7 @@ export const writeJson = async (filepath, data) => {
 }
 
 export const readMarkdown = async (filepath) => {
-  try { return await fs.readFile(filepath, 'utf-8') }
+  try { return (await fs.readFile(filepath, 'utf-8')).replace(/\r\n/g, '\n') }
   catch (e) { if (e.code === 'ENOENT') return null; throw e }
 }
 
