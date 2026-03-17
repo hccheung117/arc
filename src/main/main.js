@@ -99,6 +99,7 @@ app.whenReady().then(() => {
       { label: 'Import Profile...', click: () => dispatch('profile:import') },
       { label: 'Export Profile...', click: () => dispatch('profile:export') },
       { label: 'Open Profile Folder', click: () => dispatch('profile:reveal') },
+      { label: 'Open App Folder', click: () => dispatch('profile:reveal', '@app') },
       { type: 'separator' },
       { role: 'close' },
     ]},

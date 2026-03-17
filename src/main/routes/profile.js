@@ -15,8 +15,8 @@ register('profile:export', async () => {
   return true
 })
 
-register('profile:reveal', async () => {
-  const name = await getActiveProfile()
+register('profile:reveal', async (name) => {
+  name ??= await getActiveProfile()
   if (!name) return false
   shell.openPath(resolve('profiles', name))
   return true
