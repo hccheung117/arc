@@ -11,4 +11,5 @@ Major Libraries and Source Code for Reference:
 - REPO_ROOT/../playground/ai-elements
 - REPO_ROOT/../playground/ai-sdk
 - REPO_ROOT/../playground/electron
+- REPO_ROOT/../playground/tiptap
 Always use the source code instead of dist in node_modules.

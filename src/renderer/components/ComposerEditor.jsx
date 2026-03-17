@@ -85,6 +85,27 @@ const ComposerBridge = Extension.create({
   },
 })
 
+// --- scroll fix --------------------------------------------------------------
+// Tiptap commands (e.g. setHardBreak via Shift-Enter) don't always call
+// tr.scrollIntoView(), so ProseMirror preserves scroll position instead of
+// following the cursor. This plugin appends scrollIntoView on any doc change.
+
+const ScrollOnDocChange = Extension.create({
+  name: 'scrollOnDocChange',
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey('scrollOnDocChange'),
+        appendTransaction: (transactions, _oldState, newState) => {
+          if (transactions.some(tr => tr.docChanged && !tr.scrolledIntoView)) {
+            return newState.tr.scrollIntoView()
+          }
+        },
+      }),
+    ]
+  },
+})
+
 // --- keyboard extensions -----------------------------------------------------
 
 const SubmitOnEnter = Extension.create({
@@ -227,6 +248,7 @@ export default function ComposerEditor({ placeholder, readOnly, style, className
 
   const extensions = useMemo(() => [
     ComposerBridge, // must be first so storage exists before other extensions read it
+    ScrollOnDocChange,
     SubmitOnEnter,
     BackspaceRemoveAttachment,
     ...createExtensions(
