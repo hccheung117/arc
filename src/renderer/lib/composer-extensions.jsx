@@ -228,49 +228,61 @@ const AutoMention = Extension.create({
 })
 
 // --- Hydrator: converts text → mention nodes on setContent ---
+// Splits on \n and emits hardBreak nodes between lines (notepad-style).
+// Each \n in the source becomes exactly one hardBreak, so \n\n produces
+// two consecutive hardBreaks (visible blank line). This is intentional —
+// getText() serializes each hardBreak back to \n, keeping the round-trip lossless.
 
 export const hydrateText = (text, knownSkills) => {
   if (!text || typeof text !== 'string') return text
 
-  const skillRefs = extractSkillRefs(text, knownSkills)
-  const fileRefs = extractFileRefs(text)
-
-  const markers = [
-    ...skillRefs.map(r => ({ ...r, type: 'skill' })),
-    ...fileRefs.map(r => ({ ...r, type: 'file' })),
-  ]
-
-  if (markers.length === 0) return text
-
-  markers.sort((a, b) => a.start - b.start)
-
+  const lines = text.split('\n')
   const content = []
-  let cursor = 0
 
-  for (const marker of markers) {
-    if (marker.start > cursor) {
-      content.push({ type: 'text', text: text.slice(cursor, marker.start) })
+  for (let i = 0; i < lines.length; i++) {
+    // One hardBreak per \n — empty lines intentionally get only a hardBreak (no text node)
+    if (i > 0) content.push({ type: 'hardBreak' })
+
+    const line = lines[i]
+    if (line.length === 0) continue
+
+    const skillRefs = extractSkillRefs(line, knownSkills)
+    const fileRefs = extractFileRefs(line)
+    const markers = [
+      ...skillRefs.map(r => ({ ...r, type: 'skill' })),
+      ...fileRefs.map(r => ({ ...r, type: 'file' })),
+    ].sort((a, b) => a.start - b.start)
+
+    if (markers.length === 0) {
+      content.push({ type: 'text', text: line })
+      continue
     }
-    if (marker.type === 'skill') {
-      content.push({
-        type: 'mention',
-        attrs: { id: marker.name, label: marker.name, mentionType: 'skill' },
-      })
-    } else {
-      const filename = marker.path.split('/').pop() || marker.path
-      content.push({
-        type: 'mention',
-        attrs: { id: marker.path, label: filename, mentionType: 'file', url: marker.path, filename, mediaType: '' },
-      })
+
+    let cursor = 0
+    for (const marker of markers) {
+      if (marker.start > cursor) {
+        content.push({ type: 'text', text: line.slice(cursor, marker.start) })
+      }
+      if (marker.type === 'skill') {
+        content.push({
+          type: 'mention',
+          attrs: { id: marker.name, label: marker.name, mentionType: 'skill' },
+        })
+      } else {
+        const filename = marker.path.split('/').pop() || marker.path
+        content.push({
+          type: 'mention',
+          attrs: { id: marker.path, label: filename, mentionType: 'file', url: marker.path, filename, mediaType: '' },
+        })
+      }
+      cursor = marker.end
     }
-    cursor = marker.end
+    if (cursor < line.length) {
+      content.push({ type: 'text', text: line.slice(cursor) })
+    }
   }
 
-  if (cursor < text.length) {
-    content.push({ type: 'text', text: text.slice(cursor) })
-  }
-
-  return { type: 'doc', content: [{ type: 'paragraph', content }] }
+  return { type: 'doc', content: [{ type: 'paragraph', content: content.length ? content : undefined }] }
 }
 
 // --- createExtensions ---

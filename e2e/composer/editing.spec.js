@@ -12,6 +12,7 @@ import {
   launchApp, sel,
   typeInEditor, clearEditor, getEditorText,
   clickCancel, triggerEditMode,
+  setupMainProcessMock, mockStreamRoute, sendMessage,
 } from '../helpers.js'
 
 let electronApp, window
@@ -90,5 +91,45 @@ test.describe('3.3 Edit Guards', () => {
     expect(flags.submitted.canEditMessages).toBe(false)
     expect(flags.streaming.canEditMessages).toBe(false)
     expect(flags.error.canEditMessages).toBe(false)
+  })
+})
+
+// ─── 3.4 Edit preserves linebreaks ──────────────────────────────────────────
+
+test.describe('3.4 Edit preserves linebreaks', () => {
+  const MULTI_LINE_REPLY = 'Line one.\n\nLine two.\n\nLine three.'
+  const MSG_ID = 'mock-ai-linebreak-test'
+
+  test.beforeAll(async () => {
+    await setupMainProcessMock(electronApp)
+    // Mock session:send with a fixed message ID and multi-line reply
+    const escapedReply = JSON.stringify(MULTI_LINE_REPLY)
+    await mockStreamRoute(electronApp, 'session:send', `
+      const { send } = params
+      const id = ${JSON.stringify(MSG_ID)}
+      setTimeout(() => send({ type: 'start', messageId: id }), 10)
+      setTimeout(() => send({ type: 'text-start', id: 'text-0' }), 20)
+      setTimeout(() => send({ type: 'text-delta', id: 'text-0', delta: ${escapedReply} }), 30)
+      setTimeout(() => send({ type: 'text-end', id: 'text-0' }), 40)
+      setTimeout(() => send({ type: 'finish', finishReason: 'stop' }), 50)
+    `)
+    // Send a message to get the multi-line AI reply into the session
+    await sendMessage(window, 'test')
+  })
+
+  test('editor text preserves linebreaks when editing AI message', async () => {
+    await triggerEditMode(electronApp, 'assistant', MSG_ID)
+    await window.waitForTimeout(500)
+
+    await expect(window.locator(sel.modeHeader)).toBeVisible({ timeout: 3000 })
+    await expect(window.locator(sel.modeHeader).locator('span', { hasText: 'AI MESSAGE' })).toBeVisible()
+
+    const editorText = await getEditorText(window)
+    // The editor should preserve the 3 separate lines
+    const lines = editorText.split('\n').filter(l => l.trim() !== '')
+    expect(lines.length).toBeGreaterThanOrEqual(3)
+    expect(editorText).toContain('Line one.')
+    expect(editorText).toContain('Line two.')
+    expect(editorText).toContain('Line three.')
   })
 })
