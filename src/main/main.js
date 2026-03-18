@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, protocol, net, shell } from 'electron';
+import { app, BrowserWindow, Menu, MenuItem, protocol, net, shell } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -17,7 +17,7 @@ import './routes/message.js';
 import './routes/assist.js';
 import './routes/profile.js';
 import './routes/skills.js';
-import { initUpdater } from './updater.js';
+import { initUpdater, checkForUpdates } from './updater.js';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -93,6 +93,7 @@ app.whenReady().then(() => {
     return net.fetch(pathToFileURL(filePath).toString())
   })
 
+  // Always only modify built menu instances instead of duplicating role submenus
   const menu = Menu.buildFromTemplate([
     { role: 'appMenu' },
     { label: 'File', submenu: [
@@ -110,6 +111,9 @@ app.whenReady().then(() => {
       { label: 'Source Code', click: () => shell.openExternal('https://github.com/hccheung117/arc/') },
     ]},
   ])
+
+  const appMenuSub = menu.items.find(i => i.role === 'appmenu').submenu
+  appMenuSub.insert(1, new MenuItem({ label: 'Check for Updates...', click: checkForUpdates, enabled: app.isPackaged }))
 
   const devRoles = new Set(['reload', 'forcereload', 'toggledevtools'])
   for (const item of menu.items.find(i => i.role === 'viewmenu').submenu.items) {

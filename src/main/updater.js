@@ -1,8 +1,12 @@
-import { app } from 'electron'
+import { app, autoUpdater } from 'electron'
 import { updateElectronApp, UpdateSourceType } from 'update-electron-app'
 
+export const checkForUpdates = () => {
+  autoUpdater.checkForUpdates()
+}
+
 export const initUpdater = () => {
-  if (!app.isPackaged || process.platform !== 'win32') return
+  if (!app.isPackaged) return
 
   updateElectronApp({
     updateSource: {
