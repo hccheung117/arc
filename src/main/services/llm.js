@@ -1,6 +1,7 @@
 import { generateId, generateText as aiGenerateText, streamText as aiStreamText, convertToModelMessages, wrapLanguageModel, ToolLoopAgent } from 'ai'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
+import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { app } from 'electron'
 import { resolveArcfsUrls } from './message.js'
 
@@ -12,6 +13,10 @@ const clientFactories = {
   }),
   'openai-compatible': (p) => createOpenAICompatible({
     name: p.name,
+    baseURL: p.baseUrl,
+    apiKey: p.apiKey,
+  }),
+  google: (p) => createGoogleGenerativeAI({
     baseURL: p.baseUrl,
     apiKey: p.apiKey,
   }),
@@ -37,6 +42,8 @@ const thinkingOptions = (provider, thinking) => {
     return { anthropic: { thinking: { type: 'enabled', budgetTokens: 31999 }, effort: 'high' } }
   if (provider.type === 'openai-compatible')
     return { openaiCompatible: { reasoningEffort: 'high' } }
+  if (provider.type === 'google')
+    return { google: { thinkingConfig: { includeThoughts: true, thinkingLevel: 'high' } } }
 }
 
 const loop = new ToolLoopAgent({

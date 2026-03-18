@@ -37,7 +37,7 @@ Provider definitions are stored in `providers.json` at the root of your profile 
 ```json
 {
   "[provider-id]": {
-    "type": "anthropic | openai-compatible",
+    "type": "anthropic | openai-compatible | google",
     "name": "string",
     "baseUrl": "string",
     "apiKey": "string",
@@ -51,7 +51,7 @@ Provider definitions are stored in `providers.json` at the root of your profile 
 
 | Property | Description |
 |----------|-------------|
-| `type` | The SDK/protocol to use (`anthropic`, `openai-compatible`). |
+| `type` | The SDK/protocol to use (`anthropic`, `openai-compatible`, `google`). |
 | `name` | The human-readable display name for the UI. |
 | `baseUrl` | The explicit endpoint URL. |
 | `apiKey` | The authentication credential. |

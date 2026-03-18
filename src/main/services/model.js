@@ -23,7 +23,16 @@ const fetchOpenAI = async ({ baseUrl, apiKey }) => {
   return data.map(m => ({ id: m.id, name: m.id }))
 }
 
-const fetchers = { anthropic: fetchAnthropic, 'openai-compatible': fetchOpenAI }
+const fetchGoogle = async ({ baseUrl, apiKey }) => {
+  const res = await fetch(`${baseUrl}/models`, {
+    headers: { 'x-goog-api-key': apiKey },
+  })
+  if (!res.ok) throw new Error(`Google ${res.status}`)
+  const { models } = await res.json()
+  return models.map(m => ({ id: m.name.replace(/^models\//, ''), name: m.displayName }))
+}
+
+const fetchers = { anthropic: fetchAnthropic, 'openai-compatible': fetchOpenAI, google: fetchGoogle }
 
 const filterModels = (models, pipeline) =>
   pipeline.reduce((acc, step) => {
@@ -54,7 +63,8 @@ export const fetchModelsFromProviders = async (providers, cacheFile) => {
         if (fetcher === fetchOpenAI) throw err
         // Proxies may not follow the provider's model-listing API
         // but most support OpenAI-compatible /v1/models
-        const raw = await fetchOpenAI(p)
+        const fallbackUrl = p.baseUrl.replace(/\/v\d+\w*$/, '/v1')
+        const raw = await fetchOpenAI({ ...p, baseUrl: fallbackUrl })
         const models = p.models ? filterModels(raw, p.models) : raw
         return [id, { name: p.name, models, warning: `${err.message}; used OpenAI-compatible fallback` }]
       }

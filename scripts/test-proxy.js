@@ -2,6 +2,7 @@ import { withApp } from '@cli/bootstrap.js'
 import { getProvider } from '@main/services/provider.js'
 import { createAnthropic } from '@ai-sdk/anthropic'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
+import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { streamText } from 'ai'
 
 const [providerId] = process.argv.slice(2)
@@ -10,7 +11,7 @@ if (!providerId) {
   process.exit(1)
 }
 
-const defaultModels = { anthropic: 'claude-sonnet-4-6', 'openai-compatible': 'gpt-5.4' }
+const defaultModels = { anthropic: 'claude-sonnet-4-6', 'openai-compatible': 'gpt-5.4', google: 'gemini-3-flash-preview' }
 
 const bar = (label) => `═══ ${label} ${'═'.repeat(Math.max(3, 50 - label.length))}`
 
@@ -162,6 +163,57 @@ function parseChatCompletionsSseStream(readable) {
   })
 }
 
+// ── Google SSE parser ───────────────────────────────────────────────────
+
+function parseGoogleSseStream(readable) {
+  let text = ''
+  let reasoning = ''
+  let logged = false
+
+  const flush = (label, buf) => {
+    if (!buf) return
+    for (const line of buf.split('\n')) console.log(`  ┈ ${line}`)
+    console.log(`● ${label} done\n`)
+  }
+
+  return readSseStream(readable, (data) => {
+    if (data === '[DONE]') {
+      flush('reasoning', reasoning)
+      flush('text', text)
+      console.log('● [DONE]')
+      return
+    }
+    let p
+    try { p = JSON.parse(data) }
+    catch { return console.log(`  ⚠ bad JSON: ${data.slice(0, 120)}`) }
+
+    if (!logged) {
+      logged = true
+      console.log(`● generateContent chunk`)
+      if (p.modelVersion) console.log(`  model: ${p.modelVersion}`)
+      console.log()
+    }
+
+    const parts = p.candidates?.[0]?.content?.parts ?? []
+    for (const part of parts) {
+      if (part.thought) reasoning += (part.text ?? '')
+      else text += (part.text ?? '')
+    }
+
+    const finish = p.candidates?.[0]?.finishReason
+    if (finish) {
+      flush('reasoning', reasoning); reasoning = ''
+      flush('text', text); text = ''
+      console.log(`● finishReason: ${finish}`)
+    }
+    if (p.usageMetadata?.promptTokenCount != null) {
+      const u = p.usageMetadata
+      console.log(`  usage: { input: ${u.promptTokenCount}, output: ${u.candidatesTokenCount}, thoughts: ${u.thoughtsTokenCount ?? 0} }`)
+      console.log()
+    }
+  })
+}
+
 // ── logging fetch wrapper ───────────────────────────────────────────────
 
 let sseComplete = Promise.resolve()
@@ -170,6 +222,7 @@ let activeParserType = 'anthropic'
 const sseParsers = {
   anthropic: parseAnthropicSseStream,
   'openai-compatible': parseChatCompletionsSseStream,
+  google: parseGoogleSseStream,
 }
 
 async function loggingFetch(url, init) {
@@ -228,6 +281,11 @@ withApp(async () => {
       fetch: loggingFetch,
       includeUsage: true,
     }),
+    google: (p) => createGoogleGenerativeAI({
+      baseURL: p.baseUrl,
+      apiKey: p.apiKey,
+      fetch: loggingFetch,
+    }),
   }
 
   const prompt = 'What is 27 * 453? Think step by step.'
@@ -261,6 +319,7 @@ withApp(async () => {
   const providerOptionsByType = {
     anthropic: { anthropic: { thinking: { type: 'enabled', budgetTokens: 5000 } } },
     'openai-compatible': { openaiCompatible: { reasoningEffort: 'high' } },
+    google: { google: { thinkingConfig: { includeThoughts: true, thinkingLevel: 'high' } } },
   }
 
   try {
