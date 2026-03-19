@@ -2,6 +2,11 @@
 set -e
 
 echo ""
+echo "  Running e2e tests..."
+npm run test:e2e
+echo "  All e2e tests passed!"
+
+echo ""
 node -e "
 const s = require('semver'), v = require('./package.json').version;
 console.log('  Current version: ' + v);
