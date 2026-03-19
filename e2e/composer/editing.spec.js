@@ -76,21 +76,12 @@ test.describe('3.2 Edit AI Message', () => {
 // ─── 3.3 Edit Guards ────────────────────────────────────────────────────────
 
 test.describe('3.3 Edit Guards', () => {
-  test('status flags enforce canEditMessages', async () => {
-    // Verify the STATUS_FLAGS contract:
-    // ready → canEditMessages: true
-    // submitted/streaming/error → canEditMessages: false
-    // This is a contract test — the UI guards are derived from these flags
-    const flags = await window.evaluate(() => ({
-      ready: { canEditMessages: true },
-      submitted: { canEditMessages: false },
-      streaming: { canEditMessages: false },
-      error: { canEditMessages: false },
-    }))
-    expect(flags.ready.canEditMessages).toBe(true)
-    expect(flags.submitted.canEditMessages).toBe(false)
-    expect(flags.streaming.canEditMessages).toBe(false)
-    expect(flags.error.canEditMessages).toBe(false)
+  test('edit mode is enterable when not streaming', async () => {
+    await triggerEditMode(electronApp, 'user', 'test-user-msg')
+    await window.waitForTimeout(500)
+    await expect(window.locator(sel.modeHeader)).toBeVisible({ timeout: 3000 })
+    await clickCancel(window)
+    await window.waitForTimeout(300)
   })
 })
 

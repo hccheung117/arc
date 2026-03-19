@@ -256,6 +256,71 @@ export async function clearStreamMock(electronApp, route) {
   }, { route })
 }
 
+// --- Streaming control helpers ---
+
+// Mock session:send to enter streaming and stay there (no finish).
+// Sends start + text-delta. Stores `send` on globalThis.__hangingSend.
+export async function mockHangingStream(electronApp) {
+  await mockStreamRoute(electronApp, 'session:send', `
+    const { send } = params
+    const id = 'mock-assistant-hang-' + Date.now()
+    globalThis.__hangingSend = send
+    send({ type: 'start', messageId: id })
+    send({ type: 'text-start', id: 'text-0' })
+    send({ type: 'text-delta', id: 'text-0', delta: 'Thinking...' })
+    send({ type: 'text-end', id: 'text-0' })
+  `)
+}
+
+// Complete a hanging stream → status returns to ready.
+export async function finishHangingStream(electronApp) {
+  await electronApp.evaluate(() => {
+    if (globalThis.__hangingSend) {
+      globalThis.__hangingSend({ type: 'finish', finishReason: 'stop' })
+      globalThis.__hangingSend = null
+    }
+  })
+}
+
+// Error a hanging stream → status becomes error.
+export async function errorHangingStream(electronApp) {
+  await electronApp.evaluate(() => {
+    if (globalThis.__hangingSend) {
+      globalThis.__hangingSend({ type: 'error', errorText: 'Mock error' })
+      globalThis.__hangingSend = null
+    }
+  })
+}
+
+// --- IPC call tracking ---
+
+// Install a tracking mock that records all payloads for a given invoke route.
+export async function trackInvokeRoute(electronApp, route) {
+  await electronApp.evaluate(({}, { route }) => {
+    const key = `__trackCalls_${route.replace(/:/g, '_')}`
+    globalThis[key] = []
+    globalThis.__testMockInvokeRoutes[route] = (payload) => {
+      globalThis[key].push(payload)
+    }
+  }, { route })
+}
+
+// Return the array of payloads recorded by trackInvokeRoute.
+export async function getTrackedCalls(electronApp, route) {
+  return electronApp.evaluate(({}, { route }) => {
+    const key = `__trackCalls_${route.replace(/:/g, '_')}`
+    return globalThis[key] ?? []
+  }, { route })
+}
+
+// Reset tracked calls to empty.
+export async function clearTrackedCalls(electronApp, route) {
+  await electronApp.evaluate(({}, { route }) => {
+    const key = `__trackCalls_${route.replace(/:/g, '_')}`
+    globalThis[key] = []
+  }, { route })
+}
+
 // --- Send a message and wait for AI reply ---
 
 export async function sendMessage(window, text) {

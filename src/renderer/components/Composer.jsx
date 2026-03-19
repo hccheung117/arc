@@ -15,6 +15,7 @@ import { SpeechInput } from "@/components/ai-elements/speech-input"
 import { ImageIcon, PencilLine, Sparkles, SquareIcon, Wand2 } from "lucide-react"
 import { cn } from "@/lib/shadcn"
 import { useComposer, useComposerMode } from "@/hooks/use-composer"
+import { isLLMBusy } from '@/hooks/use-llm-lock'
 import { useRefine } from "@/hooks/use-refine"
 import { useSession } from "@/contexts/SessionContext"
 import { TiptapProvider, useTiptap } from "@/contexts/TiptapContext"
@@ -82,17 +83,20 @@ const HeaderAction = ({ action, onCancel, onRefine, onPromote, isRefining }) => 
   }
 }
 
-const ComposerSubmit = ({ status, flags, onStop, text, isRefining, config }) => {
+const ComposerSubmit = ({ status, onStop, text, isRefining, config, mode }) => {
   const hasContent = text.trim().length > 0
+  const isLLMMode = mode === 'chat' || mode === 'edit:user'
+  const effectiveStatus = isLLMMode ? status : 'ready'
+  const busy = isLLMBusy(status)
   return (
     <PromptInputSubmit
-      status={status}
+      status={effectiveStatus}
       onStop={onStop}
-      disabled={(!flags.canStop && !hasContent) || isRefining}
+      disabled={isLLMMode ? (!busy && !hasContent) || isRefining : !hasContent || isRefining}
       className="ml-1 rounded-full"
-      variant={status !== "ready" ? "destructive" : "default"}
+      variant={effectiveStatus !== 'ready' ? 'destructive' : 'default'}
     >
-      {status === "ready" ? <config.submitIcon className="size-4" /> : null}
+      {effectiveStatus === 'ready' ? <config.submitIcon className="size-4" /> : null}
     </PromptInputSubmit>
   )
 }
@@ -100,7 +104,7 @@ const ComposerSubmit = ({ status, flags, onStop, text, isRefining, config }) => 
 function BaseComposer({ shadowClass, footerClass }) {
   const { mode, config, text, setContent, submit, setMode } = useComposer()
   const sid = useAppStore((s) => s.activeSessionId)
-  const { status, stop, flags } = useSession()
+  const { status, stop } = useSession()
   const { containerRef, isLocked, manualMaxHeight, startResizing, toggleLock } = useAutogrowLock()
   const settings = useSubscription('settings:feed', { assignmentKeys: [] })
   const hasRefine = settings.assignmentKeys.includes('refine-prompt')
@@ -175,7 +179,7 @@ function BaseComposer({ shadowClass, footerClass }) {
             </PromptInputTools>
             <div className={cn("flex items-center gap-1", footerClass)}>
               {config.tools.filter((t) => t !== "attach" && t !== "skill" && (t !== "mic" || hasTranscribe)).map((t) => <ToolButton key={t} tool={t} />)}
-              <ComposerSubmit status={status} flags={flags} onStop={stop} text={text} isRefining={isRefining} config={config} />
+              <ComposerSubmit status={status} onStop={stop} text={text} isRefining={isRefining} config={config} mode={mode} />
             </div>
           </PromptInputFooter>
         </PromptInput>

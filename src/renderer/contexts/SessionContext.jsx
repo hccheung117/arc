@@ -1,7 +1,7 @@
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Chat, useChat } from "@ai-sdk/react"
 import { IpcTransport } from "@/lib/ipc-session-transport"
-import { resolveStatus } from "@/lib/session-status"
+import { isLLMBusy } from '@/hooks/use-llm-lock'
 import { useAppStore, act } from "@/store/app-store"
 import { useSubscription } from "@/hooks/use-subscription"
 
@@ -70,11 +70,12 @@ export function SessionProvider({ children }) {
   }, [activeSessionId, promptRef, profilePrompts])
 
   const switchBranch = useCallback((targetId) => {
+    if (isLLMBusy(chatRef.current.status)) return
     window.api.call('message:switch-branch', { sessionId: activeSessionId, targetId })
   }, [activeSessionId])
 
   return (
-    <SessionContext value={{ ...chat, flags: resolveStatus(chat.status), prompt, branches, switchBranch }}>
+    <SessionContext value={{ ...chat, prompt, branches, switchBranch }}>
       {children}
     </SessionContext>
   )

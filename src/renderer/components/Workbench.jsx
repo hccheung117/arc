@@ -6,6 +6,7 @@ import { useComposer, composerActions } from "@/hooks/use-composer"
 import { useAppStore } from "@/store/app-store"
 import { useSubscription } from "@/hooks/use-subscription"
 import { useSession } from "@/contexts/SessionContext"
+import { useLLMLock } from '@/hooks/use-llm-lock'
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import {
   Conversation,
@@ -84,8 +85,9 @@ const BranchInit = ({ total }) => {
 
 export default function Workbench() {
   const { mode, config, setMode } = useComposer()
-  const { messages, id: sessionId, branches, switchBranch, prompt, status, flags } = useSession()
+  const { messages, id: sessionId, branches, switchBranch, prompt, status } = useSession()
   const isDraft = useAppStore((s) => s.draftSessionId === s.activeSessionId)
+  const busy = useLLMLock()
   const feed = useSubscription('session:feed', { sessions: [], folders: [] })
   const title = feed.sessions.find(s => s.id === sessionId)?.title
   const hasPrompt = !!prompt
@@ -96,7 +98,6 @@ export default function Workbench() {
 
   const handleContextMenu = (e, msg) => {
     e.preventDefault()
-    if (!flags.canEditMessages) return
     window.api.call('message:context-menu', { sessionId, id: msg.id, role: msg.role, text: textFromParts(msg) })
   }
 
@@ -221,9 +222,9 @@ export default function Workbench() {
                             }
                           </Message>
                           <MessageBranchSelector className={cn(msg.role === "user" && "ml-auto")}>
-                            <MessageBranchPrevious disabled={!flags.canEditMessages} />
+                            <MessageBranchPrevious disabled={busy} />
                             <MessageBranchPage />
-                            <MessageBranchNext disabled={!flags.canEditMessages} />
+                            <MessageBranchNext disabled={busy} />
                           </MessageBranchSelector>
                         </MessageBranch>
                       )

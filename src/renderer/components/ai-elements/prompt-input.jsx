@@ -39,6 +39,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/shadcn";
+import { isLLMBusy } from '@/hooks/use-llm-lock';
 import {
   ArrowUpIcon,
   ImageIcon,
@@ -793,7 +794,7 @@ export const PromptInputSubmit = ({
   children,
   ...props
 }) => {
-  const isGenerating = status === "submitted" || status === "streaming";
+  const isGenerating = isLLMBusy(status);
 
   let Icon = <ArrowUpIcon className="size-4" />;
 

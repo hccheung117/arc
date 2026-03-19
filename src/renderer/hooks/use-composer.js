@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { resolveMode, textFromParts } from '@/lib/composer-modes'
 import { useAppStore, act } from '@/store/app-store'
 import { useSession } from '@/contexts/SessionContext'
+import { isLLMBusy } from '@/hooks/use-llm-lock'
 import { useSubscription } from '@/hooks/use-subscription'
 
 // --- private store ---
@@ -83,7 +84,7 @@ export const useComposer = () => {
   const state = useSubscription('state:feed', {})
   const providerId = wbProviderId ?? state.lastUsedProvider
   const modelId = wbModelId ?? state.lastUsedModel
-  const { sendMessage, setMessages, prompt, messages } = useSession()
+  const { sendMessage, setMessages, prompt, messages, status } = useSession()
 
   const { mode, overrides, drafts } = _composerStore(
     (s) => s.sessions[sid] ?? DEFAULT_SESSION,
@@ -109,9 +110,10 @@ export const useComposer = () => {
     setMode: (m, ov) => composerActions.setMode(sid, m, ov),
     submit: (text) => {
       if (mode === 'prompt') return submitPrompt(sid, text)
+      if (mode === 'edit:ai') return submitEditAi(sid, text, overrides.messageKey)
+      if (isLLMBusy(status)) return
       if (mode === 'chat') return submitChat(sid, text, sendMessage, promptRef, providerId, modelId)
       if (mode === 'edit:user') return submitEditUser(sid, text, messages, overrides.messageKey, sendMessage, setMessages, promptRef, providerId, modelId)
-      if (mode === 'edit:ai') return submitEditAi(sid, text, overrides.messageKey)
     },
   }
 }
