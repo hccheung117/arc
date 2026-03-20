@@ -6,14 +6,15 @@ import { sessionState, forkFromMessage } from './session.js'
 
 const dir = resolve('sessions')
 
-register('message:context-menu', ({ sessionId, id, role, text }) => {
+register('message:context-menu', ({ sessionId, id, role, text, selection }) => {
+  const copyText = selection || text
   const menus = {
     user: [
-      { label: 'Copy', click: () => clipboard.writeText(text) },
+      { label: 'Copy', click: () => clipboard.writeText(copyText) },
       { label: 'Edit', click: () => push('message:edit:start', { id, role }) },
     ],
     assistant: [
-      { label: 'Copy', click: () => clipboard.writeText(text) },
+      { label: 'Copy', click: () => clipboard.writeText(copyText) },
       { label: 'Fork', click: () => forkFromMessage(sessionId, id) },
       { label: 'Edit', click: () => push('message:edit:start', { id, role }) },
     ],
