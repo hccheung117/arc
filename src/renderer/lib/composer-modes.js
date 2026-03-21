@@ -1,7 +1,17 @@
 import { ArrowUp, Save, Split } from "lucide-react"
 
-export const textFromParts = (msg) =>
-  msg?.parts.filter((p) => p.type === "text").map((p) => p.text).join("")
+export const textFromParts = (msg) => {
+  if (!msg?.parts) return ''
+  const parts = msg.parts
+  const isToolPart = (p) => p.type === 'tool-call' || p.type === 'tool-result' || (p.toolCallId && p.state)
+  let lastToolIdx = -1
+  for (let i = parts.length - 1; i >= 0; i--) {
+    if (isToolPart(parts[i])) { lastToolIdx = i; break }
+  }
+  return parts.slice(lastToolIdx + 1)
+    .filter(p => p.type === 'text')
+    .map(p => p.text).join('')
+}
 
 export const MODES = {
   chat: {

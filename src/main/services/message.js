@@ -97,7 +97,7 @@ export const exportMarkdown = async (dir, sessionId) => {
   return stripSyntheticParts(messages)
     .map(m => {
       const role = m.role.charAt(0).toUpperCase() + m.role.slice(1)
-      const text = m.parts.filter(p => p.type === 'text').map(p => p.text).join('')
+      const text = m.parts.filter(p => p.type === 'text').map(p => p.text).join('\n\n')
       return `**${role}:** ${text}`
     })
     .join('\n\n')
@@ -145,7 +145,12 @@ export const resolveFileMentions = async (sessionDir, messages) => {
       if (raw.startsWith('arcfs://')) {
         // Move strategy: arcfs temp files → session files
         const srcPath = fromUrl(raw)
-        if (srcPath.startsWith(filesDir)) continue
+        if (srcPath.startsWith(filesDir)) {
+          const ext = path.extname(srcPath)
+          const mediaType = mime.getType(ext) ?? 'application/octet-stream'
+          fileParts.push({ type: 'file', url: raw, filename: path.basename(srcPath), mediaType })
+          continue
+        }
         await fs.mkdir(filesDir, { recursive: true })
         const ext = path.extname(srcPath)
         const name = `${generateId()}${ext}`
@@ -250,11 +255,11 @@ export const persistNewMessages = async (filePath, messages) => {
   return lastId
 }
 
-export const persistAssistantMessage = async (filePath, { assistantId, text, reasoning, toolParts = [], lastId, arcProviderId, arcModelId }) => {
+export const persistAssistantMessage = async (filePath, { assistantId, parts, lastId, arcProviderId, arcModelId }) => {
   await appendJsonl(filePath, {
     id: assistantId,
     role: 'assistant',
-    parts: [...toolParts, ...reasoning, { type: 'text', text }],
+    parts,
     arcParentId: lastId,
     arcProviderId,
     arcModelId,

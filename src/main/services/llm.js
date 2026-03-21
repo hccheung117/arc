@@ -102,8 +102,9 @@ export const streamText = async ({ provider, modelId, system, messages, send, si
 
   if (signal.aborted) return null
   try {
-    const [text, reasoning] = await Promise.all([result.text, result.reasoning])
-    return { assistantId, text, reasoning }
+    const steps = await result.steps
+    const parts = steps.flatMap(step => step.content)
+    return { assistantId, parts }
   } catch (e) {
     send({ type: 'error', errorText: e.message ?? 'No response generated' })
     return null
@@ -136,10 +137,9 @@ export const stream = async ({ provider, modelId, system, messages, tools, send,
 
   if (signal.aborted) return null
   try {
-    const [text, steps] = await Promise.all([result.text, result.steps])
-    const toolParts = steps.flatMap(step => [...step.toolCalls, ...step.toolResults])
-    const reasoning = steps.flatMap(step => step.reasoning)
-    return { assistantId, text, reasoning, toolParts }
+    const steps = await result.steps
+    const parts = steps.flatMap(step => step.content)
+    return { assistantId, parts }
   } catch (e) {
     send({ type: 'error', errorText: e.message ?? 'No response generated' })
     return null
