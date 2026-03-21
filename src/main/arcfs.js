@@ -50,3 +50,9 @@ export const appendJsonl = async (filepath, ...items) => {
   await fs.mkdir(path.dirname(filepath), { recursive: true })
   await fs.appendFile(filepath, items.map(item => JSON.stringify(item) + '\n').join(''))
 }
+
+export const sessionWorkspace = async (sessionId) => {
+  const dir = resolve('sessions', sessionId, 'workspace')
+  await fs.mkdir(dir, { recursive: true })
+  return toUrl('sessions', sessionId, 'workspace')
+}

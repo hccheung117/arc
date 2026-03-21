@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { sessionId } from '@shared/ids.js'
-import { readJson, writeJson, readJsonl, appendJsonl, resolve } from '../arcfs.js'
+import { readJson, writeJson, readJsonl, appendJsonl, resolve, sessionWorkspace } from '../arcfs.js'
 import { resolveSessionPrompt, saveSessionPrompt, savePrompt as saveAppPrompt, promptsAppDir } from './prompts.js'
 import { getProvider } from './provider.js'
 import { fallbackTitle, generateTitle } from './assist.js'
@@ -91,8 +91,10 @@ export const duplicateSession = (dir, id) =>
     titleFn: (title) => `${title} (copy)`,
     messageFn: (src, dest) =>
       fs.copyFile(path.join(src, 'messages.jsonl'), path.join(dest, 'messages.jsonl')).catch(ignore('ENOENT')),
-    fileFn: (src, dest) =>
+    fileFn: (src, dest) => Promise.all([
       fs.cp(path.join(src, 'files'), path.join(dest, 'files'), { recursive: true }).catch(ignore('ENOENT')),
+      fs.cp(path.join(src, 'workspace'), path.join(dest, 'workspace'), { recursive: true }).catch(ignore('ENOENT')),
+    ]),
   })
 
 export const forkSession = (dir, sourceId, messageId) =>
@@ -112,8 +114,10 @@ export const forkSession = (dir, sourceId, messageId) =>
       chain.reverse()
       await appendJsonl(path.join(dest, 'messages.jsonl'), ...chain)
     },
-    fileFn: (src, dest) =>
+    fileFn: (src, dest) => Promise.all([
       fs.cp(path.join(src, 'files'), path.join(dest, 'files'), { recursive: true }).catch(ignore('ENOENT')),
+      fs.cp(path.join(src, 'workspace'), path.join(dest, 'workspace'), { recursive: true }).catch(ignore('ENOENT')),
+    ]),
   })
 
 export const deleteSession = async (dir, id) => {
@@ -203,7 +207,9 @@ export const prepareSend = async (dir, { sessionId, inputMessages, promptRef, pr
   const fileReplacement = fileParts?.length ? { id: userMsg.id, parts: fileParts } : null
   const { branches } = await message.loadMessages(dir, sessionId)
 
-  const fullSystem = [system, buildSkillsPrompt(skills)].filter(Boolean).join('\n\n')
+  const workspaceUrl = await sessionWorkspace(sessionId)
+  const workspacePrompt = `<session_workspace path="${workspaceUrl}">\nYour working directory for this session. Store generated artifacts, experiment outputs, and scratch files here.\nTo read files the user shared, use read with their original filesystem paths.\n</session_workspace>`
+  const fullSystem = [system, buildSkillsPrompt(skills), workspacePrompt].filter(Boolean).join('\n\n')
   const tools = buildTools({ skills })
 
   return {
