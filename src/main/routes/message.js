@@ -2,6 +2,7 @@ import { Menu, clipboard, shell, app } from 'electron'
 import { register, push } from '../router.js'
 import { resolve, fromUrl } from '../arcfs.js'
 import * as message from '../services/message.js'
+import * as workspace from '../services/workspace.js'
 import { sessionState, forkFromMessage } from './session.js'
 
 const dir = resolve('sessions')
@@ -40,6 +41,8 @@ register('message:open-file', async ({ url, path, data, filename }) => {
   shell.openPath(await message.writeTempFile(app.getPath('temp'), filename, data))
 })
 
-register('message:upload-attachment', ({ data, path, filename, mediaType }) =>
-  message.uploadAttachment(resolve('tmp'), { data, path, filename, mediaType })
-)
+register('message:upload-attachment', async ({ data, path, filename, mediaType }) => {
+  const result = await message.uploadAttachment(resolve('tmp'), { data, path, filename, mediaType })
+  if (path) await workspace.add(path)
+  return result
+})

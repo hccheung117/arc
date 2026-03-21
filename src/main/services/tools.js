@@ -6,65 +6,75 @@ import { tool } from 'ai'
 import { z } from 'zod'
 import { fromUrl } from '../arcfs.js'
 import { loadSkillContent } from './skill.js'
+import * as workspace from './workspace.js'
 
 const SMALL_FILE_THRESHOLD = 500
 const DEFAULT_PREVIEW_LINES = 200
 
+const readFileContent = async (filePath, { offset, limit }) => {
+  let stat
+  try {
+    stat = await fs.stat(filePath)
+  } catch (e) {
+    if (e.code === 'ENOENT') return `File not found: ${filePath}`
+    if (e.code === 'EACCES') return `Permission denied: ${filePath}`
+    return `Error reading file: ${filePath}`
+  }
+
+  if (stat.isDirectory()) return `Path is a directory, not a file: ${filePath}`
+
+  let buf
+  try {
+    buf = await fs.readFile(filePath)
+  } catch (e) {
+    if (e.code === 'EACCES') return `Permission denied: ${filePath}`
+    return `Error reading file: ${filePath}`
+  }
+
+  if (buf.includes(0)) return `Cannot read binary file: ${filePath}`
+
+  const allLines = buf.toString('utf-8').split('\n')
+  const totalLines = allLines.length
+
+  const hasExplicit = offset != null || limit != null
+  const fromLine = offset ?? 1
+  if (fromLine > totalLines) return { content: '', totalLines, fromLine, toLine: fromLine }
+
+  let selected
+  if (hasExplicit) {
+    selected = allLines.slice(fromLine - 1, limit != null ? fromLine - 1 + limit : undefined)
+  } else if (totalLines <= SMALL_FILE_THRESHOLD) {
+    selected = allLines
+  } else {
+    selected = allLines.slice(0, DEFAULT_PREVIEW_LINES)
+  }
+
+  const toLine = fromLine + selected.length - 1
+  let content = selected.join('\n')
+
+  if (!hasExplicit && totalLines > SMALL_FILE_THRESHOLD) {
+    content += `\n--- File has ${totalLines.toLocaleString()} lines total (showing ${fromLine}–${toLine}). Use offset and limit to read more. ---`
+  }
+
+  return { content, totalLines, fromLine, toLine }
+}
+
 const read = tool({
-  description: 'Read a text file from the arcfs virtual filesystem',
+  description: 'Read a text file from arcfs or from workspace paths',
   inputSchema: z.object({
-    path: z.string().describe('arcfs:// URL of the file'),
+    path: z.string().describe('arcfs:// URL or absolute filesystem path'),
     offset: z.number().optional().describe('Line to start from (1-indexed)'),
     limit: z.number().optional().describe('Number of lines to return'),
   }),
   execute: async ({ path: rawPath, offset, limit }) => {
-    if (!rawPath.startsWith('arcfs://')) return 'Invalid path: only arcfs:// URLs are accepted'
-    const path = fromUrl(rawPath)
-    let stat
-    try {
-      stat = await fs.stat(path)
-    } catch (e) {
-      if (e.code === 'ENOENT') return `File not found: ${path}`
-      if (e.code === 'EACCES') return `Permission denied: ${path}`
-      return `Error reading file: ${path}`
-    }
-
-    if (stat.isDirectory()) return `Path is a directory, not a file: ${path}`
-
-    let buf
-    try {
-      buf = await fs.readFile(path)
-    } catch (e) {
-      if (e.code === 'EACCES') return `Permission denied: ${path}`
-      return `Error reading file: ${path}`
-    }
-
-    if (buf.includes(0)) return `Cannot read binary file: ${path}`
-
-    const allLines = buf.toString('utf-8').split('\n')
-    const totalLines = allLines.length
-
-    const hasExplicit = offset != null || limit != null
-    const fromLine = offset ?? 1
-    if (fromLine > totalLines) return { content: '', totalLines, fromLine, toLine: fromLine }
-
-    let selected
-    if (hasExplicit) {
-      selected = allLines.slice(fromLine - 1, limit != null ? fromLine - 1 + limit : undefined)
-    } else if (totalLines <= SMALL_FILE_THRESHOLD) {
-      selected = allLines
+    let filePath
+    if (rawPath.startsWith('arcfs://')) {
+      filePath = fromUrl(rawPath)
     } else {
-      selected = allLines.slice(0, DEFAULT_PREVIEW_LINES)
+      filePath = path.resolve(rawPath)
+      if (!await workspace.isAllowed(filePath)) return 'Access denied: not in workspace'
     }
-
-    const toLine = fromLine + selected.length - 1
-    let content = selected.join('\n')
-
-    if (!hasExplicit && totalLines > SMALL_FILE_THRESHOLD) {
-      content += `\n--- File has ${totalLines.toLocaleString()} lines total (showing ${fromLine}–${toLine}). Use offset and limit to read more. ---`
-    }
-
-    return { content, totalLines, fromLine, toLine }
+    return readFileContent(filePath, { offset, limit })
   },
 })
 
