@@ -100,15 +100,11 @@ const ExtendedMention = Mention.extend({
       mediaType: { default: null },
     }
   },
-  renderText({ node, parent, index }) {
-    const raw = node.attrs.mentionType === 'file'
-      ? `@${quotePath(node.attrs.url || node.attrs.id)}`
-      : `/${node.attrs.id}`
-    if (index > 0) {
-      const prev = parent.child(index - 1)
-      if (prev.textContent.length && !/\s$/.test(prev.textContent)) return ' ' + raw
+  renderText({ node }) {
+    if (node.attrs.mentionType === 'file') {
+      return `@${quotePath(node.attrs.url || node.attrs.id)}`
     }
-    return raw
+    return `/${node.attrs.id}`
   },
   renderHTML({ node, HTMLAttributes }) {
     const isFile = node.attrs.mentionType === 'file'
