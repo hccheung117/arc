@@ -1,7 +1,11 @@
 import fs from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import { generateId } from 'ai'
+import mime from 'mime'
 import { readJsonl, appendJsonl, toUrl, fromUrl } from '../arcfs.js'
+import { extractFileRefs } from '../../shared/text-patterns.js'
+import * as workspace from './workspace.js'
 
 export const messagesPath = (dir, sessionId) =>
   path.join(dir, sessionId, 'messages.jsonl')
@@ -115,52 +119,71 @@ export const uploadAttachment = async (tmpDir, { data, path: filePath, filename,
   return { url: toUrl('tmp', name), filename, mediaType }
 }
 
-export const extractFiles = async (sessionDir, messages, attachments) => {
-  if (!attachments?.length) return messages
+const expandTilde = (p) => p.startsWith('~/') ? path.join(os.homedir(), p.slice(2)) : p
+
+export const resolveFileMentions = async (sessionDir, messages) => {
+  const lastUserText = messages.findLast(m => m.role === 'user')?.parts?.find(p => p.type === 'text')?.text
+  if (!lastUserText) return messages
+
+  const refs = extractFileRefs(lastUserText)
+  if (!refs.length) return messages
 
   const filesDir = path.join(sessionDir, 'files')
-  await fs.mkdir(filesDir, { recursive: true })
-
   const sessionId = path.basename(sessionDir)
   const fileParts = []
+  const referencePaths = []
+  const seen = new Set()
 
-  for (const att of attachments) {
-    if (att.url?.startsWith('arcfs://')) {
-      const srcPath = fromUrl(att.url)
-      if (srcPath.startsWith(filesDir)) {
-        fileParts.push({ type: 'file', url: att.url, filename: att.filename, mediaType: att.mediaType })
-        continue
+  for (const ref of refs) {
+    const raw = ref.path
+    const resolved = raw.startsWith('arcfs://') ? raw : path.resolve(expandTilde(raw))
+    if (seen.has(resolved)) continue
+    seen.add(resolved)
+
+    try {
+      if (raw.startsWith('arcfs://')) {
+        // Move strategy: arcfs temp files → session files
+        const srcPath = fromUrl(raw)
+        if (srcPath.startsWith(filesDir)) continue
+        await fs.mkdir(filesDir, { recursive: true })
+        const ext = path.extname(srcPath)
+        const name = `${generateId()}${ext}`
+        await fs.rename(srcPath, path.join(filesDir, name))
+        const mediaType = mime.getType(ext) ?? 'application/octet-stream'
+        fileParts.push({ type: 'file', url: toUrl('sessions', sessionId, 'files', name), filename: path.basename(srcPath), mediaType })
+      } else {
+        const mediaType = mime.getType(resolved)
+        if (mediaType?.startsWith('image/')) {
+          // Copy strategy: local images → session files
+          await fs.mkdir(filesDir, { recursive: true })
+          const ext = path.extname(resolved)
+          const name = `${generateId()}${ext}`
+          await fs.copyFile(resolved, path.join(filesDir, name))
+          fileParts.push({ type: 'file', url: toUrl('sessions', sessionId, 'files', name), filename: path.basename(resolved), mediaType })
+        } else {
+          // Reference strategy: local non-images → workspace access + XML
+          await workspace.add(resolved)
+          referencePaths.push(resolved)
+        }
       }
-      const id = generateId()
-      const name = `${id}${path.extname(att.filename)}`
-      await fs.rename(srcPath, path.join(filesDir, name))
-      fileParts.push({ type: 'file', url: toUrl('sessions', sessionId, 'files', name), filename: att.filename, mediaType: att.mediaType })
-    } else {
-      const id = generateId()
-      const name = `${id}${path.extname(att.filename)}`
-      if (att.path) {
-        await fs.copyFile(att.path, path.join(filesDir, name))
-      } else if (att.data) {
-        await fs.writeFile(path.join(filesDir, name), Buffer.from(att.data))
-      }
-      fileParts.push({ type: 'file', url: toUrl('sessions', sessionId, 'files', name), filename: att.filename, mediaType: att.mediaType })
+    } catch (e) {
+      console.warn(`[resolveFileMentions] Skipping ${raw}:`, e.message)
     }
   }
 
-  const result = messages.map(m => ({ ...m }))
-  for (let i = result.length - 1; i >= 0; i--) {
-    if (result[i].role === 'user') {
-      result[i] = {
-        ...result[i],
-        parts: [
-          ...result[i].parts.filter(p => p.type !== 'file'),
-          ...fileParts,
-        ],
-      }
-      break
-    }
+  let result = messages
+  if (fileParts.length) {
+    result = augmentUserMessage(result, fileParts, { prepend: true })
   }
-
+  if (referencePaths.length) {
+    const xml = [
+      '<workspace_files>',
+      'Files have been added to your workspace. Use the `read` tool to access their live contents. Do NOT guess their contents.',
+      ...referencePaths.map(p => `- ${p}`),
+      '</workspace_files>',
+    ].join('\n')
+    result = augmentUserMessage(result, [{ type: 'text', text: xml, arcSynthetic: true }])
+  }
   return result
 }
 

@@ -119,12 +119,12 @@ register('session:save-prompt', async ({ id, content }) => {
 
 // [DETECT-MAIN] activeSkill is no longer in the payload from the renderer.
 // It is detected from message text inside prepareSend (services/session.js).
-registerStream('session:send', async ({ sessionId, messages: inputMessages, attachments, promptRef, providerId, modelId, send, signal }) => {
+registerStream('session:send', async ({ sessionId, messages: inputMessages, promptRef, providerId, modelId, send, signal }) => {
   if (!providerId || !modelId) return send({ type: 'error', errorText: 'No model selected' })
 
   let ctx
   try {
-    ctx = await session.prepareSend(dir, { sessionId, inputMessages, attachments, promptRef, providerId, modelId })
+    ctx = await session.prepareSend(dir, { sessionId, inputMessages, promptRef, providerId, modelId })
   } catch (e) {
     return send({ type: 'error', errorText: e.message })
   }

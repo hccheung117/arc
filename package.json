@@ -72,6 +72,7 @@
     "electron-squirrel-startup": "^1.0.1",
     "gray-matter": "^4.0.3",
     "lucide-react": "^0.564.0",
+    "mime": "^4.1.0",
     "motion": "^12.35.0",
     "picomatch": "^4.0.3",
     "radix-ui": "^1.4.3",

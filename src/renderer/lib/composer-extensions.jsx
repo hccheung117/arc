@@ -65,11 +65,18 @@ const MentionView = ({ node }) => {
 
 export const uploadAndInsertFiles = async (editor, files) => {
   for (const file of files) {
-    const payload = file.path
-      ? { path: file.path, filename: file.name, mediaType: file.type }
-      : { data: await file.arrayBuffer(), filename: file.name, mediaType: file.type }
+    let url, filename, mediaType
 
-    const { url, filename, mediaType } = await window.api.call('message:upload-attachment', payload)
+    if (file.path) {
+      // Local file: insert mention with real path, let backend handle strategy
+      url = file.path
+      filename = file.name
+      mediaType = file.type
+    } else {
+      // In-memory blob (clipboard paste): upload to arcfs temp
+      const payload = { data: await file.arrayBuffer(), filename: file.name, mediaType: file.type }
+      ;({ url, filename, mediaType } = await window.api.call('message:upload-attachment', payload))
+    }
 
     editor.chain().focus().insertContent([
       { type: 'mention', attrs: { id: url, label: filename, mentionType: 'file', url, filename, mediaType } },

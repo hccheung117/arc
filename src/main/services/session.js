@@ -163,14 +163,14 @@ export const savePrompt = async (dir, id, content) => {
 // [SSOT] The renderer no longer extracts or passes activeSkill — the editor document
 // is the single source of truth, and the SkillMention node renders to `/skillName`
 // in plain text (see composer-extensions.js renderText).
-export const prepareSend = async (dir, { sessionId, inputMessages, attachments, promptRef, providerId, modelId }) => {
+export const prepareSend = async (dir, { sessionId, inputMessages, promptRef, providerId, modelId }) => {
   const provider = await getProvider(providerId)
   if (!provider) throw new Error(`Provider "${providerId}" not found`)
 
   const title = fallbackTitle(inputMessages)
   const isNew = await ensureMeta(dir, sessionId, promptRef, title)
   const system = await loadPrompt(dir, sessionId)
-  const messages = await message.extractFiles(resolve('sessions', sessionId), inputMessages, attachments)
+  const messages = await message.resolveFileMentions(resolve('sessions', sessionId), inputMessages)
   const filePath = message.messagesPath(dir, sessionId)
 
   // Skill augmentation: inject full skill content as a user message part.
