@@ -166,11 +166,24 @@ export const buildTools = ({ skills }) => {
   })
 
   const exec = tool({
-    description: 'Run a script bundled with a skill',
+    description: [
+      'Run a script bundled with a skill.',
+      'The command is split into a runner (the binary) and a script (path + args). Raw shell commands are not supported.',
+      '',
+      'Examples (bash → exec):',
+      '  bash: node scripts/build.js --out dist',
+      '  exec: runner="node", script="scripts/build.js --out dist"',
+      '',
+      '  bash: python3 scripts/analyze.py --verbose',
+      '  exec: runner="python3", script="scripts/analyze.py --verbose"',
+      '',
+      '  bash: ./scripts/deploy.sh staging',
+      '  exec: runner="native", script="scripts/deploy.sh staging"',
+    ].join('\n'),
     inputSchema: z.object({
-      runner: z.string().min(1).describe('Which runner to use'),
-      script: z.string().describe('Script path + args, relative to cwd'),
-      cwd: z.string().describe('Skill directory as arcfs:// URL (skillDirectory from load_skill)'),
+      runner: z.string().min(1).describe('The binary that executes the script. Use "node" for .js files, "native" for executables/shell scripts, or a binary name like "python3"'),
+      script: z.string().describe('Script path relative to cwd, followed by space-separated arguments (e.g. "scripts/run.js --flag value")'),
+      cwd: z.string().describe('Must be the arcfs:// URL from skillDirectory returned by load_skill'),
     }),
     execute: async ({ runner, script, cwd: rawCwd }) => {
       if (!rawCwd.startsWith('arcfs://')) return 'Invalid cwd: only arcfs:// URLs are accepted'
