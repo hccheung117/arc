@@ -194,7 +194,7 @@ skills/
 1. **Discovery & Merging:** At conversation time, the application scans for all available skills. It merges skills from the built-in `@app` profile and your active profile. Active profile skills take precedence by name, allowing you to override default skills.
 2. **System Prompt Injection:** The names and descriptions of all discovered skills are automatically injected into the system prompt as an XML catalog.
 3. **On-Demand Loading:** The LLM is provided with a `load_skill` tool. When the model determines a task matches a skill's description, it calls this tool to pull the full `SKILL.md` instructions into its context window.
-4. **Companion Files:** The `load_skill` tool returns the skill's instructions along with its directory URL (`arcfs://...`). The LLM can subsequently use the `read` tool to load any companion files from the `references/`, `scripts/`, or `assets/` subdirectories.
+4. **Companion Files:** The `load_skill` tool returns the skill's instructions along with its directory URL (`arcfs://...`). The LLM can subsequently use the `read_file` tool to load any companion files from the `references/`, `scripts/`, or `assets/` subdirectories.
 
 This progressive-disclosure approach keeps the initial system prompt lean while giving the model access to deep domain knowledge, specialized workflows, and supplementary files when needed.
 

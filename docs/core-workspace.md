@@ -6,9 +6,9 @@ This guide explains how Arc's workspace system manages file access. It consists 
 
 Arc replaces traditional per-action approval prompts with a global workspace model. The global workspace is a persisted set of paths the AI may read. Paths inside the workspace are accessible; paths outside are denied. 
 
-When a user mentions a text or code file or folder in a message, its path is automatically added to the whitelist. The `read` tool checks this whitelist before accessing any paths outside the internal `arcfs` virtual filesystem.
+When a user mentions a text or code file or folder in a message, its path is automatically added to the whitelist. The `read_file` tool checks this whitelist before accessing any paths outside the internal `arcfs` virtual filesystem.
 
-Currently, the global workspace enables **read-only** access.
+The global workspace enables **read and write** access via `read_file`, `list_dir`, `write_file`, and `edit_file`.
 
 ### Data Model
 
@@ -56,7 +56,7 @@ add('/a/b/')        → ['/a/b/']                 # subsumes both
 In addition to the global read-only whitelist, Arc provides a per-session workspace directory at `arcfs/sessions/<id>/workspace/`. This gives the AI a session-scoped space to autonomously store and retrieve files (experiment outputs, generated artifacts, scratch data) without user involvement.
 
 - **Automated & Lazy**: The directory is managed by `arcfs` and created lazily on the first message send.
-- **Auto-granted**: Paths inside `arcfs` bypass the global workspace whitelist check. The `read` tool can access them automatically.
+- **Auto-granted**: Paths inside `arcfs` bypass the global workspace whitelist check. The `read_file` tool can access them automatically.
 - **Skill Integration**: Skill scripts can write to the session workspace by receiving its `arcfs://` URL as an argument. The system prompt is automatically injected with an XML block (`<session_workspace>`) containing the workspace path so the AI knows where its working directory is.
 
 ## Integration & Smart File Mentions
@@ -74,4 +74,4 @@ For each extracted file reference, the system evaluates its path and type to app
 3. **Reference Strategy (Other Local Files)**
    - **Condition:** Path is a local filesystem path and is NOT an image.
    - **Action:** The file is **not** copied into `arcfs`. Instead, its real path is added to the global workspace whitelist (`workspace.add(path)`). 
-   - **Context Augmentation:** An XML block (`<workspace_files>`) is generated and injected into the user message, instructing the AI to use the `read` tool to access the live contents of the referenced files. This ensures zero overhead for code by avoiding duplication of large files and enforces the read-in-place paradigm.
+   - **Context Augmentation:** An XML block (`<workspace_files>`) is generated and injected into the user message, instructing the AI to use the `read_file` tool to access the live contents of the referenced files. This ensures zero overhead for code by avoiding duplication of large files and enforces the read-in-place paradigm.

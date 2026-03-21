@@ -1,13 +1,37 @@
-import { BookOpenIcon, FileTextIcon, TerminalSquareIcon, WrenchIcon } from "lucide-react"
+import { BookOpenIcon, FilePenIcon, FileTextIcon, FolderOpenIcon, PencilIcon, TerminalSquareIcon, WrenchIcon } from "lucide-react"
 
 const tools = {
-  read: {
+  read_file: {
     icon: FileTextIcon,
     label: (input) => {
       const filename = input?.path?.split('/').pop()
       return filename ? `Reading ${filename}` : 'Reading a file'
     },
     summary: (count) => `Read ${count} file${count > 1 ? 's' : ''}`,
+  },
+  list_dir: {
+    icon: FolderOpenIcon,
+    label: (input) => {
+      const dirname = input?.path?.split('/').pop()
+      return dirname ? `Listing ${dirname}` : 'Listing a directory'
+    },
+    summary: (count) => `Listed ${count} director${count > 1 ? 'ies' : 'y'}`,
+  },
+  write_file: {
+    icon: FilePenIcon,
+    label: (input) => {
+      const filename = input?.path?.split('/').pop()
+      return filename ? `Writing ${filename}` : 'Writing a file'
+    },
+    summary: (count) => `Wrote ${count} file${count > 1 ? 's' : ''}`,
+  },
+  edit_file: {
+    icon: PencilIcon,
+    label: (input) => {
+      const filename = input?.path?.split('/').pop()
+      return filename ? `Editing ${filename}` : 'Editing a file'
+    },
+    summary: (count) => `Edited ${count} file${count > 1 ? 's' : ''}`,
   },
   load_skill: {
     icon: BookOpenIcon,

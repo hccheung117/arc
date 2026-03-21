@@ -8,7 +8,7 @@ let queue = null
 const getEntries = () => (queue ??= readJson(filePath).then(d => Array.isArray(d) ? d : []))
 
 const covers = (entry, target) =>
-  entry.endsWith('/') ? target.startsWith(entry) : entry === target
+  entry.endsWith('/') ? target.startsWith(entry) || target + '/' === entry : entry === target
 
 /** All writes must go through mutate() to serialize and prevent lost updates. */
 const mutate = (fn) => {

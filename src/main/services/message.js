@@ -192,7 +192,7 @@ export const resolveFileMentions = async (sessionDir, messages) => {
   if (referencePaths.length) {
     const xml = [
       '<workspace_files>',
-      'Files have been added to your workspace. Use the `read` tool to access their live contents. Do NOT guess their contents.',
+      'Files have been added to your workspace. Use the `read_file` tool to access their live contents. Do NOT guess their contents.',
       ...referencePaths.map(p => `- ${p}`),
       '</workspace_files>',
     ].join('\n')
