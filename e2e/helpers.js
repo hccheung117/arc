@@ -148,7 +148,8 @@ export async function setupMainProcessMock(electronApp) {
         const send = (chunk) => {
           if (!event.sender.isDestroyed()) event.sender.send(channel, chunk)
         }
-        mockStreamRoutes[route]({ send, requestId, ...payload })
+        Promise.resolve().then(() => mockStreamRoutes[route]({ send, requestId, ...payload }))
+          .catch((e) => send({ type: 'error', errorText: e.message ?? 'Unexpected error' }))
         return
       }
       // Forward to original handlers

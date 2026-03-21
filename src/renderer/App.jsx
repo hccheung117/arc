@@ -9,7 +9,17 @@ import { useIsMobile } from "@/hooks/use-mobile"
 import AppSidebar from "@/components/AppSidebar"
 import Workbench from "@/components/Workbench"
 import Composer from "@/components/Composer"
-import { SessionProvider } from "@/contexts/SessionContext"
+import { SessionProvider, useSession } from "@/contexts/SessionContext"
+
+function ErrorBanner() {
+  const { status, error } = useSession()
+  if (status !== 'error') return null
+  return (
+    <p className="px-[var(--content-px)] text-sm text-destructive">
+      {error?.message ?? 'An error occurred'}
+    </p>
+  )
+}
 
 export default function App() {
   const panelRef = useRef(null)
@@ -64,6 +74,7 @@ export default function App() {
                 ref={footerRef}
                 className="absolute inset-x-0 bottom-0 z-10 flex max-h-[calc(100%-var(--header-h))] flex-col"
               >
+                <ErrorBanner />
                 <Composer />
               </div>
             </div>

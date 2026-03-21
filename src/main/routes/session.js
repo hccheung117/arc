@@ -137,7 +137,12 @@ registerStream('session:send', async ({ sessionId, messages: inputMessages, atta
     .then(async (changed) => { if (changed) await sessions.push() })
     .catch(() => {})
 
-  const result = await ctx.stream(send, signal)
+  let result
+  try {
+    result = await ctx.stream(send, signal)
+  } catch (e) {
+    return send({ type: 'error', errorText: e.message })
+  }
   if (!result) return
 
   const branches = await ctx.finalize(result)

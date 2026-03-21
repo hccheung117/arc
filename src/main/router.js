@@ -29,7 +29,8 @@ export const initIpc = () => {
     }
     const controller = new AbortController()
     activeStreams.set(requestId, controller)
-    Promise.resolve(streamRoutes[route]?.({ send, signal: controller.signal, requestId, ...payload }))
+    Promise.resolve().then(() => streamRoutes[route]?.({ send, signal: controller.signal, requestId, ...payload }))
+      .catch((e) => send({ type: 'error', errorText: e.message ?? 'Unexpected error' }))
       .finally(() => activeStreams.delete(requestId))
   })
 
