@@ -190,6 +190,7 @@ export const prepareSend = async (dir, { sessionId, inputMessages, promptRef, pr
   const skillContent = activeSkill ? await loadSkillContent(skills, activeSkill) : null
   // typeof null === 'object' in JS — don't use typeof to guard property access
   const activeSkillBody = skillContent?.content ?? null
+  const activeSkillDir = skillContent?.skillDirectory ?? null
 
   // Scan persisted history for existing augment (renderer doesn't receive arcSynthetic parts)
   const { messages: history } = await message.loadMessages(dir, sessionId)
@@ -197,7 +198,7 @@ export const prepareSend = async (dir, { sessionId, inputMessages, promptRef, pr
 
   // First activation → prepend full augment before persistence; subsequent sends skip injection
   const augmentedMessages = activeSkill && activeSkillBody && !alreadyAugmented
-    ? message.augmentUserMessage(messages, [buildSkillAugment(activeSkill, activeSkillBody)], { prepend: true })
+    ? message.augmentUserMessage(messages, [buildSkillAugment(activeSkill, activeSkillBody, activeSkillDir)], { prepend: true })
     : messages
 
   const lastId = await message.persistNewMessages(filePath, augmentedMessages)

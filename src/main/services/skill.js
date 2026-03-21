@@ -34,9 +34,9 @@ export const loadSkillContent = async (skills, name) => {
   return { content: matter(content).content, skillDirectory: skill.directory }
 }
 
-export const buildSkillAugment = (activeSkill, body) => ({
+export const buildSkillAugment = (activeSkill, body, directory) => ({
   type: 'text',
-  text: `<active_skill name="${activeSkill}">\n${body}\n</active_skill>`,
+  text: `<active_skill name="${activeSkill}"${directory ? ` directory="${directory}"` : ''}>\n${body}\n</active_skill>`,
   arcSynthetic: `skill:${activeSkill}`,
 })
 
@@ -45,6 +45,6 @@ export const hasSkillAugment = (messages, skillName) =>
 
 export const buildSkillsPrompt = (skills) => {
   if (!skills.length) return null
-  const entries = skills.map(s => `<skill name="${s.name}">${s.description}</skill>`).join('\n')
+  const entries = skills.map(s => `<skill name="${s.name}" directory="${s.directory}">${s.description}</skill>`).join('\n')
   return `<available_skills>\nProactively load a skill using the load_skill tool whenever it can help with the current task.\n\n${entries}\n</available_skills>`
 }
