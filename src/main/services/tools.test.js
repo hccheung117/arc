@@ -26,6 +26,11 @@ vi.mock('./skill.js', () => ({
   loadSkillContent: vi.fn(),
 }))
 
+const mockExecFile = vi.fn()
+vi.mock('node:child_process', () => ({
+  execFile: (...args) => mockExecFile(...args),
+}))
+
 const { add, _reset } = await import('./workspace.js')
 const { buildTools } = await import('./tools.js')
 
@@ -183,5 +188,74 @@ describe('edit_file tool', () => {
 
     const result = await edit_file.execute({ path: fp, old_string: 'a', new_string: 'b' })
     expect(result).toContain('appears 3 times')
+  })
+})
+
+describe('exec tool', () => {
+  const skillDir = path.join(arcfsDir, 'profiles', 'eascoai-test', 'skills', 'using-excel')
+  const skillDirUrl = 'arcfs://profiles/eascoai-test/skills/using-excel'
+  const { exec } = buildTools({ skills: [{ directory: skillDirUrl }] })
+
+  beforeEach(async () => {
+    mockExecFile.mockReset()
+    mockExecFile.mockImplementation((_bin, _args, _opts, cb) => cb(null, 'ok', ''))
+    await fs.mkdir(path.join(skillDir, 'scripts'), { recursive: true })
+    await fs.writeFile(path.join(skillDir, 'scripts', 'xlsx.js'), '// script')
+  })
+
+  const nodeBootstrap = 'delete process.versions.electron;process.execArgv=[];require(process.argv[1])'
+
+  test('node runner with subdirectory script and args', async () => {
+    await exec.execute({
+      runner: 'node',
+      script: 'scripts/xlsx.js create /tmp/demo.xlsx --from /tmp/test-data.json',
+      cwd: skillDirUrl,
+    })
+    expect(mockExecFile).toHaveBeenCalledWith(
+      process.execPath,
+      ['-e', nodeBootstrap, path.join(skillDir, 'scripts', 'xlsx.js'), 'create', '/tmp/demo.xlsx', '--from', '/tmp/test-data.json'],
+      expect.objectContaining({
+        cwd: skillDir,
+        env: expect.objectContaining({ ELECTRON_RUN_AS_NODE: '1' }),
+      }),
+      expect.any(Function),
+    )
+  })
+
+  test('node runner with multiple arcfs:// args', async () => {
+    await exec.execute({
+      runner: 'node',
+      script: 'scripts/xlsx.js create arcfs://sessions/abc/workspace/out.xlsx --from arcfs://sessions/abc/workspace/data.json',
+      cwd: skillDirUrl,
+    })
+    expect(mockExecFile).toHaveBeenCalledWith(
+      process.execPath,
+      [
+        '-e', nodeBootstrap,
+        path.join(skillDir, 'scripts', 'xlsx.js'),
+        'create',
+        path.join(arcfsDir, 'sessions', 'abc', 'workspace', 'out.xlsx'),
+        '--from',
+        path.join(arcfsDir, 'sessions', 'abc', 'workspace', 'data.json'),
+      ],
+      expect.objectContaining({ cwd: skillDir }),
+      expect.any(Function),
+    )
+  })
+
+  test('freeform runner resolves from PATH', async () => {
+    await exec.execute({ runner: 'python', script: 'scripts/xlsx.js', cwd: skillDirUrl })
+    expect(mockExecFile).toHaveBeenCalledWith(
+      'python',
+      [path.join(skillDir, 'scripts', 'xlsx.js')],
+      expect.objectContaining({ cwd: skillDir }),
+      expect.any(Function),
+    )
+  })
+
+  test('rejects script outside trusted skill directories', async () => {
+    const result = await exec.execute({ runner: 'node', script: '../../../etc/passwd', cwd: skillDirUrl })
+    expect(result).toBe('Script is outside trusted skill directories')
+    expect(mockExecFile).not.toHaveBeenCalled()
   })
 })

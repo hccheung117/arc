@@ -156,13 +156,6 @@ const edit_file = tool({
   },
 })
 
-const RUNNERS = {
-  node: { bin: () => process.execPath, env: { ELECTRON_RUN_AS_NODE: '1' }, platforms: null },
-  bash: { bin: () => '/bin/bash', env: {}, platforms: new Set(['darwin', 'linux']) },
-  powershell: { bin: () => 'powershell.exe', env: {}, platforms: new Set(['win32']) },
-  native: { bin: null, env: {}, platforms: null },
-}
-
 export const buildTools = ({ skills }) => {
   const trustedDirs = skills.map(s => fromUrl(s.directory))
 
@@ -175,19 +168,16 @@ export const buildTools = ({ skills }) => {
   const exec = tool({
     description: 'Run a script bundled with a skill',
     inputSchema: z.object({
-      runner: z.enum(['node', 'bash', 'powershell', 'native']).describe('Which runner to use'),
+      runner: z.string().min(1).describe('Which runner to use'),
       script: z.string().describe('Script path + args, relative to cwd'),
       cwd: z.string().describe('Skill directory as arcfs:// URL (skillDirectory from load_skill)'),
     }),
     execute: async ({ runner, script, cwd: rawCwd }) => {
-      const cfg = RUNNERS[runner]
-      if (cfg.platforms && !cfg.platforms.has(process.platform))
-        return `${runner} is not available on ${process.platform}`
-
       if (!rawCwd.startsWith('arcfs://')) return 'Invalid cwd: only arcfs:// URLs are accepted'
       const resolvedCwd = fromUrl(rawCwd)
-      const [scriptPath, ...args] = script.split(' ')
+      const [scriptPath, ...rawArgs] = script.split(' ')
       const resolved = path.resolve(resolvedCwd, scriptPath)
+      const args = rawArgs.map(a => a.startsWith('arcfs://') ? fromUrl(a) : a)
 
       if (!trustedDirs.some(dir => resolved.startsWith(dir + path.sep)))
         return `Script is outside trusted skill directories`
@@ -198,13 +188,17 @@ export const buildTools = ({ skills }) => {
       if (runner === 'native' && process.platform !== 'win32')
         await fs.chmod(resolved, 0o755)
 
-      const execBin = cfg.bin ? cfg.bin() : resolved
-      const execArgs = cfg.bin ? [resolved, ...args] : args
+      const isNode = runner === 'node'
+      const isNative = runner === 'native'
+      const execBin = isNode ? process.execPath : isNative ? resolved : runner
+      // Bootstrap via -e to clear process.versions.electron and execArgv so
+      // Commander (and similar libs) use standard node argv parsing
+      const nodeBootstrap = 'delete process.versions.electron;process.execArgv=[];require(process.argv[1])'
+      const execArgs = isNative ? args : isNode ? ['-e', nodeBootstrap, resolved, ...args] : [resolved, ...args]
+      const { NODE_OPTIONS, NODE_DEBUG, ...cleanEnv } = process.env
+      const env = isNode ? { ...cleanEnv, ELECTRON_RUN_AS_NODE: '1' } : cleanEnv
       return new Promise((resolve) => {
-        execFile(execBin, execArgs, {
-          cwd: resolvedCwd,
-          env: { ...process.env, ...cfg.env },
-        }, (error, stdout, stderr) => {
+        execFile(execBin, execArgs, { cwd: resolvedCwd, env }, (error, stdout, stderr) => {
           resolve({ stdout, stderr, exitCode: error ? error.code ?? 1 : 0 })
         })
       })
