@@ -116,8 +116,9 @@ export const PromptInputProvider = ({
     if (incoming.length === 0) return;
 
     const uploaded = await Promise.all(incoming.map(async (file) => {
-      const payload = file.path
-        ? { path: file.path, filename: file.name, mediaType: file.type }
+      const filePath = window.api.getFilePath(file)
+      const payload = filePath
+        ? { path: filePath, filename: file.name, mediaType: file.type }
         : { data: await file.arrayBuffer(), filename: file.name, mediaType: file.type };
       return window.api.call('message:upload-attachment', payload);
     }));
@@ -315,8 +316,9 @@ export const PromptInput = ({
     }
 
     const uploaded = await Promise.all(capped.map(async (file) => {
-      const payload = file.path
-        ? { path: file.path, filename: file.name, mediaType: file.type }
+      const filePath = window.api.getFilePath(file)
+      const payload = filePath
+        ? { path: filePath, filename: file.name, mediaType: file.type }
         : { data: await file.arrayBuffer(), filename: file.name, mediaType: file.type };
       return window.api.call('message:upload-attachment', payload);
     }));

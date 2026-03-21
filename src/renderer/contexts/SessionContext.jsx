@@ -34,10 +34,14 @@ export function SessionProvider({ children }) {
   useEffect(() => window.api.on('session:state:feed', (payload) => {
     if (payload.sessionId !== activeSessionId) return
     if (payload.replaceFiles) {
-      const { id, parts } = payload.replaceFiles
+      const { id, parts, textParts } = payload.replaceFiles
       const c = chatRef.current
       c.setMessages(c.messages.map(m =>
-        m.id === id ? { ...m, parts: [...m.parts.filter(p => p.type !== 'file'), ...parts] } : m
+        m.id === id ? { ...m, parts: [
+          ...parts,
+          ...(textParts ?? m.parts.filter(p => p.type === 'text')),
+          ...m.parts.filter(p => p.type !== 'file' && p.type !== 'text'),
+        ] } : m
       ))
     }
     if (payload.messages) {

@@ -45,3 +45,5 @@ export const isAllowed = async (rawPath) => {
   const resolved = path.resolve(rawPath)
   return entries.some(e => covers(e, resolved))
 }
+
+export const _reset = () => { queue = null }

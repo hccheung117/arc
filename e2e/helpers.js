@@ -131,8 +131,9 @@ export async function triggerEditMode(electronApp, role, messageId) {
 // by intercepting ipc:stream and ipc:invoke handlers
 
 export async function setupMainProcessMock(electronApp) {
-  await electronApp.evaluate(({ ipcMain }) => {
+  await electronApp.evaluate(({ ipcMain, BrowserWindow }) => {
     if (globalThis.__testMocksInstalled) return
+    globalThis.__testBrowserWindow = BrowserWindow
 
     // --- Stream mocks (session:send, assist:refine-prompt) ---
     const origStreamListeners = [...ipcMain.rawListeners('ipc:stream')]

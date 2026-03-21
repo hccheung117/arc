@@ -1,6 +1,7 @@
-const { contextBridge, ipcRenderer } = require('electron')
+const { contextBridge, ipcRenderer, webUtils } = require('electron')
 
 contextBridge.exposeInMainWorld('api', Object.freeze({
+  getFilePath: (file) => webUtils.getPathForFile(file),
   call: (route, payload, onChunk) => {
     if (typeof onChunk !== 'function')
       return ipcRenderer.invoke('ipc:invoke', route, payload)

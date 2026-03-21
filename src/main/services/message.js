@@ -4,7 +4,7 @@ import path from 'node:path'
 import { generateId } from 'ai'
 import mime from 'mime'
 import { readJsonl, appendJsonl, toUrl, fromUrl } from '../arcfs.js'
-import { extractFileRefs } from '../../shared/text-patterns.js'
+import { extractFileRefs, quotePath } from '../../shared/text-patterns.js'
 import * as workspace from './workspace.js'
 
 export const messagesPath = (dir, sessionId) =>
@@ -132,6 +132,7 @@ export const resolveFileMentions = async (sessionDir, messages) => {
   const sessionId = path.basename(sessionDir)
   const fileParts = []
   const referencePaths = []
+  const urlMap = new Map()
   const seen = new Set()
 
   for (const ref of refs) {
@@ -150,7 +151,9 @@ export const resolveFileMentions = async (sessionDir, messages) => {
         const name = `${generateId()}${ext}`
         await fs.rename(srcPath, path.join(filesDir, name))
         const mediaType = mime.getType(ext) ?? 'application/octet-stream'
-        fileParts.push({ type: 'file', url: toUrl('sessions', sessionId, 'files', name), filename: path.basename(srcPath), mediaType })
+        const newUrl = toUrl('sessions', sessionId, 'files', name)
+        fileParts.push({ type: 'file', url: newUrl, filename: path.basename(srcPath), mediaType })
+        urlMap.set(raw, newUrl)
       } else {
         const mediaType = mime.getType(resolved)
         if (mediaType?.startsWith('image/')) {
@@ -159,7 +162,9 @@ export const resolveFileMentions = async (sessionDir, messages) => {
           const ext = path.extname(resolved)
           const name = `${generateId()}${ext}`
           await fs.copyFile(resolved, path.join(filesDir, name))
-          fileParts.push({ type: 'file', url: toUrl('sessions', sessionId, 'files', name), filename: path.basename(resolved), mediaType })
+          const newUrl = toUrl('sessions', sessionId, 'files', name)
+          fileParts.push({ type: 'file', url: newUrl, filename: path.basename(resolved), mediaType })
+          urlMap.set(raw, newUrl)
         } else {
           // Reference strategy: local non-images → workspace access + XML
           await workspace.add(resolved)
@@ -169,6 +174,15 @@ export const resolveFileMentions = async (sessionDir, messages) => {
     } catch (e) {
       console.warn(`[resolveFileMentions] Skipping ${raw}:`, e.message)
     }
+  }
+
+  if (urlMap.size) {
+    let text = lastUserText
+    for (const ref of [...refs].sort((a, b) => b.end - a.end)) {
+      const newUrl = urlMap.get(ref.path)
+      if (newUrl) text = text.slice(0, ref.start) + '@' + quotePath(newUrl) + text.slice(ref.end)
+    }
+    messages.findLast(m => m.role === 'user').parts.find(p => p.type === 'text').text = text
   }
 
   let result = messages

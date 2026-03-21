@@ -204,7 +204,8 @@ export const prepareSend = async (dir, { sessionId, inputMessages, promptRef, pr
 
   const userMsg = augmentedMessages.findLast(m => m.role === 'user')
   const fileParts = userMsg?.parts.filter(p => p.type === 'file')
-  const fileReplacement = fileParts?.length ? { id: userMsg.id, parts: fileParts } : null
+  const textParts = userMsg?.parts.filter(p => p.type === 'text' && !p.arcSynthetic)
+  const fileReplacement = fileParts?.length ? { id: userMsg.id, parts: fileParts, textParts } : null
   const { branches } = await message.loadMessages(dir, sessionId)
 
   const workspaceUrl = await sessionWorkspace(sessionId)
