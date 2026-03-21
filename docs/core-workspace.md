@@ -1,18 +1,18 @@
 # Workspace
 
-This guide explains how Arc's workspace system manages a persistent whitelist of filesystem paths that the AI is permitted to read, replacing per-action user prompts with automatic path approval based on user mentions.
+This guide explains how Arc's workspace system manages file access. It consists of two main concepts: a **Global Workspace** (a persistent whitelist of user-approved filesystem paths) and a **Session Workspace** (an isolated, session-scoped scratchpad for the AI).
 
-## How It Works
+## Global Workspace
 
-Arc replaces traditional per-action approval prompts with a workspace model. The workspace is a persisted set of paths the AI may read. Paths inside the workspace are accessible; paths outside are denied. 
+Arc replaces traditional per-action approval prompts with a global workspace model. The global workspace is a persisted set of paths the AI may read. Paths inside the workspace are accessible; paths outside are denied. 
 
-When a user mentions a file or folder in a message, its path is automatically added to the whitelist. The `read` tool checks this whitelist before accessing any paths outside the internal `arcfs` virtual filesystem.
+When a user mentions a text or code file or folder in a message, its path is automatically added to the whitelist. The `read` tool checks this whitelist before accessing any paths outside the internal `arcfs` virtual filesystem.
 
-Currently, the workspace enables read-only access.
+Currently, the global workspace enables **read-only** access.
 
-## Data Model
+### Data Model
 
-The workspace is stored as a flat JSON array of absolute path strings, persisted at `arcfs/workspace.json`. Directories end with a trailing slash (`/`) to distinguish them from files.
+The global workspace is stored as a flat JSON array of absolute path strings, persisted at `arcfs/workspace.json`. Directories end with a trailing slash (`/`) to distinguish them from files.
 
 ```json
 [
@@ -21,12 +21,12 @@ The workspace is stored as a flat JSON array of absolute path strings, persisted
 ]
 ```
 
-- All paths are stored in resolved, absolute form (using `path.resolve()` before storage). 
-- There are no `~`, `..`, or relative paths. 
+- All paths are stored in resolved, absolute form (using `path.resolve()` before storage). Tilde (`~`) paths are explicitly expanded to the user's home directory before evaluation.
+- There are no `..` or relative paths. 
 - Paths are host-native (Windows-style on Windows, POSIX on macOS/Linux), normalized using Node's `path` module on the running OS.
 - The whitelist is global and persistent—once a path is granted, it stays granted across all sessions. 
 
-## Smart Merging
+### Smart Merging
 
 When a path is added, the list is normalized to prevent redundancy:
 
@@ -34,7 +34,7 @@ When a path is added, the list is normalized to prevent redundancy:
 2. **New path covers existing entries**: Adding `/a/b/` when `/a/b/c.js` and `/a/b/d/` exist removes both and adds `/a/b/`.
 3. **No overlap**: The path is simply appended.
 
-### Coverage Rules
+#### Coverage Rules
 
 - **Directory entries** (trailing `/`): A path is covered if it starts with the directory string. The trailing `/` prevents partial matches (e.g., `/a/bc` does not match `/a/b/`).
 - **File entries** (no trailing `/`): Exact match only. `/notes.md` does not cover `/notes.md.backup`.
@@ -51,24 +51,27 @@ add('/a/b/d/')      → ['/a/b/c.js', '/a/b/d/']
 add('/a/b/')        → ['/a/b/']                 # subsumes both
 ```
 
-## Integration
+## Session Workspace
 
-### File Mentions
+In addition to the global read-only whitelist, Arc provides a per-session workspace directory at `arcfs/sessions/<id>/workspace/`. This gives the AI a session-scoped space to autonomously store and retrieve files (experiment outputs, generated artifacts, scratch data) without user involvement.
 
-The workspace reacts to file mentions regardless of the input method (e.g., attach button, drag-and-drop). The original filesystem path is preserved and passed to `workspace.add()` at the point where the main process first handles the attachment—before or alongside the file being copied into `arcfs://` storage.
+- **Automated & Lazy**: The directory is managed by `arcfs` and created lazily on the first message send.
+- **Auto-granted**: Paths inside `arcfs` bypass the global workspace whitelist check. The `read` tool can access them automatically.
+- **Skill Integration**: Skill scripts can write to the session workspace by receiving its `arcfs://` URL as an argument. The system prompt is automatically injected with an XML block (`<session_workspace>`) containing the workspace path so the AI knows where its working directory is.
 
-Attachments without a source filesystem path (like pasted in-memory blobs) do not trigger path additions.
+## Integration & Smart File Mentions
 
-### Tool Awareness
+The workspace reacts to file mentions in the chat composer (e.g., `@/path/to/file`). The plain text with `@` mentions is the single source of truth—the legacy `attachments` array concept is removed, and the backend parses these directly from the user's message text.
 
-The `read` tool is workspace-aware. In addition to internal `arcfs://` URLs, it accepts real filesystem paths gated by `workspace.isAllowed()`.
+For each extracted file reference, the system evaluates its path and type to apply one of three strategies:
 
-All incoming paths are resolved via `path.resolve()` before the `isAllowed()` check to ensure relative paths and `..` correctly map to stored entries.
-
-```text
-arcfs:// path       →  resolve via fromUrl()        (existing behavior)
-real path allowed   →  use directly                  
-real path denied    →  'Access denied: not in workspace'
-```
-
-*Note: Tools like `exec` and `load_skill` serve different purposes (executing scripts and loading skill instructions) and are not subject to the workspace concept.*
+1. **Move Strategy (Temp Files & Drag-and-Drop Blobs)**
+   - **Condition:** Path starts with `arcfs://tmp/` (created when the UI handles a paste or drag-and-drop without a real file path).
+   - **Action:** The file is moved into the session's permanent `files` directory (`arcfs://sessions/<id>/files/`), and passed to the LLM directly as a file part.
+2. **Copy Strategy (Local Images)**
+   - **Condition:** Path is a local filesystem path with an image extension (`.png`, `.jpg`, etc.).
+   - **Action:** The image is copied from the local filesystem into the session's permanent `files` directory, and passed to the LLM via the multimodal API.
+3. **Reference Strategy (Other Local Files)**
+   - **Condition:** Path is a local filesystem path and is NOT an image.
+   - **Action:** The file is **not** copied into `arcfs`. Instead, its real path is added to the global workspace whitelist (`workspace.add(path)`). 
+   - **Context Augmentation:** An XML block (`<workspace_files>`) is generated and injected into the user message, instructing the AI to use the `read` tool to access the live contents of the referenced files. This ensures zero overhead for code by avoiding duplication of large files and enforces the read-in-place paradigm.
