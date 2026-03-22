@@ -1,8 +1,8 @@
 import fs from 'node:fs/promises'
-import { dialog, Menu } from 'electron'
+import { dialog, Menu, shell } from 'electron'
 import { register, registerStream, push, getMainWindow } from '../router.js'
 import { defineChannel } from '../channel.js'
-import { resolve } from '../arcfs.js'
+import { resolve, sessionWorkspace, fromUrl } from '../arcfs.js'
 import * as session from '../services/session.js'
 import * as layout from '../services/layout.js'
 import * as message from '../services/message.js'
@@ -89,6 +89,11 @@ register('session:folder-context-menu', ({ folderIndex }) => {
 })
 
 register('session:activate', ({ sessionId }) => sessionState.push(sessionId))
+
+register('session:open-workspace', async ({ sessionId }) => {
+  const url = await sessionWorkspace(sessionId)
+  shell.openPath(fromUrl(url))
+})
 
 register('session:export', async ({ sessionId }) => {
   const content = await message.exportMarkdown(dir, sessionId)

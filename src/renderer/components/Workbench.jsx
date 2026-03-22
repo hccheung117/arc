@@ -1,4 +1,4 @@
-import { Drama, Download } from "lucide-react"
+import { Drama, Download, FolderOpen } from "lucide-react"
 import { MessageSquareIcon } from "lucide-react"
 import { useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -124,6 +124,10 @@ export default function Workbench() {
     window.api.call('message:context-menu', { sessionId, id: msg.id, role: msg.role, text: textFromParts(msg), selection })
   }
 
+  const handleOpenWorkspace = useCallback(() => {
+    window.api.call('session:open-workspace', { sessionId })
+  }, [sessionId])
+
   const handleDownload = useCallback(() => {
     window.api.call('session:export', { sessionId })
   }, [sessionId])
@@ -140,6 +144,7 @@ export default function Workbench() {
               <span className="text-sm font-semibold truncate">{title || "Arc"}</span>
             </div>
             <div className="flex items-center gap-1">
+              <Button onClick={handleOpenWorkspace} variant="ghost" size="icon-sm"><FolderOpen /></Button>
               <Button
                 variant={mode === "prompt" ? "default" : "ghost"}
                 size="icon-sm"
