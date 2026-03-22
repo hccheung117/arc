@@ -97,11 +97,12 @@ export const expandArgsVars = (args, vars) => {
   return result
 }
 
-export const buildTools = ({ skills, workspacePath }) => {
+export const buildTools = ({ skills, workspacePath, tmpPath }) => {
   const arcfsRoot = arcfsResolve()
   const trustedDirs = skills.map(s => fromUrl(s.directory))
   const vars = {}
   if (workspacePath) vars.WORKSPACE = workspacePath
+  if (tmpPath) vars.SESSION_TMP = tmpPath
   for (const s of skills) vars[skillEnvName(s.name)] = fromUrl(s.directory)
 
   const resolvePath = async (rawPath) => {

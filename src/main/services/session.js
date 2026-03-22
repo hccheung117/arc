@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { sessionId } from '@shared/ids.js'
-import { readJson, writeJson, readJsonl, appendJsonl, resolve, sessionWorkspace, fromUrl } from '../arcfs.js'
+import { readJson, writeJson, readJsonl, appendJsonl, resolve, sessionWorkspace, sessionTmp, fromUrl } from '../arcfs.js'
 import { resolveSessionPrompt, saveSessionPrompt, savePrompt as saveAppPrompt, promptsAppDir } from './prompts.js'
 import { getProvider } from './provider.js'
 import { fallbackTitle, generateTitle } from './assist.js'
@@ -210,9 +210,10 @@ export const prepareSend = async (dir, { sessionId, inputMessages, promptRef, pr
   const { branches } = await message.loadMessages(dir, sessionId)
 
   const workspacePath = fromUrl(await sessionWorkspace(sessionId))
-  const workspacePrompt = `<session_workspace path="$WORKSPACE">\nYour working directory for this session. Store generated artifacts, experiment outputs, and scratch files here.\nAll files you create MUST be stored in $WORKSPACE. Do not write to any other path unless the user explicitly provides one. If a task requires writing outside $WORKSPACE and the user has not specified a path, report an error instead of choosing an alternative path.\nTo read files the user shared, use read_file with their original filesystem paths.\n</session_workspace>`
+  const tmpPath = fromUrl(await sessionTmp(sessionId))
+  const workspacePrompt = `<session_workspace path="$WORKSPACE">\nYour working directory for user-facing deliverables. Store final outputs and files intended for the user here.\nAll deliverables you create MUST be stored in $WORKSPACE. Do not write to any other path unless the user explicitly provides one. If a task requires writing outside $WORKSPACE and the user has not specified a path, report an error instead of choosing an alternative path.\nTo read files the user shared, use read_file with their original filesystem paths.\n</session_workspace>\n\n<session_tmp path="$SESSION_TMP">\nYour scratch space for intermediate and in-progress files. Store drafts, temporary data, work-in-progress artifacts, and any middle-stage production here.\nDo not place user-facing deliverables in $SESSION_TMP — those belong in $WORKSPACE.\n</session_tmp>`
   const fullSystem = [system, buildSkillsPrompt(skills), workspacePrompt].filter(Boolean).join('\n\n')
-  const tools = buildTools({ skills, workspacePath })
+  const tools = buildTools({ skills, workspacePath, tmpPath })
 
   return {
     isNew,

@@ -56,3 +56,9 @@ export const sessionWorkspace = async (sessionId) => {
   await fs.mkdir(dir, { recursive: true })
   return toUrl('sessions', sessionId, 'workspace')
 }
+
+export const sessionTmp = async (sessionId) => {
+  const dir = resolve('tmp', sessionId)
+  await fs.mkdir(dir, { recursive: true })
+  return toUrl('tmp', sessionId)
+}
