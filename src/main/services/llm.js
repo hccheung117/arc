@@ -5,6 +5,13 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { app } from 'electron'
 import { resolveArcfsUrls } from './message.js'
 
+// LLM text parts often carry leading/trailing whitespace and blank lines
+// from the model stream. Trim at the source so all downstream consumers
+// (rendering, export, edit prefill) receive clean text without per-site cleanup.
+const cleanParts = (steps) => steps.flatMap(step => step.content)
+  .map(p => p.type === 'text' ? { ...p, text: p.text.trim() } : p)
+  .filter(p => p.type !== 'text' || p.text)
+
 const clientFactories = {
   anthropic: (p) => createAnthropic({
     baseURL: p.baseUrl,
@@ -106,7 +113,7 @@ export const streamText = async ({ provider, modelId, system, messages, send, si
     // toUIMessageStream consumed the stream above, so steps resolves immediately.
     // step.content is a unified array of text, reasoning, and source parts.
     const steps = await result.steps
-    const parts = steps.flatMap(step => step.content)
+    const parts = cleanParts(steps)
     return { assistantId, parts }
   } catch (e) {
     send({ type: 'error', errorText: e.message ?? 'No response generated' })
@@ -143,7 +150,7 @@ export const stream = async ({ provider, modelId, system, messages, tools, send,
   try {
     // step.content includes text, reasoning, tool-call, and tool-result parts
     const steps = await result.steps
-    const parts = steps.flatMap(step => step.content)
+    const parts = cleanParts(steps)
     return { assistantId, parts }
   } catch (e) {
     send({ type: 'error', errorText: e.message ?? 'No response generated' })
