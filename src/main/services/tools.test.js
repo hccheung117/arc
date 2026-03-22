@@ -119,7 +119,7 @@ describe('list_dir tool', () => {
     await fs.writeFile(path.join(dir, 'a.txt'), 'a')
 
     const result = await list_dir.execute({ path: dir })
-    expect(result).toEqual([{ name: 'a.txt', type: 'file', size: 1 }])
+    expect(result).toBe(`BASE PATH: ${dir}/\n\na.txt\t1 B`)
   })
 
   test('allows whitelisted path and sorts dirs first', async () => {
@@ -130,11 +130,7 @@ describe('list_dir tool', () => {
     await add(dir)
 
     const result = await list_dir.execute({ path: dir })
-    expect(result).toEqual([
-      { name: 'subdir', type: 'directory' },
-      { name: 'a.txt', type: 'file', size: 1 },
-      { name: 'b.txt', type: 'file', size: 2 },
-    ])
+    expect(result).toBe(`BASE PATH: ${dir}/\n\nsubdir/\na.txt\t1 B\nb.txt\t2 B`)
   })
 
   test('returns error for non-directory', async () => {

@@ -8,6 +8,12 @@ import { resolve as arcfsResolve, fromUrl } from '../arcfs.js'
 import { loadSkillContent, skillEnvName } from './skill.js'
 import * as workspace from './workspace.js'
 
+const formatSize = (bytes) => {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 const SMALL_FILE_THRESHOLD = 500
 const DEFAULT_PREVIEW_LINES = 200
 
@@ -139,17 +145,17 @@ export const buildTools = ({ skills, workspacePath }) => {
       }
       const dirs = entries.filter(e => e.isDirectory()).sort((a, b) => a.name.localeCompare(b.name))
       const files = entries.filter(e => e.isFile()).sort((a, b) => a.name.localeCompare(b.name))
-      const result = []
-      for (const d of dirs) result.push({ name: d.name, type: 'directory' })
+      const lines = [`BASE PATH: ${resolved.path}/`, '']
+      for (const d of dirs) lines.push(`${d.name}/`)
       for (const f of files) {
         try {
           const stat = await fs.stat(path.join(resolved.path, f.name))
-          result.push({ name: f.name, type: 'file', size: stat.size })
+          lines.push(`${f.name}\t${formatSize(stat.size)}`)
         } catch {
-          result.push({ name: f.name, type: 'file', size: -1 })
+          lines.push(`${f.name}\t(error)`)
         }
       }
-      return result
+      return lines.join('\n')
     },
   })
 
