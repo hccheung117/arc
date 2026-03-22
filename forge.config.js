@@ -3,6 +3,7 @@ const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 
 module.exports = {
   packagerConfig: {
+    extraResources: [{ from: 'src/skills', to: 'skills' }],
     asar: true,
     icon: './assets/icon',
     appBundleId: 'io.github.hccheung117.arc',

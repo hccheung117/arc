@@ -198,6 +198,21 @@ skills/
 
 This progressive-disclosure approach keeps the initial system prompt lean while giving the model access to deep domain knowledge, specialized workflows, and supplementary files when needed.
 
+### Built-in Skills
+
+Arc ships with built-in skills that provide core capabilities out of the box. These skills are bundled with the application and cannot be deleted, serving as the lowest priority fallback.
+
+**Merge Priority:**
+When discovering skills, the application merges them in the following order (highest to lowest priority):
+1. **`@app`** — Personal user overrides
+2. **Active profile** — Shared configuration
+3. **`@builtin`** — Shipped application defaults
+
+You can override a built-in skill simply by creating a skill with the exact same name in your profile or personal `@app` directory.
+
+**Constraints:**
+- Built-in skills are **read-only**. The LLM can read and execute files from them, but cannot modify their contents.
+
 ### Executing Scripts
 
 Skills can ship with executable code in their `scripts/` directory. To run these scripts during a conversation, the LLM is provided with an `exec` tool. 

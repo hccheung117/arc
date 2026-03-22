@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url';
 import started from 'electron-squirrel-startup';
 import { initIpc, setMainWindow, dispatch } from './router.js';
 import { pushAll } from './channel.js';
-import { resolve, fromUrl } from './arcfs.js';
+import { resolve, fromUrl, builtinBase } from './arcfs.js';
 import { getState, setState } from './services/state.js';
 import { refreshModels } from './routes/models.js';
 import './routes/session.js';
@@ -88,9 +88,11 @@ app.whenReady().then(() => {
   fs.rm(resolve('tmp'), { recursive: true, force: true }).catch(() => {})
 
   const arcfsRoot = resolve()
+  const builtinRoot = builtinBase()
   protocol.handle('arcfs', (request) => {
     const filePath = fromUrl(request.url)
-    if (!filePath.startsWith(arcfsRoot)) return new Response('Forbidden', { status: 403 })
+    if (!filePath.startsWith(arcfsRoot) && !filePath.startsWith(builtinRoot))
+      return new Response('Forbidden', { status: 403 })
     return net.fetch(pathToFileURL(filePath).toString())
   })
 

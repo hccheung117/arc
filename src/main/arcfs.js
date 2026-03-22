@@ -6,11 +6,19 @@ import writeFileAtomic from 'write-file-atomic'
 export const resolve = (...segments) =>
   path.join(app.getPath('userData'), 'arcfs', ...segments)
 
+export const builtinBase = () => app.isPackaged
+  ? path.join(process.resourcesPath, 'skills')
+  : path.join(app.getAppPath(), 'src', 'skills')
+
 export const toUrl = (...segments) =>
   `arcfs://${segments.join('/')}`
 
 export const fromUrl = (url) => {
   const parsed = new URL(url)
+  if (parsed.hostname === 'builtin') {
+    const rest = parsed.pathname.slice(1).split('/').filter(Boolean)
+    return path.join(builtinBase(), ...rest)
+  }
   const segments = [parsed.hostname, ...parsed.pathname.slice(1).split('/').filter(Boolean)]
   const resolved = resolve(...segments)
   const root = resolve()

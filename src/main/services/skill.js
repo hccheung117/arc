@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import matter from 'gray-matter'
-import { resolve, readMarkdown, toUrl, fromUrl } from '../arcfs.js'
+import { resolve, readMarkdown, toUrl, fromUrl, builtinBase } from '../arcfs.js'
 import { resolveDir } from './profile.js'
 
 export const listSkills = async (dir) => {
@@ -23,7 +23,17 @@ export const listSkills = async (dir) => {
   }))).filter(Boolean)
 }
 
-export const discoverSkills = () => resolveDir('skills', listSkills)
+const listBuiltinSkills = async () => {
+  const entries = await listSkills(builtinBase())
+  return entries.map(e => ({ ...e, directory: toUrl('builtin', e.name), source: '@builtin' }))
+}
+
+export const discoverSkills = async () => {
+  const resolved = await resolveDir('skills', listSkills)
+  const builtins = await listBuiltinSkills()
+  const resolvedNames = new Set(resolved.map(s => s.name))
+  return [...resolved, ...builtins.filter(s => !resolvedNames.has(s.name))]
+}
 
 export const skillEnvName = (name) => name.replace(/-/g, '_').toUpperCase() + '_SKILL_DIR'
 

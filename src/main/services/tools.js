@@ -109,6 +109,7 @@ export const buildTools = ({ skills, workspacePath, tmpPath }) => {
     const expanded = expandVars(rawPath, vars)
     const filePath = path.resolve(expanded)
     if (filePath.startsWith(arcfsRoot + path.sep) || filePath === arcfsRoot) return { path: filePath }
+    if (trustedDirs.some(dir => filePath === dir || filePath.startsWith(dir + path.sep))) return { path: filePath }
     if (!await workspace.isAllowed(filePath)) return { error: 'Access denied: not in workspace' }
     return { path: filePath }
   }
