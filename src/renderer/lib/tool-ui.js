@@ -38,10 +38,10 @@ const tools = {
     label: (input) => `Loading ${input?.name ?? 'a skill'} skill`,
     summary: (count) => `Loaded ${count} skill${count > 1 ? 's' : ''}`,
   },
-  exec: {
+  run_file: {
     icon: TerminalSquareIcon,
     label: (input) => {
-      const scriptPath = input?.script?.split(' ')[0]
+      const scriptPath = input?.file?.split('/').pop()
       return scriptPath ? `Running ${scriptPath}` : 'Running a script'
     },
     summary: (count) => `Ran ${count} script${count > 1 ? 's' : ''}`,
