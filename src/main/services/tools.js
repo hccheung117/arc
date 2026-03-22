@@ -4,8 +4,8 @@ import path from 'node:path'
 import process from 'node:process'
 import { tool } from 'ai'
 import { z } from 'zod'
-import { fromUrl } from '../arcfs.js'
-import { loadSkillContent } from './skill.js'
+import { resolve as arcfsResolve, fromUrl } from '../arcfs.js'
+import { loadSkillContent, skillEnvName } from './skill.js'
 import * as workspace from './workspace.js'
 
 const SMALL_FILE_THRESHOLD = 500
@@ -59,109 +59,146 @@ const readFileContent = async (filePath, { offset, limit }) => {
   return { content, totalLines, fromLine, toLine }
 }
 
-const resolvePath = async (rawPath) => {
-  if (rawPath.startsWith('arcfs://')) return { path: fromUrl(rawPath) }
-  const filePath = path.resolve(rawPath)
-  if (!await workspace.isAllowed(filePath)) return { error: 'Access denied: not in workspace' }
-  return { path: filePath }
-}
+export const expandVars = (str, vars) =>
+  str.replace(/\$\{([A-Z_][A-Z0-9_]*)\}|\$([A-Z_][A-Z0-9_]*)/g,
+    (m, a, b) => vars[a ?? b] ?? m)
 
-const read_file = tool({
-  description: 'Read a text file from arcfs or from workspace paths',
-  inputSchema: z.object({
-    path: z.string().describe('arcfs:// URL or absolute filesystem path'),
-    offset: z.number().optional().describe('Line to start from (1-indexed)'),
-    limit: z.number().optional().describe('Number of lines to return'),
-  }),
-  execute: async ({ path: rawPath, offset, limit }) => {
-    const resolved = await resolvePath(rawPath)
-    if (resolved.error) return resolved.error
-    return readFileContent(resolved.path, { offset, limit })
-  },
-})
+const shellQuote = (s) => `'${s.replace(/'/g, "'\\''")}'`
 
-const list_dir = tool({
-  description: 'List directory contents',
-  inputSchema: z.object({
-    path: z.string().describe('arcfs:// URL or absolute filesystem path'),
-  }),
-  execute: async ({ path: rawPath }) => {
-    const resolved = await resolvePath(rawPath)
-    if (resolved.error) return resolved.error
-    let entries
-    try {
-      entries = await fs.readdir(resolved.path, { withFileTypes: true })
-    } catch (e) {
-      if (e.code === 'ENOENT') return `Not found: ${resolved.path}`
-      if (e.code === 'ENOTDIR') return `Not a directory: ${resolved.path}`
-      if (e.code === 'EACCES') return `Permission denied: ${resolved.path}`
-      return `Error listing directory: ${resolved.path}`
-    }
-    const dirs = entries.filter(e => e.isDirectory()).sort((a, b) => a.name.localeCompare(b.name))
-    const files = entries.filter(e => e.isFile()).sort((a, b) => a.name.localeCompare(b.name))
-    const result = []
-    for (const d of dirs) result.push({ name: d.name, type: 'directory' })
-    for (const f of files) {
-      try {
-        const stat = await fs.stat(path.join(resolved.path, f.name))
-        result.push({ name: f.name, type: 'file', size: stat.size })
-      } catch {
-        result.push({ name: f.name, type: 'file', size: -1 })
+const varPattern = /\$\{([A-Z_][A-Z0-9_]*)\}|\$([A-Z_][A-Z0-9_]*)/g
+
+export const expandArgsVars = (args, vars) => {
+  if (!args) return ''
+  let quote = null
+  let result = ''
+  for (let i = 0; i < args.length; i++) {
+    const ch = args[i]
+    if (ch === '\\') { result += ch + (args[++i] ?? ''); continue }
+    if (quote === null && (ch === '"' || ch === "'")) { quote = ch; result += ch; continue }
+    if (ch === quote) { quote = null; result += ch; continue }
+    if (quote !== null) { result += ch; continue }
+    // Unquoted $VAR or ${VAR}
+    if (ch === '$') {
+      varPattern.lastIndex = i
+      const m = varPattern.exec(args)
+      if (m && m.index === i) {
+        const name = m[1] ?? m[2]
+        if (name in vars) { result += shellQuote(vars[name]); i += m[0].length - 1; continue }
       }
     }
-    return result
-  },
-})
+    result += ch
+  }
+  return result
+}
 
-const write_file = tool({
-  description: 'Create or overwrite a text file',
-  inputSchema: z.object({
-    path: z.string().describe('arcfs:// URL or absolute filesystem path'),
-    content: z.string().describe('File content to write'),
-  }),
-  execute: async ({ path: rawPath, content }) => {
-    const resolved = await resolvePath(rawPath)
-    if (resolved.error) return resolved.error
-    try {
-      const existing = await fs.readFile(resolved.path)
-      if (existing.includes(0)) return `Cannot overwrite binary file: ${resolved.path}`
-    } catch { /* file doesn't exist yet — fine */ }
-    await fs.mkdir(path.dirname(resolved.path), { recursive: true })
-    const buf = Buffer.from(content, 'utf-8')
-    await fs.writeFile(resolved.path, buf)
-    return { path: resolved.path, bytesWritten: buf.length }
-  },
-})
-
-const edit_file = tool({
-  description: 'Search-and-replace in an existing file',
-  inputSchema: z.object({
-    path: z.string().describe('arcfs:// URL or absolute filesystem path'),
-    old_string: z.string().describe('Text to find (must appear exactly once)'),
-    new_string: z.string().describe('Replacement text'),
-  }),
-  execute: async ({ path: rawPath, old_string, new_string }) => {
-    const resolved = await resolvePath(rawPath)
-    if (resolved.error) return resolved.error
-    let buf
-    try {
-      buf = await fs.readFile(resolved.path)
-    } catch (e) {
-      if (e.code === 'ENOENT') return `File not found: ${resolved.path}`
-      return `Error reading file: ${resolved.path}`
-    }
-    if (buf.includes(0)) return `Cannot edit binary file: ${resolved.path}`
-    const text = buf.toString('utf-8')
-    const count = text.split(old_string).length - 1
-    if (count === 0) return `String not found in file: ${resolved.path}`
-    if (count > 1) return `String appears ${count} times — provide more context to disambiguate`
-    await fs.writeFile(resolved.path, text.replace(old_string, new_string))
-    return { path: resolved.path, replacements: 1 }
-  },
-})
-
-export const buildTools = ({ skills }) => {
+export const buildTools = ({ skills, workspacePath }) => {
+  const arcfsRoot = arcfsResolve()
   const trustedDirs = skills.map(s => fromUrl(s.directory))
+  const vars = {}
+  if (workspacePath) vars.WORKSPACE = workspacePath
+  for (const s of skills) vars[skillEnvName(s.name)] = fromUrl(s.directory)
+
+  const resolvePath = async (rawPath) => {
+    const expanded = expandVars(rawPath, vars)
+    const filePath = path.resolve(expanded)
+    if (filePath.startsWith(arcfsRoot + path.sep) || filePath === arcfsRoot) return { path: filePath }
+    if (!await workspace.isAllowed(filePath)) return { error: 'Access denied: not in workspace' }
+    return { path: filePath }
+  }
+
+  const read_file = tool({
+    description: 'Read a text file',
+    inputSchema: z.object({
+      path: z.string().describe('Absolute filesystem path or $WORKSPACE / $..._SKILL_DIR path'),
+      offset: z.number().optional().describe('Line to start from (1-indexed)'),
+      limit: z.number().optional().describe('Number of lines to return'),
+    }),
+    execute: async ({ path: rawPath, offset, limit }) => {
+      const resolved = await resolvePath(rawPath)
+      if (resolved.error) return resolved.error
+      return readFileContent(resolved.path, { offset, limit })
+    },
+  })
+
+  const list_dir = tool({
+    description: 'List directory contents',
+    inputSchema: z.object({
+      path: z.string().describe('Absolute filesystem path or $WORKSPACE / $..._SKILL_DIR path'),
+    }),
+    execute: async ({ path: rawPath }) => {
+      const resolved = await resolvePath(rawPath)
+      if (resolved.error) return resolved.error
+      let entries
+      try {
+        entries = await fs.readdir(resolved.path, { withFileTypes: true })
+      } catch (e) {
+        if (e.code === 'ENOENT') return `Not found: ${resolved.path}`
+        if (e.code === 'ENOTDIR') return `Not a directory: ${resolved.path}`
+        if (e.code === 'EACCES') return `Permission denied: ${resolved.path}`
+        return `Error listing directory: ${resolved.path}`
+      }
+      const dirs = entries.filter(e => e.isDirectory()).sort((a, b) => a.name.localeCompare(b.name))
+      const files = entries.filter(e => e.isFile()).sort((a, b) => a.name.localeCompare(b.name))
+      const result = []
+      for (const d of dirs) result.push({ name: d.name, type: 'directory' })
+      for (const f of files) {
+        try {
+          const stat = await fs.stat(path.join(resolved.path, f.name))
+          result.push({ name: f.name, type: 'file', size: stat.size })
+        } catch {
+          result.push({ name: f.name, type: 'file', size: -1 })
+        }
+      }
+      return result
+    },
+  })
+
+  const write_file = tool({
+    description: 'Create or overwrite a text file',
+    inputSchema: z.object({
+      path: z.string().describe('Absolute filesystem path or $WORKSPACE / $..._SKILL_DIR path'),
+      content: z.string().describe('File content to write'),
+    }),
+    execute: async ({ path: rawPath, content }) => {
+      const resolved = await resolvePath(rawPath)
+      if (resolved.error) return resolved.error
+      try {
+        const existing = await fs.readFile(resolved.path)
+        if (existing.includes(0)) return `Cannot overwrite binary file: ${resolved.path}`
+      } catch { /* file doesn't exist yet — fine */ }
+      await fs.mkdir(path.dirname(resolved.path), { recursive: true })
+      const buf = Buffer.from(content, 'utf-8')
+      await fs.writeFile(resolved.path, buf)
+      return { path: resolved.path, bytesWritten: buf.length }
+    },
+  })
+
+  const edit_file = tool({
+    description: 'Search-and-replace in an existing file',
+    inputSchema: z.object({
+      path: z.string().describe('Absolute filesystem path or $WORKSPACE / $..._SKILL_DIR path'),
+      old_string: z.string().describe('Text to find (must appear exactly once)'),
+      new_string: z.string().describe('Replacement text'),
+    }),
+    execute: async ({ path: rawPath, old_string, new_string }) => {
+      const resolved = await resolvePath(rawPath)
+      if (resolved.error) return resolved.error
+      let buf
+      try {
+        buf = await fs.readFile(resolved.path)
+      } catch (e) {
+        if (e.code === 'ENOENT') return `File not found: ${resolved.path}`
+        return `Error reading file: ${resolved.path}`
+      }
+      if (buf.includes(0)) return `Cannot edit binary file: ${resolved.path}`
+      const text = buf.toString('utf-8')
+      const count = text.split(old_string).length - 1
+      if (count === 0) return `String not found in file: ${resolved.path}`
+      if (count > 1) return `String appears ${count} times — provide more context to disambiguate`
+      await fs.writeFile(resolved.path, text.replace(old_string, new_string))
+      return { path: resolved.path, replacements: 1 }
+    },
+  })
 
   const load_skill = tool({
     description: "Load a skill's full instructions by name",
@@ -169,58 +206,65 @@ export const buildTools = ({ skills }) => {
     execute: async ({ name }) => loadSkillContent(skills, name),
   })
 
-  const exec = tool({
+  const run_file = tool({
     description: [
       'Run a script bundled with a skill.',
-      'The command is split into a runner (the binary) and a script (path + args). Raw shell commands are not supported.',
+      'The command is split into a runner (the binary), a file (script path), and args. Raw shell commands are not supported.',
       '',
-      'Examples (bash → exec):',
+      'Examples (bash → run_file):',
       '  bash: node scripts/build.js --out dist',
-      '  exec: runner="node", script="scripts/build.js --out dist"',
+      '  run_file: runner="node", file="scripts/build.js", args="--out dist"',
       '',
       '  bash: python3 scripts/analyze.py --verbose',
-      '  exec: runner="python3", script="scripts/analyze.py --verbose"',
+      '  run_file: runner="python3", file="scripts/analyze.py", args="--verbose"',
       '',
       '  bash: ./scripts/deploy.sh staging',
-      '  exec: runner="native", script="scripts/deploy.sh staging"',
+      '  run_file: runner="native", file="scripts/deploy.sh", args="staging"',
     ].join('\n'),
     inputSchema: z.object({
       runner: z.string().min(1).describe('The binary that executes the script. Use "node" for .js files, "native" for executables/shell scripts, or a binary name like "python3"'),
-      script: z.string().describe('Script path relative to cwd, followed by space-separated arguments (e.g. "scripts/run.js --flag value")'),
-      cwd: z.string().describe('Must be the arcfs:// URL from skillDirectory returned by load_skill'),
+      file: z.string().describe('Script path relative to cwd (no arguments)'),
+      args: z.string().optional().default('').describe('Arguments passed to the script. $WORKSPACE and $..._SKILL_DIR are expanded and shell-quoted automatically when unquoted.'),
+      cwd: z.string().describe('Skill directory as env var (e.g. $USING_EXCEL_SKILL_DIR) from load_skill'),
     }),
-    execute: async ({ runner, script, cwd: rawCwd }) => {
-      if (!rawCwd.startsWith('arcfs://')) return 'Invalid cwd: only arcfs:// URLs are accepted'
-      const resolvedCwd = fromUrl(rawCwd)
-      const [scriptPath, ...rawArgs] = script.split(' ')
-      const resolved = path.resolve(resolvedCwd, scriptPath)
-      const args = rawArgs.map(a => a.startsWith('arcfs://') ? fromUrl(a) : a)
+    execute: async ({ runner, file, args, cwd: rawCwd }) => {
+      const resolvedCwd = expandVars(rawCwd, vars)
+      if (!trustedDirs.some(dir => resolvedCwd === dir || resolvedCwd.startsWith(dir + path.sep)))
+        return 'Invalid cwd: must be a skill directory'
+      const resolved = path.resolve(resolvedCwd, file)
 
       if (!trustedDirs.some(dir => resolved.startsWith(dir + path.sep)))
-        return `Script is outside trusted skill directories`
+        return 'Script is outside trusted skill directories'
 
       try { await fs.access(resolved) }
-      catch { return `Script not found: ${scriptPath}` }
+      catch { return `Script not found: ${file}` }
 
       if (runner === 'native' && process.platform !== 'win32')
         await fs.chmod(resolved, 0o755)
 
       const isNode = runner === 'node'
       const isNative = runner === 'native'
-      const execBin = isNode ? process.execPath : isNative ? resolved : runner
       // Bootstrap via -e to clear process.versions.electron and execArgv so
       // Commander (and similar libs) use standard node argv parsing
       const nodeBootstrap = 'delete process.versions.electron;process.execArgv=[];require(process.argv[1])'
-      const execArgs = isNative ? args : isNode ? ['-e', nodeBootstrap, resolved, ...args] : [resolved, ...args]
+      const expanded = expandArgsVars(args, vars)
+      const command = isNode
+        ? `${shellQuote(process.execPath)} -e ${shellQuote(nodeBootstrap)} ${shellQuote(resolved)} ${expanded}`
+        : isNative
+          ? `${shellQuote(resolved)} ${expanded}`
+          : `${shellQuote(runner)} ${shellQuote(resolved)} ${expanded}`
+
       const { NODE_OPTIONS, NODE_DEBUG, ...cleanEnv } = process.env
-      const env = isNode ? { ...cleanEnv, ELECTRON_RUN_AS_NODE: '1' } : cleanEnv
+      const env = { ...cleanEnv, ...vars, ...(isNode ? { ELECTRON_RUN_AS_NODE: '1' } : {}) }
+      const shell = process.platform === 'win32' ? 'cmd.exe' : '/bin/sh'
+      const shellArgs = process.platform === 'win32' ? ['/c', command] : ['-c', command]
       return new Promise((resolve) => {
-        execFile(execBin, execArgs, { cwd: resolvedCwd, env }, (error, stdout, stderr) => {
+        execFile(shell, shellArgs, { cwd: resolvedCwd, env }, (error, stdout, stderr) => {
           resolve({ stdout, stderr, exitCode: error ? error.code ?? 1 : 0 })
         })
       })
     },
   })
 
-  return { read_file, list_dir, write_file, edit_file, load_skill, exec }
+  return { read_file, list_dir, write_file, edit_file, load_skill, run_file }
 }

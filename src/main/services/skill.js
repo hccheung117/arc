@@ -25,18 +25,20 @@ export const listSkills = async (dir) => {
 
 export const discoverSkills = () => resolveDir('skills', listSkills)
 
+export const skillEnvName = (name) => name.replace(/-/g, '_').toUpperCase() + '_SKILL_DIR'
+
 export const loadSkillContent = async (skills, name) => {
   const skill = skills.find(s => s.name === name)
   if (!skill) return `Skill not found: ${name}`
   const skillPath = path.join(fromUrl(skill.directory), 'SKILL.md')
   const content = await readMarkdown(skillPath)
   if (!content) return `Skill file not found: ${name}`
-  return { content: matter(content).content, skillDirectory: skill.directory }
+  return { content: matter(content).content, skillDirectory: '$' + skillEnvName(skill.name) }
 }
 
-export const buildSkillAugment = (activeSkill, body, directory) => ({
+export const buildSkillAugment = (activeSkill, body, env) => ({
   type: 'text',
-  text: `<active_skill name="${activeSkill}"${directory ? ` directory="${directory}"` : ''}>\n${body}\n</active_skill>`,
+  text: `<active_skill name="${activeSkill}"${env ? ` env="${env}"` : ''}>\n${body}\n</active_skill>`,
   arcSynthetic: `skill:${activeSkill}`,
 })
 
@@ -45,6 +47,6 @@ export const hasSkillAugment = (messages, skillName) =>
 
 export const buildSkillsPrompt = (skills) => {
   if (!skills.length) return null
-  const entries = skills.map(s => `<skill name="${s.name}" directory="${s.directory}">${s.description}</skill>`).join('\n')
+  const entries = skills.map(s => `<skill name="${s.name}" env="${skillEnvName(s.name)}">${s.description}</skill>`).join('\n')
   return `<available_skills>\nProactively load a skill using the load_skill tool whenever it can help with the current task.\n\n${entries}\n</available_skills>`
 }

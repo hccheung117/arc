@@ -1,11 +1,11 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { sessionId } from '@shared/ids.js'
-import { readJson, writeJson, readJsonl, appendJsonl, resolve, sessionWorkspace } from '../arcfs.js'
+import { readJson, writeJson, readJsonl, appendJsonl, resolve, sessionWorkspace, fromUrl } from '../arcfs.js'
 import { resolveSessionPrompt, saveSessionPrompt, savePrompt as saveAppPrompt, promptsAppDir } from './prompts.js'
 import { getProvider } from './provider.js'
 import { fallbackTitle, generateTitle } from './assist.js'
-import { discoverSkills, buildSkillsPrompt, loadSkillContent, buildSkillAugment, hasSkillAugment } from './skill.js'
+import { discoverSkills, buildSkillsPrompt, loadSkillContent, buildSkillAugment, hasSkillAugment, skillEnvName } from './skill.js'
 import { buildTools } from './tools.js'
 import { extractSkillRefs } from '../../shared/text-patterns.js'
 import * as llm from './llm.js'
@@ -190,7 +190,7 @@ export const prepareSend = async (dir, { sessionId, inputMessages, promptRef, pr
   const skillContent = activeSkill ? await loadSkillContent(skills, activeSkill) : null
   // typeof null === 'object' in JS — don't use typeof to guard property access
   const activeSkillBody = skillContent?.content ?? null
-  const activeSkillDir = skillContent?.skillDirectory ?? null
+  const activeSkillEnv = activeSkill ? skillEnvName(activeSkill) : null
 
   // Scan persisted history for existing augment (renderer doesn't receive arcSynthetic parts)
   const { messages: history } = await message.loadMessages(dir, sessionId)
@@ -198,7 +198,7 @@ export const prepareSend = async (dir, { sessionId, inputMessages, promptRef, pr
 
   // First activation → prepend full augment before persistence; subsequent sends skip injection
   const augmentedMessages = activeSkill && activeSkillBody && !alreadyAugmented
-    ? message.augmentUserMessage(messages, [buildSkillAugment(activeSkill, activeSkillBody, activeSkillDir)], { prepend: true })
+    ? message.augmentUserMessage(messages, [buildSkillAugment(activeSkill, activeSkillBody, activeSkillEnv)], { prepend: true })
     : messages
 
   const lastId = await message.persistNewMessages(filePath, augmentedMessages)
@@ -209,10 +209,10 @@ export const prepareSend = async (dir, { sessionId, inputMessages, promptRef, pr
   const fileReplacement = fileParts?.length ? { id: userMsg.id, parts: fileParts, textParts } : null
   const { branches } = await message.loadMessages(dir, sessionId)
 
-  const workspaceUrl = await sessionWorkspace(sessionId)
-  const workspacePrompt = `<session_workspace path="${workspaceUrl}">\nYour working directory for this session. Store generated artifacts, experiment outputs, and scratch files here.\nTo read files the user shared, use read_file with their original filesystem paths.\n</session_workspace>`
+  const workspacePath = fromUrl(await sessionWorkspace(sessionId))
+  const workspacePrompt = `<session_workspace path="$WORKSPACE">\nYour working directory for this session. Store generated artifacts, experiment outputs, and scratch files here.\nTo read files the user shared, use read_file with their original filesystem paths.\n</session_workspace>`
   const fullSystem = [system, buildSkillsPrompt(skills), workspacePrompt].filter(Boolean).join('\n\n')
-  const tools = buildTools({ skills })
+  const tools = buildTools({ skills, workspacePath })
 
   return {
     isNew,
