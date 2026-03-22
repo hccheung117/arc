@@ -35,8 +35,7 @@ export function SessionProvider({ children }) {
     if (payload.sessionId !== activeSessionId) return
     if (payload.replaceFiles) {
       const { id, parts, textParts } = payload.replaceFiles
-      const c = chatRef.current
-      c.setMessages(c.messages.map(m =>
+      chatRef.current.setMessages(prev => prev.map(m =>
         m.id === id ? { ...m, parts: [
           ...parts,
           ...(textParts ?? m.parts.filter(p => p.type === 'text')),

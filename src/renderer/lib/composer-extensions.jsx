@@ -1,4 +1,5 @@
 import { Plugin, PluginKey } from '@tiptap/pm/state'
+import { Fragment } from '@tiptap/pm/model'
 import { Extension } from '@tiptap/core'
 import Document from '@tiptap/extension-document'
 import Paragraph from '@tiptap/extension-paragraph'
@@ -225,7 +226,11 @@ const AutoMention = Extension.create({
                   mentionType: 'file', url: marker.path, filename: marker.path.split('/').pop() || marker.path, mediaType: '',
                 })
 
-            tr.replaceWith(marker.from, marker.to, mentionNode)
+            const charBefore = marker.from > 0 ? newState.doc.textBetween(marker.from - 1, marker.from) : ''
+            const needsSpace = charBefore !== '' && !/\s/.test(charBefore)
+            tr.replaceWith(marker.from, marker.to,
+              needsSpace ? Fragment.from([newState.schema.text(' '), mentionNode]) : mentionNode
+            )
           }
 
           return tr
