@@ -2,7 +2,7 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import matter from 'gray-matter'
 import { resolve, readMarkdown, toUrl, fromUrl, builtinBase } from '../arcfs.js'
-import { resolveDir } from './profile.js'
+import { resolveDir, appPath } from './profile.js'
 
 export const listSkills = async (dir) => {
   const entries = await fs.readdir(dir, { withFileTypes: true }).catch(e => {
@@ -43,7 +43,9 @@ export const loadSkillContent = async (skills, name) => {
   const skillPath = path.join(fromUrl(skill.directory), 'SKILL.md')
   const content = await readMarkdown(skillPath)
   if (!content) return `Skill file not found: ${name}`
-  return { content: matter(content).content, skillDirectory: '$' + skillEnvName(skill.name) }
+  const body = matter(content).content
+    .replaceAll('$ARC_APP_SKILLS_DIR', appPath('skills'))
+  return { content: body, skillDirectory: '$' + skillEnvName(skill.name) }
 }
 
 export const buildSkillAugment = (activeSkill, body, env) => ({
