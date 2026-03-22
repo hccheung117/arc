@@ -192,7 +192,7 @@ export const prepareSend = async (dir, { sessionId, inputMessages, promptRef, pr
   const activeSkillBody = skillContent?.content ?? null
   const activeSkillEnv = activeSkill ? skillEnvName(activeSkill) : null
 
-  // Scan persisted history for existing augment (renderer doesn't receive arcSynthetic parts)
+  // Dedup: check JSONL (the SSOT) for existing skill augment to avoid double injection
   const { messages: history } = await message.loadMessages(dir, sessionId)
   const alreadyAugmented = activeSkill && activeSkillBody && hasSkillAugment(history, activeSkill)
 
@@ -203,11 +203,14 @@ export const prepareSend = async (dir, { sessionId, inputMessages, promptRef, pr
 
   const lastId = await message.persistNewMessages(filePath, augmentedMessages)
 
+  // Reload full persisted history — this includes skill augments from earlier
+  // turns that the renderer doesn't carry in its Chat state.
+  const { messages: llmMessages, branches } = await message.loadMessages(dir, sessionId)
+
   const userMsg = augmentedMessages.findLast(m => m.role === 'user')
   const fileParts = userMsg?.parts.filter(p => p.type === 'file')
   const textParts = userMsg?.parts.filter(p => p.type === 'text' && !p.arcSynthetic)
   const fileReplacement = fileParts?.length ? { id: userMsg.id, parts: fileParts, textParts } : null
-  const { branches } = await message.loadMessages(dir, sessionId)
 
   const workspacePath = fromUrl(await sessionWorkspace(sessionId))
   const tmpPath = fromUrl(await sessionTmp(sessionId))
@@ -221,7 +224,7 @@ export const prepareSend = async (dir, { sessionId, inputMessages, promptRef, pr
     branches,
 
     stream: (send, signal) =>
-      llm.stream({ provider, modelId, system: fullSystem, messages: augmentedMessages, tools, send, signal, thinking: true }),
+      llm.stream({ provider, modelId, system: fullSystem, messages: llmMessages, tools, send, signal, thinking: true }),
 
     finalize: async (result) => {
       await message.persistAssistantMessage(filePath, {
