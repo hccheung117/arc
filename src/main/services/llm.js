@@ -73,6 +73,7 @@ export const generateText = async ({ provider, modelId, messages, ...opts }) => 
   }
 }
 
+// Single-turn streaming (no tools). Used by refinePrompt, etc.
 export const streamText = async ({ provider, modelId, system, messages, send, signal, thinking = false }) => {
   const assistantId = generateId()
   const model = await modelFor(provider, modelId)
@@ -102,6 +103,8 @@ export const streamText = async ({ provider, modelId, system, messages, send, si
 
   if (signal.aborted) return null
   try {
+    // toUIMessageStream consumed the stream above, so steps resolves immediately.
+    // step.content is a unified array of text, reasoning, and source parts.
     const steps = await result.steps
     const parts = steps.flatMap(step => step.content)
     return { assistantId, parts }
@@ -111,6 +114,7 @@ export const streamText = async ({ provider, modelId, system, messages, send, si
   }
 }
 
+// Multi-turn streaming with tool loop. Used by session:send.
 export const stream = async ({ provider, modelId, system, messages, tools, send, signal, thinking = false }) => {
   const assistantId = generateId()
   const model = await modelFor(provider, modelId)
@@ -137,6 +141,7 @@ export const stream = async ({ provider, modelId, system, messages, tools, send,
 
   if (signal.aborted) return null
   try {
+    // step.content includes text, reasoning, tool-call, and tool-result parts
     const steps = await result.steps
     const parts = steps.flatMap(step => step.content)
     return { assistantId, parts }
