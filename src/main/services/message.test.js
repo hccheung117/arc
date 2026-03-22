@@ -67,7 +67,7 @@ describe('resolveFileMentions', () => {
 
     const lastUser = result.findLast(m => m.role === 'user')
     const syntheticPart = lastUser.parts.find(p => p.arcSynthetic)
-    expect(syntheticPart.text).toContain('<workspace_files>')
+    expect(syntheticPart.text).toContain('<global_workspace_files>')
     expect(syntheticPart.text).toContain(fp)
   })
 

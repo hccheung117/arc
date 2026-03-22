@@ -38,7 +38,7 @@ export const loadSkillContent = async (skills, name) => {
 
 export const buildSkillAugment = (activeSkill, body, env) => ({
   type: 'text',
-  text: `<active_skill name="${activeSkill}"${env ? ` env="${env}"` : ''}>\n${body}\n</active_skill>`,
+  text: `<active_skill name="${activeSkill}"${env ? ` path="$${env}"` : ''}>\n${body}\n</active_skill>`,
   arcSynthetic: `skill:${activeSkill}`,
 })
 
@@ -47,6 +47,6 @@ export const hasSkillAugment = (messages, skillName) =>
 
 export const buildSkillsPrompt = (skills) => {
   if (!skills.length) return null
-  const entries = skills.map(s => `<skill name="${s.name}" env="${skillEnvName(s.name)}">${s.description}</skill>`).join('\n')
-  return `<available_skills>\nProactively load a skill using the load_skill tool whenever it can help with the current task.\n\n${entries}\n</available_skills>`
+  const entries = skills.map(s => `<skill name="${s.name}" path="$${skillEnvName(s.name)}">${s.description}</skill>`).join('\n')
+  return `<available_skills>\nProactively load a skill using the load_skill tool whenever it can help with the current task.\nDo not call load_skill for a skill whose instructions are already present in the conversation.\n\n${entries}\n</available_skills>`
 }

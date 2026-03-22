@@ -210,7 +210,7 @@ export const prepareSend = async (dir, { sessionId, inputMessages, promptRef, pr
   const { branches } = await message.loadMessages(dir, sessionId)
 
   const workspacePath = fromUrl(await sessionWorkspace(sessionId))
-  const workspacePrompt = `<session_workspace path="$WORKSPACE">\nYour working directory for this session. Store generated artifacts, experiment outputs, and scratch files here.\nTo read files the user shared, use read_file with their original filesystem paths.\n</session_workspace>`
+  const workspacePrompt = `<session_workspace path="$WORKSPACE">\nYour working directory for this session. Store generated artifacts, experiment outputs, and scratch files here.\nAll files you create MUST be stored in $WORKSPACE. Do not write to any other path unless the user explicitly provides one. If a task requires writing outside $WORKSPACE and the user has not specified a path, report an error instead of choosing an alternative path.\nTo read files the user shared, use read_file with their original filesystem paths.\n</session_workspace>`
   const fullSystem = [system, buildSkillsPrompt(skills), workspacePrompt].filter(Boolean).join('\n\n')
   const tools = buildTools({ skills, workspacePath })
 
