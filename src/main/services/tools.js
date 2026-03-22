@@ -102,8 +102,12 @@ const list_dir = tool({
     const result = []
     for (const d of dirs) result.push({ name: d.name, type: 'directory' })
     for (const f of files) {
-      const stat = await fs.stat(path.join(resolved.path, f.name))
-      result.push({ name: f.name, type: 'file', size: stat.size })
+      try {
+        const stat = await fs.stat(path.join(resolved.path, f.name))
+        result.push({ name: f.name, type: 'file', size: stat.size })
+      } catch {
+        result.push({ name: f.name, type: 'file', size: -1 })
+      }
     }
     return result
   },
