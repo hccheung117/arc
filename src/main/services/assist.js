@@ -2,17 +2,14 @@ import { experimental_transcribe as transcribe } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { getAssignment } from './settings.js'
 import { generateText, streamText } from './llm.js'
-
-const SYSTEM_REFINE = 'Improve the following system prompt. Return only the improved prompt.'
-
-const SYSTEM_TITLE = 'Generate a short Title Case title (max 6 words) for this conversation. Return only the title, no quotes or punctuation.'
+import { SYSTEM_REFINE, SYSTEM_TITLE, renderPromptTag, renderTitleTag } from '../prompts/assist.jsx'
 
 export const refinePrompt = async ({ text, send, signal }) => {
   const assignment = await getAssignment('refine-prompt')
   if (!assignment) { send({ type: 'finish' }); return }
   await streamText({
     ...assignment, system: SYSTEM_REFINE,
-    messages: [{ role: 'user', parts: [{ type: 'text', text: `<prompt>${text}</prompt>` }] }],
+    messages: [{ role: 'user', parts: [{ type: 'text', text: renderPromptTag(text) }] }],
     send, signal, thinking: true,
   })
 }
@@ -33,7 +30,7 @@ export async function generateTitle(messages) {
 
   const { text: title } = await generateText({
     ...assignment, system: SYSTEM_TITLE,
-    messages: [{ role: 'user', parts: [{ type: 'text', text: `<first_user_message>${text}</first_user_message>` }] }],
+    messages: [{ role: 'user', parts: [{ type: 'text', text: renderTitleTag(text) }] }],
   })
   return title.trim()
 }

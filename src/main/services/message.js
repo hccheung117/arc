@@ -5,6 +5,7 @@ import { generateId } from 'ai'
 import mime from 'mime'
 import { readJsonl, appendJsonl, toUrl, fromUrl } from '../arcfs.js'
 import { extractFileRefs, quotePath } from '../../shared/text-patterns.js'
+import { renderWorkspaceFiles } from '../prompts/augment.jsx'
 import * as workspace from './workspace.js'
 
 export const messagesPath = (dir, sessionId) =>
@@ -195,12 +196,7 @@ export const resolveFileMentions = async (sessionDir, messages) => {
     result = augmentUserMessage(result, fileParts, { prepend: true })
   }
   if (referencePaths.length) {
-    const xml = [
-      '<global_workspace_files>',
-      'Files have been added to your workspace. Use the `read_file` tool to access their live contents. Do NOT guess their contents.',
-      ...referencePaths.map(p => `- ${p}`),
-      '</global_workspace_files>',
-    ].join('\n')
+    const xml = renderWorkspaceFiles(referencePaths)
     result = augmentUserMessage(result, [{ type: 'text', text: xml, arcSynthetic: true }])
   }
   return result

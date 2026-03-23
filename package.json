@@ -38,7 +38,8 @@
     "@vitejs/plugin-react": "^5.1.4",
     "chrome-remote-interface": "^0.34.0",
     "electron": "40.4.1",
-    "vite": "^5.4.21"
+    "vite": "^5.4.21",
+    "vitest": "^3.2.4"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.53",

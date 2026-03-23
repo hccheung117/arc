@@ -5,7 +5,8 @@ import { readJson, writeJson, readJsonl, appendJsonl, resolve, sessionWorkspace,
 import { resolveSessionPrompt, saveSessionPrompt, savePrompt as saveAppPrompt, promptsAppDir } from './prompts.js'
 import { getProvider } from './provider.js'
 import { fallbackTitle, generateTitle } from './assist.js'
-import { discoverSkills, buildSkillsPrompt, loadSkillContent, buildSkillAugment, hasSkillAugment, skillEnvName } from './skill.js'
+import { discoverSkills, loadSkillContent, buildSkillAugment, hasSkillAugment, skillEnvName } from './skill.js'
+import { buildSystemPrompt } from '../prompts/system.jsx'
 import { buildTools } from './tools.js'
 import { extractSkillRefs } from '../../shared/text-patterns.js'
 import * as llm from './llm.js'
@@ -214,8 +215,7 @@ export const prepareSend = async (dir, { sessionId, inputMessages, promptRef, pr
 
   const workspacePath = fromUrl(await sessionWorkspace(sessionId))
   const tmpPath = fromUrl(await sessionTmp(sessionId))
-  const workspacePrompt = `<session_workspace path="$WORKSPACE">\nYour working directory for user-facing deliverables. Store final outputs and files intended for the user here.\nAll deliverables you create MUST be stored in $WORKSPACE. Do not write to any other path unless the user explicitly provides one. If a task requires writing outside $WORKSPACE and the user has not specified a path, report an error instead of choosing an alternative path.\nTo read files the user shared, use read_file with their original filesystem paths.\n</session_workspace>\n\n<session_tmp path="$SESSION_TMP">\nYour scratch space for intermediate and in-progress files. Store drafts, temporary data, work-in-progress artifacts, and any middle-stage production here.\nDo not place user-facing deliverables in $SESSION_TMP — those belong in $WORKSPACE.\n</session_tmp>`
-  const fullSystem = [system, buildSkillsPrompt(skills), workspacePrompt].filter(Boolean).join('\n\n')
+  const fullSystem = buildSystemPrompt(system, skills)
   const tools = buildTools({ skills, workspacePath, tmpPath })
 
   return {
