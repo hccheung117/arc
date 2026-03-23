@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import started from 'electron-squirrel-startup';
-import { initIpc, setMainWindow, dispatch } from './router.js';
+import { initIpc, setMainWindow, getMainWindow, dispatch } from './router.js';
 import { pushAll } from './channel.js';
 import { resolve, fromUrl, builtinBase } from './arcfs.js';
 import { getState, setState } from './services/state.js';
@@ -132,7 +132,7 @@ app.whenReady().then(() => {
   // On OS X it's common to re-create a window in the app when the
   // dock icon is clicked and there are no other windows open.
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    if (!getMainWindow() || getMainWindow().isDestroyed()) {
       createWindow();
     }
   });

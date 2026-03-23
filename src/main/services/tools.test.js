@@ -27,6 +27,11 @@ vi.mock('./skill.js', () => ({
   skillEnvName: (name) => name.replace(/-/g, '_').toUpperCase() + '_SKILL_DIR',
 }))
 
+vi.mock('./browser.js', () => ({
+  execute: vi.fn(),
+  setTmpPath: vi.fn(),
+}))
+
 const mockExecFile = vi.fn()
 vi.mock('node:child_process', () => ({
   execFile: (...args) => mockExecFile(...args),
@@ -345,5 +350,13 @@ describe('expandArgsVars', () => {
 
   test('empty args', () => {
     expect(expandArgsVars('', vars)).toBe('')
+  })
+})
+
+describe('browser tool', () => {
+  test('exists in built tools', () => {
+    const tools = buildTools({ skills: [], workspacePath, tmpPath: '/tmp/session' })
+    expect(tools.browser).toBeDefined()
+    expect(tools.browser.execute).toBeDefined()
   })
 })

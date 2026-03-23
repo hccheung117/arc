@@ -8,9 +8,39 @@ import { resolveArcfsUrls } from './message.js'
 // LLM text parts often carry leading/trailing whitespace and blank lines
 // from the model stream. Trim at the source so all downstream consumers
 // (rendering, export, edit prefill) receive clean text without per-site cleanup.
-const cleanParts = (steps) => steps.flatMap(step => step.content)
-  .map(p => p.type === 'text' ? { ...p, text: p.text.trim() } : p)
-  .filter(p => p.type !== 'text' || p.text)
+//
+// step.content uses internal SDK types (tool-call, tool-result, tool-error).
+// convertToModelMessages expects UI format (tool-<name> with state).
+// We merge call+result into single UI parts and add step-start separators.
+const cleanParts = (steps) => {
+  const parts = []
+  for (const step of steps) {
+    parts.push({ type: 'step-start' })
+    const resultMap = new Map()
+    for (const p of step.content) {
+      if (p.type === 'tool-result') resultMap.set(p.toolCallId, p)
+      if (p.type === 'tool-error') resultMap.set(p.toolCallId, p)
+    }
+    for (const p of step.content) {
+      if (p.type === 'text') {
+        const trimmed = p.text.trim()
+        if (trimmed) parts.push({ ...p, text: trimmed })
+      } else if (p.type === 'tool-call') {
+        const res = resultMap.get(p.toolCallId)
+        if (res?.type === 'tool-error') {
+          parts.push({ type: `tool-${p.toolName}`, toolCallId: p.toolCallId, state: 'output-error', input: p.input, errorText: typeof res.error === 'string' ? res.error : JSON.stringify(res.error) })
+        } else {
+          parts.push({ type: `tool-${p.toolName}`, toolCallId: p.toolCallId, state: 'output-available', input: p.input, output: res?.output })
+        }
+      } else if (p.type === 'tool-result' || p.type === 'tool-error' || p.type === 'source') {
+        // already merged into tool-call above, or not needed
+      } else {
+        parts.push(p)
+      }
+    }
+  }
+  return parts
+}
 
 const clientFactories = {
   anthropic: (p) => createAnthropic({

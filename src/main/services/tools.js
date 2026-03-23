@@ -5,6 +5,7 @@ import process from 'node:process'
 import { tool } from 'ai'
 import { z } from 'zod'
 import { resolve as arcfsResolve, fromUrl } from '../arcfs.js'
+import { execute as browserExecute, setTmpPath } from './browser.js'
 import { loadSkillContent, skillEnvName } from './skill.js'
 import * as workspace from './workspace.js'
 
@@ -104,6 +105,7 @@ export const buildTools = ({ skills, workspacePath, tmpPath }) => {
   if (workspacePath) vars.WORKSPACE = workspacePath
   if (tmpPath) vars.SESSION_TMP = tmpPath
   for (const s of skills) vars[skillEnvName(s.name)] = fromUrl(s.directory)
+  setTmpPath(tmpPath)
 
   const resolvePath = async (rawPath) => {
     const expanded = expandVars(rawPath, vars)
@@ -274,5 +276,14 @@ export const buildTools = ({ skills, workspacePath, tmpPath }) => {
     },
   })
 
-  return { read_file, list_dir, write_file, edit_file, load_skill, run_file }
+  const browser = tool({
+    description: 'Control browser windows. Use load_skill("using-browser") for full command reference.',
+    inputSchema: z.object({
+      command: z.string().describe('Command name'),
+      args: z.array(z.string()).optional().default([]).describe('Command arguments'),
+    }),
+    execute: async ({ command, args }) => browserExecute(command, args),
+  })
+
+  return { read_file, list_dir, write_file, edit_file, load_skill, run_file, browser }
 }
