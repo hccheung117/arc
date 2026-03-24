@@ -43,7 +43,8 @@ Provider definitions are stored in `providers.json` at the root of your profile 
     "apiKey": "string",
     "models": [
       { "keep": ["string"] },
-      { "drop": ["string"] }
+      { "drop": ["string"] },
+      { "add": ["string"] }
     ]
   }
 }
@@ -55,7 +56,7 @@ Provider definitions are stored in `providers.json` at the root of your profile 
 | `name` | The human-readable display name for the UI. |
 | `baseUrl` | The explicit endpoint URL. |
 | `apiKey` | The authentication credential. |
-| `models` | Optional array of keep/drop filters to restrict available models. |
+| `models` | Optional pipeline of `keep`/`drop`/`add` steps to control available models. |
 
 *Note: The presence of a provider definition implicitly enables it.*
 
@@ -67,7 +68,7 @@ Filtering is configured inline within the provider definition using the `models`
 
 ### Pipeline Configuration
 
-The `models` key accepts an ordered array of pipeline steps. Each step is an object with a single verb key (`keep` or `drop`) whose value is an array of glob patterns.
+The `models` key accepts an ordered array of pipeline steps. Each step is an object with a single verb key (`keep`, `drop`, or `add`).
 
 **Example:**
 
@@ -80,7 +81,8 @@ The `models` key accepts an ordered array of pipeline steps. Each step is an obj
     "apiKey": "sk-or-...",
     "models": [
       { "keep": ["claude-*", "gpt-4o*"] },
-      { "drop": ["*-preview", "*-beta"] }
+      { "drop": ["*-preview", "*-beta"] },
+      { "add": ["o3-pro"] }
     ]
   }
 }
@@ -89,6 +91,7 @@ The `models` key accepts an ordered array of pipeline steps. Each step is an obj
 - **Execution Order:** Filters are executed as a pipeline from top to bottom. Each step receives the model list produced by the previous step.
 - **`keep`:** Retain only models matching any pattern. Discard the rest.
 - **`drop`:** Remove models matching any pattern. Keep the rest.
+- **`add`:** Append model entries by ID. Each string produces a model with `id` and `name` set to that string. If an ID already exists in the current list, it is skipped. Use this to inject models the provider's API does not list.
 - **Pattern Matching:** Patterns use standard glob syntax (`*` matches any sequence of characters) and match strictly against the model's ID as returned by the API.
 - If you omit the `models` key entirely, no filtering is applied and all fetched models are shown.
 

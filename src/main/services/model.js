@@ -34,7 +34,7 @@ const fetchGoogle = async ({ baseUrl, apiKey }) => {
 
 const fetchers = { anthropic: fetchAnthropic, 'openai-compatible': fetchOpenAI, google: fetchGoogle }
 
-const filterModels = (models, pipeline) =>
+export const filterModels = (models, pipeline) =>
   pipeline.reduce((acc, step) => {
     if (step.keep) {
       const match = picomatch(step.keep)
@@ -43,6 +43,10 @@ const filterModels = (models, pipeline) =>
     if (step.drop) {
       const match = picomatch(step.drop)
       return acc.filter(m => !match(m.id))
+    }
+    if (step.add) {
+      const ids = new Set(acc.map(m => m.id))
+      return [...acc, ...step.add.filter(id => !ids.has(id)).map(id => ({ id, name: id }))]
     }
     return acc
   }, models)
