@@ -1,3 +1,4 @@
+import os from 'node:os'
 import { h, Fragment } from '../jsx.js'
 import { skillEnvName } from '../services/skill.js'
 
@@ -18,7 +19,7 @@ Do not call load_skill for a skill whose instructions are already present in the
 const SessionWorkspace = () => (
   <session_workspace path="$WORKSPACE">
     {`Your working directory for user-facing deliverables. Store final outputs and files intended for the user here.
-All deliverables you create MUST be stored in $WORKSPACE. Do not write to any other path unless the user explicitly provides one. If a task requires writing outside $WORKSPACE and the user has not specified a path, report an error instead of choosing an alternative path.
+All deliverables you create should be stored in $WORKSPACE by default. Do not write to any other path unless the user explicitly provides one. If a task requires writing outside $WORKSPACE and the user has not specified a path, report an error instead of choosing an alternative path.
 To read files the user shared, use read_file with their original filesystem paths.`}
   </session_workspace>
 )
@@ -30,11 +31,21 @@ Do not place user-facing deliverables in $SESSION_TMP — those belong in $WORKS
   </session_tmp>
 )
 
+const platform = process.platform === 'darwin' ? 'macos' : 'windows'
+
+const RuntimeInfo = () => (
+  <runtime_info>
+    {`OS: ${platform} ${os.release()}`}
+    Client: Arc Desktop
+  </runtime_info>
+)
+
 export const buildSystemPrompt = (system, skills) => (
   <>
     {system}
     {skills.length > 0 && <AvailableSkills skills={skills} />}
     <SessionWorkspace />
     <SessionTmp />
+    <RuntimeInfo />
   </>
 )
