@@ -22,6 +22,11 @@ register('profile:reveal', async (name) => {
   return true
 })
 
+register('profile:switch', async (name) => {
+  await activateProfile(name)
+  getMainWindow().webContents.reload()
+})
+
 register('profile:import', async () => {
   const { canceled, filePaths } = await dialog.showOpenDialog(getMainWindow(), {
     filters: [{ name: 'Arc Profile', extensions: ['arc'] }],

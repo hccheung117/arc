@@ -9,6 +9,7 @@ import { pushAll } from './channel.js';
 import { resolve, fromUrl, builtinBase } from './arcfs.js';
 import { getState, setState } from './services/state.js';
 import { refreshModels } from './routes/models.js';
+import { listProfiles, getActiveProfile } from './services/profile.js';
 import './routes/session.js';
 import './routes/prompts.js';
 import './routes/providers.js';
@@ -30,6 +31,17 @@ protocol.registerSchemesAsPrivileged([
 ])
 
 const stateFile = resolve('state.json')
+
+const buildProfileSubmenu = async () => {
+  const [profiles, active] = await Promise.all([listProfiles(), getActiveProfile()])
+  if (!profiles.length) return [{ label: 'No Profiles', enabled: false }]
+  return profiles.map(name => ({
+    label: name,
+    type: 'radio',
+    checked: name === active,
+    click: () => dispatch('profile:switch', name),
+  }))
+}
 
 const createWindow = async () => {
   const { windowBounds } = await getState(stateFile)
@@ -84,7 +96,7 @@ const createWindow = async () => {
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   fs.rm(resolve('tmp'), { recursive: true, force: true }).catch(() => {})
 
   const arcfsRoot = resolve()
@@ -104,6 +116,8 @@ app.whenReady().then(() => {
       { label: 'Export Profile...', click: () => dispatch('profile:export') },
       { label: 'Open Profile Folder', click: () => dispatch('profile:reveal') },
       { label: 'Open App Folder', click: () => dispatch('profile:reveal', '@app') },
+      { type: 'separator' },
+      { label: 'Switch Profile', submenu: await buildProfileSubmenu() },
       { type: 'separator' },
       { role: 'close' },
     ]},
