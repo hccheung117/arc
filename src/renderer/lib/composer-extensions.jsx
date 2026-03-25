@@ -190,12 +190,7 @@ const AutoMention = Extension.create({
           const store = editor.storage.editorStore
           if (store?.suggestionActive) return null
 
-          const justExited = store?.suggestionJustExited
-          if (justExited) {
-            store.suggestionJustExited = false
-          } else if (!transactions.some(tr => tr.docChanged)) {
-            return null
-          }
+          if (store?.suggestionJustExited) store.suggestionJustExited = false
 
           const knownSkills = (store?.skills ?? []).map(s => s.name)
           const allMarkers = []
@@ -211,18 +206,22 @@ const AutoMention = Extension.create({
             }
           })
 
-          if (!allMarkers.length) return null
+          // Skip markers the cursor is still inside — user may still be typing
+          const head = newState.selection.head
+          const actionable = allMarkers.filter(m => head <= m.from || head > m.to)
 
-          allMarkers.sort((a, b) => b.from - a.from)
+          if (!actionable.length) return null
+
+          actionable.sort((a, b) => b.from - a.from)
           const tr = newState.tr
 
-          for (const marker of allMarkers) {
+          for (const marker of actionable) {
             const mentionNode = marker.type === 'skill'
               ? newState.schema.nodes.mention.create({
                   id: marker.name, label: marker.name, mentionType: 'skill',
                 })
               : newState.schema.nodes.mention.create({
-                  id: marker.path, label: marker.path.split('/').pop() || marker.path,
+                  id: marker.path, label: marker.path,
                   mentionType: 'file', url: marker.path, filename: marker.path.split('/').pop() || marker.path, mediaType: '',
                 })
 

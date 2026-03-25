@@ -12,7 +12,7 @@ import {
   launchApp, sel,
   typeInEditor, clearEditor, getEditorText,
   injectSkills,
-  setupMainProcessMock, mockUploadAttachment, mockInvokeRoute,
+  setupMainProcessMock, mockUploadAttachment, mockInvokeRoute, mockSendMessage,
 } from '../helpers.js'
 
 const TEST_SKILLS = [
@@ -229,8 +229,34 @@ test.describe('4.5 Auto-convert fully typed slash commands', () => {
     expect(text).toContain('/summ')
   })
 
-  test('Escape after full name → still auto-converts', async () => {
+  test('exact skill name without trailing content → no auto-convert yet', async () => {
     await typeInEditor(window, '/summarize')
+    await window.waitForTimeout(300)
+    await window.keyboard.press('Escape')
+    await window.waitForTimeout(300)
+
+    // Should NOT convert — cursor is at the end, user may still be typing
+    await expect(window.locator(sel.mention)).not.toBeVisible()
+    const text = await getEditorText(window)
+    expect(text).toContain('/summarize')
+  })
+
+  test('skill name that is prefix of longer input → no premature conversion', async () => {
+    // Type /summarize then keep typing — should not have converted /summarize mid-typing
+    await typeInEditor(window, '/summarize-extra')
+    await window.waitForTimeout(300)
+    await window.keyboard.press('Escape')
+    await window.waitForTimeout(300)
+
+    // /summarize-extra is not a known skill, so no mention should exist
+    await expect(window.locator(sel.mention)).not.toBeVisible()
+    const text = await getEditorText(window)
+    expect(text).toContain('/summarize-extra')
+  })
+
+  test('non-space char finishes skill mention: /summarize, → converts', async () => {
+    // Comma is not [\w-], so it terminates the skill name
+    await typeInEditor(window, '/summarize,')
     await window.waitForTimeout(300)
     await window.keyboard.press('Escape')
     await window.waitForTimeout(300)
@@ -238,6 +264,8 @@ test.describe('4.5 Auto-convert fully typed slash commands', () => {
     const mention = window.locator(sel.mention)
     await expect(mention).toBeVisible()
     expect(await mention.textContent()).toBe('/summarize')
+    const text = await getEditorText(window)
+    expect(text).toContain(',')
   })
 })
 
@@ -423,5 +451,131 @@ test.describe('5.2 File Mention via Attach Button', () => {
 
     const mention = window.locator('span[data-type="mention"][data-mention-type="file"]')
     await expect(mention).toBeVisible({ timeout: 2000 })
+  })
+})
+
+// ─── 5.2b Mention-Only Submit ────────────────────────────────────────────────
+// When the entire message is just a mention (no trailing content), submit
+// must still resolve the full pattern — not a truncated eager conversion.
+
+test.describe('5.2b Mention-Only Submit', () => {
+  test.beforeAll(async () => {
+    await setupMainProcessMock(electronApp)
+    await mockSendMessage(electronApp)
+  })
+
+  test.beforeEach(async () => {
+    await clearEditor(window)
+    await window.waitForTimeout(100)
+  })
+
+  test('submit @/tmp/file as entire message → user message shows full path', async () => {
+    await typeInEditor(window, '@/tmp/file')
+    await window.waitForTimeout(300)
+    await window.keyboard.press('Enter')
+    await window.locator(sel.userMessage).first().waitFor({ state: 'visible', timeout: 5000 })
+
+    const userMsg = await window.locator(sel.userMessage).first().textContent()
+    // Must contain the full path, not just @/ or truncated
+    expect(userMsg).toMatch(/@\/tmp\/file/)
+  })
+
+  test('submit /summarize as entire message → user message shows /summarize', async () => {
+    await typeInEditor(window, '/summarize')
+    await window.waitForTimeout(300)
+    await window.keyboard.press('Escape')
+    await window.waitForTimeout(100)
+    await window.keyboard.press('Enter')
+    await expect(window.locator(sel.userMessage)).toHaveCount(2, { timeout: 5000 })
+
+    const userMsg = await window.locator(sel.userMessage).nth(1).textContent()
+    expect(userMsg).toContain('/summarize')
+  })
+})
+
+// ─── 5.3 Typed File Path Mention ────────────────────────────────────────────
+// Auto-conversion should only fire when the pattern is followed by content
+// (whitespace), not eagerly mid-typing. Without this, @/tmp/blah converts @/
+// immediately, losing the rest of the path.
+
+test.describe('5.3 Typed File Path Mention', () => {
+  test.beforeEach(async () => {
+    await clearEditor(window)
+    await window.waitForTimeout(100)
+  })
+
+  test.afterEach(async () => {
+    await clearEditor(window)
+    await window.waitForTimeout(100)
+  })
+
+  test('type @/tmp/blah + space → single mention showing full path', async () => {
+    await typeInEditor(window, '@/tmp/blah ')
+    await window.waitForTimeout(500)
+
+    const mention = window.locator('span[data-type="mention"][data-mention-type="file"]')
+    await expect(mention).toBeVisible({ timeout: 2000 })
+    await expect(mention).toHaveCount(1)
+    // Label shows full path, not just basename
+    expect(await mention.textContent()).toBe('/tmp/blah')
+  })
+
+  test('type @/tmp/blah without trailing space → no premature conversion', async () => {
+    await typeInEditor(window, '@/tmp/blah')
+    await window.waitForTimeout(500)
+
+    // Should NOT convert yet — cursor at end, user still typing
+    const mention = window.locator('span[data-type="mention"][data-mention-type="file"]')
+    await expect(mention).not.toBeVisible()
+  })
+
+  test('type @./relative/path + space → single mention showing full relative path', async () => {
+    await typeInEditor(window, '@./relative/path ')
+    await window.waitForTimeout(500)
+
+    const mention = window.locator('span[data-type="mention"][data-mention-type="file"]')
+    await expect(mention).toBeVisible({ timeout: 2000 })
+    await expect(mention).toHaveCount(1)
+    expect(await mention.textContent()).toBe('./relative/path')
+  })
+
+  test('type @~/Documents/file.txt + space → single mention showing full home path', async () => {
+    await typeInEditor(window, '@~/Documents/file.txt ')
+    await window.waitForTimeout(500)
+
+    const mention = window.locator('span[data-type="mention"][data-mention-type="file"]')
+    await expect(mention).toBeVisible({ timeout: 2000 })
+    await expect(mention).toHaveCount(1)
+    expect(await mention.textContent()).toBe('~/Documents/file.txt')
+  })
+
+  test('type @/tmp then move cursor away → converts on cursor leave', async () => {
+    await typeInEditor(window, '@/tmp')
+    await window.waitForTimeout(300)
+
+    // No conversion yet — cursor at end
+    const mention = window.locator('span[data-type="mention"][data-mention-type="file"]')
+    await expect(mention).not.toBeVisible()
+
+    // Move cursor to beginning (away from match)
+    await window.keyboard.press('Home')
+    await window.waitForTimeout(300)
+
+    // Should convert now — cursor is no longer inside the match
+    await expect(mention).toBeVisible({ timeout: 2000 })
+    expect(await mention.textContent()).toBe('/tmp')
+  })
+
+  test('type @/tmp then move cursor away and back → mention exists, cannot extend', async () => {
+    await typeInEditor(window, '@/tmp')
+    await window.waitForTimeout(300)
+
+    // Move away to trigger conversion
+    await window.keyboard.press('Home')
+    await window.waitForTimeout(300)
+
+    const mention = window.locator('span[data-type="mention"][data-mention-type="file"]')
+    await expect(mention).toBeVisible({ timeout: 2000 })
+    expect(await mention.textContent()).toBe('/tmp')
   })
 })

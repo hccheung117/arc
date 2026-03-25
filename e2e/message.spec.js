@@ -18,8 +18,8 @@ test.describe('mention spacing', () => {
 
   test('mention adjacent to text gets space-separated on send', async () => {
     // Type text that AutoMention will convert:
-    // "check@arcfs://tmp/test.png" → text node "check" + mention node
-    await typeInEditor(window, 'check@arcfs://tmp/test.png')
+    // "check@arcfs://tmp/test.png " → trailing space finishes the mention
+    await typeInEditor(window, 'check@arcfs://tmp/test.png ')
     await window.locator(sel.mention).waitFor({ state: 'visible' })
 
     // Submit
