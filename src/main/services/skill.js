@@ -11,16 +11,17 @@ export const listSkills = async (dir) => {
     throw e
   })
 
-  const subdirs = entries.filter(e => e.isDirectory())
+  const subdirs = entries.filter(e => e.isDirectory() || e.isSymbolicLink())
 
   return (await Promise.all(subdirs.map(async (entry) => {
     const skillPath = path.join(dir, entry.name, 'SKILL.md')
     const content = await readMarkdown(skillPath)
     if (!content) return null
     const { data } = matter(content)
-    if (!data.name || !data.description) return null
+    if (!data.description) return null
+    const name = data.name || entry.name
     const relative = path.relative(resolve(), path.join(dir, entry.name))
-    return { name: data.name, description: data.description, directory: toUrl(...relative.split(path.sep)) }
+    return { name, description: data.description, directory: toUrl(...relative.split(path.sep)) }
   }))).filter(Boolean)
 }
 
