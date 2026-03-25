@@ -20,18 +20,10 @@ import {
   MessageBranchPrevious, MessageBranchNext, MessageBranchPage,
   useMessageBranch,
 } from "@/components/ai-elements/message"
-import {
-  Reasoning, ReasoningContent, ReasoningTrigger,
-} from "@/components/ai-elements/reasoning"
-import {
-  ChainOfThought, ChainOfThoughtHeader, ChainOfThoughtContent, ChainOfThoughtStep,
-} from "@/components/ai-elements/chain-of-thought"
-import { toolUI, toolSummary } from "@/lib/tool-ui"
+import { ThinkingNarrative } from "@/components/ThinkingNarrative"
+import { narrativeFromParts, isToolPart } from "@/lib/narrative"
 import { WaitingShimmer } from "@/components/WaitingShimmer"
 import { cn } from "@/lib/shadcn"
-
-const isToolPart = (p) =>
-  p.type === 'tool-call' || p.type === 'tool-result' || (p.toolCallId && p.state)
 
 const textFromParts = (msg) => {
   const parts = msg.parts
@@ -44,47 +36,6 @@ const textFromParts = (msg) => {
     .map(p => p.text).join('')
 }
 
-const reasoningFromParts = (msg) =>
-  msg.parts.filter((p) => p.type === "reasoning").map((p) => p.text).join("\n\n")
-
-const stepsFromParts = (msg) => {
-  const items = []
-  const resultIds = new Set()
-  const parts = msg.parts
-
-  let lastToolIdx = -1
-  for (let i = parts.length - 1; i >= 0; i--) {
-    if (isToolPart(parts[i])) { lastToolIdx = i; break }
-  }
-
-  for (let i = 0; i <= lastToolIdx; i++) {
-    const p = parts[i]
-    if (p.type === 'reasoning') continue
-    if (p.type === 'text') {
-      if (p.text.trim()) items.push({ type: 'interstitial-text', text: p.text })
-      continue
-    }
-    if (p.toolCallId && p.state) {
-      items.push({
-        type: 'tool',
-        toolCallId: p.toolCallId,
-        toolName: p.type === 'dynamic-tool' ? p.toolName : p.type.slice(5),
-        input: p.input,
-        hasResult: p.state === 'output-available',
-      })
-      continue
-    }
-    if (p.type === 'tool-call')
-      items.push({ type: 'tool', toolCallId: p.toolCallId, toolName: p.toolName, input: p.input, hasResult: false })
-    else if (p.type === 'tool-result')
-      resultIds.add(p.toolCallId)
-  }
-
-  for (const item of items)
-    if (item.type === 'tool' && resultIds.has(item.toolCallId)) item.hasResult = true
-
-  return items
-}
 
 const UserMessageContent = ({ msg }) => (
   <MessageContent>
@@ -188,50 +139,25 @@ export default function Workbench() {
                 const waitingForFirstDelta =
                   status === "submitted" ||
                   (status === "streaming" && lastMsg?.role === "assistant"
-                    && !textFromParts(lastMsg) && !reasoningFromParts(lastMsg)
-                    && !lastMsg.parts.some(p => p.toolCallId))
+                    && !textFromParts(lastMsg) && !narrativeFromParts(lastMsg).length)
                 const displayMessages = waitingForFirstDelta && status === "streaming"
                   ? messages.slice(0, -1)
                   : messages
                 return (<>
                   {displayMessages.map((msg, index) => {
                     const isLastMsg = index === displayMessages.length - 1
-                    const reasoningText = msg.role === "assistant" ? reasoningFromParts(msg) : ""
-                    const isReasoningStreaming = isLastMsg && status === "streaming"
-                      && msg.parts.at(-1)?.type === "reasoning"
                     const msgText = textFromParts(msg)
-                    const steps = msg.role === "assistant" ? stepsFromParts(msg) : []
+                    const narrative = msg.role === "assistant" ? narrativeFromParts(msg) : []
                     const isStreaming = isLastMsg && status === "streaming"
 
                     const assistantContent = (
                       <>
-                        {reasoningText && (
-                          <Reasoning isStreaming={isReasoningStreaming}>
-                            <ReasoningTrigger />
-                            <ReasoningContent>{reasoningText}</ReasoningContent>
-                          </Reasoning>
-                        )}
-                        {steps.length > 0 && (
-                          <ChainOfThought defaultOpen={isStreaming}>
-                            <ChainOfThoughtHeader>
-                              {isStreaming ? 'Acting' : toolSummary(steps.filter(s => s.type === 'tool'))}
-                            </ChainOfThoughtHeader>
-                            <ChainOfThoughtContent>
-                              {steps.map((step, i) => {
-                                if (step.type === 'interstitial-text')
-                                  return <p key={i} className="text-sm text-muted-foreground whitespace-pre-wrap">{step.text}</p>
-                                const tool = toolUI(step.toolName)
-                                return (
-                                  <ChainOfThoughtStep
-                                    key={step.toolCallId}
-                                    icon={tool.icon}
-                                    label={tool.label(step.input)}
-                                    status={step.hasResult ? 'complete' : 'active'}
-                                  />
-                                )
-                              })}
-                            </ChainOfThoughtContent>
-                          </ChainOfThought>
+                        {narrative.length > 0 && (
+                          <ThinkingNarrative
+                            narrative={narrative}
+                            isStreaming={isStreaming}
+                            hasResponseText={!!msgText}
+                          />
                         )}
                         <MessageResponse>{msgText}</MessageResponse>
                       </>
