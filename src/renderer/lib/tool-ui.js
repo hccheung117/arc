@@ -1,4 +1,4 @@
-import { BookOpenIcon, FilePenIcon, FileTextIcon, FolderOpenIcon, PencilIcon, TerminalSquareIcon, WrenchIcon } from "lucide-react"
+import { BookOpenIcon, FilePenIcon, FileTextIcon, FolderOpenIcon, GlobeIcon, PencilIcon, TerminalSquareIcon, WrenchIcon } from "lucide-react"
 
 const tools = {
   read_file: {
@@ -45,6 +45,11 @@ const tools = {
       return scriptPath ? `Running ${scriptPath}` : 'Running a script'
     },
     summary: (count) => `Ran ${count} script${count > 1 ? 's' : ''}`,
+  },
+  browser: {
+    icon: GlobeIcon,
+    label: (input) => input?.command ? `Browser: ${input.command}` : 'Using browser',
+    summary: (count) => `Used browser ${count} time${count > 1 ? 's' : ''}`,
   },
 }
 
