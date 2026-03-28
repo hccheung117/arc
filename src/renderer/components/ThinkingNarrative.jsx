@@ -13,10 +13,13 @@ import { toolUI } from "@/lib/tool-ui"
 const AUTO_CLOSE_DELAY = 1000
 const MS_IN_S = 1000
 
+const isFailedStep = (step) => step.state === 'output-error' || step.state === 'output-denied'
+
 const NarrativeStep = memo(({ step, isLast }) => {
   const [expanded, setExpanded] = useState(false)
   const tool = toolUI(step.toolName)
   const Icon = tool.icon
+  const failed = isFailedStep(step)
 
   return (
     <div className="flex gap-2 text-sm text-muted-foreground fade-in-0 slide-in-from-top-2 animate-in">
@@ -32,7 +35,7 @@ const NarrativeStep = memo(({ step, isLast }) => {
         >
           {!step.hasResult
             ? <Shimmer duration={1}>{tool.label(step.input, false)}</Shimmer>
-            : tool.label(step.input, true)}
+            : <>{tool.label(step.input, true)}{failed && <span className="ml-1.5 text-red-400/70">✕</span>}</>}
         </button>
         {expanded && step.output != null && (
           <pre className="text-xs text-muted-foreground/70 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-muted p-2">

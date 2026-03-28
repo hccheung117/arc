@@ -39,7 +39,7 @@ describe('narrativeFromParts', () => {
       { type: 'text', text: 'Done' },
     ]))
     expect(result).toEqual([
-      { type: 'tool', toolCallId: 'tc1', toolName: 'read_file', input: { path: '/foo' }, output: 'contents', hasResult: true },
+      { type: 'tool', toolCallId: 'tc1', toolName: 'read_file', state: 'output-available', input: { path: '/foo' }, output: 'contents', hasResult: true },
     ])
   })
 
@@ -54,10 +54,10 @@ describe('narrativeFromParts', () => {
     ]))
     expect(result).toEqual([
       { type: 'reasoning', text: 'First thought' },
-      { type: 'tool', toolCallId: 'tc1', toolName: 'read_file', input: {}, output: 'x', hasResult: true },
+      { type: 'tool', toolCallId: 'tc1', toolName: 'read_file', state: 'output-available', input: {}, output: 'x', hasResult: true },
       { type: 'interstitial-text', text: 'Let me check' },
       { type: 'reasoning', text: 'Second thought' },
-      { type: 'tool', toolCallId: 'tc2', toolName: 'edit_file', input: {}, output: 'y', hasResult: true },
+      { type: 'tool', toolCallId: 'tc2', toolName: 'edit_file', state: 'output-available', input: {}, output: 'y', hasResult: true },
     ])
   })
 
@@ -66,7 +66,7 @@ describe('narrativeFromParts', () => {
       { type: 'tool-browser', toolCallId: 'tc1', state: 'call', input: { command: 'screenshot' } },
     ]))
     expect(result).toEqual([
-      { type: 'tool', toolCallId: 'tc1', toolName: 'browser', input: { command: 'screenshot' }, output: undefined, hasResult: false },
+      { type: 'tool', toolCallId: 'tc1', toolName: 'browser', state: 'call', input: { command: 'screenshot' }, output: undefined, hasResult: false },
     ])
   })
 
@@ -80,7 +80,7 @@ describe('narrativeFromParts', () => {
     ]))
     expect(result).toEqual([
       { type: 'reasoning', text: 'think' },
-      { type: 'tool', toolCallId: 'tc1', toolName: 'read_file', input: {}, output: 'x', hasResult: true },
+      { type: 'tool', toolCallId: 'tc1', toolName: 'read_file', state: 'output-available', input: {}, output: 'x', hasResult: true },
     ])
   })
 
@@ -91,24 +91,41 @@ describe('narrativeFromParts', () => {
       { type: 'text', text: 'answer' },
     ]))
     expect(result).toEqual([
-      { type: 'tool', toolCallId: 'tc1', toolName: 'read_file', input: {}, output: 'x', hasResult: true },
+      { type: 'tool', toolCallId: 'tc1', toolName: 'read_file', state: 'output-available', input: {}, output: 'x', hasResult: true },
     ])
   })
 
-  test('tool with output-error → hasResult true', () => {
+  test('tool with output-error → hasResult true and state preserved', () => {
     const result = narrativeFromParts(msg([
       { type: 'tool-read_file', toolCallId: 'tc1', state: 'output-error', input: { path: '/foo' }, output: 'Error: file not found' },
       { type: 'text', text: 'Sorry' },
     ]))
     expect(result[0].hasResult).toBe(true)
+    expect(result[0].state).toBe('output-error')
   })
 
-  test('tool with output-denied → hasResult true', () => {
+  test('tool with output-denied → hasResult true and state preserved', () => {
     const result = narrativeFromParts(msg([
       { type: 'tool-edit_file', toolCallId: 'tc1', state: 'output-denied', input: {}, output: undefined },
       { type: 'text', text: 'Okay' },
     ]))
     expect(result[0].hasResult).toBe(true)
+    expect(result[0].state).toBe('output-denied')
+  })
+
+  test('tool with output-available → state preserved', () => {
+    const result = narrativeFromParts(msg([
+      { type: 'tool-read_file', toolCallId: 'tc1', state: 'output-available', input: { path: '/foo' }, output: 'contents' },
+      { type: 'text', text: 'Done' },
+    ]))
+    expect(result[0].state).toBe('output-available')
+  })
+
+  test('in-progress tool call → state preserved', () => {
+    const result = narrativeFromParts(msg([
+      { type: 'tool-browser', toolCallId: 'tc1', state: 'call', input: { command: 'screenshot' } },
+    ]))
+    expect(result[0].state).toBe('call')
   })
 
   test('dynamic-tool uses toolName field', () => {

@@ -28,6 +28,7 @@ export const narrativeFromParts = (msg) => {
         type: 'tool',
         toolCallId: p.toolCallId,
         toolName,
+        state: p.state,
         input: p.input,
         output: p.output,
         hasResult: p.state === 'output-available' || p.state === 'output-error' || p.state === 'output-denied',
