@@ -7,6 +7,7 @@ import * as session from '../services/session.js'
 import * as layout from '../services/layout.js'
 import * as message from '../services/message.js'
 import { promptsCh } from './prompts.js'
+import { closePopout } from './popout.js'
 
 const dir = resolve('sessions')
 
@@ -69,7 +70,7 @@ register('session:context-menu', async ({ id }) => {
     ...(inFolder ? [{ label: 'Remove from Folder', click: sessions.mutate(() => layout.removeFromFolder(dir, id)) }] : []),
     { label: 'Move to Folder', submenu: moveSubmenu },
     { type: 'separator' },
-    { label: 'Delete', click: sessions.mutate(() => session.deleteSession(dir, id)) },
+    { label: 'Delete', click: sessions.mutate(() => { closePopout(id); return session.deleteSession(dir, id) }) },
   ]).popup()
 })
 

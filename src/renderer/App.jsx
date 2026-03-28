@@ -6,10 +6,13 @@ import {
 } from "@/components/ui/resizable"
 import { SidebarProvider } from "@/components/ui/sidebar"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useSubscription } from "@/hooks/use-subscription"
 import AppSidebar from "@/components/AppSidebar"
 import Workbench from "@/components/Workbench"
 import Composer from "@/components/Composer"
 import { SessionProvider, useSession } from "@/contexts/SessionContext"
+
+const popoutSessionId = new URLSearchParams(location.search).get('popout')
 
 function ErrorBanner() {
   const { status, error } = useSession()
@@ -21,12 +24,12 @@ function ErrorBanner() {
   )
 }
 
-export default function App() {
-  const panelRef = useRef(null)
+function SessionContent({ isPopout }) {
   const bodyRef = useRef(null)
   const footerRef = useRef(null)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
-  const isMobile = useIsMobile()
+  const { id: sessionId } = useSession()
+  const popouts = useSubscription('session:popout:feed', [])
+  const isPoppedOut = !isPopout && popouts.includes(sessionId)
 
   /* --footer-h: composer height — see docs/ui-chat-viewport-layout.md */
   useEffect(() => {
@@ -38,7 +41,28 @@ export default function App() {
     const ro = new ResizeObserver(sync)
     ro.observe(footer)
     return () => ro.disconnect()
-  }, [])
+  }, [isPoppedOut])
+
+  return (
+    <div ref={bodyRef} data-body className="relative h-full">
+      <Workbench isPopout={isPopout} />
+      {!isPoppedOut && (
+        <div
+          ref={footerRef}
+          className="absolute inset-x-0 bottom-0 z-10 flex max-h-[calc(100%-var(--header-h))] flex-col"
+        >
+          <ErrorBanner />
+          <Composer />
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function App() {
+  const panelRef = useRef(null)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const isMobile = useIsMobile()
 
   const handleOpenChange = (open) => {
     if (open) panelRef.current.expand()
@@ -46,9 +70,18 @@ export default function App() {
   }
 
   useEffect(() => {
+    if (!panelRef.current) return
     if (isMobile) panelRef.current.collapse()
     else panelRef.current.expand()
   }, [isMobile])
+
+  if (popoutSessionId) {
+    return (
+      <SessionProvider popoutSessionId={popoutSessionId}>
+        <SessionContent isPopout />
+      </SessionProvider>
+    )
+  }
 
   return (
     <SidebarProvider open={sidebarOpen} onOpenChange={handleOpenChange}>
@@ -65,19 +98,7 @@ export default function App() {
         <ResizableHandle />
         <ResizablePanel className="bg-background">
           <SessionProvider>
-            <div ref={bodyRef} data-body className="relative h-full">
-              <Workbench />
-              {/* Composer overlay: absolute-positioned above the Workbench scroll
-                  area. max-h prevents it from covering the header. Its height
-                  is published as --footer-h (see ResizeObserver above). */}
-              <div
-                ref={footerRef}
-                className="absolute inset-x-0 bottom-0 z-10 flex max-h-[calc(100%-var(--header-h))] flex-col"
-              >
-                <ErrorBanner />
-                <Composer />
-              </div>
-            </div>
+            <SessionContent />
           </SessionProvider>
         </ResizablePanel>
       </ResizablePanelGroup>

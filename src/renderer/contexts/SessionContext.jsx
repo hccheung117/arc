@@ -11,9 +11,10 @@ export const useSession = () => use(SessionContext)
 
 const chatInstances = new Map()
 
-export function SessionProvider({ children }) {
+export function SessionProvider({ children, popoutSessionId }) {
   const transport = useMemo(() => new IpcTransport(), [])
-  const activeSessionId = useAppStore((s) => s.activeSessionId)
+  const storeSessionId = useAppStore((s) => s.activeSessionId)
+  const activeSessionId = popoutSessionId ?? storeSessionId
 
   if (!chatInstances.has(activeSessionId)) {
     chatInstances.set(activeSessionId, new Chat({ id: activeSessionId, transport }))

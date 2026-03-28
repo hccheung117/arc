@@ -1,4 +1,4 @@
-import { Drama, Download, FolderOpen } from "lucide-react"
+import { Drama, Download, Ellipsis, FolderOpen, SquareArrowOutUpRight } from "lucide-react"
 import { MessageSquareIcon } from "lucide-react"
 import { useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
@@ -8,6 +8,9 @@ import { useSubscription } from "@/hooks/use-subscription"
 import { useSession } from "@/contexts/SessionContext"
 import { useLLMLock } from '@/hooks/use-llm-lock'
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+} from "@/components/ui/dropdown-menu"
 import {
   Conversation,
   ConversationContent,
@@ -56,13 +59,15 @@ const BranchInit = ({ total }) => {
   return null
 }
 
-export default function Workbench() {
+export default function Workbench({ isPopout }) {
   const { mode, config, setMode } = useComposer()
   const { messages, id: sessionId, branches, switchBranch, prompt, status } = useSession()
   const isDraft = useAppStore((s) => s.draftSessionId === s.activeSessionId)
   const busy = useLLMLock()
   const feed = useSubscription('session:feed', { sessions: [], folders: [] })
   const title = feed.sessions.find(s => s.id === sessionId)?.title
+  const popouts = useSubscription('session:popout:feed', [])
+  const isPoppedOut = !isPopout && popouts.includes(sessionId)
   const hasPrompt = !!prompt
   useEffect(() => window.api.on('message:edit:start', ({ id, role }) => {
     const sid = useAppStore.getState().activeSessionId
@@ -83,6 +88,36 @@ export default function Workbench() {
     window.api.call('session:export', { sessionId })
   }, [sessionId])
 
+  const handlePopout = useCallback(() => {
+    window.api.call('session:popout', { sessionId })
+  }, [sessionId])
+
+  if (isPoppedOut) {
+    return (
+      <div className="relative h-full">
+        <header className="sticky top-0 z-10 flex shrink-0 h-(--header-h) items-center px-(--content-px) bg-background/50 backdrop-blur-sm">
+          <div className="flex items-center gap-2 min-w-0">
+            {!isPopout && <SidebarTrigger />}
+            <span className="text-sm font-semibold truncate">{title || "Arc"}</span>
+          </div>
+        </header>
+        <div className="flex items-center justify-center" style={{ height: "calc(100% - var(--header-h))" }}>
+          <div className="flex flex-col items-center gap-3 text-muted-foreground">
+            <SquareArrowOutUpRight className="size-8" />
+            <p className="text-sm">This chat is open in a separate window</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.api.call('session:popout:focus', { sessionId })}
+            >
+              Show Window
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="relative h-full">
       <Conversation className="h-full">
@@ -91,7 +126,7 @@ export default function Workbench() {
         <ConversationContent className="gap-0 p-0 min-h-full">
           <header className="sticky top-0 z-10 flex shrink-0 h-(--header-h) items-center justify-between px-(--content-px) bg-background/50 backdrop-blur-sm">
             <div className="flex items-center gap-2 min-w-0">
-              <SidebarTrigger />
+              {!isPopout && <SidebarTrigger />}
               <span className="text-sm font-semibold truncate">{title || "Arc"}</span>
             </div>
             <div className="flex items-center gap-1">
@@ -107,7 +142,15 @@ export default function Workbench() {
                   <span className="absolute bottom-[2px] left-1/2 -translate-x-1/2 h-0.5 w-3 rounded-full bg-primary" />
                 )}
               </Button>
-              <Button disabled={messages.length === 0} onClick={handleDownload} variant="ghost" size="icon-sm"><Download /></Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon-sm"><Ellipsis /></Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {!isPopout && <DropdownMenuItem disabled={busy} onClick={handlePopout}><SquareArrowOutUpRight />Open in New Window</DropdownMenuItem>}
+                  <DropdownMenuItem disabled={messages.length === 0} onClick={handleDownload}><Download />Export</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </header>
           {messages.length === 0 && isDraft ? (
