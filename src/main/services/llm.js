@@ -72,6 +72,18 @@ const prepareMessages = async (messages) => {
   return convertToModelMessages(resolved)
 }
 
+const deepMerge = (...sources) =>
+  sources.reduce((acc, src) => {
+    if (!src) return acc
+    for (const [k, v] of Object.entries(src))
+      acc[k] = typeof v === 'object' && typeof acc[k] === 'object' ? { ...acc[k], ...v } : v
+    return acc
+  }, {})
+
+const cacheOptions = () => ({
+  anthropic: { cacheControl: { type: 'ephemeral' } },
+})
+
 const thinkingOptions = (provider, thinking) => {
   if (!thinking) return undefined
   if (provider.type === 'anthropic')
@@ -82,6 +94,9 @@ const thinkingOptions = (provider, thinking) => {
   if (provider.type === 'google')
     return { google: { thinkingConfig: { includeThoughts: true, thinkingLevel: 'high' } } }
 }
+
+const buildProviderOptions = (provider, thinking) =>
+  deepMerge(cacheOptions(), thinkingOptions(provider, thinking))
 
 const loop = new ToolLoopAgent({
   model: null,
@@ -116,7 +131,7 @@ export const streamText = async ({ provider, modelId, system, messages, send, si
   const model = await modelFor(provider, modelId)
   const modelMessages = await prepareMessages(messages)
 
-  const providerOptions = thinkingOptions(provider, thinking)
+  const providerOptions = buildProviderOptions(provider, thinking)
 
   const result = aiStreamText({
     model,
@@ -156,7 +171,7 @@ export const stream = async ({ provider, modelId, system, messages, tools, send,
   const assistantId = generateId()
   const model = await modelFor(provider, modelId)
   const modelMessages = await prepareMessages(messages)
-  const providerOptions = thinkingOptions(provider, thinking)
+  const providerOptions = buildProviderOptions(provider, thinking)
 
   const result = await loop.stream({
     messages: modelMessages,
