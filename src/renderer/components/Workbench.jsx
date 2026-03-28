@@ -90,7 +90,7 @@ export default function Workbench() {
             min-h-full (not h-full) so ResizeObserver in StickToBottom fires. */}
         <ConversationContent className="gap-0 p-0 min-h-full">
           <header className="sticky top-0 z-10 flex shrink-0 h-(--header-h) items-center justify-between px-(--content-px) bg-background/50 backdrop-blur-sm">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <SidebarTrigger />
               <span className="text-sm font-semibold truncate">{title || "Arc"}</span>
             </div>
