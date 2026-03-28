@@ -4,6 +4,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { tool } from 'ai'
 import { z } from 'zod'
+import mime from 'mime'
 import { resolve as arcfsResolve, fromUrl } from '../arcfs.js'
 import { execute as browserExecute, setTmpPath } from './browser.js'
 import { loadSkillContent, skillEnvName } from './skill.js'
@@ -37,6 +38,9 @@ const readFileContent = async (filePath, { offset, limit }) => {
     if (e.code === 'EACCES') return `Permission denied: ${filePath}`
     return `Error reading file: ${filePath}`
   }
+
+  const mediaType = mime.getType(filePath)
+  if (mediaType?.startsWith('image/')) return { image: true, data: buf.toString('base64'), mediaType }
 
   if (buf.includes(0)) return `Cannot read binary file: ${filePath}`
 
@@ -117,7 +121,7 @@ export const buildTools = ({ skills, workspacePath, tmpPath }) => {
   }
 
   const read_file = tool({
-    description: 'Read a text file',
+    description: 'Read a text file or image',
     inputSchema: z.object({
       path: z.string().describe('Absolute filesystem path or $WORKSPACE / $..._SKILL_DIR path'),
       offset: z.number().optional().describe('Line to start from (1-indexed)'),
@@ -127,6 +131,13 @@ export const buildTools = ({ skills, workspacePath, tmpPath }) => {
       const resolved = await resolvePath(rawPath)
       if (resolved.error) return resolved.error
       return readFileContent(resolved.path, { offset, limit })
+    },
+    toModelOutput: ({ output }) => {
+      if (!output?.image) return { type: 'text', value: typeof output === 'string' ? output : JSON.stringify(output) }
+      return {
+        type: 'content',
+        value: [{ type: 'image-data', data: output.data, mediaType: output.mediaType }],
+      }
     },
   })
 
