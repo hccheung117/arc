@@ -40,7 +40,7 @@ const readFileContent = async (filePath, { offset, limit }) => {
   }
 
   const mediaType = mime.getType(filePath)
-  if (mediaType?.startsWith('image/')) return { image: true, data: buf.toString('base64'), mediaType }
+  if (mediaType?.startsWith('image/') || mediaType === 'application/pdf') return { nativeFile: true, data: buf.toString('base64'), mediaType }
 
   if (buf.includes(0)) return `Cannot read binary file: ${filePath}`
 
@@ -121,7 +121,7 @@ export const buildTools = ({ skills, workspacePath, tmpPath }) => {
   }
 
   const read_file = tool({
-    description: 'Read a text file or image',
+    description: 'Read a text file, image, or PDF',
     inputSchema: z.object({
       path: z.string().describe('Absolute filesystem path or $WORKSPACE / $..._SKILL_DIR path'),
       offset: z.number().optional().describe('Line to start from (1-indexed)'),
@@ -133,11 +133,11 @@ export const buildTools = ({ skills, workspacePath, tmpPath }) => {
       return readFileContent(resolved.path, { offset, limit })
     },
     toModelOutput: ({ output }) => {
-      if (!output?.image) return { type: 'text', value: typeof output === 'string' ? output : JSON.stringify(output) }
-      return {
-        type: 'content',
-        value: [{ type: 'image-data', data: output.data, mediaType: output.mediaType }],
-      }
+      if (!output?.nativeFile) return { type: 'text', value: typeof output === 'string' ? output : JSON.stringify(output) }
+      const part = output.mediaType?.startsWith('image/')
+        ? { type: 'image-data', data: output.data, mediaType: output.mediaType }
+        : { type: 'file-data', data: output.data, mediaType: output.mediaType }
+      return { type: 'content', value: [part] }
     },
   })
 

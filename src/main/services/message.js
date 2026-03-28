@@ -162,8 +162,8 @@ export const resolveFileMentions = async (sessionDir, messages) => {
         urlMap.set(raw, newUrl)
       } else {
         const mediaType = mime.getType(resolved)
-        if (mediaType?.startsWith('image/')) {
-          // Copy strategy: local images → session files
+        if (mediaType?.startsWith('image/') || mediaType === 'application/pdf') {
+          // Copy strategy: local images/PDFs → session files
           await fs.mkdir(filesDir, { recursive: true })
           const ext = path.extname(resolved)
           const name = `${generateId()}${ext}`
