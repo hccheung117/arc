@@ -1,5 +1,4 @@
 import { describe, test, expect } from 'vitest'
-import { h, Fragment } from '../jsx.js'
 import { buildSystemPrompt } from './system.jsx'
 import { renderWorkspaceFiles, renderActiveSkill } from './augment.jsx'
 import { SYSTEM_REFINE, SYSTEM_TITLE, renderPromptTag, renderTitleTag } from './assist.jsx'
@@ -21,7 +20,7 @@ describe('buildSystemPrompt', () => {
   test('includes workspace instructions', () => {
     const result = buildSystemPrompt(null, [])
     expect(result).toContain('Your working directory for user-facing deliverables')
-    expect(result).toContain('MUST be stored in $WORKSPACE')
+    expect(result).toContain('should be stored in $WORKSPACE')
     expect(result).toContain('Your scratch space for intermediate and in-progress files')
   })
 

@@ -1,5 +1,4 @@
 import os from 'node:os'
-import { h, Fragment } from '../jsx.js'
 import { skillEnvName } from '../services/skill.js'
 
 const Skill = ({ name, path, children }) => (

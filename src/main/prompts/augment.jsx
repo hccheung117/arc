@@ -1,5 +1,3 @@
-import { h } from '../jsx.js'
-
 export const renderWorkspaceFiles = (paths) => (
   <global_workspace_files>
     {`Files have been added to your workspace. Use the \`read_file\` tool to access their live contents. Do NOT guess their contents.`}
