@@ -43,8 +43,8 @@ export function SessionProvider({ children }) {
         ] } : m
       ))
     }
-    if (payload.messages) {
-      chat.setMessages(payload.messages)
+    if (payload.messages && !isLLMBusy(chatRef.current.status)) {
+      chatRef.current.setMessages(payload.messages)
       const lastAssistant = payload.messages.findLast(m => m.role === 'assistant')
       const wb = useAppStore.getState().workbenches[activeSessionId]
       if (lastAssistant?.arcModelId && !wb?.modelId) {
