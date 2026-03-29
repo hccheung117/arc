@@ -2,7 +2,46 @@
 
 An agentic desktop AI chat client for macOS and Windows. Bring your own providers, models, and workflow.
 
-## Design
+## The Problem with AI Clients
+
+Most AI apps force non-technical users to juggle API keys, model names, base URLs, and complex system prompts. Setting up a team or trying to share a specific workflow is a nightmare.
+
+**Arc works differently.** 
+
+We assume users just want to chat, and experts want to configure. In Arc, all configuration is bundled into a portable **Profile** file. An expert (or power user) builds the profile. Normal users just import the profile into the app and start working—zero setup required.
+
+Perfect for:
+- **Teams & Enterprises:** Distribute a company-wide profile with custom productivity skills and your internal API gateway keys.
+- **AI Providers:** Create a seamless onboarding experience for your users (e.g., OpenRouter can distribute a pre-configured profile).
+- **Power Users:** Keep all your prompts, local model configs, and automations in a single, version-controllable folder.
+
+---
+
+## 🚀 Quick Start (For End Users)
+
+If someone sent you a `.arc` file, you can get started in seconds.
+
+1. **Download Arc:** Get the latest release for your OS from the [Releases page](https://github.com/hccheung117/arc/releases).
+2. **Install & Open:** Launch Arc on your desktop.
+3. **Import Profile:** Import your `.arc` file into the app. Start chatting immediately.
+
+---
+
+## 🔧 Building Profiles (For Distributors & Power Users)
+
+A Profile is just a directory containing markdown and JSON files. No hidden UI settings, no rigid databases. Just pure, version-controllable text.
+
+When you distribute a profile, you bundle:
+- **Providers:** Your API keys and custom endpoints.
+- **Models:** Default and favorite models for different tasks.
+- **Prompts:** Pre-written system instructions.
+- **Skills:** Zero-dependency automations written in Markdown.
+
+[Detailed profile documentation → docs/core-providers.md](docs/core-providers.md)
+
+---
+
+## 🏗️ Architecture & Design Philosophy
 
 ### Profiles are distributable
 
@@ -29,6 +68,28 @@ Arc implements a one-way flow that matches how people actually work. A prompt st
 Shareable configuration and personal preferences inevitably conflict. If you edit a shared profile to add your own preferences, you break it for others. Arc solves this by treating profiles as a baseline. 
 
 A personal per-user config directory (the `@app` layer) overrides, extends, or cancels profile settings without ever touching the profile itself. Different settings use different merge strategies: model favorites can be added or canceled, task assignments (like which model handles title generation or transcription) can be nulled out, and prompts or skills resolve by name with the personal layer winning. The profile stays clean; your customization stays personal.
+
+### Predictable, cross-platform runtime
+
+Arc is built on Electron (which bundles Node.js), enabling stable, predictable cross-platform skills via Node-based scripts. This architecture paves the way for future plugins that can hook into and customize Arc's behavior to provide rich, deeply integrated features. By leveraging a mature ecosystem—Electron alongside the AI SDK, AI elements, shadcn, and TipTap—Arc achieves the best return on investment with a highly capable, low-effort development foundation.
+
+---
+
+## 💻 Development
+
+Want to contribute to the source code?
+
+```bash
+# Clone the repository
+git clone https://github.com/hccheung117/arc.git
+cd arc
+
+# Install dependencies
+npm install
+
+# Start the dev server
+npm start
+```
 
 ## Built With
 

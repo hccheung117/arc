@@ -16,14 +16,14 @@ profiles/<profile-name>/
 ├── prompts/            # Reusable system prompts (.md files) available to users
 │   ├── coding.md
 │   └── writing.md
-└── skills/             # Agent skills loaded on-demand via tools
+└── skills/             # Agent skills loaded on-demand
     └── <skill-name>/
         └── SKILL.md
 ```
 
 ## Providers
 
-Providers define the AI backends available to the app (e.g., OpenAI, Anthropic proxies). Provider configurations are bound directly to your profile.
+Providers define the AI backends available to the app (e.g., OpenAI compatible proxies). Provider configurations are bound directly to your profile.
 
 - **Self-Contained:** Profiles must ship complete with all necessary authentication credentials. There is no in-app UI for users to override or manage keys.
 - **Explicit Endpoints:** Endpoint URLs must always be explicitly defined to support proxies seamlessly.
@@ -37,32 +37,33 @@ Provider definitions are stored in `providers.json` at the root of your profile 
 ```json
 {
   "[provider-id]": {
-    "type": "anthropic | openai-compatible | google",
-    "name": "string",
-    "baseUrl": "string",
-    "apiKey": "string",
+    "type": "anthropic | google | openai-compatible",
+    "name": "Your Display Name",
+    "baseUrl": "https://proxy.or.official.endpoint/v1",
+    "apiKey": "your-api-key-here",
     "models": [
-      { "keep": ["string"] },
-      { "drop": ["string"] },
-      { "add": ["string"] }
+      { "keep": ["claude-opus-*"] },
+      { "drop": ["*3*", "*-beta"] },
+      { "add": ["claude-opus-5-internal"] }
     ]
   }
 }
 ```
 
-| Property | Description |
-|----------|-------------|
-| `type` | The SDK/protocol to use (`anthropic`, `openai-compatible`, `google`). |
-| `name` | The human-readable display name for the UI. |
-| `baseUrl` | The explicit endpoint URL. |
-| `apiKey` | The authentication credential. |
-| `models` | Optional pipeline of `keep`/`drop`/`add` steps to control available models. |
+| Property  | Type     | Description |
+|-----------|----------|-------------|
+| `type`    | string   | The SDK/protocol to use (`anthropic`, `openai-compatible`, `google`). |
+| `name`    | string   | The human-readable display name for the UI. |
+| `baseUrl` | string   | The explicit endpoint URL. |
+| `apiKey`  | string   | The authentication credential. |
+| `models`  | array    | Optional pipeline of `keep`/`drop`/`add` steps to control available models. |
+
 
 *Note: The presence of a provider definition implicitly enables it.*
 
 ## Model Filtering
 
-Model filtering allows you to restrict the models shown in the application. This is particularly important for proxy providers (like OpenRouter or LiteLLM) that may return hundreds of models when you only want to expose a specific subset.
+Model filtering allows you to restrict the models shown in the application. This is particularly important for proxy providers (like OpenRouter) that may return hundreds of models when you only want to expose a specific subset.
 
 Filtering is configured inline within the provider definition using the `models` key.
 
@@ -139,7 +140,7 @@ You can define a default set of favorite models for your profile. These will app
 
 ### 2. System Task Assignments
 
-The application relies on specific models to handle "invisible" background tasks. If a profile does not assign a model to a task, that feature will silently degrade or disable itself in the UI. 
+The application relies on specific models to handle "invisible" background tasks. If a profile does not assign a model to a task, that feature will silently disable itself in the UI. 
 
 Current system tasks include:
 
@@ -194,12 +195,14 @@ skills/
 
 ### How Skills Work
 
-1. **Discovery & Merging:** At conversation time, the application scans for all available skills. It merges skills from the built-in `@app` profile and your active profile. Active profile skills take precedence by name, allowing you to override default skills.
-2. **System Prompt Injection:** The names and descriptions of all discovered skills are automatically injected into the system prompt as an XML catalog.
-3. **On-Demand Loading:** The LLM is provided with a `load_skill` tool. When the model determines a task matches a skill's description, it calls this tool to pull the full `SKILL.md` instructions into its context window.
-4. **Companion Files:** The `load_skill` tool returns the skill's instructions along with its directory URL (`arcfs://...`). The LLM can subsequently use the `read_file` tool to load any companion files from the `references/`, `scripts/`, or `assets/` subdirectories.
+Skills provide the AI with specialized capabilities and domain knowledge exactly when needed. This means you can extend the AI's abilities without writing massive system prompts.
 
-This progressive-disclosure approach keeps the initial system prompt lean while giving the model access to deep domain knowledge, specialized workflows, and supplementary files when needed.
+1. **Automatic Discovery:** The application automatically finds all skills in your profile and makes the AI aware of what they do.
+2. **Smart Activation:** Based on the skill's description, the AI autonomously decides when to load and follow a skill's full instructions.
+3. **Override Priority:** You can override built-in or default skills by providing a skill with the exact same name in your profile.
+4. **Rich Capabilities:** Skills aren't just text—they can include companion files, scripts, and assets that the AI can read and execute to perform complex, multi-step workflows.
+
+This progressive-disclosure approach ensures the AI remains fast and general-purpose, while giving it access to deep domain knowledge and specialized workflows when the task demands it.
 
 ### Built-in Skills
 
@@ -209,7 +212,7 @@ Arc ships with built-in skills that provide core capabilities out of the box. Th
 When discovering skills, the application merges them in the following order (highest to lowest priority):
 1. **`@app`** — Personal user overrides
 2. **Active profile** — Shared configuration
-3. **`@builtin`** — Shipped application defaults
+3. **Built-in** — Shipped application defaults
 
 You can override a built-in skill simply by creating a skill with the exact same name in your profile or personal `@app` directory.
 
@@ -218,28 +221,15 @@ You can override a built-in skill simply by creating a skill with the exact same
 
 ### Executing Scripts
 
-Skills can ship with executable code in their `scripts/` directory. To run these scripts during a conversation, the LLM is provided with an `exec` tool. 
+Skills can include executable scripts to perform complex tasks, process data, or interact with the local system. When a skill requires it, the AI can securely execute these scripts from the skill's directory.
 
-**Constraints & Runtimes:**
-- **`node`**: Universally available via Electron's bundled binary (using `ELECTRON_RUN_AS_NODE`).
-- **`bash`**: Available on macOS and Linux.
-- **`powershell`**: Available on Windows.
+**Supported Runtimes:**
+- **Node.js**: The app includes a built-in Node.js environment, meaning JavaScript scripts will run universally on any machine without requiring the user to install Node.
+- **Native Scripts**: Shell scripts or executable binaries can be run natively depending on the host OS (e.g., Bash on macOS/Linux, PowerShell on Windows).
+- **Custom Binaries**: Scripts can also specify third-party runtimes (like `python3`), provided they are installed on the user's system.
 
-**`exec` Tool Schema:**
-
-```json
-{
-  "runner": "node | bash | powershell",
-  "script": "string",
-  "cwd": "string"
-}
-```
-
-- **`runner`**: The interpreter to use. Must be explicitly specified.
-- **`script`**: The script path and arguments, relative to the working directory (e.g., `scripts/run.js --input data.csv`).
-- **`cwd`**: The working directory. This is typically the `skillDirectory` URL returned by `load_skill` (e.g., `arcfs://skills/my-skill`).
-
-The tool executes the process until completion (no timeout) and returns `{ stdout, stderr, exitCode }` back to the LLM. If the runner is unknown, unavailable on the current platform, or the script file is not found, the tool returns a descriptive error message string instead.
+**Security & Context:**
+Execution is sandboxed to ensure safety. Scripts can only be executed from trusted skill directories, and they automatically receive environment variables pointing to the user's current workspace and the skill's directory, allowing them to safely process files.
 
 ## Import & Export
 
@@ -258,14 +248,10 @@ You can import an existing profile via **File > Import Profile** and selecting a
 
 **`.arc` File Format:**
 
-The `.arc` format is a zip archive structured identically to the local profile directory. The presence of `arc.json` acts as a marker/manifest to indicate it's a valid, importable profile.
+The `.arc` format is a zip archive structured identically to the local Profile Structure detailed at the beginning of this guide. The presence of `arc.json` acts as a marker/manifest to indicate it's a valid, importable profile.
 
 ```text
 <profile-name>.arc (zip):
 └── <profile-name>/
-    ├── arc.json           # Marker/manifest file
-    ├── providers.json     # Providers configuration (credentials included)
-    ├── settings.json      # Default favorite models and settings
-    ├── prompts/           # Reusable system prompts
-    └── skills/            # Agent skills loaded on-demand
+    └── ... (see Profile Structure above)
 ```
