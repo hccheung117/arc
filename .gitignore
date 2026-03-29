@@ -94,6 +94,7 @@ out/
 # Playwright
 test-results/
 *.png
+!assets/screenshot.png
 
 # IDE
 .idea/

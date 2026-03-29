@@ -1,6 +1,12 @@
 # Arc
 
+![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows-blue)
+[![Latest Release](https://img.shields.io/github/v/release/hccheung117/arc)](https://github.com/hccheung117/arc/releases)
+[![Downloads](https://img.shields.io/github/downloads/hccheung117/arc/total)](https://github.com/hccheung117/arc/releases)
+
 An agentic desktop AI chat client for macOS and Windows. Bring your own providers, models, and workflow.
+
+![Arc Screenshot](assets/screenshot.png)
 
 ## The Problem with AI Clients
 
@@ -17,7 +23,20 @@ Perfect for:
 
 ---
 
-## 🚀 Quick Start (For End Users)
+## Feature Highlights
+
+- **Local Agentic Capabilities:** The AI has real agency to read/write local files, run scripts, and automate your browser within a single conversation loop.
+- **Session Workspaces:** Every conversation automatically gets its own isolated file directory for safely managing AI-created artifacts.
+- **Progressive Skills:** Extend AI expertise with zero-dependency markdown skills that load dynamically only when relevant, preventing system prompt bloat.
+- **First-Class Prompt Engineering:** Iterate on system prompts per-session, use AI to refine them, and promote the best ones into a curated library of reusable templates.
+- **Advanced Chat Management:** Treat conversations like living documents by organizing with folders and pins, or branching and forking threads to explore alternative paths.
+- **Multi-Window Parallel Work:** Detach any session into its own window to run multiple AI tasks side-by-side.
+- **Power-User Composer:** Write comfortably with an auto-growing editor featuring a unique drag-to-resize height lock.
+- **Portable Profiles:** Bundle your providers, models, prompts, and skills into a single file to instantly switch contexts or share setups with your team.
+
+---
+
+## Quick Start (For End Users)
 
 If someone sent you a `.arc` file, you can get started in seconds.
 
@@ -27,7 +46,7 @@ If someone sent you a `.arc` file, you can get started in seconds.
 
 ---
 
-## 🔧 Building Profiles (For Distributors & Power Users)
+## Building Profiles (For Distributors & Power Users)
 
 A Profile is just a directory containing markdown and JSON files. No hidden UI settings, no rigid databases. Just pure, version-controllable text.
 
@@ -41,7 +60,7 @@ When you distribute a profile, you bundle:
 
 ---
 
-## 🏗️ Architecture & Design Philosophy
+## Architecture & Design Philosophy
 
 ### Profiles are distributable
 
@@ -75,7 +94,7 @@ Arc is built on Electron (which bundles Node.js), enabling stable, predictable c
 
 ---
 
-## 💻 Development
+## Development
 
 Want to contribute to the source code?
 
