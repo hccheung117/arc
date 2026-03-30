@@ -62,5 +62,8 @@ export const useAppStore = create((set) => ({
 
 export const act = useAppStore.getState
 
+// Expose for e2e tests
+if (import.meta.env.DEV) window.__appStore = useAppStore
+
 export const useActiveWorkbench = () =>
   useAppStore((s) => s.workbenches[s.activeSessionId])
