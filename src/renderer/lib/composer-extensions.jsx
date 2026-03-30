@@ -1,5 +1,5 @@
 import { Plugin, PluginKey } from '@tiptap/pm/state'
-import { Fragment } from '@tiptap/pm/model'
+import { Fragment, Slice } from '@tiptap/pm/model'
 import { Extension } from '@tiptap/core'
 import Document from '@tiptap/extension-document'
 import Paragraph from '@tiptap/extension-paragraph'
@@ -245,7 +245,7 @@ const AutoMention = Extension.create({
 // two consecutive hardBreaks (visible blank line). This is intentional —
 // getText() serializes each hardBreak back to \n, keeping the round-trip lossless.
 
-export const hydrateText = (text, knownSkills) => {
+const hydrateText = (text, knownSkills) => {
   if (!text || typeof text !== 'string') return text
 
   const lines = text.split('\n')
@@ -297,6 +297,47 @@ export const hydrateText = (text, knownSkills) => {
   return { type: 'doc', content: [{ type: 'paragraph', content: content.length ? content : undefined }] }
 }
 
+// --- Hydrator: single extension owning all text → node hydration ---
+// Provides a command for programmatic use and a paste handler — both
+// funnel through hydrateText so there is exactly one hydration path.
+
+const Hydrator = Extension.create({
+  name: 'hydrator',
+
+  addCommands() {
+    return {
+      setHydratedContent: (text) => ({ editor, commands }) => {
+        const knownSkills = (editor.storage.editorStore?.skills ?? []).map(s => s.name)
+        const hydrated = hydrateText(text, knownSkills)
+        return commands.setContent(hydrated || '')
+      },
+    }
+  },
+
+  addProseMirrorPlugins() {
+    const editor = this.editor
+    return [
+      new Plugin({
+        key: new PluginKey('hydrator'),
+        props: {
+          handlePaste: (view, event) => {
+            if (event.clipboardData?.files?.length) return false
+            const text = event.clipboardData?.getData('text/plain')
+            if (!text) return false
+            const knownSkills = (editor.storage.editorStore?.skills ?? []).map(s => s.name)
+            const hydrated = hydrateText(text, knownSkills)
+            if (!hydrated) return false
+            const doc = view.state.schema.nodeFromJSON(hydrated)
+            const slice = new Slice(doc.content.child(0).content, 0, 0)
+            view.dispatch(view.state.tr.replaceSelection(slice))
+            return true
+          },
+        },
+      }),
+    ]
+  },
+})
+
 // --- createExtensions ---
 
 export const createExtensions = ({ skillSuggestionRender } = {}) => [
@@ -327,6 +368,7 @@ export const createExtensions = ({ skillSuggestionRender } = {}) => [
   }),
   SubmitOnEnter,
   AutoMention,
+  Hydrator,
   FileHandler.configure({
     onPaste: (editor, files) => editor.storage.editorStore?.onFilesPasted?.(files),
     onDrop: (editor, files, _pos) => editor.storage.editorStore?.onFilesPasted?.(files),

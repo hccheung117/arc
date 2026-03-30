@@ -76,3 +76,39 @@ test.describe('2.3 Draft Persistence Per Mode', () => {
     await clearEditor(window)
   })
 })
+
+test.describe('2.4 Linebreak Preservation Across Mode Switch', () => {
+  test('linebreaks in chat draft survive prompt mode round-trip', async () => {
+    await clearEditor(window)
+    await window.waitForTimeout(100)
+
+    // Type multi-line content with blank line
+    await typeInEditor(window, 'line1')
+    await window.keyboard.press('Shift+Enter')
+    await window.keyboard.press('Shift+Enter')
+    await typeInEditor(window, 'line2')
+    await window.waitForTimeout(200)
+
+    // Verify linebreaks are present
+    const before = await getEditorText(window)
+    expect(before).toContain('line1')
+    expect(before).toContain('line2')
+
+    // Round-trip through prompt mode
+    await switchToPromptMode(window)
+    await window.waitForTimeout(300)
+    await clickCancel(window)
+    await window.waitForTimeout(300)
+
+    // Verify linebreaks survived
+    const after = await getEditorText(window)
+    expect(after).toContain('line1')
+    expect(after).toContain('line2')
+    // The blank line (two \n) should be preserved — check the text has
+    // the same structure as before the round-trip
+    expect(after).toBe(before)
+
+    // Clean up
+    await clearEditor(window)
+  })
+})

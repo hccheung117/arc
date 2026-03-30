@@ -3,14 +3,15 @@ import { createPortal } from 'react-dom'
 import { useEditor, EditorContent } from '@tiptap/react'
 import { useFloating, flip, shift } from '@floating-ui/react'
 import { cn } from '@/lib/shadcn'
-import { createExtensions, hydrateText, uploadAndInsertFiles } from '@/lib/composer-extensions'
-import { useComposer } from '@/hooks/use-composer'
+import { createExtensions, uploadAndInsertFiles } from '@/lib/composer-extensions'
+import { useComposer, useComposerJson } from '@/hooks/use-composer'
 import { useSession } from '@/contexts/SessionContext'
 import { useSubscription } from '@/hooks/use-subscription'
 import SkillList from '@/components/SkillList'
 
 export default function ComposerEditor({ placeholder, readOnly, style, className, onEditorReady }) {
   const { text, saveDraft } = useComposer()
+  const json = useComposerJson()
   const { messages } = useSession()
   const skills = useSubscription('skills:feed', [])
   const hasMessages = messages.length > 0
@@ -97,7 +98,12 @@ export default function ComposerEditor({ placeholder, readOnly, style, className
 
   const editor = useEditor({
     extensions,
-    content: text || '',
+    content: json || '',
+    // Check editor.isEmpty (not !json) — tiptap's ref pattern for callbacks
+    // means `json` can become stale before onCreate fires.
+    onCreate: ({ editor }) => {
+      if (editor.isEmpty && text) editor.commands.setHydratedContent(text)
+    },
     editorProps: {
       attributes: {
         'data-slot': 'input-group-control',
@@ -107,8 +113,9 @@ export default function ComposerEditor({ placeholder, readOnly, style, className
     onUpdate: ({ editor }) => {
       if (isExternalUpdate.current) return
       const currentText = editor.getText()
+      const currentJson = editor.getJSON()
       textRef.current = currentText
-      saveDraft(currentText)
+      saveDraft(currentText, currentJson)
       editor.commands.scrollIntoView()
     },
   })
@@ -125,10 +132,7 @@ export default function ComposerEditor({ placeholder, readOnly, style, className
     if (text === textRef.current) return
     textRef.current = text
     isExternalUpdate.current = true
-    // Hydrate text patterns into mention nodes
-    const knownSkills = (editor.storage.editorStore?.skills ?? []).map(s => s.name)
-    const hydrated = hydrateText(text, knownSkills)
-    editor.commands.setContent(hydrated || '')
+    editor.commands.setHydratedContent(text)
     isExternalUpdate.current = false
   }, [text])
 

@@ -23,20 +23,20 @@ export const composerActions = {
       ...s, mode, overrides,
       drafts: {
         ...s.drafts,
-        ...(mode.startsWith('edit:') ? { [mode]: '' } : {}),
+        ...(mode.startsWith('edit:') ? { [mode]: { text: '', json: null } } : {}),
       },
     })),
 
   setContent: (sid, mode, text) =>
     _put(sid, (s) => ({
       ...s,
-      drafts: { ...s.drafts, [mode]: text },
+      drafts: { ...s.drafts, [mode]: { text, json: null } },
     })),
 
-  saveDraft: (sid, mode, text) =>
+  saveDraft: (sid, mode, text, json) =>
     _put(sid, (s) => ({
       ...s,
-      drafts: { ...s.drafts, [mode]: text },
+      drafts: { ...s.drafts, [mode]: { text, json } },
     })),
 }
 
@@ -76,6 +76,15 @@ export const useComposerMode = () => {
   return _composerStore((s) => s.sessions[sid]?.mode ?? 'chat')
 }
 
+export const useComposerJson = () => {
+  const sid = useAppStore((s) => s.activeSessionId)
+  return _composerStore((s) => {
+    const session = s.sessions[sid] ?? DEFAULT_SESSION
+    const mode = session.mode
+    return session.drafts[mode]?.json ?? null
+  })
+}
+
 export const useComposer = () => {
   const sid = useAppStore((s) => s.activeSessionId)
   const promptRef = useAppStore((s) => s.workbenches[s.activeSessionId]?.promptRef)
@@ -91,14 +100,15 @@ export const useComposer = () => {
   )
 
   const config = resolveMode(mode, overrides)
-  const draft = drafts[mode] ?? ''
+  const draft = drafts[mode]
+  const t = draft?.text ?? ''
 
   const text = (() => {
-    if (mode === 'prompt') return draft || prompt || ''
-    if (mode.startsWith('edit:') && draft === '') {
+    if (mode === 'prompt') return t || prompt || ''
+    if (mode.startsWith('edit:') && !t) {
       return textFromParts(messages?.find((m) => m.id === overrides.messageKey)) ?? ''
     }
-    return draft
+    return t
   })()
 
   return {
@@ -106,7 +116,7 @@ export const useComposer = () => {
     config,
     text,
     setContent: (val) => composerActions.setContent(sid, mode, val),
-    saveDraft: (val) => composerActions.saveDraft(sid, mode, val),
+    saveDraft: (text, json) => composerActions.saveDraft(sid, mode, text, json),
     setMode: (m, ov) => composerActions.setMode(sid, m, ov),
     submit: (text) => {
       if (mode === 'prompt') return submitPrompt(sid, text)
