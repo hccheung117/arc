@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launchApp, sel, typeInEditor, clearEditor, setupMainProcessMock, mockSendMessage, mockUploadAttachment, mockStreamRoute } from './helpers.js'
+import { launchApp, sel, typeInEditor, clearEditor, setupMainProcessMock, mockSendMessage, mockUploadAttachment, mockInvokeRouteHandler } from './helpers.js'
 
 let electronApp, window
 
@@ -50,10 +50,18 @@ test.describe('pasted screenshot', () => {
   test('should not show tmp path in sent message', async () => {
     await mockUploadAttachment(electronApp)
     // Mock session:send to simulate file resolution (tmp → session URL)
-    await mockStreamRoute(electronApp, 'session:send', `
-      const { send, sessionId, messages } = params
-      const id = 'mock-assistant-' + Date.now()
-      const userMsg = messages.findLast(m => m.role === 'user')
+    await mockInvokeRouteHandler(electronApp, 'session:send', `
+      const { sessionId, messages } = payload
+      const BW = globalThis.__testBrowserWindow
+      const win = BW.getAllWindows()[0]
+      const push = (event) => {
+        if (win && !win.isDestroyed()) win.webContents.send('ipc:push:session:state:feed', event)
+      }
+
+      // Push user messages immediately
+      push({ type: 'snapshot', sessionId, messages: messages || [], branches: {}, prompt: null, status: 'ready' })
+
+      const userMsg = (messages || []).findLast(m => m.role === 'user')
       if (userMsg) {
         const textPart = (userMsg.parts || []).find(p => p.type === 'text')
         const text = textPart?.text || ''
@@ -69,20 +77,21 @@ test.describe('pasted screenshot', () => {
           const textParts = (userMsg.parts || []).filter(p => p.type === 'text').map(p => ({
             ...p, text: resolvedText
           }))
-          const win = globalThis.__testBrowserWindow.getAllWindows()[0]
-          if (win && !win.isDestroyed()) {
-            win.webContents.send('ipc:push:session:state:feed', {
-              sessionId,
-              replaceFiles: { id: userMsg.id, parts: fileParts, textParts }
-            })
-          }
+          push({ type: 'patch', sessionId, replaceFiles: { id: userMsg.id, parts: fileParts, textParts } })
         }
       }
-      setTimeout(() => send({ type: 'start', messageId: id }), 10)
-      setTimeout(() => send({ type: 'text-start', id: 'text-0' }), 20)
-      setTimeout(() => send({ type: 'text-delta', id: 'text-0', delta: 'Hello!' }), 30)
-      setTimeout(() => send({ type: 'text-end', id: 'text-0' }), 40)
-      setTimeout(() => send({ type: 'finish', finishReason: 'stop' }), 50)
+
+      const id = 'mock-assistant-' + Date.now()
+      const assistantMessage = { id, role: 'assistant', parts: [{ type: 'text', text: 'Hello!' }] }
+      setTimeout(() => push({ type: 'status', sessionId, status: 'streaming' }), 10)
+      setTimeout(() => push({ type: 'tip', sessionId, message: assistantMessage }), 30)
+      setTimeout(() => push({
+        type: 'snapshot', sessionId,
+        messages: [...(messages || []), assistantMessage],
+        branches: {}, prompt: null, status: 'ready',
+      }), 50)
+
+      return { ok: true }
     `)
     await clearEditor(window)
 

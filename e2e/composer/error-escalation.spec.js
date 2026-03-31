@@ -5,10 +5,10 @@
 // These tests FAIL before fixes and PASS after.
 // Bug #2 (route-level catches) shares the same symptom as #1 — covered by B1.
 //
-// Error flow: main sends { type: 'error', errorText } → IpcTransport enqueues
-// the chunk → AI SDK processUIMessageStream wraps it: new Error(chunk.errorText)
-// → Chat catches it → setStatus({ status: 'error', error }) → ErrorBanner reads
-// error.message. So errorText on the wire becomes error.message in React.
+// Error flow: SessionStore emits { type: 'status', status: 'ready', error }
+// via session:state:feed → SessionContext reducer updates state.error →
+// ErrorBanner reads error. For pre-stream errors, session:send returns
+// { error } which SessionContext dispatches as a status event.
 //
 // B1 note: the mock infrastructure (setupMainProcessMock) must mirror the real
 // router's error handling. Both wrap handlers in Promise.resolve().catch() so
@@ -17,7 +17,7 @@ import { test, expect } from '@playwright/test'
 import {
   launchApp, sel,
   typeInEditor,
-  setupMainProcessMock, mockSendMessage, mockStreamRoute,
+  setupMainProcessMock, mockSendMessage, mockInvokeRouteHandler,
   sendMessage,
   mockHangingStream, errorHangingStream,
 } from '../helpers.js'
@@ -78,7 +78,7 @@ test.describe('B — Pre-stream throw', () => {
     // This simulates modelFor/prepareMessages throwing (Bug #1/#2).
     // Without a catch-all, the throw is unhandled — the renderer never
     // receives a chunk and stays stuck in 'submitted' indefinitely.
-    await mockStreamRoute(electronApp, 'session:send', `
+    await mockInvokeRouteHandler(electronApp, 'session:send', `
       throw new Error('Provider initialization failed')
     `)
 

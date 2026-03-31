@@ -15,11 +15,11 @@ import { SessionProvider, useSession } from "@/contexts/SessionContext"
 const popoutSessionId = new URLSearchParams(location.search).get('popout')
 
 function ErrorBanner() {
-  const { status, error } = useSession()
-  if (status !== 'error') return null
+  const { error } = useSession()
+  if (!error) return null
   return (
     <p className="px-[var(--content-px)] text-sm text-destructive">
-      {error?.message ?? 'An error occurred'}
+      {typeof error === 'string' ? error : error?.message ?? 'An error occurred'}
     </p>
   )
 }

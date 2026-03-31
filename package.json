@@ -46,7 +46,6 @@
     "@ai-sdk/google": "^3.0.43",
     "@ai-sdk/openai": "^3.0.39",
     "@ai-sdk/openai-compatible": "^2.0.35",
-    "@ai-sdk/react": "^3.0.99",
     "@floating-ui/react": "^0.27.19",
     "@radix-ui/react-use-controllable-state": "^1.2.2",
     "@streamdown/cjk": "^1.0.2",

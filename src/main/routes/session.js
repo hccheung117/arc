@@ -1,11 +1,14 @@
 import fs from 'node:fs/promises'
 import { dialog, Menu, shell } from 'electron'
-import { register, registerStream, push, getMainWindow } from '../router.js'
+import { register, push, getMainWindow } from '../router.js'
 import { defineChannel } from '../channel.js'
 import { resolve, sessionWorkspace, fromUrl } from '../arcfs.js'
 import * as session from '../services/session.js'
 import * as layout from '../services/layout.js'
 import * as message from '../services/message.js'
+import { generateId } from 'ai'
+import * as sessionStore from '../services/session-store.js'
+import { cleanParts } from '../services/llm.js'
 import { promptsCh } from './prompts.js'
 import { closePopout } from './popout.js'
 
@@ -19,12 +22,6 @@ const sessions = defineChannel('session:feed', async () => {
   return { sessions: list, folders }
 })
 
-const sessionState = defineChannel('session:state:feed', async (sessionId) => {
-  const { messages, branches } = await message.loadMessages(dir, sessionId)
-  const prompt = await session.loadPrompt(dir, sessionId)
-  return { sessionId, messages: message.stripSyntheticParts(messages), branches, prompt }
-}, { hydrate: false })
-
 const forkFromMessage = async (sessionId, messageId) => {
   const newId = await session.forkSession(dir, sessionId, messageId)
   if (!newId) return
@@ -32,7 +29,13 @@ const forkFromMessage = async (sessionId, messageId) => {
   push('session:navigate:feed', newId)
 }
 
-export { sessions, sessionState, forkFromMessage }
+export const reloadSession = async (sessionId) => {
+  const { messages, branches } = await message.loadMessages(dir, sessionId)
+  const prompt = await session.loadPrompt(dir, sessionId)
+  sessionStore.load(sessionId, { messages: message.stripSyntheticParts(messages), branches, prompt })
+}
+
+export { sessions, forkFromMessage }
 
 register('session:list', () => session.listSessions(dir))
 
@@ -70,7 +73,7 @@ register('session:context-menu', async ({ id }) => {
     ...(inFolder ? [{ label: 'Remove from Folder', click: sessions.mutate(() => layout.removeFromFolder(dir, id)) }] : []),
     { label: 'Move to Folder', submenu: moveSubmenu },
     { type: 'separator' },
-    { label: 'Delete', click: sessions.mutate(() => { closePopout(id); return session.deleteSession(dir, id) }) },
+    { label: 'Delete', click: sessions.mutate(() => { closePopout(id); sessionStore.remove(id); return session.deleteSession(dir, id) }) },
   ]).popup()
 })
 
@@ -89,7 +92,11 @@ register('session:folder-context-menu', ({ folderIndex }) => {
   ]).popup()
 })
 
-register('session:activate', ({ sessionId }) => sessionState.push(sessionId))
+register('session:activate', async ({ sessionId }) => {
+  const { messages, branches } = await message.loadMessages(dir, sessionId)
+  const prompt = await session.loadPrompt(dir, sessionId)
+  sessionStore.load(sessionId, { messages: message.stripSyntheticParts(messages), branches, prompt })
+})
 
 register('session:open-workspace', async ({ sessionId }) => {
   const url = await sessionWorkspace(sessionId)
@@ -113,45 +120,85 @@ register('session:export', async ({ sessionId }) => {
 register('session:link-prompt', async ({ id, promptRef }) => {
   await session.linkPrompt(dir, id, promptRef)
   const prompt = await session.loadPrompt(dir, id)
-  sessionState.patch({ sessionId: id, prompt })
+  sessionStore.patchPrompt(id, prompt)
 })
 
 register('session:save-prompt', async ({ id, content }) => {
   const shared = await session.savePrompt(dir, id, content)
   if (shared) await promptsCh.push()
   const prompt = await session.loadPrompt(dir, id)
-  sessionState.patch({ sessionId: id, prompt })
+  sessionStore.patchPrompt(id, prompt)
 })
 
 // [DETECT-MAIN] activeSkill is no longer in the payload from the renderer.
 // It is detected from message text inside prepareSend (services/session.js).
-registerStream('session:send', async ({ sessionId, messages: inputMessages, promptRef, providerId, modelId, send, signal }) => {
-  if (!providerId || !modelId) return send({ type: 'error', errorText: 'No model selected' })
+register('session:send', async ({ sessionId, messages: inputMessages, promptRef, providerId, modelId }) => {
+  if (!providerId || !modelId) return { error: 'No model selected' }
 
   let ctx
   try {
     ctx = await session.prepareSend(dir, { sessionId, inputMessages, promptRef, providerId, modelId })
   } catch (e) {
-    return send({ type: 'error', errorText: e.message })
+    return { error: e.message }
   }
 
-  if (ctx.fileReplacement) sessionState.patch({ sessionId, replaceFiles: ctx.fileReplacement })
-  sessionState.patch({ sessionId, branches: ctx.branches })
+  if (ctx.fileReplacement) sessionStore.patchFiles(sessionId, ctx.fileReplacement)
+  sessionStore.patchBranches(sessionId, ctx.branches)
   await sessions.push()
 
   ctx.afterSend()
     .then(async (changed) => { if (changed) await sessions.push() })
     .catch(() => {})
 
-  let result
-  try {
-    result = await ctx.stream(send, signal)
-  } catch (e) {
-    return send({ type: 'error', errorText: e.message })
-  }
-  if (!result) return
+  const signal = sessionStore.prepareStream(sessionId)
 
-  const branches = await ctx.finalize(result)
-  await sessions.push()
-  sessionState.patch({ sessionId, branches })
+  // Fire-and-forget: stream runs in main, not tied to any renderer.
+  ;(async () => {
+    let streamResult
+    try {
+      streamResult = await ctx.stream(signal)
+    } catch {
+      sessionStore.endStream(sessionId, {
+        messages: sessionStore.get(sessionId)?.messages ?? [],
+        branches: ctx.branches,
+      })
+      return
+    }
+
+    const assistantId = generateId()
+    const result = await sessionStore.consumeStream(sessionId, streamResult, assistantId)
+    if (!result) {
+      // Abort or error — reload from disk so renderer syncs with persisted state
+      const { messages: diskMessages } = await message.loadMessages(dir, sessionId)
+      sessionStore.endStream(sessionId, {
+        messages: message.stripSyntheticParts(diskMessages),
+        branches: ctx.branches,
+      })
+      return
+    }
+
+    let parts
+    try {
+      const steps = await result.streamResult.steps
+      parts = cleanParts(steps)
+    } catch {
+      sessionStore.endStream(sessionId, {
+        messages: sessionStore.get(sessionId)?.messages ?? [],
+        branches: ctx.branches,
+      })
+      return
+    }
+
+    const branches = await ctx.finalize({ assistantId: result.assistantId, parts })
+    const { messages: finalMessages } = await message.loadMessages(dir, sessionId)
+    sessionStore.endStream(sessionId, {
+      messages: message.stripSyntheticParts(finalMessages),
+      branches,
+    })
+    await sessions.push()
+  })()
+
+  return { ok: true }
 })
+
+register('session:abort', ({ sessionId }) => sessionStore.abort(sessionId))

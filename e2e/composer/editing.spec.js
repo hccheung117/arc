@@ -12,7 +12,7 @@ import {
   launchApp, sel,
   typeInEditor, clearEditor, getEditorText,
   clickCancel, triggerEditMode,
-  setupMainProcessMock, mockStreamRoute, sendMessage,
+  setupMainProcessMock, mockInvokeRouteHandler, sendMessage,
 } from '../helpers.js'
 
 let electronApp, window
@@ -95,14 +95,27 @@ test.describe('3.4 Edit preserves linebreaks', () => {
     await setupMainProcessMock(electronApp)
     // Mock session:send with a fixed message ID and multi-line reply
     const escapedReply = JSON.stringify(MULTI_LINE_REPLY)
-    await mockStreamRoute(electronApp, 'session:send', `
-      const { send } = params
+    await mockInvokeRouteHandler(electronApp, 'session:send', `
+      const { sessionId, messages } = payload
+      const BW = globalThis.__testBrowserWindow
+      const win = BW.getAllWindows()[0]
+      const push = (event) => {
+        if (win && !win.isDestroyed()) win.webContents.send('ipc:push:session:state:feed', event)
+      }
+      push({ type: 'snapshot', sessionId, messages: messages || [], branches: {}, prompt: null, status: 'ready' })
+
       const id = ${JSON.stringify(MSG_ID)}
-      setTimeout(() => send({ type: 'start', messageId: id }), 10)
-      setTimeout(() => send({ type: 'text-start', id: 'text-0' }), 20)
-      setTimeout(() => send({ type: 'text-delta', id: 'text-0', delta: ${escapedReply} }), 30)
-      setTimeout(() => send({ type: 'text-end', id: 'text-0' }), 40)
-      setTimeout(() => send({ type: 'finish', finishReason: 'stop' }), 50)
+      const assistantMessage = { id, role: 'assistant', parts: [{ type: 'text', text: ${escapedReply} }] }
+
+      setTimeout(() => push({ type: 'status', sessionId, status: 'streaming' }), 10)
+      setTimeout(() => push({ type: 'tip', sessionId, message: assistantMessage }), 30)
+      setTimeout(() => push({
+        type: 'snapshot', sessionId,
+        messages: [...(messages || []), assistantMessage],
+        branches: {}, prompt: null, status: 'ready',
+      }), 50)
+
+      return { ok: true }
     `)
     // Send a message to get the multi-line AI reply into the session
     await sendMessage(window, 'test')

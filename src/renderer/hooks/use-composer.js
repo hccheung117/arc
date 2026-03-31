@@ -48,11 +48,10 @@ const submitChat = (sid, text, sendMessage, promptRef, providerId, modelId) => {
   act().session.commitDraft()
 }
 
-const submitEditUser = (sid, text, messages, messageKey, sendMessage, setMessages, promptRef, providerId, modelId) => {
+const submitEditUser = (sid, text, messages, messageKey, sendMessage, promptRef, providerId, modelId) => {
   const idx = messages.findIndex((m) => m.id === messageKey)
   if (idx === -1) return
-  setMessages(messages.slice(0, idx))
-  sendMessage({ text }, { body: { promptRef, providerId, modelId } })
+  sendMessage({ text }, { body: { promptRef, providerId, modelId, messages: messages.slice(0, idx) } })
   composerActions.setContent(sid, 'edit:user', '')
   composerActions.setMode(sid, 'chat')
 }
@@ -93,7 +92,7 @@ export const useComposer = () => {
   const state = useSubscription('state:feed', {})
   const providerId = wbProviderId ?? state.lastUsedProvider
   const modelId = wbModelId ?? state.lastUsedModel
-  const { sendMessage, setMessages, prompt, messages, status } = useSession()
+  const { sendMessage, prompt, messages, status } = useSession()
 
   const { mode, overrides, drafts } = _composerStore(
     (s) => s.sessions[sid] ?? DEFAULT_SESSION,
@@ -123,7 +122,7 @@ export const useComposer = () => {
       if (mode === 'edit:ai') return submitEditAi(sid, text, overrides.messageKey)
       if (isLLMBusy(status)) return
       if (mode === 'chat') return submitChat(sid, text, sendMessage, promptRef, providerId, modelId)
-      if (mode === 'edit:user') return submitEditUser(sid, text, messages, overrides.messageKey, sendMessage, setMessages, promptRef, providerId, modelId)
+      if (mode === 'edit:user') return submitEditUser(sid, text, messages, overrides.messageKey, sendMessage, promptRef, providerId, modelId)
     },
   }
 }

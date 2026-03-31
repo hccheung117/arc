@@ -3,7 +3,8 @@ import { register, push } from '../router.js'
 import { resolve, fromUrl } from '../arcfs.js'
 import * as message from '../services/message.js'
 import * as workspace from '../services/workspace.js'
-import { sessionState, forkFromMessage } from './session.js'
+import { forkFromMessage } from './session.js'
+import * as sessionStore from '../services/session-store.js'
 
 const dir = resolve('sessions')
 
@@ -27,12 +28,20 @@ register('message:context-menu', ({ sessionId, id, role, text, selection }) => {
 register('message:edit-save', async ({ sessionId, messageId, text }) => {
   const newId = await message.editMessage(dir, sessionId, messageId, text)
   const { messages, branches } = await message.loadMessages(dir, sessionId, newId)
-  sessionState.patch({ sessionId, messages: message.stripSyntheticParts(messages), branches })
+  sessionStore.load(sessionId, {
+    messages: message.stripSyntheticParts(messages),
+    branches,
+    prompt: sessionStore.get(sessionId)?.prompt ?? null,
+  })
 })
 
 register('message:switch-branch', async ({ sessionId, targetId }) => {
   const { messages, branches } = await message.switchBranch(dir, sessionId, targetId)
-  sessionState.patch({ sessionId, messages: message.stripSyntheticParts(messages), branches })
+  sessionStore.load(sessionId, {
+    messages: message.stripSyntheticParts(messages),
+    branches,
+    prompt: sessionStore.get(sessionId)?.prompt ?? null,
+  })
 })
 
 register('message:open-file', async ({ url, path, data, filename }) => {

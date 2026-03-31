@@ -278,6 +278,7 @@ test.describe('1.6c Drama button shows saved prompt', () => {
 
     // Simulate a session that has a saved system prompt
     await pushToRenderer(electronApp, 'session:state:feed', {
+      type: 'snapshot',
       sessionId,
       prompt: 'You are a helpful coding assistant.',
     })

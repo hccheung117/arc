@@ -135,7 +135,7 @@ export async function setupMainProcessMock(electronApp) {
     if (globalThis.__testMocksInstalled) return
     globalThis.__testBrowserWindow = BrowserWindow
 
-    // --- Stream mocks (session:send, assist:refine-prompt) ---
+    // --- Stream mocks (assist:refine-prompt) ---
     const origStreamListeners = [...ipcMain.rawListeners('ipc:stream')]
     ipcMain.removeAllListeners('ipc:stream')
 
@@ -204,22 +204,49 @@ export async function mockInvokeRoute(electronApp, route, result) {
   }, { route, result })
 }
 
+export async function mockInvokeRouteHandler(electronApp, route, handlerBody) {
+  await electronApp.evaluate(({}, { route, handlerBody }) => {
+    if (!globalThis.__testMockInvokeRoutes) return
+    globalThis.__testMockInvokeRoutes[route] = new Function('payload', handlerBody)
+  }, { route, handlerBody })
+}
+
 // Convenience: mock message:upload-attachment
 export async function mockUploadAttachment(electronApp, result = { url: 'arcfs://tmp/test.png', filename: 'test.png', mediaType: 'image/png' }) {
   await mockInvokeRoute(electronApp, 'message:upload-attachment', result)
 }
 
-// Convenience: mock session:send to return a canned AI response
+// Convenience: mock session:send to return a canned AI response.
+// session:send is now an invoke route (not a stream). The mock pushes
+// session:state:feed events to simulate streaming.
 export async function mockSendMessage(electronApp, aiReply = 'Hello from AI!') {
   const escapedReply = JSON.stringify(aiReply)
-  await mockStreamRoute(electronApp, 'session:send', `
-    const { send } = params
+  await mockInvokeRouteHandler(electronApp, 'session:send', `
+    const { sessionId, messages } = payload
+    const BW = globalThis.__testBrowserWindow
+    const win = BW.getAllWindows()[0]
+    const push = (event) => {
+      if (win && !win.isDestroyed()) win.webContents.send('ipc:push:session:state:feed', event)
+    }
+
+    // Push user messages immediately (mimics patchBranches in real route)
+    push({ type: 'snapshot', sessionId, messages: messages || [], branches: {}, prompt: null, status: 'ready' })
+
     const id = 'mock-assistant-' + Date.now()
-    setTimeout(() => send({ type: 'start', messageId: id }), 10)
-    setTimeout(() => send({ type: 'text-start', id: 'text-0' }), 20)
-    setTimeout(() => send({ type: 'text-delta', id: 'text-0', delta: ${escapedReply} }), 30)
-    setTimeout(() => send({ type: 'text-end', id: 'text-0' }), 40)
-    setTimeout(() => send({ type: 'finish', finishReason: 'stop' }), 50)
+    const assistantMessage = { id, role: 'assistant', parts: [{ type: 'text', text: ${escapedReply} }] }
+
+    setTimeout(() => push({ type: 'status', sessionId, status: 'streaming' }), 10)
+    setTimeout(() => push({ type: 'tip', sessionId, message: assistantMessage }), 30)
+    setTimeout(() => push({
+      type: 'snapshot',
+      sessionId,
+      messages: [...(messages || []), assistantMessage],
+      branches: {},
+      prompt: null,
+      status: 'ready',
+    }), 50)
+
+    return { ok: true }
   `)
 }
 
@@ -249,48 +276,74 @@ export async function mockEditSave(electronApp) {
   await mockInvokeRoute(electronApp, 'message:edit-save', undefined)
 }
 
-// Convenience: remove a stream mock (restore original behavior)
-export async function clearStreamMock(electronApp, route) {
-  await electronApp.evaluate(({}, { route }) => {
-    if (globalThis.__testMockStreamRoutes) {
-      delete globalThis.__testMockStreamRoutes[route]
-    }
-  }, { route })
-}
-
 // --- Streaming control helpers ---
 
 // Mock session:send to enter streaming and stay there (no finish).
-// Sends start + text-delta. Stores `send` on globalThis.__hangingSend.
+// Pushes status + tip events. Stores sessionId/messages on globalThis for finish/error.
 export async function mockHangingStream(electronApp) {
-  await mockStreamRoute(electronApp, 'session:send', `
-    const { send } = params
+  await mockInvokeRouteHandler(electronApp, 'session:send', `
+    const { sessionId, messages } = payload
+    const BW = globalThis.__testBrowserWindow
+    const win = BW.getAllWindows()[0]
+    const push = (event) => {
+      if (win && !win.isDestroyed()) win.webContents.send('ipc:push:session:state:feed', event)
+    }
+
+    // Push user messages immediately
+    push({ type: 'snapshot', sessionId, messages: messages || [], branches: {}, prompt: null, status: 'ready' })
+
     const id = 'mock-assistant-hang-' + Date.now()
-    globalThis.__hangingSend = send
-    send({ type: 'start', messageId: id })
-    send({ type: 'text-start', id: 'text-0' })
-    send({ type: 'text-delta', id: 'text-0', delta: 'Thinking...' })
-    send({ type: 'text-end', id: 'text-0' })
+    const assistantMessage = { id, role: 'assistant', parts: [{ type: 'text', text: 'Thinking...' }] }
+
+    globalThis.__hangingSessionId = sessionId
+    globalThis.__hangingMessages = [...(messages || []), assistantMessage]
+
+    setTimeout(() => {
+      push({ type: 'status', sessionId, status: 'streaming' })
+      push({ type: 'tip', sessionId, message: assistantMessage })
+    }, 10)
+
+    return { ok: true }
   `)
 }
 
 // Complete a hanging stream → status returns to ready.
 export async function finishHangingStream(electronApp) {
-  await electronApp.evaluate(() => {
-    if (globalThis.__hangingSend) {
-      globalThis.__hangingSend({ type: 'finish', finishReason: 'stop' })
-      globalThis.__hangingSend = null
+  await electronApp.evaluate(({ BrowserWindow }) => {
+    const sessionId = globalThis.__hangingSessionId
+    if (!sessionId) return
+    const win = BrowserWindow.getAllWindows()[0]
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('ipc:push:session:state:feed', {
+        type: 'snapshot',
+        sessionId,
+        messages: globalThis.__hangingMessages ?? [],
+        branches: {},
+        prompt: null,
+        status: 'ready',
+      })
     }
+    globalThis.__hangingSessionId = null
+    globalThis.__hangingMessages = null
   })
 }
 
 // Error a hanging stream → status becomes error.
 export async function errorHangingStream(electronApp) {
-  await electronApp.evaluate(() => {
-    if (globalThis.__hangingSend) {
-      globalThis.__hangingSend({ type: 'error', errorText: 'Mock error' })
-      globalThis.__hangingSend = null
+  await electronApp.evaluate(({ BrowserWindow }) => {
+    const sessionId = globalThis.__hangingSessionId
+    if (!sessionId) return
+    const win = BrowserWindow.getAllWindows()[0]
+    if (win && !win.isDestroyed()) {
+      win.webContents.send('ipc:push:session:state:feed', {
+        type: 'status',
+        sessionId,
+        status: 'ready',
+        error: 'Mock error',
+      })
     }
+    globalThis.__hangingSessionId = null
+    globalThis.__hangingMessages = null
   })
 }
 

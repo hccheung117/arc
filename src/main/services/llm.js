@@ -12,7 +12,7 @@ import { resolveArcfsUrls } from './message.js'
 // step.content uses internal SDK types (tool-call, tool-result, tool-error).
 // convertToModelMessages expects UI format (tool-<name> with state).
 // We merge call+result into single UI parts and add step-start separators.
-const cleanParts = (steps) => {
+export const cleanParts = (steps) => {
   const parts = []
   for (const step of steps) {
     parts.push({ type: 'step-start' })
@@ -167,38 +167,15 @@ export const streamText = async ({ provider, modelId, system, messages, send, si
 }
 
 // Multi-turn streaming with tool loop. Used by session:send.
-export const stream = async ({ provider, modelId, system, messages, tools, send, signal, thinking = false }) => {
-  const assistantId = generateId()
+// Returns the StreamTextResult — the caller (SessionStore) owns consumption.
+export const stream = async ({ provider, modelId, system, messages, tools, signal, thinking = false }) => {
   const model = await modelFor(provider, modelId)
   const modelMessages = await prepareMessages(messages)
   const providerOptions = buildProviderOptions(provider, thinking)
 
-  const result = await loop.stream({
+  return loop.stream({
     messages: modelMessages,
     options: { model, system, tools, providerOptions },
     abortSignal: signal,
   })
-
-  try {
-    for await (const chunk of result.toUIMessageStream({
-      sendReasoning: true,
-      generateMessageId: () => assistantId,
-    })) {
-      send(chunk)
-    }
-  } catch (e) {
-    send({ type: 'error', errorText: e.message ?? 'Streaming failed' })
-    return null
-  }
-
-  if (signal.aborted) return null
-  try {
-    // step.content includes text, reasoning, tool-call, and tool-result parts
-    const steps = await result.steps
-    const parts = cleanParts(steps)
-    return { assistantId, parts }
-  } catch (e) {
-    send({ type: 'error', errorText: e.message ?? 'No response generated' })
-    return null
-  }
 }

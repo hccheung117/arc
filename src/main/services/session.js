@@ -223,8 +223,8 @@ export const prepareSend = async (dir, { sessionId, inputMessages, promptRef, pr
     fileReplacement,
     branches,
 
-    stream: (send, signal) =>
-      llm.stream({ provider, modelId, system: fullSystem, messages: llmMessages, tools, send, signal, thinking: true }),
+    stream: (signal) =>
+      llm.stream({ provider, modelId, system: fullSystem, messages: llmMessages, tools, signal, thinking: true }),
 
     finalize: async (result) => {
       await message.persistAssistantMessage(filePath, {

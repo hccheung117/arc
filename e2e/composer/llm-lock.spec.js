@@ -205,13 +205,13 @@ test.describe('D — New message blocked during streaming', () => {
   })
 
   test('D1: typing and pressing Enter during streaming does NOT send a second message', async () => {
-    // Install a counter on the stream route to detect new session:send calls
+    // Install a counter on the invoke route to detect new session:send calls
     await electronApp.evaluate(() => {
       globalThis.__sendCallCount = 0
-      const origHandler = globalThis.__testMockStreamRoutes['session:send']
-      globalThis.__testMockStreamRoutes['session:send'] = (params) => {
+      const origHandler = globalThis.__testMockInvokeRoutes['session:send']
+      globalThis.__testMockInvokeRoutes['session:send'] = (payload) => {
         globalThis.__sendCallCount++
-        if (origHandler) origHandler(params)
+        if (origHandler) return origHandler(payload)
       }
     })
 

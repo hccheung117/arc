@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { BrowserWindow, Menu, dialog } from 'electron'
-import { register, hasActiveStreams, abortStreams } from '../router.js'
+import { register } from '../router.js'
+import * as sessionStore from '../services/session-store.js'
 import { defineChannel, pushAll } from '../channel.js'
 
 const popoutWindows = new Map()
@@ -44,7 +45,7 @@ register('session:popout', async ({ sessionId }) => {
   popoutsCh.push()
 
   win.on('close', async (e) => {
-    if (!hasActiveStreams(win.webContents.id)) return
+    if (!sessionStore.isStreaming(sessionId)) return
     e.preventDefault()
     const { response } = await dialog.showMessageBox(win, {
       type: 'question',
@@ -54,21 +55,21 @@ register('session:popout', async ({ sessionId }) => {
       detail: 'Closing this window will stop the current response.',
     })
     if (response === 0) return
-    abortStreams(win.webContents.id)
+    sessionStore.abort(sessionId)
     win.destroy()
   })
 
   win.on('closed', async () => {
     popoutWindows.delete(sessionId)
     popoutsCh.push()
-    const { sessionState } = await import('./session.js')
-    sessionState.push(sessionId)
+    const { reloadSession } = await import('./session.js')
+    reloadSession(sessionId)
   })
 
   win.webContents.on('did-finish-load', async () => {
     await pushAll()
-    const { sessionState } = await import('./session.js')
-    await sessionState.push(sessionId)
+    const { reloadSession } = await import('./session.js')
+    await reloadSession(sessionId)
   })
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {

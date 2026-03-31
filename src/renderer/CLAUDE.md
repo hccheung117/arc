@@ -6,8 +6,8 @@ Global Styling Rules:
 
 State Rules:
 - **Domain State (Global):** Use `useSubscription` for global data from main (session list, models, prompts). Read-only; mutate via `api.call()`, which triggers a server push back.
-- **Domain State (Session-Scoped):** `SessionContext` receives `session:state:feed` pushes and applies partial payloads into the `Chat` instance. Do not request-then-cache session state — rely on main to push.
-- **Streaming Safety:** Two operations are unsafe while the LLM is busy (`submitted` or `streaming`): (1) sending a new LLM request (`sendMessage`), and (2) switching branches. Both are guarded at the action layer — `use-composer.js` for submit, `SessionContext` for branch switch. Use `useLLMLock()` for the busy signal; use `isLLMBusy(status)` where hooks aren't available. UI disabling is visual feedback, not the safety mechanism.
+- **Domain State (Session-Scoped):** `SessionContext` receives typed `session:state:feed` events (`snapshot`, `tip`, `status`, `patch`) from main's SessionStore and applies them via a reducer. Do not request-then-cache session state — rely on main to push.
+- **Streaming Safety:** Two operations are unsafe while the LLM is streaming: (1) sending a new LLM request (`sendMessage`), and (2) switching branches. Both are guarded at the action layer — `use-composer.js` for submit, `SessionContext` for branch switch. Use `useLLMLock()` for the busy signal; use `isLLMBusy(status)` where hooks aren't available. UI disabling is visual feedback, not the safety mechanism.
 - **Status for presentation only:** Components may read `status` directly for presentation (icon changes, shimmer, CoT auto-open). This is not behavioral gating — it's visual treatment.
 - **Local UI State:** Use `useState` strictly for local component UI state.
 - **Global UI State (Zustand):** 
