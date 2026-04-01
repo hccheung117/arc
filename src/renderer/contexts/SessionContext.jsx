@@ -38,21 +38,6 @@ const reducer = (state, event) => {
     }
     case 'status':
       return { ...state, status: event.status, error: event.error ?? null }
-    case 'patch':
-      if (event.replaceFiles) {
-        const { id, parts, textParts } = event.replaceFiles
-        return {
-          ...state,
-          messages: state.messages.map(m =>
-            m.id === id ? { ...m, parts: [
-              ...parts,
-              ...(textParts ?? m.parts.filter(p => p.type === 'text')),
-              ...m.parts.filter(p => p.type !== 'file' && p.type !== 'text'),
-            ] } : m
-          ),
-        }
-      }
-      return state
     case 'reset':
       return { ...initialState, prompt: event.prompt ?? null }
     default:

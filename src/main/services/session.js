@@ -208,11 +208,6 @@ export const prepareSend = async (dir, { sessionId, inputMessages, promptRef, pr
   // turns that the renderer doesn't carry in its Chat state.
   const { messages: llmMessages, branches } = await message.loadMessages(dir, sessionId)
 
-  const userMsg = augmentedMessages.findLast(m => m.role === 'user')
-  const fileParts = userMsg?.parts.filter(p => p.type === 'file')
-  const textParts = userMsg?.parts.filter(p => p.type === 'text' && !p.arcSynthetic)
-  const fileReplacement = fileParts?.length ? { id: userMsg.id, parts: fileParts, textParts } : null
-
   const workspacePath = fromUrl(await sessionWorkspace(sessionId))
   const tmpPath = fromUrl(await sessionTmp(sessionId))
   const fullSystem = buildSystemPrompt(system, skills)
@@ -220,7 +215,7 @@ export const prepareSend = async (dir, { sessionId, inputMessages, promptRef, pr
 
   return {
     isNew,
-    fileReplacement,
+    messages: llmMessages,
     branches,
 
     stream: (signal) =>

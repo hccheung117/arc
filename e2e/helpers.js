@@ -229,7 +229,7 @@ export async function mockSendMessage(electronApp, aiReply = 'Hello from AI!') {
       if (win && !win.isDestroyed()) win.webContents.send('ipc:push:session:state:feed', event)
     }
 
-    // Push user messages immediately (mimics patchBranches in real route)
+    // Push user messages immediately (mimics sessionStore.load in real route)
     push({ type: 'snapshot', sessionId, messages: messages || [], branches: {}, prompt: null, status: 'ready' })
 
     const id = 'mock-assistant-' + Date.now()

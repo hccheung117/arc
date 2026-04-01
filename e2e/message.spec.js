@@ -58,28 +58,25 @@ test.describe('pasted screenshot', () => {
         if (win && !win.isDestroyed()) win.webContents.send('ipc:push:session:state:feed', event)
       }
 
-      // Push user messages immediately
-      push({ type: 'snapshot', sessionId, messages: messages || [], branches: {}, prompt: null, status: 'ready' })
-
-      const userMsg = (messages || []).findLast(m => m.role === 'user')
-      if (userMsg) {
-        const textPart = (userMsg.parts || []).find(p => p.type === 'text')
+      // Resolve tmp file references in user messages before snapshot (mimics prepareSend)
+      const resolved = (messages || []).map(m => {
+        if (m.role !== 'user') return m
+        const textPart = (m.parts || []).find(p => p.type === 'text')
         const text = textPart?.text || ''
         const tmpRefs = [...text.matchAll(/@arcfs:\\/\\/tmp\\/\\S+/g)]
-        if (tmpRefs.length) {
-          const fileParts = tmpRefs.map(m => {
-            const url = m[0].slice(1)
-            const resolved = url.replace('arcfs://tmp/', 'arcfs://sessions/mock/files/')
-            const filename = url.split('/').pop()
-            return { type: 'file', url: resolved, filename, mediaType: 'image/png' }
-          })
-          const resolvedText = text.replace(/@arcfs:\\/\\/tmp\\//g, '@arcfs://sessions/mock/files/')
-          const textParts = (userMsg.parts || []).filter(p => p.type === 'text').map(p => ({
-            ...p, text: resolvedText
-          }))
-          push({ type: 'patch', sessionId, replaceFiles: { id: userMsg.id, parts: fileParts, textParts } })
-        }
-      }
+        if (!tmpRefs.length) return m
+        const fileParts = tmpRefs.map(ref => {
+          const url = ref[0].slice(1)
+          const resolvedUrl = url.replace('arcfs://tmp/', 'arcfs://sessions/mock/files/')
+          const filename = url.split('/').pop()
+          return { type: 'file', url: resolvedUrl, filename, mediaType: 'image/png' }
+        })
+        const resolvedText = text.replace(/@arcfs:\\/\\/tmp\\//g, '@arcfs://sessions/mock/files/')
+        const textParts = (m.parts || []).filter(p => p.type === 'text').map(p => ({ ...p, text: resolvedText }))
+        const otherParts = (m.parts || []).filter(p => p.type !== 'file' && p.type !== 'text')
+        return { ...m, parts: [...fileParts, ...textParts, ...otherParts] }
+      })
+      push({ type: 'snapshot', sessionId, messages: resolved, branches: {}, prompt: null, status: 'ready' })
 
       const id = 'mock-assistant-' + Date.now()
       const assistantMessage = { id, role: 'assistant', parts: [{ type: 'text', text: 'Hello!' }] }
@@ -87,7 +84,7 @@ test.describe('pasted screenshot', () => {
       setTimeout(() => push({ type: 'tip', sessionId, message: assistantMessage }), 30)
       setTimeout(() => push({
         type: 'snapshot', sessionId,
-        messages: [...(messages || []), assistantMessage],
+        messages: [...resolved, assistantMessage],
         branches: {}, prompt: null, status: 'ready',
       }), 50)
 

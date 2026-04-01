@@ -143,8 +143,11 @@ register('session:send', async ({ sessionId, messages: inputMessages, promptRef,
     return { error: e.message }
   }
 
-  if (ctx.fileReplacement) sessionStore.patchFiles(sessionId, ctx.fileReplacement)
-  sessionStore.patchBranches(sessionId, ctx.branches)
+  sessionStore.load(sessionId, {
+    messages: message.stripSyntheticParts(ctx.messages),
+    branches: ctx.branches,
+    prompt: sessionStore.get(sessionId)?.prompt ?? null,
+  })
   await sessions.push()
 
   ctx.afterSend()

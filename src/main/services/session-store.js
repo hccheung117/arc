@@ -36,20 +36,10 @@ export const load = (sessionId, { messages, branches, prompt }) => {
   })
 }
 
-export const patchBranches = (sessionId, branches) => {
-  const state = getOrCreate(sessionId)
-  state.branches = branches
-  emit({ type: 'snapshot', sessionId, messages: state.messages, branches, prompt: state.prompt, status: state.status })
-}
-
 export const patchPrompt = (sessionId, prompt) => {
   const state = getOrCreate(sessionId)
   state.prompt = prompt
   emit({ type: 'snapshot', sessionId, messages: state.messages, branches: state.branches, prompt, status: state.status })
-}
-
-export const patchFiles = (sessionId, replaceFiles) => {
-  emit({ type: 'patch', sessionId, replaceFiles })
 }
 
 // Phase 1: Set up AbortController and status before LLM call starts.
