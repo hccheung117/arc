@@ -62,6 +62,7 @@ register('session:popout', async ({ sessionId }) => {
   win.on('closed', async () => {
     popoutWindows.delete(sessionId)
     popoutsCh.push()
+    if (!sessionStore.get(sessionId)) return
     const { reloadSession } = await import('./session.js')
     reloadSession(sessionId)
   })
