@@ -134,6 +134,7 @@ register('session:save-prompt', async ({ id, content }) => {
 // It is detected from message text inside prepareSend (services/session.js).
 register('session:send', async ({ sessionId, messages: inputMessages, promptRef, providerId, modelId }) => {
   if (!providerId || !modelId) return { error: 'No model selected' }
+  if (sessionStore.isStreaming(sessionId)) return { error: 'Already streaming' }
 
   let ctx
   try {
