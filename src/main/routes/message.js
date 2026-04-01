@@ -4,7 +4,7 @@ import { resolve, fromUrl } from '../arcfs.js'
 import * as message from '../services/message.js'
 import * as workspace from '../services/workspace.js'
 import { forkFromMessage } from './session.js'
-import * as sessionStore from '../services/session-store.js'
+import * as sessionStore from '../session-store.js'
 
 const dir = resolve('sessions')
 

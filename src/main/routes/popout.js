@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { BrowserWindow, Menu, dialog } from 'electron'
 import { register } from '../router.js'
-import * as sessionStore from '../services/session-store.js'
+import * as sessionStore from '../session-store.js'
 import { defineChannel, pushAll } from '../channel.js'
 
 const popoutWindows = new Map()

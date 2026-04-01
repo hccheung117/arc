@@ -1,5 +1,5 @@
 import { readUIMessageStream } from 'ai'
-import { push } from '../router.js'
+import { push } from './router.js'
 
 const sessions = new Map()
 
