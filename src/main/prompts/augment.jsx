@@ -8,3 +8,7 @@ export const renderWorkspaceFiles = (paths) => (
 export const renderActiveSkill = (name, body, env) => (
   <active_skill name={name} path={env ? `$${env}` : undefined}>{body}</active_skill>
 )
+
+export const renderCurrentTime = () => (
+  <current_time>{new Date().toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'long' })}</current_time>
+)

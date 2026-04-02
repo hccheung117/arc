@@ -7,6 +7,7 @@ import { getProvider } from './provider.js'
 import { fallbackTitle, generateTitle } from './assist.js'
 import { discoverSkills, loadSkillContent, buildSkillAugment, hasSkillAugment, skillEnvName } from './skill.js'
 import { buildSystemPrompt } from '../prompts/system.jsx'
+import { renderCurrentTime } from '../prompts/augment.jsx'
 import { buildTools } from './tools.js'
 import { extractSkillRefs } from '../../shared/text-patterns.js'
 import * as llm from './llm.js'
@@ -198,9 +199,16 @@ export const prepareSend = async (dir, { sessionId, inputMessages, promptRef, pr
   const alreadyAugmented = activeSkill && activeSkillBody && hasSkillAugment(history, activeSkill)
 
   // First activation → prepend full augment before persistence; subsequent sends skip injection
-  const augmentedMessages = activeSkill && activeSkillBody && !alreadyAugmented
+  const skillAugmentedMessages = activeSkill && activeSkillBody && !alreadyAugmented
     ? message.augmentUserMessage(messages, [buildSkillAugment(activeSkill, activeSkillBody, activeSkillEnv)], { prepend: true })
     : messages
+
+  // Inject current time into every user message so the LLM knows when it was sent
+  const augmentedMessages = message.augmentUserMessage(
+    skillAugmentedMessages,
+    [{ type: 'text', text: renderCurrentTime(), arcSynthetic: 'time' }],
+    { prepend: true },
+  )
 
   const lastId = await message.persistNewMessages(filePath, augmentedMessages)
 
