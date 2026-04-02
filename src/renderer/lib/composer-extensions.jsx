@@ -62,6 +62,22 @@ const MentionView = ({ node }) => {
   )
 }
 
+// --- insertMention: single entry point for inserting a mention with correct spacing ---
+
+const needsSpaceBefore = (editor) => {
+  const { $head } = editor.state.selection
+  const charBefore = $head.pos > $head.start() ? $head.parent.textBetween($head.pos - 1 - $head.start(), $head.pos - $head.start()) : ''
+  return charBefore !== '' && !/\s/.test(charBefore)
+}
+
+export const insertMention = (editor, attrs) => {
+  editor.chain().focus().insertContent([
+    ...(needsSpaceBefore(editor) ? [{ type: 'text', text: ' ' }] : []),
+    { type: 'mention', attrs },
+    { type: 'text', text: ' ' },
+  ]).run()
+}
+
 // --- uploadAndInsertFiles: upload via IPC → insert file mention at cursor ---
 
 export const uploadAndInsertFiles = async (editor, files) => {
@@ -80,10 +96,7 @@ export const uploadAndInsertFiles = async (editor, files) => {
       ;({ url, filename, mediaType } = await window.api.call('message:upload-attachment', payload))
     }
 
-    editor.chain().focus().insertContent([
-      { type: 'mention', attrs: { id: url, label: filename, mentionType: 'file', url, filename, mediaType } },
-      { type: 'text', text: ' ' },
-    ]).run()
+    insertMention(editor, { id: url, label: filename, mentionType: 'file', url, filename, mediaType })
   }
 }
 
@@ -101,11 +114,16 @@ const ExtendedMention = Mention.extend({
       mediaType: { default: null },
     }
   },
-  renderText({ node }) {
-    if (node.attrs.mentionType === 'file') {
-      return `@${quotePath(node.attrs.url || node.attrs.id)}`
-    }
-    return `/${node.attrs.id}`
+  renderText({ node, parent, index }) {
+    const raw = node.attrs.mentionType === 'file'
+      ? `@${quotePath(node.attrs.url || node.attrs.id)}`
+      : `/${node.attrs.id}`
+
+    const prev = index > 0 ? parent.child(index - 1) : null
+    const next = index < parent.childCount - 1 ? parent.child(index + 1) : null
+    const needsBefore = prev?.isText && prev.text && !/\s$/.test(prev.text)
+    const needsAfter = next?.isText && next.text && !/^\s/.test(next.text)
+    return `${needsBefore ? ' ' : ''}${raw}${needsAfter ? ' ' : ''}`
   },
   renderHTML({ node, HTMLAttributes }) {
     const isFile = node.attrs.mentionType === 'file'

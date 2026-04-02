@@ -579,3 +579,314 @@ test.describe('5.3 Typed File Path Mention', () => {
     expect(await mention.textContent()).toBe('/tmp')
   })
 })
+
+// ─── 6.1 Autocomplete Mention Spacing ───────────────────────────────────────
+// When a mention is inserted via autocomplete ("/" popup or skill selector),
+// the editor must add spaces so the mention never sticks to adjacent text.
+
+test.describe('6.1 Autocomplete Mention Spacing', () => {
+  test.beforeEach(async () => {
+    await clearEditor(window)
+    await window.waitForTimeout(100)
+  })
+
+  test.afterEach(async () => {
+    await window.keyboard.press('Escape')
+    await window.waitForTimeout(100)
+    await clearEditor(window)
+    await window.waitForTimeout(100)
+  })
+
+  test('text before cursor, no space → space added before mention', async () => {
+    await typeInEditor(window, 'hello')
+    // Use skill selector button (not "/" which needs whitespace to trigger)
+    const skillBtn = window.locator('svg.lucide-book-open').first().locator('..')
+    await skillBtn.click()
+    await window.waitForTimeout(300)
+    const popover = window.locator('[data-slot="popover-content"]')
+    await popover.locator('[data-slot="command-item"]').first().click()
+    await window.waitForTimeout(300)
+
+    const text = await getEditorText(window)
+    // "hello" must not stick to the mention — expect a space between
+    expect(text).toMatch(/hello\s+\/code-review/)
+  })
+
+  test('text before cursor, already has space → no double space', async () => {
+    await typeInEditor(window, 'hello ')
+    await typeInEditor(window, '/')
+    await expect(window.locator('.z-50.w-80')).toBeVisible({ timeout: 2000 })
+    await window.keyboard.press('Enter')
+    await window.waitForTimeout(300)
+
+    const text = await getEditorText(window)
+    // Exactly one space between "hello" and mention, not two
+    expect(text).toMatch(/hello \/code-review/)
+    expect(text).not.toMatch(/hello {2}/)
+  })
+
+  test('start of editor → no space before mention', async () => {
+    await typeInEditor(window, '/')
+    await expect(window.locator('.z-50.w-80')).toBeVisible({ timeout: 2000 })
+    await window.keyboard.press('Enter')
+    await window.waitForTimeout(300)
+
+    // Type text after the mention
+    await typeInEditor(window, 'world')
+    await window.waitForTimeout(200)
+
+    const text = await getEditorText(window)
+    // Mention at start — no leading space
+    expect(text).toMatch(/^\/code-review/)
+    // But mention should have a space before "world"
+    expect(text).toMatch(/\/code-review\s+world/)
+  })
+})
+
+// ─── 6.2 On-Submit Mention Spacing ──────────────────────────────────────────
+// Safety net: regardless of how mentions ended up in the editor, getText()
+// must produce text where mentions are space-separated from adjacent content.
+
+test.describe('6.2 On-Submit Mention Spacing', () => {
+  test.describe.configure({ mode: 'serial' })
+
+  test.beforeAll(async () => {
+    await setupMainProcessMock(electronApp)
+    await mockSendMessage(electronApp)
+  })
+
+  test.beforeEach(async () => {
+    await clearEditor(window)
+    await window.waitForTimeout(100)
+  })
+
+  test('mention stuck to preceding text → space added on send', async () => {
+    const before = await window.locator(sel.userMessage).count()
+
+    // Type "hello" then immediately insert a mention with no space
+    await typeInEditor(window, 'hello')
+    const skillBtn = window.locator('svg.lucide-book-open').first().locator('..')
+    await skillBtn.click()
+    await window.waitForTimeout(300)
+    const popover = window.locator('[data-slot="popover-content"]')
+    await popover.locator('[data-slot="command-item"]').first().click()
+    await window.waitForTimeout(300)
+
+    await window.keyboard.press('Enter')
+    await expect(window.locator(sel.userMessage)).toHaveCount(before + 1, { timeout: 5000 })
+
+    const userMsg = await window.locator(sel.userMessage).nth(before).textContent()
+    expect(userMsg).toMatch(/hello\s+\/code-review/)
+  })
+
+  test('mention stuck to following text → space added on send', async () => {
+    const before = await window.locator(sel.userMessage).count()
+
+    // Insert mention first, then type text right after without space
+    await typeInEditor(window, '/')
+    await expect(window.locator('.z-50.w-80')).toBeVisible({ timeout: 2000 })
+    await window.keyboard.press('Enter')
+    await window.waitForTimeout(300)
+
+    // Delete the trailing space that autocomplete inserts, then type text
+    await window.keyboard.press('Backspace')
+    await typeInEditor(window, 'world')
+    await window.waitForTimeout(200)
+
+    await window.keyboard.press('Enter')
+    await expect(window.locator(sel.userMessage)).toHaveCount(before + 1, { timeout: 5000 })
+
+    const userMsg = await window.locator(sel.userMessage).nth(before).textContent()
+    expect(userMsg).toMatch(/\/code-review\s+world/)
+  })
+
+  test('mention node survives manual space removal → still recognized on send', async () => {
+    const before = await window.locator(sel.userMessage).count()
+
+    // Insert mention via autocomplete (adds trailing space)
+    await typeInEditor(window, '/')
+    await expect(window.locator('.z-50.w-80')).toBeVisible({ timeout: 2000 })
+    await window.keyboard.press('Enter')
+    await window.waitForTimeout(300)
+
+    // Delete trailing space, type text so mention sticks: "/code-reviewlkj"
+    await window.keyboard.press('Backspace')
+    await typeInEditor(window, 'lkj')
+    await window.waitForTimeout(200)
+
+    // The mention node should still exist in the editor (not collapsed to raw text)
+    const mention = window.locator('span[data-type="mention"][data-mention-type="skill"]')
+    await expect(mention).toBeVisible({ timeout: 2000 })
+
+    await window.keyboard.press('Enter')
+    await expect(window.locator(sel.userMessage)).toHaveCount(before + 1, { timeout: 5000 })
+
+    const userMsg = await window.locator(sel.userMessage).nth(before).textContent()
+    // renderText safety net must add a space between mention and "lkj"
+    expect(userMsg).toMatch(/\/code-review\s+lkj/)
+  })
+
+  test('already spaced → not doubled on send', async () => {
+    const before = await window.locator(sel.userMessage).count()
+
+    await typeInEditor(window, 'hello ')
+    await typeInEditor(window, '/')
+    await expect(window.locator('.z-50.w-80')).toBeVisible({ timeout: 2000 })
+    await window.keyboard.press('Enter')
+    await window.waitForTimeout(300)
+    await typeInEditor(window, 'world')
+    await window.waitForTimeout(200)
+
+    await window.keyboard.press('Enter')
+    await expect(window.locator(sel.userMessage)).toHaveCount(before + 1, { timeout: 5000 })
+
+    const userMsg = await window.locator(sel.userMessage).nth(before).textContent()
+    // Exactly one space on each side
+    expect(userMsg).toMatch(/hello \/code-review world/)
+    expect(userMsg).not.toMatch(/ {2}/)
+  })
+})
+
+// ─── 6.3 File Upload Mention Spacing ─────────────────────────────────────────
+// When a file mention is inserted via paste/drop, the editor must add spaces
+// so the file mention never sticks to adjacent text.
+
+test.describe('6.3 File Upload Mention Spacing', () => {
+  test.beforeAll(async () => {
+    await setupMainProcessMock(electronApp)
+    await mockUploadAttachment(electronApp)
+  })
+
+  test.beforeEach(async () => {
+    await clearEditor(window)
+    await window.waitForTimeout(100)
+  })
+
+  test('text before cursor, no space → space added before file mention', async () => {
+    await typeInEditor(window, 'hello')
+
+    // Paste a file — triggers uploadAndInsertFiles
+    await window.locator(sel.contenteditable).evaluate(async (el) => {
+      const file = new File(['test'], 'test.png', { type: 'image/png' })
+      const dt = new DataTransfer()
+      dt.items.add(file)
+      el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true }))
+    })
+    await window.waitForTimeout(1000)
+
+    const text = await getEditorText(window)
+    // "hello" must not stick to the file mention (innerText shows label, not @url)
+    expect(text).toMatch(/hello\s+test\.png/)
+  })
+
+  test('text before cursor, already has space → no double space', async () => {
+    await typeInEditor(window, 'hello ')
+
+    await window.locator(sel.contenteditable).evaluate(async (el) => {
+      const file = new File(['test'], 'test.png', { type: 'image/png' })
+      const dt = new DataTransfer()
+      dt.items.add(file)
+      el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true }))
+    })
+    await window.waitForTimeout(1000)
+
+    const text = await getEditorText(window)
+    expect(text).toMatch(/hello test\.png/)
+    expect(text).not.toMatch(/hello {2}/)
+  })
+
+  test('start of editor → no space before file mention', async () => {
+    await window.locator(sel.contenteditable).evaluate(async (el) => {
+      const file = new File(['test'], 'test.png', { type: 'image/png' })
+      const dt = new DataTransfer()
+      dt.items.add(file)
+      el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true }))
+    })
+    await window.waitForTimeout(1000)
+
+    const text = await getEditorText(window)
+    // No leading space
+    expect(text).toMatch(/^test\.png/)
+  })
+})
+
+// ─── 6.4 On-Submit File Mention Spacing ──────────────────────────────────────
+
+test.describe('6.4 On-Submit File Mention Spacing', () => {
+  test.describe.configure({ mode: 'serial' })
+
+  test.beforeAll(async () => {
+    await setupMainProcessMock(electronApp)
+    await mockUploadAttachment(electronApp)
+    await mockSendMessage(electronApp)
+  })
+
+  test.beforeEach(async () => {
+    await clearEditor(window)
+    await window.waitForTimeout(100)
+  })
+
+  test('file mention stuck to preceding text → space added on send', async () => {
+    const before = await window.locator(sel.userMessage).count()
+
+    await typeInEditor(window, 'hello')
+    await window.locator(sel.contenteditable).evaluate(async (el) => {
+      const file = new File(['test'], 'test.png', { type: 'image/png' })
+      const dt = new DataTransfer()
+      dt.items.add(file)
+      el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true }))
+    })
+    await window.waitForTimeout(1000)
+
+    await window.keyboard.press('Enter')
+    await expect(window.locator(sel.userMessage)).toHaveCount(before + 1, { timeout: 5000 })
+
+    const userMsg = await window.locator(sel.userMessage).nth(before).textContent()
+    expect(userMsg).toMatch(/hello\s+@arcfs:/)
+  })
+
+  test('file mention stuck to following text → space added on send', async () => {
+    const before = await window.locator(sel.userMessage).count()
+
+    // Paste file first
+    await window.locator(sel.contenteditable).evaluate(async (el) => {
+      const file = new File(['test'], 'test.png', { type: 'image/png' })
+      const dt = new DataTransfer()
+      dt.items.add(file)
+      el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true }))
+    })
+    await window.waitForTimeout(1000)
+
+    // Delete trailing space, type text right after mention
+    await window.keyboard.press('Backspace')
+    await typeInEditor(window, 'world')
+    await window.waitForTimeout(200)
+
+    await window.keyboard.press('Enter')
+    await expect(window.locator(sel.userMessage)).toHaveCount(before + 1, { timeout: 5000 })
+
+    const userMsg = await window.locator(sel.userMessage).nth(before).textContent()
+    expect(userMsg).toMatch(/test\.png\s+world/)
+  })
+
+  test('file mention already spaced → not doubled on send', async () => {
+    const before = await window.locator(sel.userMessage).count()
+
+    await typeInEditor(window, 'hello ')
+    await window.locator(sel.contenteditable).evaluate(async (el) => {
+      const file = new File(['test'], 'test.png', { type: 'image/png' })
+      const dt = new DataTransfer()
+      dt.items.add(file)
+      el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true }))
+    })
+    await window.waitForTimeout(1000)
+    await typeInEditor(window, 'world')
+    await window.waitForTimeout(200)
+
+    await window.keyboard.press('Enter')
+    await expect(window.locator(sel.userMessage)).toHaveCount(before + 1, { timeout: 5000 })
+
+    const userMsg = await window.locator(sel.userMessage).nth(before).textContent()
+    expect(userMsg).not.toMatch(/ {2}/)
+  })
+})

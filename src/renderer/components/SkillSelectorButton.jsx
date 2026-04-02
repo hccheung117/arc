@@ -6,6 +6,7 @@ import { BookOpenIcon } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { useSubscription } from '@/hooks/use-subscription'
 import { useTiptap } from '@/contexts/TiptapContext'
+import { insertMention } from '@/lib/composer-extensions'
 
 export default function SkillSelectorButton() {
   const [open, setOpen] = useState(false)
@@ -14,10 +15,7 @@ export default function SkillSelectorButton() {
 
   const selectSkill = useCallback((name) => {
     if (!editor) return
-    editor.chain().focus().insertContent([
-      { type: 'mention', attrs: { id: name, label: name, mentionType: 'skill' } },
-      { type: 'text', text: ' ' },
-    ]).run()
+    insertMention(editor, { id: name, label: name, mentionType: 'skill' })
     setOpen(false)
   }, [editor])
 
