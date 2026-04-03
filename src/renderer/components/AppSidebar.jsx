@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { cn } from "@/lib/shadcn"
 import { addUnread, clearUnread } from "@/lib/unread"
+import { scheduleNotification, cancelAllPending } from "@/lib/notify-unread"
 import { ChevronDownIcon } from "lucide-react"
 import { useSubscription } from "@/hooks/use-subscription"
 import { useAppStore, act } from "@/store/app-store"
@@ -117,6 +118,23 @@ export default function AppSidebar() {
   useEffect(() => {
     setUnreadIds(prev => clearUnread(prev, activeSessionId))
   }, [activeSessionId])
+
+  const pendingNotifications = useRef(new Map())
+  const sessionsRef = useRef(feed.sessions)
+  sessionsRef.current = feed.sessions
+  useEffect(() => {
+    const offResponded = window.api.on('session:responded', (sessionId) => {
+      if (document.hasFocus()) return
+      scheduleNotification(pendingNotifications.current, sessionId, sessionsRef.current, (id) => act().session.activate(id))
+    })
+    const onFocus = () => cancelAllPending(pendingNotifications.current)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      offResponded()
+      window.removeEventListener('focus', onFocus)
+      cancelAllPending(pendingNotifications.current)
+    }
+  }, [])
 
   useEffect(() => {
     const { activeSessionId, draftSessionId } = useAppStore.getState()
