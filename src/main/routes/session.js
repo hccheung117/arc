@@ -200,6 +200,7 @@ register('session:send', async ({ sessionId, messages: inputMessages, promptRef,
       branches,
     })
     await sessions.push()
+    push('session:responded', sessionId)
   })()
 
   return { ok: true }

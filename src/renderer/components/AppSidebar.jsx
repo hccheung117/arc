@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { cn } from "@/lib/shadcn"
+import { addUnread, clearUnread } from "@/lib/unread"
 import { ChevronDownIcon } from "lucide-react"
 import { useSubscription } from "@/hooks/use-subscription"
 import { useAppStore, act } from "@/store/app-store"
@@ -68,7 +69,7 @@ function RenameInput({ defaultValue, onConfirm, onCancel, className }) {
   )
 }
 
-function ChatItems({ items, activeSessionId, renamingId, onRename, onCancelRename, onContextMenu }) {
+function ChatItems({ items, activeSessionId, unreadIds, renamingId, onRename, onCancelRename, onContextMenu }) {
   return (
     <SidebarMenu>
       {items.map(chat => (
@@ -86,6 +87,7 @@ function ChatItems({ items, activeSessionId, renamingId, onRename, onCancelRenam
               onContextMenu={(e) => onContextMenu(e, chat.id)}
             >
               <span>{chat.title}</span>
+              {unreadIds.has(chat.id) && <span className="ml-auto size-2 rounded-full bg-blue-500" />}
             </SidebarMenuButton>
           )}
         </SidebarMenuItem>
@@ -102,8 +104,19 @@ export default function AppSidebar() {
   const chats = feed.sessions.map(c => ({ ...c, date: new Date(c.date) }))
   const folders = feed.folders
 
+  const [unreadIds, setUnreadIds] = useState(() => new Set())
+
   useEffect(() => window.api.on('session:rename:start', setRenamingId), [])
   useEffect(() => window.api.on('session:folder-rename:start', setRenamingFolderIndex), [])
+
+  useEffect(() => window.api.on('session:responded', (sessionId) => {
+    const active = useAppStore.getState().activeSessionId
+    setUnreadIds(prev => addUnread(prev, sessionId, active))
+  }), [])
+
+  useEffect(() => {
+    setUnreadIds(prev => clearUnread(prev, activeSessionId))
+  }, [activeSessionId])
 
   useEffect(() => {
     const { activeSessionId, draftSessionId } = useAppStore.getState()
@@ -185,6 +198,7 @@ export default function AppSidebar() {
                   <ChatItems
                     items={section.items}
                     activeSessionId={activeSessionId}
+                    unreadIds={unreadIds}
                     renamingId={renamingId}
                     onRename={handleRename}
                     onCancelRename={() => setRenamingId(null)}
@@ -201,6 +215,7 @@ export default function AppSidebar() {
               <ChatItems
                 items={section.items}
                 activeSessionId={activeSessionId}
+                unreadIds={unreadIds}
                 renamingId={renamingId}
                 onRename={handleRename}
                 onCancelRename={() => setRenamingId(null)}
