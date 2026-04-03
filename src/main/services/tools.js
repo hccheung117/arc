@@ -239,16 +239,20 @@ export const buildTools = ({ skills, workspacePath, tmpPath }) => {
       '  bash: python3 scripts/analyze.py --verbose',
       '  run_file: runner="python3", file="scripts/analyze.py", args="--verbose"',
       '',
+      '  bash: uv run scripts/analyze.py --verbose',
+      '  run_file: runner="uv run", file="scripts/analyze.py", args="--verbose"',
+      '',
       '  bash: ./scripts/deploy.sh staging',
       '  run_file: runner="native", file="scripts/deploy.sh", args="staging"',
     ].join('\n'),
     inputSchema: z.object({
-      runner: z.string().min(1).describe('The binary that executes the script. Use "node" for .js files, "native" for executables/shell scripts, or a binary name like "python3"'),
+      runner: z.string().min(1).describe('The binary or command that executes the script. Use "node" for .js files, "native" for executables/shell scripts, or a command like "python3" or "uv run"'),
       file: z.string().describe('Script path relative to cwd (no arguments)'),
       args: z.string().optional().default('').describe('Arguments passed to the script. $WORKSPACE and $..._SKILL_DIR are expanded and shell-quoted automatically when unquoted.'),
       cwd: z.string().describe('Skill directory as env var (e.g. $USING_EXCEL_SKILL_DIR) from load_skill'),
     }),
     execute: async ({ runner, file, args, cwd: rawCwd }) => {
+      if (!/^[a-zA-Z0-9._\-/ ]+$/.test(runner)) return 'Invalid runner: contains unsupported characters'
       const resolvedCwd = expandVars(rawCwd, vars)
       if (!trustedDirs.some(dir => resolvedCwd === dir || resolvedCwd.startsWith(dir + path.sep)))
         return 'Invalid cwd: must be a skill directory'
@@ -273,7 +277,7 @@ export const buildTools = ({ skills, workspacePath, tmpPath }) => {
         ? `${shellQuote(process.execPath)} -e ${shellQuote(nodeBootstrap)} ${shellQuote(resolved)} ${expanded}`
         : isNative
           ? `${shellQuote(resolved)} ${expanded}`
-          : `${shellQuote(runner)} ${shellQuote(resolved)} ${expanded}`
+          : `${runner} ${shellQuote(resolved)} ${expanded}`
 
       const { NODE_OPTIONS, NODE_DEBUG, ...cleanEnv } = process.env
       const env = { ...cleanEnv, ...vars, ...(isNode ? { ELECTRON_RUN_AS_NODE: '1' } : {}) }

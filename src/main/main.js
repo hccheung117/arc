@@ -1,5 +1,6 @@
 import { app, BrowserWindow, Menu, MenuItem, protocol, net, shell } from 'electron';
 import './init.js';
+import fixPath from 'fix-path';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -98,6 +99,7 @@ const createWindow = async () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
+  fixPath()
   fs.rm(resolve('tmp'), { recursive: true, force: true }).catch(() => {})
 
   const arcfsRoot = resolve()

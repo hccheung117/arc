@@ -276,18 +276,36 @@ describe('run_file tool', () => {
     expect(command).toContain(`'${q}'/data.json`)
   })
 
-  test('freeform runner executes via shell', async () => {
+  test('freeform runner executes via shell unquoted', async () => {
     await run_file.execute({
       runner: 'python',
       file: 'scripts/xlsx.js',
       cwd: '$USING_EXCEL_SKILL_DIR',
     })
-    expect(mockExecFile).toHaveBeenCalledWith(
-      '/bin/sh',
-      ['-c', expect.stringContaining("'python'")],
-      expect.objectContaining({ cwd: skillDir }),
-      expect.any(Function),
-    )
+    const command = mockExecFile.mock.calls[0][1][1]
+    expect(command).toMatch(/^python '/)
+  })
+
+  test('multi-word runner passes through unquoted', async () => {
+    await run_file.execute({
+      runner: 'uv run',
+      file: 'scripts/xlsx.js',
+      args: '--verbose',
+      cwd: '$USING_EXCEL_SKILL_DIR',
+    })
+    const command = mockExecFile.mock.calls[0][1][1]
+    expect(command).toMatch(/^uv run '/)
+    expect(command).toContain('scripts/xlsx.js')
+  })
+
+  test('rejects runner with shell metacharacters', async () => {
+    const result = await run_file.execute({
+      runner: 'uv run; rm -rf /',
+      file: 'scripts/xlsx.js',
+      cwd: '$USING_EXCEL_SKILL_DIR',
+    })
+    expect(result).toBe('Invalid runner: contains unsupported characters')
+    expect(mockExecFile).not.toHaveBeenCalled()
   })
 
   test('rejects script outside trusted skill directories', async () => {
