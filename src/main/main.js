@@ -20,6 +20,7 @@ import './routes/message.js';
 import './routes/assist.js';
 import './routes/profile.js';
 import './routes/skills.js'
+import './routes/agents.js'
 import './routes/popout.js';
 import { initUpdater, checkForUpdates } from './updater.js';
 

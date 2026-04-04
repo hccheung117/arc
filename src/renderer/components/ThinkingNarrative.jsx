@@ -15,6 +15,34 @@ const MS_IN_S = 1000
 
 const isFailedStep = (step) => step.state === 'output-error' || step.state === 'output-denied'
 
+const SubagentOutput = memo(({ parts }) => {
+  const textParts = parts.filter(p => p.type === 'text' && p.text?.trim())
+  const toolParts = parts.filter(p => p.toolCallId && p.state)
+
+  return (
+    <div className="space-y-2 border-l-2 border-border pl-3 ml-1">
+      {toolParts.map(p => {
+        const name = p.type.startsWith('tool-') ? p.type.slice(5) : p.toolName
+        const t = toolUI(name)
+        const Icon = t.icon
+        const done = p.state === 'output-available' || p.state === 'output-error'
+        return (
+          <div key={p.toolCallId} className="flex gap-2 text-xs text-muted-foreground">
+            <Icon className="size-3 mt-0.5" />
+            <span>{t.label(p.input, done)}</span>
+          </div>
+        )
+      })}
+      {textParts.length > 0 && (
+        <div className="text-xs text-muted-foreground/70 whitespace-pre-wrap">
+          {textParts.at(-1).text}
+        </div>
+      )}
+    </div>
+  )
+})
+SubagentOutput.displayName = 'SubagentOutput'
+
 const NarrativeStep = memo(({ step, isLast }) => {
   const [expanded, setExpanded] = useState(false)
   const tool = toolUI(step.toolName)
@@ -38,9 +66,13 @@ const NarrativeStep = memo(({ step, isLast }) => {
             : <>{tool.label(step.input, true)}{failed && <span className="ml-1.5 text-red-400/70">✕</span>}</>}
         </button>
         {expanded && step.output != null && (
-          <pre className="text-xs text-muted-foreground/70 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-muted p-2">
-            {typeof step.output === 'string' ? step.output : JSON.stringify(step.output, null, 2)}
-          </pre>
+          step.toolName === 'subagent' && step.output?.parts
+            ? <SubagentOutput parts={step.output.parts} />
+            : (
+              <pre className="text-xs text-muted-foreground/70 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-muted p-2">
+                {typeof step.output === 'string' ? step.output : JSON.stringify(step.output, null, 2)}
+              </pre>
+            )
         )}
       </div>
     </div>

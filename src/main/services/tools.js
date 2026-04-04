@@ -2,12 +2,13 @@ import { execFile } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
-import { tool } from 'ai'
+import { readUIMessageStream, tool } from 'ai'
 import { z } from 'zod'
 import mime from 'mime'
 import { resolve as arcfsResolve, fromUrl } from '../arcfs.js'
 import { execute as browserExecute, setTmpPath } from './browser.js'
 import { loadSkillContent, skillEnvName } from './skill.js'
+import { runAgent } from './subagent.js'
 import * as workspace from './workspace.js'
 
 const formatSize = (bytes) => {
@@ -102,7 +103,7 @@ export const expandArgsVars = (args, vars) => {
   return result
 }
 
-export const buildTools = ({ skills, workspacePath, tmpPath }) => {
+export const buildTools = ({ skills, agents, provider, modelId, workspacePath, tmpPath }) => {
   const arcfsRoot = arcfsResolve()
   const trustedDirs = skills.map(s => fromUrl(s.directory))
   const vars = {}
@@ -300,5 +301,39 @@ export const buildTools = ({ skills, workspacePath, tmpPath }) => {
     execute: async ({ command, args }) => browserExecute(command, args),
   })
 
-  return { read_file, list_dir, write_file, edit_file, load_skill, run_file, browser }
+  const subagent = !agents?.length ? null : tool({
+    description: 'Delegate a task to a specialized agent that runs independently and returns a result.',
+    inputSchema: z.object({
+      name: z.string().describe('Agent name to dispatch'),
+      prompt: z.string().describe('The task for the subagent'),
+      model: z.string().optional().describe('Override the agent default model ID'),
+      skills: z.array(z.string()).optional().describe('Skill names the subagent should have access to'),
+    }),
+    execute: async function* ({ name: agentName, prompt: agentPrompt, model: agentModel, skills: agentSkills }, { abortSignal }) {
+      const allTools = { read_file, list_dir, write_file, edit_file, load_skill, run_file, browser, subagent }
+      const streamResult = await runAgent({
+        name: agentName,
+        prompt: agentPrompt,
+        model: agentModel,
+        agents,
+        skills: agentSkills,
+        allSkills: skills,
+        provider,
+        modelId,
+        tools: allTools,
+        signal: abortSignal,
+      })
+      for await (const message of readUIMessageStream({
+        stream: streamResult.toUIMessageStream({ sendReasoning: true }),
+      })) {
+        yield message
+      }
+    },
+    toModelOutput: ({ output: message }) => {
+      const lastText = message?.parts?.findLast(p => p.type === 'text')
+      return { type: 'text', value: lastText?.text ?? 'Task completed.' }
+    },
+  })
+
+  return { read_file, list_dir, write_file, edit_file, load_skill, run_file, browser, ...(subagent && { subagent }) }
 }

@@ -26,3 +26,16 @@ export const extractSkillRefs = (text, knownSkills) => {
       end: m.index + m[0].length,
     }))
 }
+
+export const AGENT_REF = /(^|\s)@([\w-]+)/g
+
+export const extractAgentRefs = (text, knownAgents) => {
+  const set = new Set(knownAgents)
+  return [...text.matchAll(AGENT_REF)]
+    .filter(m => set.has(m[2]))
+    .map(m => ({
+      name: m[2],
+      start: m.index + m[1].length,
+      end: m.index + m[0].length,
+    }))
+}

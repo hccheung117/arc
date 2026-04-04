@@ -32,6 +32,17 @@ vi.mock('./browser.js', () => ({
   setTmpPath: vi.fn(),
 }))
 
+const mockRunAgent = vi.fn()
+vi.mock('./subagent.js', () => ({
+  runAgent: (...args) => mockRunAgent(...args),
+}))
+
+const mockReadUIMessageStream = vi.fn()
+vi.mock('ai', async (importOriginal) => {
+  const mod = await importOriginal()
+  return { ...mod, readUIMessageStream: (...args) => mockReadUIMessageStream(...args) }
+})
+
 const mockExecFile = vi.fn()
 vi.mock('node:child_process', () => ({
   execFile: (...args) => mockExecFile(...args),
@@ -376,5 +387,180 @@ describe('browser tool', () => {
     const tools = buildTools({ skills: [], workspacePath, tmpPath: '/tmp/session' })
     expect(tools.browser).toBeDefined()
     expect(tools.browser.execute).toBeDefined()
+  })
+})
+
+describe('subagent tool', () => {
+  const agents = [{ name: 'reviewer', description: 'Reviews code', model: null, file: 'reviewer.md', directory: 'arcfs://agents' }]
+
+  test('not included when agents is empty', () => {
+    const tools = buildTools({ skills: [], workspacePath, agents: [] })
+    expect(tools.subagent).toBeUndefined()
+  })
+
+  test('not included when agents is undefined', () => {
+    const tools = buildTools({ skills: [], workspacePath })
+    expect(tools.subagent).toBeUndefined()
+  })
+
+  test('included when agents are provided', () => {
+    const tools = buildTools({ skills: [], workspacePath, agents })
+    expect(tools.subagent).toBeDefined()
+    expect(tools.subagent.execute).toBeDefined()
+  })
+
+  describe('toModelOutput', () => {
+    test('extracts last text part from message', () => {
+      const { subagent } = buildTools({ skills: [], workspacePath, agents })
+      const result = subagent.toModelOutput({
+        output: { parts: [{ type: 'text', text: 'thinking...' }, { type: 'tool-invocation' }, { type: 'text', text: 'final answer' }] },
+      })
+      expect(result).toEqual({ type: 'text', value: 'final answer' })
+    })
+
+    test('falls back when no text parts', () => {
+      const { subagent } = buildTools({ skills: [], workspacePath, agents })
+      const result = subagent.toModelOutput({ output: { parts: [{ type: 'tool-invocation' }] } })
+      expect(result).toEqual({ type: 'text', value: 'Task completed.' })
+    })
+
+    test('falls back when output is null', () => {
+      const { subagent } = buildTools({ skills: [], workspacePath, agents })
+      const result = subagent.toModelOutput({ output: null })
+      expect(result).toEqual({ type: 'text', value: 'Task completed.' })
+    })
+  })
+
+  describe('execute', () => {
+    const fakeMessage = { id: '1', role: 'assistant', parts: [{ type: 'text', text: 'done' }] }
+
+    beforeEach(() => {
+      mockRunAgent.mockReset()
+      mockReadUIMessageStream.mockReset()
+      mockRunAgent.mockResolvedValue({ toUIMessageStream: () => 'fake-stream' })
+      mockReadUIMessageStream.mockReturnValue((async function* () { yield fakeMessage })())
+    })
+
+    test('calls runAgent with correct arguments', async () => {
+      const provider = { id: 'test' }
+      const { subagent } = buildTools({ skills: [], agents, provider, modelId: 'test-model', workspacePath })
+
+      const gen = subagent.execute(
+        { name: 'reviewer', prompt: 'review this', model: 'custom-model', skills: [] },
+        { abortSignal: undefined },
+      )
+      for await (const _ of gen) { /* drain */ }
+
+      expect(mockRunAgent).toHaveBeenCalledWith(expect.objectContaining({
+        name: 'reviewer',
+        prompt: 'review this',
+        model: 'custom-model',
+        agents,
+        provider,
+        modelId: 'test-model',
+        signal: undefined,
+      }))
+    })
+
+    test('passes all tools including subagent itself', async () => {
+      const { subagent } = buildTools({ skills: [], agents, workspacePath })
+
+      const gen = subagent.execute(
+        { name: 'reviewer', prompt: 'test', skills: [] },
+        { abortSignal: undefined },
+      )
+      for await (const _ of gen) {}
+
+      const passedTools = mockRunAgent.mock.calls[0][0].tools
+      expect(passedTools).toHaveProperty('read_file')
+      expect(passedTools).toHaveProperty('list_dir')
+      expect(passedTools).toHaveProperty('write_file')
+      expect(passedTools).toHaveProperty('edit_file')
+      expect(passedTools).toHaveProperty('load_skill')
+      expect(passedTools).toHaveProperty('run_file')
+      expect(passedTools).toHaveProperty('browser')
+      expect(passedTools).toHaveProperty('subagent')
+    })
+
+    test('yields messages from stream', async () => {
+      const msg1 = { id: '1', role: 'assistant', parts: [{ type: 'text', text: 'first' }] }
+      const msg2 = { id: '2', role: 'assistant', parts: [{ type: 'text', text: 'second' }] }
+      mockReadUIMessageStream.mockReturnValue((async function* () { yield msg1; yield msg2 })())
+
+      const { subagent } = buildTools({ skills: [], agents, workspacePath })
+      const gen = subagent.execute(
+        { name: 'reviewer', prompt: 'test', skills: [] },
+        { abortSignal: undefined },
+      )
+
+      const messages = []
+      for await (const msg of gen) messages.push(msg)
+      expect(messages).toEqual([msg1, msg2])
+    })
+
+    test('passes readUIMessageStream the stream from toUIMessageStream', async () => {
+      const { subagent } = buildTools({ skills: [], agents, workspacePath })
+
+      const gen = subagent.execute(
+        { name: 'reviewer', prompt: 'test', skills: [] },
+        { abortSignal: undefined },
+      )
+      for await (const _ of gen) {}
+
+      expect(mockReadUIMessageStream).toHaveBeenCalledWith({ stream: 'fake-stream' })
+    })
+
+    test('passes skill names to runAgent', async () => {
+      const skills = [
+        { name: 'using-excel', directory: 'arcfs://skills/using-excel' },
+        { name: 'using-browser', directory: 'arcfs://skills/using-browser' },
+      ]
+      const { subagent } = buildTools({ skills, agents, workspacePath })
+
+      const gen = subagent.execute(
+        { name: 'reviewer', prompt: 'test', skills: ['using-excel'] },
+        { abortSignal: undefined },
+      )
+      for await (const _ of gen) {}
+
+      expect(mockRunAgent.mock.calls[0][0].skills).toEqual(['using-excel'])
+      expect(mockRunAgent.mock.calls[0][0].allSkills).toBe(skills)
+    })
+
+    test('happy path: dispatch agent, stream result, extract output', async () => {
+      const resultMessage = { id: '1', role: 'assistant', parts: [{ type: 'text', text: 'Review complete. 2 issues found.' }] }
+      const fakeStream = { type: 'readable-stream' }
+      mockRunAgent.mockResolvedValue({ toUIMessageStream: ({ sendReasoning }) => {
+        expect(sendReasoning).toBe(true)
+        return fakeStream
+      }})
+      mockReadUIMessageStream.mockReturnValue((async function* () { yield resultMessage })())
+
+      const provider = { id: 'openai' }
+      const { subagent } = buildTools({ skills: [], agents, provider, modelId: 'gpt-4', workspacePath })
+
+      const gen = subagent.execute(
+        { name: 'reviewer', prompt: 'Review src/main.js for bugs', skills: [] },
+        { abortSignal: undefined },
+      )
+
+      const messages = []
+      for await (const msg of gen) messages.push(msg)
+
+      // runAgent called with full context
+      expect(mockRunAgent).toHaveBeenCalledOnce()
+      expect(mockRunAgent.mock.calls[0][0]).toMatchObject({
+        name: 'reviewer',
+        prompt: 'Review src/main.js for bugs',
+        provider,
+        modelId: 'gpt-4',
+      })
+      // stream consumed correctly
+      expect(mockReadUIMessageStream).toHaveBeenCalledWith({ stream: fakeStream })
+      expect(messages).toEqual([resultMessage])
+      // toModelOutput extracts the text
+      const output = subagent.toModelOutput({ output: messages[0] })
+      expect(output).toEqual({ type: 'text', value: 'Review complete. 2 issues found.' })
+    })
   })
 })

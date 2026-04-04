@@ -6,10 +6,11 @@ import { resolveSessionPrompt, saveSessionPrompt, savePrompt as saveAppPrompt, p
 import { getProvider } from './provider.js'
 import { fallbackTitle, generateTitle } from './assist.js'
 import { discoverSkills, loadSkillContent, buildSkillAugment, hasSkillAugment, skillEnvName } from './skill.js'
+import { discoverAgents } from './subagent.js'
 import { buildSystemPrompt } from '../prompts/system.jsx'
 import { renderCurrentTime } from '../prompts/augment.jsx'
 import { buildTools } from './tools.js'
-import { extractSkillRefs } from '../../shared/text-patterns.js'
+import { extractSkillRefs, extractAgentRefs } from '../../shared/text-patterns.js'
 import * as llm from './llm.js'
 import * as message from './message.js'
 import { loadLayout, cleanupSession } from './layout.js'
@@ -183,6 +184,7 @@ export const prepareSend = async (dir, { sessionId, inputMessages, promptRef, pr
   // The `/skillName` prefix is intentionally kept in the user text so the LLM
   // sees which skill was invoked; the augmentation adds the skill's instructions.
   const skills = await discoverSkills()
+  const agents = await discoverAgents()
   // [DETECT-MAIN] Detect active skill from the last user message's first text part.
   // The SkillMention node renders as `/skillName` (see composer-extensions.js renderText).
   // Messages use the AI SDK format: { role, parts: [{ type: 'text', text }, ...] }.
@@ -193,6 +195,9 @@ export const prepareSend = async (dir, { sessionId, inputMessages, promptRef, pr
   // typeof null === 'object' in JS — don't use typeof to guard property access
   const activeSkillBody = skillContent?.content ?? null
   const activeSkillEnv = activeSkill ? skillEnvName(activeSkill) : null
+
+  const agentRefs = extractAgentRefs(lastUserText ?? '', agents.map(a => a.name))
+  const mentionedAgent = agentRefs[0]?.name ?? null
 
   // Dedup: check JSONL (the SSOT) for existing skill augment to avoid double injection
   const { messages: history } = await message.loadMessages(dir, sessionId)
@@ -210,7 +215,15 @@ export const prepareSend = async (dir, { sessionId, inputMessages, promptRef, pr
     { prepend: true },
   )
 
-  const lastId = await message.persistNewMessages(filePath, augmentedMessages)
+  const agentAugmentedMessages = mentionedAgent
+    ? message.augmentUserMessage(augmentedMessages, [{
+        type: 'text',
+        text: `<agent_hint>The user wants you to use the "${mentionedAgent}" subagent for this task.</agent_hint>`,
+        arcSynthetic: `agent:${mentionedAgent}`,
+      }], { prepend: true })
+    : augmentedMessages
+
+  const lastId = await message.persistNewMessages(filePath, agentAugmentedMessages)
 
   // Reload full persisted history — this includes skill augments from earlier
   // turns that the renderer doesn't carry in its Chat state.
@@ -218,8 +231,8 @@ export const prepareSend = async (dir, { sessionId, inputMessages, promptRef, pr
 
   const workspacePath = fromUrl(await sessionWorkspace(sessionId))
   const tmpPath = fromUrl(await sessionTmp(sessionId))
-  const fullSystem = buildSystemPrompt(system, skills)
-  const tools = buildTools({ skills, workspacePath, tmpPath })
+  const fullSystem = buildSystemPrompt(system, skills, agents)
+  const tools = buildTools({ skills, agents, provider, modelId, workspacePath, tmpPath })
 
   return {
     isNew,

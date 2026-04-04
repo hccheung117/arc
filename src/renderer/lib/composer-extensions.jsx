@@ -12,15 +12,26 @@ import FileHandler from '@tiptap/extension-file-handler'
 import Dropcursor from '@tiptap/extension-dropcursor'
 import { ReactNodeViewRenderer, NodeViewWrapper } from '@tiptap/react'
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '../components/ui/hover-card'
-import { quotePath, extractFileRefs, extractSkillRefs } from '../../shared/text-patterns.js'
+import { quotePath, extractFileRefs, extractSkillRefs, extractAgentRefs } from '../../shared/text-patterns.js'
 
 // --- MentionView: NodeView component for both skill and file mentions ---
 
 const MentionView = ({ node }) => {
   const isFile = node.attrs.mentionType === 'file'
+  const isAgent = node.attrs.mentionType === 'agent'
   const label = isFile
     ? (node.attrs.label || node.attrs.url?.split('/').pop() || node.attrs.id)
-    : `/${node.attrs.id}`
+    : isAgent
+      ? `@${node.attrs.id}`
+      : `/${node.attrs.id}`
+
+  if (isAgent) {
+    return (
+      <NodeViewWrapper as="span" data-type="mention" data-mention-type="agent" className="text-blue-600">
+        {label}
+      </NodeViewWrapper>
+    )
+  }
 
   if (!isFile) {
     return (
@@ -117,7 +128,9 @@ const ExtendedMention = Mention.extend({
   renderText({ node, parent, index }) {
     const raw = node.attrs.mentionType === 'file'
       ? `@${quotePath(node.attrs.url || node.attrs.id)}`
-      : `/${node.attrs.id}`
+      : node.attrs.mentionType === 'agent'
+        ? `@${node.attrs.id}`
+        : `/${node.attrs.id}`
 
     const prev = index > 0 ? parent.child(index - 1) : null
     const next = index < parent.childCount - 1 ? parent.child(index + 1) : null
@@ -126,17 +139,21 @@ const ExtendedMention = Mention.extend({
     return `${needsBefore ? ' ' : ''}${raw}${needsAfter ? ' ' : ''}`
   },
   renderHTML({ node, HTMLAttributes }) {
-    const isFile = node.attrs.mentionType === 'file'
-    const display = isFile
+    const type = node.attrs.mentionType
+    const display = type === 'file'
       ? (node.attrs.label || node.attrs.id.split('/').pop())
-      : `/${node.attrs.id}`
-    const cls = isFile
+      : type === 'agent'
+        ? `@${node.attrs.id}`
+        : `/${node.attrs.id}`
+    const cls = type === 'file'
       ? 'text-orange-600 bg-orange-50 dark:bg-orange-950 rounded px-1'
-      : 'text-purple-600'
+      : type === 'agent'
+        ? 'text-blue-600'
+        : 'text-purple-600'
     return ['span', {
       ...HTMLAttributes,
       'data-type': 'mention',
-      'data-mention-type': isFile ? 'file' : 'skill',
+      'data-mention-type': type || 'skill',
       class: cls,
     }, display]
   },
@@ -167,7 +184,7 @@ const ExtendedMention = Mention.extend({
 const EditorStore = Extension.create({
   name: 'editorStore',
   addStorage() {
-    return { skills: [], placeholder: '', onFilesPasted: null, suggestionActive: false, suggestionJustExited: false }
+    return { skills: [], agents: [], placeholder: '', onFilesPasted: null, suggestionActive: false, suggestionJustExited: false }
   },
 })
 
@@ -211,6 +228,7 @@ const AutoMention = Extension.create({
           if (store?.suggestionJustExited) store.suggestionJustExited = false
 
           const knownSkills = (store?.skills ?? []).map(s => s.name)
+          const knownAgents = (store?.agents ?? []).map(a => a.name)
           const allMarkers = []
 
           newState.doc.descendants((node, pos) => {
@@ -221,6 +239,9 @@ const AutoMention = Extension.create({
             }
             for (const r of extractFileRefs(node.text)) {
               allMarkers.push({ ...r, type: 'file', from: pos + r.start, to: pos + r.end })
+            }
+            for (const r of extractAgentRefs(node.text, knownAgents)) {
+              allMarkers.push({ ...r, type: 'agent', from: pos + r.start, to: pos + r.end })
             }
           })
 
@@ -238,10 +259,14 @@ const AutoMention = Extension.create({
               ? newState.schema.nodes.mention.create({
                   id: marker.name, label: marker.name, mentionType: 'skill',
                 })
-              : newState.schema.nodes.mention.create({
-                  id: marker.path, label: marker.path,
-                  mentionType: 'file', url: marker.path, filename: marker.path.split('/').pop() || marker.path, mediaType: '',
-                })
+              : marker.type === 'agent'
+                ? newState.schema.nodes.mention.create({
+                    id: marker.name, label: marker.name, mentionType: 'agent',
+                  })
+                : newState.schema.nodes.mention.create({
+                    id: marker.path, label: marker.path,
+                    mentionType: 'file', url: marker.path, filename: marker.path.split('/').pop() || marker.path, mediaType: '',
+                  })
 
             const charBefore = marker.from > 0 ? newState.doc.textBetween(marker.from - 1, marker.from) : ''
             const needsSpace = charBefore !== '' && !/\s/.test(charBefore)
@@ -263,7 +288,7 @@ const AutoMention = Extension.create({
 // two consecutive hardBreaks (visible blank line). This is intentional —
 // getText() serializes each hardBreak back to \n, keeping the round-trip lossless.
 
-const hydrateText = (text, knownSkills) => {
+const hydrateText = (text, knownSkills, knownAgents = []) => {
   if (!text || typeof text !== 'string') return text
 
   const lines = text.split('\n')
@@ -278,9 +303,11 @@ const hydrateText = (text, knownSkills) => {
 
     const skillRefs = extractSkillRefs(line, knownSkills)
     const fileRefs = extractFileRefs(line)
+    const agentRefs = extractAgentRefs(line, knownAgents)
     const markers = [
       ...skillRefs.map(r => ({ ...r, type: 'skill' })),
       ...fileRefs.map(r => ({ ...r, type: 'file' })),
+      ...agentRefs.map(r => ({ ...r, type: 'agent' })),
     ].sort((a, b) => a.start - b.start)
 
     if (markers.length === 0) {
@@ -297,6 +324,11 @@ const hydrateText = (text, knownSkills) => {
         content.push({
           type: 'mention',
           attrs: { id: marker.name, label: marker.name, mentionType: 'skill' },
+        })
+      } else if (marker.type === 'agent') {
+        content.push({
+          type: 'mention',
+          attrs: { id: marker.name, label: marker.name, mentionType: 'agent' },
         })
       } else {
         const filename = marker.path.split('/').pop() || marker.path
@@ -326,7 +358,8 @@ const Hydrator = Extension.create({
     return {
       setHydratedContent: (text) => ({ editor, commands }) => {
         const knownSkills = (editor.storage.editorStore?.skills ?? []).map(s => s.name)
-        const hydrated = hydrateText(text, knownSkills)
+        const knownAgents = (editor.storage.editorStore?.agents ?? []).map(a => a.name)
+        const hydrated = hydrateText(text, knownSkills, knownAgents)
         return commands.setContent(hydrated || '')
       },
     }
@@ -343,7 +376,8 @@ const Hydrator = Extension.create({
             const text = event.clipboardData?.getData('text/plain')
             if (!text) return false
             const knownSkills = (editor.storage.editorStore?.skills ?? []).map(s => s.name)
-            const hydrated = hydrateText(text, knownSkills)
+            const knownAgents = (editor.storage.editorStore?.agents ?? []).map(a => a.name)
+            const hydrated = hydrateText(text, knownSkills, knownAgents)
             if (!hydrated) return false
             const doc = view.state.schema.nodeFromJSON(hydrated)
             const slice = new Slice(doc.content.child(0).content, 0, 0)
@@ -356,9 +390,32 @@ const Hydrator = Extension.create({
   },
 })
 
+// --- AgentMention: @-triggered mention for agents ---
+
+const AgentMention = Mention.extend({
+  name: 'agentMention',
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      mentionType: { default: 'agent' },
+    }
+  },
+  renderText({ node, parent, index }) {
+    const raw = `@${node.attrs.id}`
+    const prev = index > 0 ? parent.child(index - 1) : null
+    const next = index < parent.childCount - 1 ? parent.child(index + 1) : null
+    const needsBefore = prev?.isText && prev.text && !/\s$/.test(prev.text)
+    const needsAfter = next?.isText && next.text && !/^\s/.test(next.text)
+    return `${needsBefore ? ' ' : ''}${raw}${needsAfter ? ' ' : ''}`
+  },
+  addNodeView() {
+    return ReactNodeViewRenderer(MentionView, { as: 'span', className: 'inline' })
+  },
+})
+
 // --- createExtensions ---
 
-export const createExtensions = ({ skillSuggestionRender } = {}) => [
+export const createExtensions = ({ skillSuggestionRender, agentSuggestionRender } = {}) => [
   EditorStore,
   Document,
   Paragraph,
@@ -379,6 +436,21 @@ export const createExtensions = ({ skillSuggestionRender } = {}) => [
         ]).run()
       },
       render: skillSuggestionRender,
+    },
+  }),
+  AgentMention.configure({
+    suggestion: {
+      char: '@',
+      items: ({ editor, query }) =>
+        (editor.storage.editorStore?.agents ?? [])
+          .filter(a => a.name.toLowerCase().includes(query.toLowerCase())),
+      command: ({ editor, range, props }) => {
+        editor.chain().focus().deleteRange(range).insertContent([
+          { type: 'agentMention', attrs: { id: props.name, label: props.name, mentionType: 'agent' } },
+          { type: 'text', text: ' ' },
+        ]).run()
+      },
+      render: agentSuggestionRender,
     },
   }),
   Placeholder.configure({

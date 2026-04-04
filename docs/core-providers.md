@@ -16,6 +16,8 @@ profiles/<profile-name>/
 ├── prompts/            # Reusable system prompts (.md files) available to users
 │   ├── coding.md
 │   └── writing.md
+├── agents/             # Subagent definitions loaded on-demand
+│   └── <agent-name>.md
 └── skills/             # Agent skills loaded on-demand
     └── <skill-name>/
         └── SKILL.md
@@ -230,6 +232,47 @@ Skills can include executable scripts to perform complex tasks, process data, or
 
 **Security & Context:**
 Execution is sandboxed to ensure safety. Scripts can only be executed from trusted skill directories, and they automatically receive environment variables pointing to the user's current workspace and the skill's directory, allowing them to safely process files.
+
+## Subagents
+
+The application supports delegating tasks to specialized subagents. Subagents run independently with their own context window, stream progress back to the UI, and return a focused summary to the parent agent.
+
+### Defining Subagents
+
+Each subagent type is defined as a markdown file with YAML frontmatter. These files live in the `agents/` directory within your profile or personal `@app` directory.
+
+**Example file** (`profiles/<profile-name>/agents/explorer.md`):
+
+```markdown
+---
+name: explorer
+description: Fast codebase exploration — finds files, searches code, reads content.
+model: claude-sonnet-4-20250514
+---
+
+You are a codebase exploration agent. Your job is to find and summarize relevant code.
+
+Search thoroughly, read files as needed, and return a focused summary of your findings.
+Always include file paths and line numbers so the main agent can reference them.
+```
+
+**Frontmatter Constraints:**
+- `name` (Required): Identifier used by the `subagent` tool and `@mentions`.
+- `description` (Required): Shown to the parent agent in the system prompt.
+- `model` (Optional): Default literal model ID. The parent can override at dispatch. Falls back to the session's active model if unset.
+
+The markdown body (after frontmatter) is the agent's system prompt.
+
+### How Subagents Work
+
+1. **Automatic Discovery:** The application automatically finds all agent definition files in your profile (`.md` files in `agents/`) and makes the main AI aware of what they do.
+2. **Override Priority:** You can override built-in or default agents by providing an agent with the exact same name in your personal `@app` directory or active profile (Order: `@app` > active profile > builtin).
+3. **Task Delegation:** The parent LLM decides when to dispatch a subagent via the `subagent` tool, providing a prompt, optional skills access, and optional model override.
+4. **Isolated Context:** The subagent runs in a fresh context window. The parent model only sees the final summary text, while the user sees the full execution streamed live in the UI.
+
+### Forcing Subagent Use
+
+Users can force or strongly hint the use of a specific subagent by typing `@agentName` in the composer. This `@mention` renders as a hint injected into the user message, nudging the parent agent to delegate the task to the requested subagent.
 
 ## Import & Export
 

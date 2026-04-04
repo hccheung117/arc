@@ -5,6 +5,15 @@ const Skill = ({ name, path, children }) => (
   <skill name={name} path={path}>{children}</skill>
 )
 
+const AvailableAgents = ({ agents }) => (
+    <available_agents>
+        {`Use the subagent tool to delegate tasks to specialized agents when the task benefits from isolated context, parallel execution, or specialization.`}
+        {agents.map(a => (
+            <agent name={a.name}>{a.description}</agent>
+        ))}
+    </available_agents>
+)
+
 const AvailableSkills = ({ skills }) => (
   <available_skills>
     {`Proactively load a skill using the load_skill tool whenever it can help with the current task.
@@ -39,10 +48,11 @@ const RuntimeInfo = () => (
   </runtime_info>
 )
 
-export const buildSystemPrompt = (system, skills) => (
+export const buildSystemPrompt = (system, skills, agents = []) => (
   <>
     {system}
-    {skills.length > 0 && <AvailableSkills skills={skills} />}
+      {agents.length > 0 && <AvailableAgents agents={agents} />}
+      {skills.length > 0 && <AvailableSkills skills={skills} />}
     <SessionWorkspace />
     <SessionTmp />
     <RuntimeInfo />

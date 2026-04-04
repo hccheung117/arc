@@ -1,19 +1,44 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useEditor, EditorContent } from '@tiptap/react'
-import { useFloating, flip, shift } from '@floating-ui/react'
 import { cn } from '@/lib/shadcn'
 import { createExtensions, uploadAndInsertFiles } from '@/lib/composer-extensions'
 import { useComposer, useComposerJson } from '@/hooks/use-composer'
 import { useSession } from '@/contexts/SessionContext'
 import { useSubscription } from '@/hooks/use-subscription'
+import { useSuggestionPopup } from '@/hooks/use-suggestion-popup'
 import SkillList from '@/components/SkillList'
+
+function SuggestionPopup({ popup }) {
+  const { suggestion, selectedIndex, suggestionRef, refs, floatingStyles } = popup
+  if (!suggestion?.items?.length) return null
+  return createPortal(
+    <div
+      ref={refs.setFloating}
+      style={floatingStyles}
+      className="z-50 w-80 rounded-md border bg-popover p-0 text-popover-foreground shadow-md"
+    >
+      <SkillList
+        skills={suggestion.items}
+        onSelect={(item, index) => {
+          const s = suggestionRef.current
+          const it = s?.items[index]
+          if (it) s.command(it)
+        }}
+        shouldFilter={false}
+        selectedIndex={selectedIndex}
+      />
+    </div>,
+    document.body,
+  )
+}
 
 export default function ComposerEditor({ placeholder, readOnly, style, className, onEditorReady }) {
   const { text, saveDraft } = useComposer()
   const json = useComposerJson()
   const { messages } = useSession()
   const skills = useSubscription('skills:feed', [])
+  const agents = useSubscription('agents:feed', [])
   const hasMessages = messages.length > 0
 
   const fileInputRef = useRef(null)
@@ -23,78 +48,13 @@ export default function ComposerEditor({ placeholder, readOnly, style, className
   const isExternalUpdate = useRef(false)
 
   // Suggestion popup state — driven by Mention extension's render callbacks
-  const [suggestion, setSuggestion] = useState(null)
-  const [selectedIndex, setSelectedIndex] = useState(0)
-  const selectedIndexRef = useRef(0)
-  const suggestionRef = useRef(null)
-
-  const { refs, floatingStyles } = useFloating({
-    strategy: 'fixed',
-    placement: 'bottom-start',
-    middleware: [flip(), shift({ padding: 8 })],
-  })
-
-  useEffect(() => {
-    if (!suggestion?.clientRect) return
-    refs.setReference({ getBoundingClientRect: suggestion.clientRect })
-  }, [suggestion])
-
-  // Suggestion render factory — stable ref, passed to createExtensions
-  const skillSuggestionRender = useMemo(() => () => ({
-    onStart: (props) => {
-      props.editor.storage.editorStore.suggestionActive = true
-      suggestionRef.current = props
-      setSuggestion(props)
-      setSelectedIndex(0)
-      selectedIndexRef.current = 0
-    },
-    onUpdate: (props) => {
-      suggestionRef.current = props
-      setSuggestion(props)
-      setSelectedIndex((i) => {
-        const clamped = Math.min(i, Math.max(0, props.items.length - 1))
-        selectedIndexRef.current = clamped
-        return clamped
-      })
-    },
-    onExit: (props) => {
-      if (!props.editor.storage.editorStore.suggestionActive) return
-      props.editor.storage.editorStore.suggestionActive = false
-      props.editor.storage.editorStore.suggestionJustExited = true
-      suggestionRef.current = null
-      setSuggestion(null)
-    },
-    onKeyDown: ({ event }) => {
-      const s = suggestionRef.current
-      if (!s?.items.length) return false
-      if (event.key === 'ArrowUp') {
-        setSelectedIndex((i) => {
-          const next = (i - 1 + s.items.length) % s.items.length
-          selectedIndexRef.current = next
-          return next
-        })
-        return true
-      }
-      if (event.key === 'ArrowDown') {
-        setSelectedIndex((i) => {
-          const next = (i + 1) % s.items.length
-          selectedIndexRef.current = next
-          return next
-        })
-        return true
-      }
-      if (event.key === 'Enter') {
-        const item = s.items[selectedIndexRef.current]
-        if (item) s.command(item)
-        return true
-      }
-      return false
-    },
-  }), [])
+  const skill = useSuggestionPopup()
+  const agent = useSuggestionPopup()
 
   const extensions = useMemo(() => createExtensions({
-    skillSuggestionRender,
-  }), [skillSuggestionRender])
+    skillSuggestionRender: skill.render,
+    agentSuggestionRender: agent.render,
+  }), [skill.render, agent.render])
 
   const editor = useEditor({
     extensions,
@@ -142,25 +102,20 @@ export default function ComposerEditor({ placeholder, readOnly, style, className
     const prev = editor.storage.editorStore.placeholder
     Object.assign(editor.storage.editorStore, {
       skills,
+      agents,
       placeholder: hasMessages ? '' : placeholder,
       onFilesPasted: (files) => uploadAndInsertFiles(editor, files),
     })
     if (prev !== editor.storage.editorStore.placeholder) {
       editor.view.dispatch(editor.state.tr)
     }
-  }, [editor, skills, hasMessages, placeholder])
+  }, [editor, skills, agents, hasMessages, placeholder])
 
   // ReadOnly toggle
   useEffect(() => {
     if (!editor) return
     editor.setEditable(!readOnly)
   }, [editor, readOnly])
-
-  const selectItem = (index) => {
-    const s = suggestionRef.current
-    const item = s?.items[index]
-    if (item) s.command(item)
-  }
 
   return (
     <>
@@ -180,21 +135,8 @@ export default function ComposerEditor({ placeholder, readOnly, style, className
         className={cn('flex-1 overflow-y-auto w-full', className)}
         style={style}
       />
-      {suggestion && suggestion.items.length > 0 && createPortal(
-        <div
-          ref={refs.setFloating}
-          style={floatingStyles}
-          className="z-50 w-80 rounded-md border bg-popover p-0 text-popover-foreground shadow-md"
-        >
-          <SkillList
-            skills={suggestion.items}
-            onSelect={(skill, index) => selectItem(index)}
-            shouldFilter={false}
-            selectedIndex={selectedIndex}
-          />
-        </div>,
-        document.body,
-      )}
+      <SuggestionPopup popup={skill} />
+      <SuggestionPopup popup={agent} />
     </>
   )
 }

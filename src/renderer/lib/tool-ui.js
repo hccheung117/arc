@@ -1,4 +1,4 @@
-import { BookOpenIcon, FilePenIcon, FileTextIcon, FolderOpenIcon, GlobeIcon, PencilIcon, TerminalSquareIcon, WrenchIcon } from "lucide-react"
+import { BookOpenIcon, BotIcon, FilePenIcon, FileTextIcon, FolderOpenIcon, GlobeIcon, PencilIcon, TerminalSquareIcon, WrenchIcon } from "lucide-react"
 
 const tools = {
   read_file: {
@@ -65,6 +65,14 @@ const tools = {
       return done ? `Used browser${cmd}` : `Using browser${cmd}`
     },
     summary: (count) => `Used browser ${count} time${count > 1 ? 's' : ''}`,
+  },
+  subagent: {
+    icon: BotIcon,
+    label: (input, done) => {
+      const name = input?.name ?? 'agent'
+      return done ? `Agent: ${name}` : `Running ${name} agent`
+    },
+    summary: (count) => `Used ${count} agent${count > 1 ? 's' : ''}`,
   },
 }
 
