@@ -63,6 +63,18 @@ export const setFavorite = async (provider, model) => {
   await writeJson(settingsPath, { ...appSettings, favorites: next })
 }
 
+export const getTypography = async () => {
+  const appSettings = await readJson(appPath('settings.json')) ?? {}
+  return appSettings.typography ?? { lineHeight: null }
+}
+
+export const setTypography = async (patch) => {
+  const settingsPath = appPath('settings.json')
+  const appSettings = await readJson(settingsPath) ?? {}
+  const current = appSettings.typography ?? { lineHeight: null }
+  await writeJson(settingsPath, { ...appSettings, typography: { ...current, ...patch } })
+}
+
 export const getAssignment = async (key) => {
   const { assignments } = await getSettings()
   const entry = assignments[key]
