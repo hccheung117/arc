@@ -510,7 +510,7 @@ describe('subagent tool', () => {
       expect(mockReadUIMessageStream).toHaveBeenCalledWith({ stream: 'fake-stream' })
     })
 
-    test('passes skill names to runAgent', async () => {
+    test('passes all skills to runAgent', async () => {
       const skills = [
         { name: 'using-excel', directory: 'arcfs://skills/using-excel' },
         { name: 'using-browser', directory: 'arcfs://skills/using-browser' },
@@ -518,12 +518,11 @@ describe('subagent tool', () => {
       const { subagent } = buildTools({ skills, agents, workspacePath })
 
       const gen = subagent.execute(
-        { name: 'reviewer', prompt: 'test', skills: ['using-excel'] },
+        { name: 'reviewer', prompt: 'test' },
         { abortSignal: undefined },
       )
       for await (const _ of gen) {}
 
-      expect(mockRunAgent.mock.calls[0][0].skills).toEqual(['using-excel'])
       expect(mockRunAgent.mock.calls[0][0].allSkills).toBe(skills)
     })
 
@@ -540,7 +539,7 @@ describe('subagent tool', () => {
       const { subagent } = buildTools({ skills: [], agents, provider, modelId: 'gpt-4', workspacePath })
 
       const gen = subagent.execute(
-        { name: 'reviewer', prompt: 'Review src/main.js for bugs', skills: [] },
+        { name: 'reviewer', prompt: 'Review src/main.js for bugs' },
         { abortSignal: undefined },
       )
 

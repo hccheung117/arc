@@ -41,6 +41,12 @@ Do not place user-facing deliverables in $SESSION_TMP — those belong in $WORKS
 
 const platform = process.platform === 'darwin' ? 'macos' : 'windows'
 
+const SubagentDefaults = () => (
+  <subagent_defaults>
+    {`Your final text message is the only thing returned to the caller. Make it concise and informative — include key findings, decisions, or outcomes, not a play-by-play of what you did. The caller uses your result to inform their next step.`}
+  </subagent_defaults>
+)
+
 const RuntimeInfo = () => (
   <runtime_info>
     {`OS: ${platform} ${os.release()}`}
@@ -48,9 +54,10 @@ const RuntimeInfo = () => (
   </runtime_info>
 )
 
-export const buildSystemPrompt = (system, skills, agents = []) => (
+export const buildSystemPrompt = (system, skills, agents = [], { subagent = false } = {}) => (
   <>
     {system}
+      {subagent && <SubagentDefaults />}
       {agents.length > 0 && <AvailableAgents agents={agents} />}
       {skills.length > 0 && <AvailableSkills skills={skills} />}
     <SessionWorkspace />

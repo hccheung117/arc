@@ -46,28 +46,22 @@ export const loadAgentContent = async (agents, name) => {
   return { system: body.trim(), model: data.model || null }
 }
 
-export const runAgent = async ({ name, prompt, model, agents, skills, allSkills, provider, modelId, tools, signal }) => {
+export const runAgent = async ({ name, prompt, model, agents, allSkills, provider, modelId, tools, signal }) => {
   const agentContent = await loadAgentContent(agents, name)
   if (!agentContent) throw new Error(`Agent not found: ${name}`)
 
   const resolvedModelId = model || agentContent.model || modelId
 
-  const { subagent: _, load_skill, ...baseTools } = tools
-  const filteredSkills = skills?.length
-    ? allSkills.filter(s => skills.includes(s.name))
-    : []
-  const agentTools = filteredSkills.length
-    ? { ...baseTools, load_skill }
-    : baseTools
+  const { subagent: _, ...baseTools } = tools
 
-  const system = buildSystemPrompt(agentContent.system, filteredSkills)
+  const system = buildSystemPrompt(agentContent.system, allSkills, [], { subagent: true })
 
   return llm.stream({
     provider,
     modelId: resolvedModelId,
     system,
     messages: [{ role: 'user', parts: [{ type: 'text', text: prompt }] }],
-    tools: agentTools,
+    tools: baseTools,
     signal,
     thinking: true,
   })

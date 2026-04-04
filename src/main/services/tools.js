@@ -302,21 +302,26 @@ export const buildTools = ({ skills, agents, provider, modelId, workspacePath, t
   })
 
   const subagent = !agents?.length ? null : tool({
-    description: 'Delegate a task to a specialized agent that runs independently and returns a result.',
+    description: [
+      'Delegate a task to a specialized agent that runs independently and returns a result.',
+      '',
+      'Writing the prompt:',
+      '- Include all context the agent needs — it has no memory of this conversation.',
+      '- Be comprehensive but concise. State the goal, relevant constraints, and what you\'ve already learned or ruled out.',
+      '- Specify what kind of result you need (findings, decisions, artifacts, etc.).',
+    ].join('\n'),
     inputSchema: z.object({
       name: z.string().describe('Agent name to dispatch'),
       prompt: z.string().describe('The task for the subagent'),
       model: z.string().optional().describe('Override the agent default model ID'),
-      skills: z.array(z.string()).optional().describe('Skill names the subagent should have access to'),
     }),
-    execute: async function* ({ name: agentName, prompt: agentPrompt, model: agentModel, skills: agentSkills }, { abortSignal }) {
+    execute: async function* ({ name: agentName, prompt: agentPrompt, model: agentModel }, { abortSignal }) {
       const allTools = { read_file, list_dir, write_file, edit_file, load_skill, run_file, browser, subagent }
       const streamResult = await runAgent({
         name: agentName,
         prompt: agentPrompt,
         model: agentModel,
         agents,
-        skills: agentSkills,
         allSkills: skills,
         provider,
         modelId,
