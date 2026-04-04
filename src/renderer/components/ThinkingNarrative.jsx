@@ -27,14 +27,14 @@ const SubagentOutput = memo(({ parts }) => {
         const Icon = t.icon
         const done = p.state === 'output-available' || p.state === 'output-error'
         return (
-          <div key={p.toolCallId} className="flex gap-2 text-xs text-muted-foreground">
+          <div key={p.toolCallId} className="flex gap-2 text-sm text-muted-foreground">
             <Icon className="size-3 mt-0.5" />
             <span>{t.label(p.input, done)}</span>
           </div>
         )
       })}
       {textParts.length > 0 && (
-        <div className="text-xs text-muted-foreground/70 whitespace-pre-wrap">
+        <div className="text-sm text-muted-foreground whitespace-pre-wrap">
           {textParts.at(-1).text}
         </div>
       )}

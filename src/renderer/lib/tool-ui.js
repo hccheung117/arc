@@ -69,8 +69,8 @@ const tools = {
   subagent: {
     icon: BotIcon,
     label: (input, done) => {
-      const name = input?.name ?? 'agent'
-      return done ? `Agent: ${name}` : `Running ${name} agent`
+      const name = input?.name ?? 'an agent'
+      return done ? `Ran ${name} agent` : `Running ${name} agent`
     },
     summary: (count) => `Used ${count} agent${count > 1 ? 's' : ''}`,
   },
