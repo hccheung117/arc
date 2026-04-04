@@ -10,6 +10,10 @@ export const builtinBase = () => app.isPackaged
   ? path.join(process.resourcesPath, 'skills')
   : path.join(app.getAppPath(), 'src', 'skills')
 
+export const builtinProfilesBase = () => app.isPackaged
+  ? path.join(process.resourcesPath, 'profiles')
+  : path.join(app.getAppPath(), 'src', 'profiles')
+
 export const toUrl = (...segments) =>
   `arcfs://${segments.join('/')}`
 

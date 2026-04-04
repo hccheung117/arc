@@ -1,0 +1,6 @@
+{
+  "assignments": {
+    "generate-title": { "provider": "google", "model": "gemini-3.1-flash-lite-preview" },
+    "refine-prompt": { "provider": "google", "model": "gemini-3.1-pro-preview" }
+  }
+}

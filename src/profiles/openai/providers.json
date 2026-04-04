@@ -1,0 +1,8 @@
+{
+  "openai": {
+    "type": "openai-compatible",
+    "name": "OpenAI",
+    "baseUrl": "https://api.openai.com/v1",
+    "apiKey": "sk-YOUR-OPENAI-API-KEY"
+  }
+}

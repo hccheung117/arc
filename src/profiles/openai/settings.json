@@ -1,0 +1,7 @@
+{
+  "assignments": {
+    "generate-title": { "provider": "openai", "model": "gpt-5.4-nano" },
+    "refine-prompt": { "provider": "openai", "model": "gpt-5.4" },
+    "transcribe-audio": { "provider": "openai", "model": "gpt-4o-transcribe" }
+  }
+}

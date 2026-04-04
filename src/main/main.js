@@ -7,10 +7,10 @@ import { pathToFileURL } from 'node:url';
 import started from 'electron-squirrel-startup';
 import { initIpc, setMainWindow, getMainWindow, dispatch } from './router.js';
 import { pushAll } from './channel.js';
-import { resolve, fromUrl, builtinBase } from './arcfs.js';
+import { resolve, fromUrl, builtinBase, builtinProfilesBase } from './arcfs.js';
 import { getState, setState } from './services/state.js';
 import { refreshModels } from './routes/models.js';
-import { listProfiles, getActiveProfile } from './services/profile.js';
+import { listProfiles, getActiveProfile, seedBuiltinProfiles } from './services/profile.js';
 import './routes/session.js';
 import './routes/prompts.js';
 import './routes/providers.js';
@@ -110,6 +110,8 @@ app.whenReady().then(async () => {
       return new Response('Forbidden', { status: 403 })
     return net.fetch(pathToFileURL(filePath).toString())
   })
+
+  await seedBuiltinProfiles(builtinProfilesBase(), resolve('profiles'))
 
   // Always only modify built menu instances instead of duplicating role submenus
   const menu = Menu.buildFromTemplate([

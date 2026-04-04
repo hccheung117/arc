@@ -1,0 +1,8 @@
+{
+  "google": {
+    "type": "google",
+    "name": "Google AI",
+    "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+    "apiKey": "YOUR-GOOGLE-AI-API-KEY"
+  }
+}

@@ -48,6 +48,18 @@ export const exportProfile = (profileDir, destPath) => {
   zip.writeZip(destPath)
 }
 
+export const seedBuiltinProfiles = async (builtinDir, profilesDir) => {
+  const existing = await listProfiles()
+  if (existing.length) return
+  const entries = await fs.readdir(builtinDir, { withFileTypes: true }).catch(e => {
+    if (e.code === 'ENOENT') return []
+    throw e
+  })
+  for (const e of entries.filter(e => e.isDirectory())) {
+    await fs.cp(path.join(builtinDir, e.name), path.join(profilesDir, e.name), { recursive: true })
+  }
+}
+
 export const importProfile = async (arcFilePath, profilesDir) => {
   const zip = new AdmZip(arcFilePath)
   const entries = zip.getEntries()

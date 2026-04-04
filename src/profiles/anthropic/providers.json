@@ -1,0 +1,8 @@
+{
+  "anthropic": {
+    "type": "anthropic",
+    "name": "Anthropic",
+    "baseUrl": "https://api.anthropic.com/v1",
+    "apiKey": "sk-ant-YOUR-ANTHROPIC-API-KEY"
+  }
+}
