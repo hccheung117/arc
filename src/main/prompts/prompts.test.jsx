@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest'
 import { buildSystemPrompt } from './system.jsx'
-import { renderWorkspaceFiles, renderActiveSkill } from './augment.jsx'
+import { renderWorkspaceFiles, renderActiveSkill, renderSystemReminders } from './augment.jsx'
 import { SYSTEM_REFINE, SYSTEM_TITLE, renderPromptTag, renderTitleTag } from './assist.jsx'
 
 describe('buildSystemPrompt', () => {
@@ -81,6 +81,24 @@ describe('renderActiveSkill', () => {
     const result = renderActiveSkill('foo', 'body', null)
     expect(result).toContain('<active_skill name="foo">')
     expect(result).not.toContain('path=')
+  })
+})
+
+describe('renderSystemReminders', () => {
+  test('wraps agent and skill names in system_reminders tag', () => {
+    const result = renderSystemReminders({
+      agents: ['code-review'],
+      skills: ['shadcn'],
+    })
+    expect(result).toContain('<system_reminders>')
+    expect(result).toContain('</system_reminders>')
+    expect(result).toContain('- You must delegate the respective task to the "code-review" subagent.')
+    expect(result).toContain('- You should follow the "shadcn" skill instructions.')
+  })
+
+  test('returns null when no agents or skills', () => {
+    expect(renderSystemReminders({})).toBeNull()
+    expect(renderSystemReminders({ agents: [], skills: [] })).toBeNull()
   })
 })
 

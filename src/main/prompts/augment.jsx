@@ -12,3 +12,15 @@ export const renderActiveSkill = (name, body, env) => (
 export const renderCurrentTime = () => (
   <current_time>{new Date().toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'long' })}</current_time>
 )
+
+export const renderSystemReminders = ({ agents = [], skills = [] } = {}) => {
+  if (!agents.length && !skills.length) return null
+  return (
+    <system_reminders>
+      {[
+        ...agents.map(name => `- You must delegate the respective task to the "${name}" subagent.`),
+        ...skills.map(name => `- You should follow the "${name}" skill instructions.`),
+      ].join('\n')}
+    </system_reminders>
+  )
+}

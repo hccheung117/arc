@@ -8,7 +8,7 @@ import { fallbackTitle, generateTitle } from './assist.js'
 import { discoverSkills, loadSkillContent, buildSkillAugment, hasSkillAugment, skillEnvName } from './skill.js'
 import { discoverAgents } from './subagent.js'
 import { buildSystemPrompt } from '../prompts/system.jsx'
-import { renderCurrentTime } from '../prompts/augment.jsx'
+import { renderCurrentTime, renderSystemReminders } from '../prompts/augment.jsx'
 import { buildTools } from './tools.js'
 import { extractSkillRefs, extractAgentRefs } from '../../shared/text-patterns.js'
 import * as llm from './llm.js'
@@ -197,7 +197,6 @@ export const prepareSend = async (dir, { sessionId, inputMessages, promptRef, pr
   const activeSkillEnv = activeSkill ? skillEnvName(activeSkill) : null
 
   const agentRefs = extractAgentRefs(lastUserText ?? '', agents.map(a => a.name))
-  const mentionedAgent = agentRefs[0]?.name ?? null
 
   // Dedup: check JSONL (the SSOT) for existing skill augment to avoid double injection
   const { messages: history } = await message.loadMessages(dir, sessionId)
@@ -215,19 +214,20 @@ export const prepareSend = async (dir, { sessionId, inputMessages, promptRef, pr
     { prepend: true },
   )
 
-  const agentAugmentedMessages = mentionedAgent
-    ? message.augmentUserMessage(augmentedMessages, [{
-        type: 'text',
-        text: `<agent_hint>The user wants you to use the "${mentionedAgent}" subagent for this task.</agent_hint>`,
-        arcSynthetic: `agent:${mentionedAgent}`,
-      }], { prepend: true })
-    : augmentedMessages
-
-  const lastId = await message.persistNewMessages(filePath, agentAugmentedMessages)
+  const lastId = await message.persistNewMessages(filePath, augmentedMessages)
 
   // Reload full persisted history — this includes skill augments from earlier
   // turns that the renderer doesn't carry in its Chat state.
   const { messages: llmMessages, branches } = await message.loadMessages(dir, sessionId)
+
+  // Ephemeral reminders — appended after persist so they never hit JSONL.
+  const reminderText = renderSystemReminders({
+    agents: agentRefs.map(r => r.name),
+    skills: alreadyAugmented ? [activeSkill] : [],
+  })
+  const finalMessages = reminderText
+    ? message.augmentUserMessage(llmMessages, [{ type: 'text', text: reminderText, arcSynthetic: 'reminders' }])
+    : llmMessages
 
   const workspacePath = fromUrl(await sessionWorkspace(sessionId))
   const tmpPath = fromUrl(await sessionTmp(sessionId))
@@ -236,11 +236,11 @@ export const prepareSend = async (dir, { sessionId, inputMessages, promptRef, pr
 
   return {
     isNew,
-    messages: llmMessages,
+    messages: finalMessages,
     branches,
 
     stream: (signal) =>
-      llm.stream({ provider, modelId, system: fullSystem, messages: llmMessages, tools, signal, thinking: true }),
+      llm.stream({ provider, modelId, system: fullSystem, messages: finalMessages, tools, signal, thinking: true }),
 
     finalize: async (result) => {
       await message.persistAssistantMessage(filePath, {
