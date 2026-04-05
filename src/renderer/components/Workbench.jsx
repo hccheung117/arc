@@ -1,6 +1,6 @@
-import { ALargeSmall, Drama, Download, Ellipsis, FolderOpen, SquareArrowOutUpRight } from "lucide-react"
+import { SquareArrowOutUpRight } from "lucide-react"
 import { MessageSquareIcon } from "lucide-react"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { useComposer, composerActions } from "@/hooks/use-composer"
 import { useAppStore } from "@/store/app-store"
@@ -8,11 +8,7 @@ import { useSubscription } from "@/hooks/use-subscription"
 import { useSession } from "@/contexts/SessionContext"
 import { useLLMLock } from '@/hooks/use-llm-lock'
 import { SidebarTrigger } from "@/components/ui/sidebar"
-import {
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
-} from "@/components/ui/dropdown-menu"
-import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import WorkbenchHeader from "@/components/WorkbenchHeader"
 import {
   Conversation,
   ConversationContent,
@@ -71,7 +67,6 @@ export default function Workbench({ isPopout }) {
   const popouts = useSubscription('session:popout:feed', [])
   const isPoppedOut = !isPopout && popouts.includes(sessionId)
   const typographySettings = useSubscription('settings:typography', { lineHeight: null })
-  const [typographyOpen, setTypographyOpen] = useState(false)
   const hasPrompt = !!prompt
   useEffect(() => window.api.on('message:edit:start', ({ id, role }) => {
     const sid = useAppStore.getState().activeSessionId
@@ -128,71 +123,18 @@ export default function Workbench({ isPopout }) {
         {/* Layout: see docs/ui-chat-viewport-layout.md
             min-h-full (not h-full) so ResizeObserver in StickToBottom fires. */}
         <ConversationContent className="gap-0 p-0 min-h-full">
-          <header className="sticky top-0 z-10 flex shrink-0 h-(--header-h) items-center justify-between px-(--content-px) bg-background/50 backdrop-blur-sm">
-            <div className="flex items-center gap-2 min-w-0">
-              {!isPopout && <SidebarTrigger />}
-              <span className="text-sm font-semibold truncate">{title || "Arc"}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button onClick={handleOpenWorkspace} variant="ghost" size="icon-sm"><FolderOpen /></Button>
-              <Button
-                variant={mode === "prompt" ? "default" : "ghost"}
-                size="icon-sm"
-                className="relative"
-                onClick={() => setMode(mode === "chat" ? "prompt" : "chat")}
-              >
-                <Drama />
-                {hasPrompt && mode !== "prompt" && (
-                  <span className="absolute bottom-[2px] left-1/2 -translate-x-1/2 h-0.5 w-3 rounded-full bg-primary" />
-                )}
-              </Button>
-              <Popover open={typographyOpen} onOpenChange={setTypographyOpen}>
-                <DropdownMenu>
-                  <PopoverAnchor asChild>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon-sm"><Ellipsis /></Button>
-                    </DropdownMenuTrigger>
-                  </PopoverAnchor>
-                  <DropdownMenuContent align="end">
-                    {!isPopout && <DropdownMenuItem disabled={busy} onClick={handlePopout}><SquareArrowOutUpRight />Open in New Window</DropdownMenuItem>}
-                    <DropdownMenuItem disabled={messages.length === 0} onClick={handleDownload}><Download />Export</DropdownMenuItem>
-                    {/* rAF defers open until dropdown finishes unmounting */}
-                    <DropdownMenuItem onSelect={() => requestAnimationFrame(() => setTypographyOpen(true))}><ALargeSmall />Typography</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                {/* Dropdown close restores focus to trigger, which fires focusOutside on the
-                    popover's DismissableLayer — prevent so only pointer-click/Escape dismiss. */}
-                <PopoverContent align="end" className="w-56"
-                  onFocusOutside={(e) => e.preventDefault()}
-                >
-                  <div className="space-y-4">
-                    <div className="space-y-1">
-                      <div className="text-xs text-muted-foreground">Font</div>
-                      <div className="text-sm">System Default</div>
-                    </div>
-                    <div className="space-y-1">
-                      <div className="text-xs text-muted-foreground">Line Height</div>
-                      <ToggleGroup
-                        type="single"
-                        variant="outline"
-                        value={typographySettings.lineHeight ?? "default"}
-                        onValueChange={(val) => {
-                          if (!val) return
-                          window.api.call('settings:set-typography', {
-                            lineHeight: val === "default" ? null : val,
-                          })
-                        }}
-                      >
-                        <ToggleGroupItem value="default">Default</ToggleGroupItem>
-                        <ToggleGroupItem value="1.5">1.5×</ToggleGroupItem>
-                        <ToggleGroupItem value="2">2×</ToggleGroupItem>
-                      </ToggleGroup>
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
-            </div>
-          </header>
+          <WorkbenchHeader
+            isPopout={isPopout}
+            title={title}
+            busy={busy}
+            mode={mode}
+            hasPrompt={hasPrompt}
+            onOpenWorkspace={handleOpenWorkspace}
+            onPopout={handlePopout}
+            onDownload={handleDownload}
+            onTogglePrompt={() => setMode(mode === "chat" ? "prompt" : "chat")}
+            hasMessages={messages.length > 0}
+          />
           {messages.length === 0 && isDraft ? (
             /* Empty-state contract — see docs/ui-chat-viewport-layout.md */
             <div className="flex flex-1 min-h-0 px-(--content-px)">
