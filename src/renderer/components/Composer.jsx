@@ -22,6 +22,7 @@ import { TiptapProvider, useTiptap } from "@/contexts/TiptapContext"
 import { useAutogrowLock, ComposerAutogrowLockHandle } from "@/components/ComposerAutogrowLock"
 import { useSubscription } from "@/hooks/use-subscription"
 import { useAppStore, act } from "@/store/app-store"
+import AgentSelectorButton from "@/components/AgentSelectorButton"
 import ModelSelectorButton from "@/components/ModelSelectorButton"
 import SkillSelectorButton from "@/components/SkillSelectorButton"
 import ComposerEditor from "@/components/ComposerEditor"
@@ -31,6 +32,8 @@ const ToolButton = ({ tool }) => {
   switch (tool) {
     case "skill":
       return <SkillSelectorButton />
+    case "agent":
+      return <AgentSelectorButton />
     case "attach":
       return (
         <PromptInputButton onClick={() => tiptap?.openFileDialog?.()}>
@@ -175,10 +178,10 @@ function BaseComposer({ shadowClass, footerClass }) {
           </PromptInputBody>
           <PromptInputFooter>
             <PromptInputTools>
-              {config.tools.filter((t) => t === "skill" || t === "attach").map((t) => <ToolButton key={t} tool={t} />)}
+              {config.tools.filter((t) => t === "skill" || t === "agent" || t === "attach").map((t) => <ToolButton key={t} tool={t} />)}
             </PromptInputTools>
             <div className={cn("flex items-center gap-1", footerClass)}>
-              {config.tools.filter((t) => t !== "attach" && t !== "skill" && (t !== "mic" || hasTranscribe)).map((t) => <ToolButton key={t} tool={t} />)}
+              {config.tools.filter((t) => t !== "attach" && t !== "skill" && t !== "agent" && (t !== "mic" || hasTranscribe)).map((t) => <ToolButton key={t} tool={t} />)}
               <ComposerSubmit status={status} onStop={stop} text={text} isRefining={isRefining} config={config} mode={mode} />
             </div>
           </PromptInputFooter>
