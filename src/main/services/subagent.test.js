@@ -1,10 +1,16 @@
 import { describe, test, expect, vi } from 'vitest'
+import fs from 'node:fs/promises'
 
 vi.mock('../arcfs.js', () => ({
   resolve: () => '/tmp/arcfs',
   readMarkdown: vi.fn(),
   toUrl: (...segs) => `arcfs://${segs.join('/')}`,
   fromUrl: (url) => url.replace('arcfs://', '/tmp/arcfs/'),
+  builtinDir: () => '/tmp/builtin-agents',
+}))
+
+vi.mock('node:fs/promises', () => ({
+  default: { readdir: vi.fn() },
 }))
 
 vi.mock('./profile.js', () => ({
@@ -23,9 +29,37 @@ vi.mock('./llm.js', () => ({
 
 const { loadAgentContent } = await import('./subagent.js')
 
-vi.mock('fs', () => ({}))
 
 const { runAgent } = await import('./subagent.js')
+
+describe('discoverAgents', () => {
+  test('merges profile and builtin agents, profile wins on name conflict', async () => {
+    const { resolveDir } = await import('./profile.js')
+    const { readMarkdown } = await import('../arcfs.js')
+
+    resolveDir.mockResolvedValue([
+      { name: 'custom-agent', description: 'User agent', file: 'custom.md', directory: 'arcfs://agents', source: '@app' },
+      { name: 'explore', description: 'User explore override', file: 'explore.md', directory: 'arcfs://agents', source: '@app' },
+    ])
+
+    fs.readdir.mockResolvedValue([
+      { name: 'general-purpose.md', isFile: () => true },
+      { name: 'explore.md', isFile: () => true },
+    ])
+
+    readMarkdown
+      .mockResolvedValueOnce('---\nname: general-purpose\ndescription: General purpose agent\n---\nYou are a general purpose agent.')
+      .mockResolvedValueOnce('---\nname: explore\ndescription: Explore agent\n---\nYou are an explore agent.')
+
+    const { discoverAgents } = await import('./subagent.js')
+    const agents = await discoverAgents()
+
+    expect(agents.map(a => a.name)).toEqual(['custom-agent', 'explore', 'general-purpose'])
+    expect(agents.find(a => a.name === 'general-purpose').source).toBe('@builtin')
+    // profile's explore wins over builtin's explore
+    expect(agents.find(a => a.name === 'explore').source).toBe('@app')
+  })
+})
 
 describe('runAgent', () => {
   const agents = [{ name: 'reviewer', description: 'Reviews code', model: 'agent-model', file: 'reviewer.md', directory: 'arcfs://agents' }]

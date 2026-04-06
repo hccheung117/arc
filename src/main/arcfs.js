@@ -6,9 +6,9 @@ import writeFileAtomic from 'write-file-atomic'
 export const resolve = (...segments) =>
   path.join(app.getPath('userData'), 'arcfs', ...segments)
 
-export const builtinBase = () => app.isPackaged
-  ? path.join(process.resourcesPath, 'skills')
-  : path.join(app.getAppPath(), 'src', 'skills')
+export const builtinDir = (category) => app.isPackaged
+  ? path.join(process.resourcesPath, category)
+  : path.join(app.getAppPath(), 'src', category)
 
 export const builtinProfilesBase = () => app.isPackaged
   ? path.join(process.resourcesPath, 'profiles')
@@ -21,7 +21,11 @@ export const fromUrl = (url) => {
   const parsed = new URL(url)
   if (parsed.hostname === 'builtin') {
     const rest = parsed.pathname.slice(1).split('/').filter(Boolean)
-    return path.join(builtinBase(), ...rest)
+    return path.join(builtinDir('skills'), ...rest)
+  }
+  if (parsed.hostname === 'builtin-agent') {
+    const rest = parsed.pathname.slice(1).split('/').filter(Boolean)
+    return path.join(builtinDir('agents'), ...rest)
   }
   const segments = [parsed.hostname, ...parsed.pathname.slice(1).split('/').filter(Boolean)]
   const resolved = resolve(...segments)

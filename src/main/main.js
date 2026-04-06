@@ -7,7 +7,7 @@ import { pathToFileURL } from 'node:url';
 import started from 'electron-squirrel-startup';
 import { initIpc, setMainWindow, getMainWindow, dispatch } from './router.js';
 import { pushAll } from './channel.js';
-import { resolve, fromUrl, builtinBase, builtinProfilesBase } from './arcfs.js';
+import { resolve, fromUrl, builtinDir, builtinProfilesBase } from './arcfs.js';
 import { getState, setState } from './services/state.js';
 import { refreshModels } from './routes/models.js';
 import { listProfiles, getActiveProfile, seedBuiltinProfiles } from './services/profile.js';
@@ -104,7 +104,7 @@ app.whenReady().then(async () => {
   fs.rm(resolve('tmp'), { recursive: true, force: true }).catch(() => {})
 
   const arcfsRoot = resolve()
-  const builtinRoot = builtinBase()
+  const builtinRoot = builtinDir('skills')
   protocol.handle('arcfs', (request) => {
     const filePath = fromUrl(request.url)
     if (!filePath.startsWith(arcfsRoot) && !filePath.startsWith(builtinRoot))

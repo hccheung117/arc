@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import matter from 'gray-matter'
-import { resolve, readMarkdown, toUrl, fromUrl, builtinBase } from '../arcfs.js'
+import { resolve, readMarkdown, toUrl, fromUrl, builtinDir } from '../arcfs.js'
 import { resolveDir, appPath } from './profile.js'
 import { renderActiveSkill } from '../prompts/augment.jsx'
 
@@ -26,7 +26,7 @@ export const listSkills = async (dir) => {
 }
 
 const listBuiltinSkills = async () => {
-  const entries = await listSkills(builtinBase())
+  const entries = await listSkills(builtinDir('skills'))
   return entries.map(e => ({ ...e, directory: toUrl('builtin', e.name), source: '@builtin' }))
 }
 

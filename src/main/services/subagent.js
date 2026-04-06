@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import matter from 'gray-matter'
-import { resolve, readMarkdown, toUrl, fromUrl } from '../arcfs.js'
+import { resolve, readMarkdown, toUrl, fromUrl, builtinDir } from '../arcfs.js'
 import { resolveDir } from './profile.js'
 import { buildSystemPrompt } from '../prompts/system.jsx'
 import * as llm from './llm.js'
@@ -32,8 +32,17 @@ export const listAgents = async (dir) => {
   }))).filter(Boolean)
 }
 
-export const discoverAgents = async () =>
-  resolveDir('agents', listAgents)
+const listBuiltinAgents = async () => {
+  const entries = await listAgents(builtinDir('agents'))
+  return entries.map(e => ({ ...e, directory: toUrl('builtin-agent'), source: '@builtin' }))
+}
+
+export const discoverAgents = async () => {
+  const resolved = await resolveDir('agents', listAgents)
+  const builtins = await listBuiltinAgents()
+  const resolvedNames = new Set(resolved.map(a => a.name))
+  return [...resolved, ...builtins.filter(a => !resolvedNames.has(a.name))]
+}
 
 export const loadAgentContent = async (agents, name) => {
   const agent = agents.find(a => a.name === name)
