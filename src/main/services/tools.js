@@ -293,7 +293,7 @@ export const buildTools = ({ skills, agents, provider, modelId, workspacePath, t
   })
 
   const browser = tool({
-    description: 'Control browser windows. Use load_skill("using-browser") for full command reference.',
+    description: 'Inspect and control artifact windows via CDP. Use load_skill("using-artifact-devtools") for full command reference.',
     inputSchema: z.object({
       command: z.string().describe('Command name'),
       args: z.array(z.string()).optional().default([]).describe('Command arguments'),

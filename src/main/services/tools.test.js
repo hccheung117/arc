@@ -513,7 +513,7 @@ describe('subagent tool', () => {
     test('passes all skills to runAgent', async () => {
       const skills = [
         { name: 'using-excel', directory: 'arcfs://skills/using-excel' },
-        { name: 'using-browser', directory: 'arcfs://skills/using-browser' },
+        { name: 'using-artifact-devtools', directory: 'arcfs://skills/using-artifact-devtools' },
       ]
       const { subagent } = buildTools({ skills, agents, workspacePath })
 
