@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFloating, flip, shift } from '@floating-ui/react'
+import { scanForMentions } from '../lib/composer-extensions'
 
 export function useSuggestionPopup() {
   const [suggestion, setSuggestion] = useState(null)
@@ -38,12 +39,17 @@ export function useSuggestionPopup() {
     onExit: (props) => {
       if (!props.editor.storage.editorStore.suggestionActive) return
       props.editor.storage.editorStore.suggestionActive = false
-      props.editor.storage.editorStore.suggestionJustExited = true
       suggestionRef.current = null
       setSuggestion(null)
-      // Kick appendTransaction so AutoMention can process markers
-      // now that the suggestion flag is cleared.
-      setTimeout(() => props.editor.view.dispatch(props.editor.state.tr), 0)
+      // Direct call to scan-and-convert (no empty broadcast transaction).
+      // Tagged with meta so suggestion plugins skip reactivation.
+      setTimeout(() => {
+        const tr = scanForMentions(props.editor)
+        if (tr) {
+          tr.setMeta('suggestionExit', true)
+          props.editor.view.dispatch(tr)
+        }
+      }, 0)
     },
     onKeyDown: ({ event }) => {
       const s = suggestionRef.current

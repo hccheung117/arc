@@ -184,7 +184,7 @@ const ExtendedMention = Mention.extend({
 const EditorStore = Extension.create({
   name: 'editorStore',
   addStorage() {
-    return { skills: [], agents: [], placeholder: '', onFilesPasted: null, suggestionActive: false, suggestionJustExited: false }
+    return { skills: [], agents: [], placeholder: '', onFilesPasted: null, suggestionActive: false }
   },
 })
 
@@ -212,6 +212,63 @@ const SubmitOnEnter = Extension.create({
   },
 })
 
+// --- scanForMentions: scans document for convertible text patterns ---
+// Returns a ProseMirror transaction with real edits, or null if nothing to convert.
+// Used by AutoMention (on every transaction) and by suggestion onExit (direct call).
+
+export const scanForMentions = (editor, state = editor.state) => {
+  const store = editor.storage.editorStore
+  const knownSkills = (store?.skills ?? []).map(s => s.name)
+  const knownAgents = (store?.agents ?? []).map(a => a.name)
+  const allMarkers = []
+
+  state.doc.descendants((node, pos) => {
+    if (node.type.name !== 'text') return
+
+    for (const r of extractSkillRefs(node.text, knownSkills)) {
+      allMarkers.push({ ...r, type: 'skill', from: pos + r.start, to: pos + r.end })
+    }
+    for (const r of extractFileRefs(node.text)) {
+      allMarkers.push({ ...r, type: 'file', from: pos + r.start, to: pos + r.end })
+    }
+    for (const r of extractAgentRefs(node.text, knownAgents)) {
+      allMarkers.push({ ...r, type: 'agent', from: pos + r.start, to: pos + r.end })
+    }
+  })
+
+  // Skip markers the cursor is still inside — user may still be typing
+  const head = state.selection.head
+  const actionable = allMarkers.filter(m => head <= m.from || head > m.to)
+
+  if (!actionable.length) return null
+
+  actionable.sort((a, b) => b.from - a.from)
+  const tr = state.tr
+
+  for (const marker of actionable) {
+    const mentionNode = marker.type === 'skill'
+      ? state.schema.nodes.mention.create({
+          id: marker.name, label: marker.name, mentionType: 'skill',
+        })
+      : marker.type === 'agent'
+        ? state.schema.nodes.mention.create({
+            id: marker.name, label: marker.name, mentionType: 'agent',
+          })
+        : state.schema.nodes.mention.create({
+            id: marker.path, label: marker.path,
+            mentionType: 'file', url: marker.path, filename: marker.path.split('/').pop() || marker.path, mediaType: '',
+          })
+
+    const charBefore = marker.from > 0 ? state.doc.textBetween(marker.from - 1, marker.from) : ''
+    const needsSpace = charBefore !== '' && !/\s/.test(charBefore)
+    tr.replaceWith(marker.from, marker.to,
+      needsSpace ? Fragment.from([state.schema.text(' '), mentionNode]) : mentionNode
+    )
+  }
+
+  return tr
+}
+
 // --- AutoMention: auto-converts typed text patterns to mention nodes ---
 
 const AutoMention = Extension.create({
@@ -222,60 +279,8 @@ const AutoMention = Extension.create({
       new Plugin({
         key: new PluginKey('autoMention'),
         appendTransaction(transactions, oldState, newState) {
-          const store = editor.storage.editorStore
-          if (store?.suggestionActive) return null
-
-          if (store?.suggestionJustExited) store.suggestionJustExited = false
-
-          const knownSkills = (store?.skills ?? []).map(s => s.name)
-          const knownAgents = (store?.agents ?? []).map(a => a.name)
-          const allMarkers = []
-
-          newState.doc.descendants((node, pos) => {
-            if (node.type.name !== 'text') return
-
-            for (const r of extractSkillRefs(node.text, knownSkills)) {
-              allMarkers.push({ ...r, type: 'skill', from: pos + r.start, to: pos + r.end })
-            }
-            for (const r of extractFileRefs(node.text)) {
-              allMarkers.push({ ...r, type: 'file', from: pos + r.start, to: pos + r.end })
-            }
-            for (const r of extractAgentRefs(node.text, knownAgents)) {
-              allMarkers.push({ ...r, type: 'agent', from: pos + r.start, to: pos + r.end })
-            }
-          })
-
-          // Skip markers the cursor is still inside — user may still be typing
-          const head = newState.selection.head
-          const actionable = allMarkers.filter(m => head <= m.from || head > m.to)
-
-          if (!actionable.length) return null
-
-          actionable.sort((a, b) => b.from - a.from)
-          const tr = newState.tr
-
-          for (const marker of actionable) {
-            const mentionNode = marker.type === 'skill'
-              ? newState.schema.nodes.mention.create({
-                  id: marker.name, label: marker.name, mentionType: 'skill',
-                })
-              : marker.type === 'agent'
-                ? newState.schema.nodes.mention.create({
-                    id: marker.name, label: marker.name, mentionType: 'agent',
-                  })
-                : newState.schema.nodes.mention.create({
-                    id: marker.path, label: marker.path,
-                    mentionType: 'file', url: marker.path, filename: marker.path.split('/').pop() || marker.path, mediaType: '',
-                  })
-
-            const charBefore = marker.from > 0 ? newState.doc.textBetween(marker.from - 1, marker.from) : ''
-            const needsSpace = charBefore !== '' && !/\s/.test(charBefore)
-            tr.replaceWith(marker.from, marker.to,
-              needsSpace ? Fragment.from([newState.schema.text(' '), mentionNode]) : mentionNode
-            )
-          }
-
-          return tr
+          if (editor.storage.editorStore?.suggestionActive) return null
+          return scanForMentions(editor, newState)
         },
       }),
     ]
@@ -426,6 +431,7 @@ export const createExtensions = ({ skillSuggestionRender, agentSuggestionRender 
   ExtendedMention.configure({
     suggestion: {
       char: '/',
+      shouldShow: ({ transaction }) => !transaction.getMeta('suggestionExit'),
       items: ({ editor, query }) =>
         (editor.storage.editorStore?.skills ?? [])
           .filter(s => s.name.toLowerCase().includes(query.toLowerCase())),
@@ -441,6 +447,7 @@ export const createExtensions = ({ skillSuggestionRender, agentSuggestionRender 
   AgentMention.configure({
     suggestion: {
       char: '@',
+      shouldShow: ({ transaction }) => !transaction.getMeta('suggestionExit'),
       items: ({ editor, query }) =>
         (editor.storage.editorStore?.agents ?? [])
           .filter(a => a.name.toLowerCase().includes(query.toLowerCase())),
