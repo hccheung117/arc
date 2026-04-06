@@ -216,7 +216,7 @@
   top: 0;
   right: 0.25rem;
   margin-top: 0;
-  height: 28px; /* Match header height */
+  height: 2rem; /* Match code-block-header h-8 */
   padding: 0;
 }
 
@@ -246,4 +246,30 @@
 /* 7. Hide line numbers — keep code left-aligned with header text */
 [data-streamdown="code-block-body"] code > span::before {
   display: none;
+}
+
+/* ── Table overrides — fused card layout matching code blocks ── */
+
+/* 1. Fuse the outer container into a unified card */
+[data-streamdown="table-wrapper"] {
+  padding: 0;
+  gap: 0;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/* 2. Style the actions row as a full-width header bar */
+[data-streamdown="table-wrapper"] > div:first-child {
+  height: 2rem; /* h-8 — matches code-block-header */
+  padding: 0 0.75rem;
+  background-color: var(--sidebar);
+  border-bottom: 1px solid var(--border);
+  width: 100%;
+}
+
+/* 3. Remove nested border/radius from the scroll container */
+[data-streamdown="table-wrapper"] > div:last-child {
+  border: none;
+  border-radius: 0;
+  margin: 0;
 }
