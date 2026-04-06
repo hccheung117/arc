@@ -8,7 +8,7 @@ import {
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
-export default function WorkbenchMenu({ isPopout, busy, onPopout, onDownload, hasMessages }) {
+export default function WorkbenchMenu({ isPopout, onPopout, onDownload, hasMessages }) {
   const typographySettings = useSubscription('settings:typography', { lineHeight: null })
   const [typographyOpen, setTypographyOpen] = useState(false)
 
@@ -21,7 +21,7 @@ export default function WorkbenchMenu({ isPopout, busy, onPopout, onDownload, ha
           </DropdownMenuTrigger>
         </PopoverAnchor>
         <DropdownMenuContent align="end">
-          {!isPopout && <DropdownMenuItem disabled={busy} onClick={onPopout}><SquareArrowOutUpRight />Open in New Window</DropdownMenuItem>}
+          {!isPopout && <DropdownMenuItem onClick={onPopout}><SquareArrowOutUpRight />Open in New Window</DropdownMenuItem>}
           <DropdownMenuItem disabled={!hasMessages} onClick={onDownload}><Download />Export</DropdownMenuItem>
           {/* rAF defers open until dropdown finishes unmounting */}
           <DropdownMenuItem onSelect={() => requestAnimationFrame(() => setTypographyOpen(true))}><ALargeSmall />Typography</DropdownMenuItem>

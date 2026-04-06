@@ -126,7 +126,6 @@ export default function Workbench({ isPopout }) {
           <WorkbenchHeader
             isPopout={isPopout}
             title={title}
-            busy={busy}
             mode={mode}
             hasPrompt={hasPrompt}
             onOpenWorkspace={handleOpenWorkspace}

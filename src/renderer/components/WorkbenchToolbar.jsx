@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button"
 import WorkbenchMenu from "@/components/WorkbenchMenu"
 
 export default function WorkbenchToolbar({
-  isPopout, busy, mode, hasPrompt,
+  isPopout, mode, hasPrompt,
   onOpenWorkspace, onPopout, onDownload, onTogglePrompt, hasMessages,
 }) {
   return (
@@ -22,7 +22,6 @@ export default function WorkbenchToolbar({
       </Button>
       <WorkbenchMenu
         isPopout={isPopout}
-        busy={busy}
         onPopout={onPopout}
         onDownload={onDownload}
         hasMessages={hasMessages}

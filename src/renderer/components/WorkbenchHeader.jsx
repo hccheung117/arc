@@ -2,7 +2,7 @@ import { SidebarTrigger } from "@/components/ui/sidebar"
 import WorkbenchToolbar from "@/components/WorkbenchToolbar"
 
 export default function WorkbenchHeader({
-  isPopout, title, busy, mode, hasPrompt,
+  isPopout, title, mode, hasPrompt,
   onOpenWorkspace, onPopout, onDownload, onTogglePrompt, hasMessages,
 }) {
   return (
@@ -13,7 +13,6 @@ export default function WorkbenchHeader({
       </div>
       <WorkbenchToolbar
         isPopout={isPopout}
-        busy={busy}
         mode={mode}
         hasPrompt={hasPrompt}
         onOpenWorkspace={onOpenWorkspace}
