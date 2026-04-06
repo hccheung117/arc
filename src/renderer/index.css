@@ -1,3 +1,6 @@
+@import "@fontsource-variable/noto-serif";
+@import "@fontsource-variable/noto-serif-sc";
+@import "@fontsource-variable/noto-serif-tc";
 @import "tailwindcss";
 @import "tw-animate-css";
 

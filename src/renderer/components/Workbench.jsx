@@ -157,7 +157,7 @@ export default function Workbench({ isPopout }) {
             /* Message-flow contract — see docs/ui-chat-viewport-layout.md */
             <div
               className="flex flex-1 min-h-0 flex-col gap-6 px-(--content-px) pt-4"
-              style={{ paddingBottom: "var(--footer-h)", ...(typographySettings.lineHeight && { lineHeight: typographySettings.lineHeight }) }}
+              style={{ paddingBottom: "var(--footer-h)", ...(typographySettings.lineHeight && { lineHeight: 1 + Number(typographySettings.lineHeight) }), ...(typographySettings.fontFamily === "noto-serif" && { fontFamily: '"Noto Serif Variable", "Noto Serif SC Variable", "Noto Serif TC Variable", serif' }) }}
             >
               {(() => {
                 const lastMsg = messages.at(-1)

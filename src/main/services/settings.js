@@ -65,13 +65,13 @@ export const setFavorite = async (provider, model) => {
 
 export const getTypography = async () => {
   const appSettings = await readJson(appPath('settings.json')) ?? {}
-  return appSettings.typography ?? { lineHeight: null }
+  return appSettings.typography ?? { lineHeight: null, fontFamily: null }
 }
 
 export const setTypography = async (patch) => {
   const settingsPath = appPath('settings.json')
   const appSettings = await readJson(settingsPath) ?? {}
-  const current = appSettings.typography ?? { lineHeight: null }
+  const current = appSettings.typography ?? { lineHeight: null, fontFamily: null }
   await writeJson(settingsPath, { ...appSettings, typography: { ...current, ...patch } })
 }
 

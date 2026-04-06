@@ -29,13 +29,26 @@ export default function WorkbenchMenu({ isPopout, busy, onPopout, onDownload, ha
       </DropdownMenu>
       {/* Dropdown close restores focus to trigger, which fires focusOutside on the
           popover's DismissableLayer — prevent so only pointer-click/Escape dismiss. */}
-      <PopoverContent align="end" className="w-56"
+      <PopoverContent align="end" className="w-fit"
         onFocusOutside={(e) => e.preventDefault()}
       >
         <div className="space-y-4">
           <div className="space-y-1">
             <div className="text-xs text-muted-foreground">Font</div>
-            <div className="text-sm">System Default</div>
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              value={typographySettings.fontFamily ?? "default"}
+              onValueChange={(val) => {
+                if (!val) return
+                window.api.call('settings:set-typography', {
+                  fontFamily: val === "default" ? null : val,
+                })
+              }}
+            >
+              <ToggleGroupItem value="default">System</ToggleGroupItem>
+              <ToggleGroupItem value="noto-serif">Noto Serif</ToggleGroupItem>
+            </ToggleGroup>
           </div>
           <div className="space-y-1">
             <div className="text-xs text-muted-foreground">Line Height</div>
@@ -51,8 +64,8 @@ export default function WorkbenchMenu({ isPopout, busy, onPopout, onDownload, ha
               }}
             >
               <ToggleGroupItem value="default">Default</ToggleGroupItem>
-              <ToggleGroupItem value="1.5">1.5×</ToggleGroupItem>
-              <ToggleGroupItem value="2">2×</ToggleGroupItem>
+              <ToggleGroupItem value="1.2">Relaxed</ToggleGroupItem>
+              <ToggleGroupItem value="1.5">Loose</ToggleGroupItem>
             </ToggleGroup>
           </div>
         </div>
