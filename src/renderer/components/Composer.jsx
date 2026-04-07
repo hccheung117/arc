@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { SpeechInput } from "@/components/ai-elements/speech-input"
-import { ImageIcon, PencilLine, Sparkles, SquareIcon, Wand2 } from "lucide-react"
+import { PaperclipIcon, PencilLine, Sparkles, SquareIcon, Wand2 } from "lucide-react"
 import { cn } from "@/lib/shadcn"
 import { useComposer, useComposerMode } from "@/hooks/use-composer"
 import { isLLMBusy } from '@/hooks/use-llm-lock'
@@ -37,7 +37,7 @@ const ToolButton = ({ tool }) => {
     case "attach":
       return (
         <PromptInputButton onClick={() => tiptap?.openFileDialog?.()}>
-          <ImageIcon className="size-4" />
+          <PaperclipIcon className="size-4" />
         </PromptInputButton>
       )
     case "model":

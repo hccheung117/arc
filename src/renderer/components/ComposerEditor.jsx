@@ -122,7 +122,6 @@ export default function ComposerEditor({ placeholder, readOnly, style, className
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
         multiple
         className="hidden"
         onChange={(e) => {
