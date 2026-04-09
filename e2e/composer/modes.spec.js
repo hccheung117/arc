@@ -40,7 +40,7 @@ test.describe('1.1 Chat Mode', () => {
   test('toolbar shows Skill and Attach buttons', async () => {
     const footer = window.locator(sel.footer)
     await expect(footer.locator('svg.lucide-book-open').first()).toBeVisible()
-    await expect(footer.locator('svg.lucide-image').first()).toBeVisible()
+    await expect(footer.locator('svg.lucide-paperclip').first()).toBeVisible()
   })
 
   test('submit button shows with aria-label "Submit"', async () => {
@@ -72,7 +72,7 @@ test.describe('1.2 Edit:User Mode', () => {
   test('toolbar shows Skill, Attach buttons (same as chat)', async () => {
     const footer = window.locator(sel.footer)
     await expect(footer.locator('svg.lucide-book-open').first()).toBeVisible()
-    await expect(footer.locator('svg.lucide-image').first()).toBeVisible()
+    await expect(footer.locator('svg.lucide-paperclip').first()).toBeVisible()
   })
 
   test('cancel → returns to chat mode', async () => {
@@ -100,7 +100,7 @@ test.describe('1.3 Edit:AI Mode', () => {
   test('toolbar does NOT show Skill or Attach buttons', async () => {
     const footer = window.locator(sel.footer)
     await expect(footer.locator('svg.lucide-book-open')).not.toBeVisible()
-    await expect(footer.locator('svg.lucide-image')).not.toBeVisible()
+    await expect(footer.locator('svg.lucide-paperclip')).not.toBeVisible()
   })
 
   test('cancel → returns to chat mode', async () => {
@@ -150,7 +150,7 @@ test.describe('1.4 Prompt Mode', () => {
   test('toolbar does NOT show Skill or Attach buttons', async () => {
     const footer = window.locator(sel.footer)
     await expect(footer.locator('svg.lucide-book-open')).not.toBeVisible()
-    await expect(footer.locator('svg.lucide-image')).not.toBeVisible()
+    await expect(footer.locator('svg.lucide-paperclip')).not.toBeVisible()
   })
 
   test('red shadow on composer form', async () => {

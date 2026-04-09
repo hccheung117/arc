@@ -423,25 +423,24 @@ test.describe('5.2 File Mention via Attach Button', () => {
     await window.waitForTimeout(100)
   })
 
-  test('attach button opens file dialog that only accepts image files', async () => {
-    const attachBtn = window.locator('svg.lucide-image').first().locator('..')
+  test('attach button opens file dialog that accepts all files', async () => {
+    const attachBtn = window.locator('svg.lucide-paperclip').first().locator('..')
     await attachBtn.click()
     await window.waitForTimeout(100)
 
-    const fileInput = window.locator('input[type="file"][accept]')
+    const fileInput = window.locator('input[type="file"]')
     const accept = await fileInput.getAttribute('accept')
-    expect(accept).toBeTruthy()
-    expect(accept).toMatch(/image\//)
+    expect(accept).toBeNull()
   })
 
   test('attach button → file input → orange pill inserted', async () => {
     // Click the attach button to trigger the hidden file input
-    const attachBtn = window.locator('svg.lucide-image').first().locator('..')
+    const attachBtn = window.locator('svg.lucide-paperclip').first().locator('..')
     await attachBtn.click()
     await window.waitForTimeout(100)
 
     // Set files on the hidden input
-    const fileInput = window.locator('input[type="file"][accept]')
+    const fileInput = window.locator('input[type="file"]')
     await fileInput.setInputFiles({
       name: 'photo.jpg',
       mimeType: 'image/jpeg',

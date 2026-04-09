@@ -39,7 +39,7 @@ test.describe('3.1 Edit User Message', () => {
   test('toolbar shows Skill, Attach buttons (same as chat)', async () => {
     const footer = window.locator(sel.footer)
     await expect(footer.locator('svg.lucide-book-open').first()).toBeVisible()
-    await expect(footer.locator('svg.lucide-image').first()).toBeVisible()
+    await expect(footer.locator('svg.lucide-paperclip').first()).toBeVisible()
   })
 
   test('cancel → returns to chat mode without changes', async () => {
@@ -63,7 +63,7 @@ test.describe('3.2 Edit AI Message', () => {
   test('only Mic tool available (no Skill, Attach, Model)', async () => {
     const footer = window.locator(sel.footer)
     await expect(footer.locator('svg.lucide-book-open')).not.toBeVisible()
-    await expect(footer.locator('svg.lucide-image')).not.toBeVisible()
+    await expect(footer.locator('svg.lucide-paperclip')).not.toBeVisible()
   })
 
   test('cancel → returns to chat mode', async () => {
