@@ -428,7 +428,7 @@ test.describe('5.2 File Mention via Attach Button', () => {
     await attachBtn.click()
     await window.waitForTimeout(100)
 
-    const fileInput = window.locator('input[type="file"]')
+    const fileInput = window.locator('form input[type="file"]')
     const accept = await fileInput.getAttribute('accept')
     expect(accept).toBeNull()
   })
@@ -440,7 +440,7 @@ test.describe('5.2 File Mention via Attach Button', () => {
     await window.waitForTimeout(100)
 
     // Set files on the hidden input
-    const fileInput = window.locator('input[type="file"]')
+    const fileInput = window.locator('form input[type="file"]')
     await fileInput.setInputFiles({
       name: 'photo.jpg',
       mimeType: 'image/jpeg',
