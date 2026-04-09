@@ -1,4 +1,9 @@
 {
+  "tiers": {
+    "fast": { "provider": "openai", "model": "gpt-5.4-nano" },
+    "general": { "provider": "openai", "model": "gpt-5.4" },
+    "powerful": { "provider": "openai", "model": "gpt-5.4-pro" }
+  },
   "assignments": {
     "generate-title": { "provider": "openai", "model": "gpt-5.4-nano" },
     "refine-prompt": { "provider": "openai", "model": "gpt-5.4" },

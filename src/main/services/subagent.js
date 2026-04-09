@@ -3,6 +3,7 @@ import path from 'node:path'
 import matter from 'gray-matter'
 import { resolve, readMarkdown, toUrl, fromUrl, builtinDir } from '../arcfs.js'
 import { resolveDir } from './profile.js'
+import { getTier } from './settings.js'
 import { buildSystemPrompt } from '../prompts/system.jsx'
 import * as llm from './llm.js'
 
@@ -59,14 +60,17 @@ export const runAgent = async ({ name, prompt, model, agents, allSkills, provide
   const agentContent = await loadAgentContent(agents, name)
   if (!agentContent) throw new Error(`Agent not found: ${name}`)
 
-  const resolvedModelId = model || agentContent.model || modelId
+  const rawModel = model || agentContent.model
+  const tier = rawModel ? await getTier(rawModel) : null
+  const resolvedProvider = tier ? tier.provider : provider
+  const resolvedModelId = tier ? tier.modelId : (model ?? modelId)
 
   const { subagent: _, ...baseTools } = tools
 
   const system = buildSystemPrompt(agentContent.system, allSkills, [], { subagent: true })
 
   return llm.stream({
-    provider,
+    provider: resolvedProvider,
     modelId: resolvedModelId,
     system,
     messages: [{ role: 'user', parts: [{ type: 'text', text: prompt }] }],

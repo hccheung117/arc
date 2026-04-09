@@ -24,6 +24,10 @@ export const getSettings = async () => {
     : {}
 
   return {
+    tiers: mergeAssignments(
+      profileSettings.tiers ?? {},
+      appSettings.tiers ?? {},
+    ),
     assignments: mergeAssignments(
       profileSettings.assignments ?? {},
       appSettings.assignments ?? {},
@@ -82,6 +86,17 @@ export const getAssignment = async (key) => {
 
   const provider = await getProvider(entry.provider)
   if (!provider) return null
+
+  return { provider, modelId: entry.model }
+}
+
+export const getTier = async (key) => {
+  const { tiers } = await getSettings()
+  const entry = tiers[key]
+  if (!entry) return null
+
+  const provider = await getProvider(entry.provider)
+  if (!provider) throw new Error(`Tier "${key}" references provider "${entry.provider}" which does not exist`)
 
   return { provider, modelId: entry.model }
 }

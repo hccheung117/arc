@@ -259,9 +259,39 @@ Always include file paths and line numbers so the main agent can reference them.
 **Frontmatter Constraints:**
 - `name` (Required): Identifier used by the `subagent` tool and `@mentions`.
 - `description` (Required): Shown to the parent agent in the system prompt.
-- `model` (Optional): Default literal model ID. The parent can override at dispatch. Falls back to the session's active model if unset.
+- `model` (Optional): A tier name (e.g. `fast`, `general`, `powerful`) or a literal model ID. The parent can override at dispatch. Falls back to the session's active model if unset.
 
 The markdown body (after frontmatter) is the agent's system prompt.
+
+### Tiers
+
+Tiers decouple subagent definitions from specific model IDs. Instead of hardcoding a model like `claude-sonnet-4-20250514`, an agent can specify a tier name like `fast`, and the profile maps that to a concrete `{ provider, model }` pair.
+
+**Defining tiers in `settings.json`:**
+
+```json
+{
+  "tiers": {
+    "fast": { "provider": "anthropic", "model": "claude-haiku-4-5" },
+    "general": { "provider": "anthropic", "model": "claude-sonnet-4-6" },
+    "powerful": { "provider": "anthropic", "model": "claude-opus-4-6" }
+  }
+}
+```
+
+- `fast`, `general`, and `powerful` are conventions, not a fixed enum. Profile authors can define arbitrary tier names, and agent authors can reference them.
+- Each tier value uses the same `{ provider, model }` shape as `assignments`.
+- A tier can point to a different provider than the parent session, allowing cross-provider subagent dispatch.
+- Merge follows the same semantics as `assignments`: `@app` overrides profile values. Set a tier to `null` in `@app` to remove a profile-defined tier.
+
+**Resolution:**
+
+1. The raw model value is resolved from: tool `model` override → agent frontmatter `model` → session model.
+2. The value is looked up in the profile's `tiers` map.
+3. **Match** → the tier's `{ provider, model }` is used. The subagent may run on a different provider than the parent.
+4. **No match** → the value is treated as a literal model ID with the parent session's provider (existing behavior).
+
+If an agent references a tier name that the profile hasn't defined, the API will reject the unknown model ID, surfacing the misconfiguration immediately.
 
 ### How Subagents Work
 

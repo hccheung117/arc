@@ -330,6 +330,7 @@ export const buildTools = ({ skills, agents, provider, modelId, workspacePath, t
       })
       for await (const message of readUIMessageStream({
         stream: streamResult.toUIMessageStream({ sendReasoning: true }),
+        terminateOnError: true,
       })) {
         yield message
       }

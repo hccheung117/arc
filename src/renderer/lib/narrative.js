@@ -31,6 +31,7 @@ export const narrativeFromParts = (msg) => {
         state: p.state,
         input: p.input,
         output: p.output,
+        errorText: p.errorText,
         hasResult: p.state === 'output-available' || p.state === 'output-error' || p.state === 'output-denied',
       })
       continue

@@ -161,10 +161,11 @@ register('session:send', async ({ sessionId, messages: inputMessages, promptRef,
     let streamResult
     try {
       streamResult = await ctx.stream(signal)
-    } catch {
+    } catch (e) {
       sessionStore.endStream(sessionId, {
         messages: sessionStore.get(sessionId)?.messages ?? [],
         branches: ctx.branches,
+        error: e.message ?? 'Streaming failed',
       })
       return
     }
@@ -177,6 +178,7 @@ register('session:send', async ({ sessionId, messages: inputMessages, promptRef,
       sessionStore.endStream(sessionId, {
         messages: message.stripSyntheticParts(diskMessages),
         branches: ctx.branches,
+        error: sessionStore.get(sessionId)?.error ?? null,
       })
       return
     }
@@ -185,10 +187,11 @@ register('session:send', async ({ sessionId, messages: inputMessages, promptRef,
     try {
       const steps = await result.streamResult.steps
       parts = cleanParts(steps)
-    } catch {
+    } catch (e) {
       sessionStore.endStream(sessionId, {
         messages: sessionStore.get(sessionId)?.messages ?? [],
         branches: ctx.branches,
+        error: e.message ?? 'Streaming failed',
       })
       return
     }

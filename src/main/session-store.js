@@ -90,13 +90,13 @@ export const consumeStream = async (sessionId, streamResult, assistantId) => {
 }
 
 // Phase 3: Finalize — update store with persisted state and broadcast snapshot.
-export const endStream = (sessionId, { messages, branches }) => {
+export const endStream = (sessionId, { messages, branches, error = null }) => {
   const state = get(sessionId)
   if (!state) return
   state.messages = messages
   state.branches = branches
   state.status = 'ready'
-  state.error = null
+  state.error = error
   state.abortController = null
   emit({
     type: 'snapshot',
@@ -105,6 +105,7 @@ export const endStream = (sessionId, { messages, branches }) => {
     branches: state.branches,
     prompt: state.prompt,
     status: 'ready',
+    ...(error && { error }),
   })
 }
 

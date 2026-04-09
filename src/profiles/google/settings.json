@@ -1,4 +1,9 @@
 {
+  "tiers": {
+    "fast": { "provider": "google", "model": "gemini-3.1-flash-lite-preview" },
+    "general": { "provider": "google", "model": "gemini-3.1-pro-preview" },
+    "powerful": { "provider": "google", "model": "gemini-3.1-pro-preview" }
+  },
   "assignments": {
     "generate-title": { "provider": "google", "model": "gemini-3.1-flash-lite-preview" },
     "refine-prompt": { "provider": "google", "model": "gemini-3.1-pro-preview" }

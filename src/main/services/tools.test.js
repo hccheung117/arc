@@ -507,7 +507,7 @@ describe('subagent tool', () => {
       )
       for await (const _ of gen) {}
 
-      expect(mockReadUIMessageStream).toHaveBeenCalledWith({ stream: 'fake-stream' })
+      expect(mockReadUIMessageStream).toHaveBeenCalledWith({ stream: 'fake-stream', terminateOnError: true })
     })
 
     test('passes all skills to runAgent', async () => {
@@ -555,7 +555,7 @@ describe('subagent tool', () => {
         modelId: 'gpt-4',
       })
       // stream consumed correctly
-      expect(mockReadUIMessageStream).toHaveBeenCalledWith({ stream: fakeStream })
+      expect(mockReadUIMessageStream).toHaveBeenCalledWith({ stream: fakeStream, terminateOnError: true })
       expect(messages).toEqual([resultMessage])
       // toModelOutput extracts the text
       const output = subagent.toModelOutput({ output: messages[0] })

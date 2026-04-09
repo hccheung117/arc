@@ -65,7 +65,12 @@ const NarrativeStep = memo(({ step, isLast }) => {
             ? <Shimmer duration={1}>{tool.label(step.input, false)}</Shimmer>
             : <>{tool.label(step.input, true)}{failed && <span className="ml-1.5 text-red-400/70">✕</span>}</>}
         </button>
-        {expanded && step.output != null && (
+        {expanded && failed && step.errorText && (
+          <pre className="text-xs text-red-400/70 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-muted p-2">
+            {step.errorText}
+          </pre>
+        )}
+        {expanded && !failed && step.output != null && (
           step.toolName === 'subagent' && step.output?.parts
             ? <SubagentOutput parts={step.output.parts} />
             : (

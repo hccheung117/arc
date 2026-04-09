@@ -4,6 +4,7 @@ import fs from 'node:fs/promises'
 vi.mock('../arcfs.js', () => ({
   resolve: () => '/tmp/arcfs',
   readMarkdown: vi.fn(),
+  readJson: vi.fn().mockResolvedValue(null),
   toUrl: (...segs) => `arcfs://${segs.join('/')}`,
   fromUrl: (url) => url.replace('arcfs://', '/tmp/arcfs/'),
   builtinDir: () => '/tmp/builtin-agents',
@@ -15,6 +16,8 @@ vi.mock('node:fs/promises', () => ({
 
 vi.mock('./profile.js', () => ({
   resolveDir: vi.fn(),
+  getActiveProfile: vi.fn().mockResolvedValue(null),
+  appPath: vi.fn((sub) => `/tmp/arcfs/profiles/@app/${sub}`),
 }))
 
 const mockBuildSystemPrompt = vi.fn(() => 'system prompt')
