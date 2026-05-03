@@ -5,12 +5,11 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { cn } from "@/lib/shadcn"
-import { BrainIcon, ChevronDownIcon } from "lucide-react"
+import { BrainIcon, ChevronDownIcon, ChevronRightIcon } from "lucide-react"
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Shimmer } from "@/components/ai-elements/shimmer"
 import { toolUI } from "@/lib/tool-ui"
 
-const AUTO_CLOSE_DELAY = 1000
 const MS_IN_S = 1000
 
 const isFailedStep = (step) => step.state === 'output-error' || step.state === 'output-denied'
@@ -42,6 +41,27 @@ const SubagentOutput = memo(({ parts }) => {
   )
 })
 SubagentOutput.displayName = 'SubagentOutput'
+
+const ReasoningBlock = memo(({ text }) => {
+  const [open, setOpen] = useState(false)
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} className="not-prose">
+      <CollapsibleTrigger className="flex w-full items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground">
+        {open
+          ? <ChevronDownIcon className="size-4 shrink-0" aria-hidden />
+          : <ChevronRightIcon className="size-4 shrink-0" aria-hidden />}
+        Reasoning
+      </CollapsibleTrigger>
+      <CollapsibleContent className={cn(
+        "mt-2 select-text",
+        "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 outline-none data-[state=closed]:animate-out data-[state=open]:animate-in",
+      )}>
+        <p className="text-sm text-muted-foreground whitespace-pre-wrap">{text}</p>
+      </CollapsibleContent>
+    </Collapsible>
+  )
+})
+ReasoningBlock.displayName = 'ReasoningBlock'
 
 const NarrativeStep = memo(({ step, isLast }) => {
   const [expanded, setExpanded] = useState(false)
@@ -87,20 +107,16 @@ const NarrativeStep = memo(({ step, isLast }) => {
 export const ThinkingNarrative = memo(({
   narrative,
   isStreaming = false,
-  hasResponseText = false,
 }) => {
   const hasTools = narrative.some(n => n.type === 'tool')
   const hasActiveTools = narrative.some(n => n.type === 'tool' && !n.hasResult)
 
   const [isOpen, setIsOpen] = useControllableState({ defaultProp: isStreaming })
   const [duration, setDuration] = useState(undefined)
-  const [hasAutoClosed, setHasAutoClosed] = useState(false)
   const startTimeRef = useRef(null)
-  const hasEverStreamedRef = useRef(isStreaming)
 
   useEffect(() => {
     if (isStreaming) {
-      hasEverStreamedRef.current = true
       if (startTimeRef.current === null) startTimeRef.current = Date.now()
     } else if (startTimeRef.current !== null) {
       setDuration(Math.ceil((Date.now() - startTimeRef.current) / MS_IN_S))
@@ -111,16 +127,6 @@ export const ThinkingNarrative = memo(({
   useEffect(() => {
     if (isStreaming && !isOpen) setIsOpen(true)
   }, [isStreaming, isOpen, setIsOpen])
-
-  useEffect(() => {
-    if (hasEverStreamedRef.current && hasResponseText && isOpen && !hasAutoClosed) {
-      const timer = setTimeout(() => {
-        setIsOpen(false)
-        setHasAutoClosed(true)
-      }, AUTO_CLOSE_DELAY)
-      return () => clearTimeout(timer)
-    }
-  }, [hasResponseText, isOpen, setIsOpen, hasAutoClosed])
 
   const handleOpenChange = useCallback((v) => setIsOpen(v), [setIsOpen])
 
@@ -149,8 +155,10 @@ export const ThinkingNarrative = memo(({
         "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 text-popover-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in",
       )}>
         {narrative.map((item, i) => {
-          if (item.type === 'reasoning' || item.type === 'interstitial-text')
-            return <p key={i} className="text-sm text-muted-foreground whitespace-pre-wrap">{item.text}</p>
+          if (item.type === 'reasoning')
+            return <ReasoningBlock key={`reasoning-${i}`} text={item.text} />
+          if (item.type === 'interstitial-text')
+            return <p key={`interstitial-${i}`} className="text-sm text-muted-foreground whitespace-pre-wrap">{item.text}</p>
           if (item.type === 'tool') {
             const isLastItem = !narrative.slice(i + 1).some(n => n.type === 'tool')
             return <NarrativeStep key={item.toolCallId} step={item} isLast={isLastItem} />

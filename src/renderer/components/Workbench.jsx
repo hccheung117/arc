@@ -180,7 +180,6 @@ export default function Workbench({ isPopout }) {
                           <ThinkingNarrative
                             narrative={narrative}
                             isStreaming={isStreaming}
-                            hasResponseText={!!msgText}
                           />
                         )}
                         <MessageResponse>{msgText}</MessageResponse>
