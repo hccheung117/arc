@@ -44,6 +44,14 @@ describe('extractFileRefs', () => {
     const refs = extractFileRefs('@~/docs/notes.md')
     expect(refs).toEqual([{ path: '~/docs/notes.md', start: 0, end: 16 }])
   })
+  test('Windows absolute path with backslashes', () => {
+    const refs = extractFileRefs('check @C:\\Users\\hokch\\Downloads\\BB1msDTo.jpg out')
+    expect(refs).toEqual([{ path: 'C:\\Users\\hokch\\Downloads\\BB1msDTo.jpg', start: 6, end: 44 }])
+  })
+  test('Windows absolute path with forward slashes', () => {
+    const refs = extractFileRefs('@C:/Users/hokch/file.txt')
+    expect(refs).toEqual([{ path: 'C:/Users/hokch/file.txt', start: 0, end: 24 }])
+  })
   test('quoted path with spaces', () => {
     const refs = extractFileRefs('@"/Users/me/My Documents/report.pdf"')
     expect(refs).toEqual([{ path: '/Users/me/My Documents/report.pdf', start: 0, end: 36 }])

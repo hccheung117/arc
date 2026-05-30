@@ -1,4 +1,6 @@
-export const FILE_REF = /@"((?:[^"\\]|\\.)*)"|@((?:arcfs:\/\/|\.\.\/|\.\/|~\/|\/)\S*)/g
+// @"quoted path"  OR  @bare-path with a recognized prefix
+// prefixes: arcfs:// · Windows drive (C:\ or C:/) · ../ · ./ · ~/ · /
+export const FILE_REF = /@"((?:[^"\\]|\\.)*)"|@((?:arcfs:\/\/|[A-Za-z]:[\\/]|\.\.\/|\.\/|~\/|\/)\S*)/g
 
 export const quotePath = (path) => {
   if (/\s/.test(path)) return '"' + path.replace(/[\\"]/g, '\\$&') + '"'
